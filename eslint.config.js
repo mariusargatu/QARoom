@@ -36,6 +36,7 @@ export default [
       'qaroom/no-new-date': 'error',
       'qaroom/no-unseeded-random': 'error',
       'qaroom/no-public-barrel': 'error',
+      'qaroom/no-raw-nats-subject': 'error',
       'max-lines': ['error', { max: 500, skipBlankLines: true, skipComments: true }],
     },
   },

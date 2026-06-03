@@ -16,7 +16,10 @@
     "format": "biome format --write .",
     "openapi:generate": "turbo run openapi:generate",
     "openapi:verify": "tsx scripts/openapi-verify.ts",
+    "asyncapi:generate": "turbo run asyncapi:generate",
+    "asyncapi:verify": "tsx scripts/asyncapi-verify.ts",
     "pact:verify": "tsx scripts/pact-verify.ts",
+    "jobs:gc-dedup": "pnpm --filter @qaroom/content exec tsx src/jobs/gc-dedup.ts",
     "test-results:generate": "tsx scripts/aggregate-test-results.ts",
     "test-results:verify": "tsx scripts/test-results-verify.ts",
     "test-results:report": "tsx scripts/render-test-summary.ts",
@@ -33,6 +36,7 @@
   "devDependencies": {
     "@biomejs/biome": "^2.2.0",
     "@qaroom/contracts": "workspace:*",
+    "@qaroom/testing-utils": "workspace:*",
     "@types/node": "^24.0.0",
     "@typescript-eslint/parser": "^8.21.0",
     "eslint": "^9.18.0",
@@ -40,6 +44,7 @@
     "tsx": "^4.19.0",
     "turbo": "^2.3.0",
     "typescript": "^5.7.0",
-    "vitest": "^3.0.0"
+    "vitest": "^3.0.0",
+    "yaml": "^2.7.0"
   }
 }

@@ -6,6 +6,7 @@ import {
   runMigration,
 } from '@qaroom/contracts'
 import type { Clock } from '@qaroom/determinism'
+import { idempotencyResponsesMigration } from '@qaroom/messaging/migrations'
 import { eq, sql } from 'drizzle-orm'
 import type { IdentityDb, SqlExecutor } from './client'
 import { communities } from './schema'
@@ -123,25 +124,9 @@ export const IDENTITY_MIGRATIONS: readonly Migration<SqlExecutor>[] = [
       await tx.execute(sql.raw('DROP TABLE IF EXISTS signing_keys'))
     },
   },
-  {
-    name: 'create_idempotency_responses',
-    async up(tx) {
-      await tx.execute(
-        sql.raw(`CREATE TABLE IF NOT EXISTS idempotency_responses (
-          idempotency_key text NOT NULL,
-          route text NOT NULL,
-          body_hash text NOT NULL,
-          status integer NOT NULL,
-          response_body jsonb NOT NULL,
-          created_at timestamptz NOT NULL,
-          PRIMARY KEY (idempotency_key, route, body_hash)
-        )`),
-      )
-    },
-    async down(tx) {
-      await tx.execute(sql.raw('DROP TABLE IF EXISTS idempotency_responses'))
-    },
-  },
+  // The Idempotency-Key replay store is the shared @qaroom/messaging fragment (one shape
+  // across services), not a per-service copy of the DDL.
+  idempotencyResponsesMigration,
 ]
 
 const composed = composeMigrations(IDENTITY_MIGRATIONS)

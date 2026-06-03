@@ -6,7 +6,9 @@
 set -euo pipefail
 
 NS="${NS:-qaroom}"
+OBS_NS="${OBS_NS:-observability}"
 SERVICES="gateway:18080 content:18081 identity:18082"
+NATS_PORT=18222
 pids=""
 fail=0
 
@@ -22,6 +24,10 @@ for entry in $SERVICES; do
   pids="$pids $!"
 done
 
+# NATS lives in the observability namespace; monitoring/HTTP port 8222 serves /healthz.
+kubectl -n "$OBS_NS" port-forward "svc/qaroom-nats" "${NATS_PORT}:8222" >/dev/null 2>&1 &
+pids="$pids $!"
+
 # curl --retry-connrefused waits out the port-forward warmup without a shell sleep.
 for entry in $SERVICES; do
   name="${entry%%:*}"
@@ -33,6 +39,14 @@ for entry in $SERVICES; do
     fail=1
   fi
 done
+
+# NATS health: JetStream broker is up if its monitoring /healthz returns 200.
+if curl --retry 30 --retry-delay 1 --retry-connrefused -fsS "http://localhost:${NATS_PORT}/healthz" >/dev/null 2>&1; then
+  echo "✓ qaroom-nats /healthz 200 (via Service)"
+else
+  echo "✗ qaroom-nats /healthz FAILED (via Service, local :${NATS_PORT})"
+  fail=1
+fi
 
 if [ "$fail" -eq 0 ]; then
   echo "smoke: all services healthy"

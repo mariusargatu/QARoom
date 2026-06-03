@@ -8,6 +8,7 @@
     "./ids": "./src/ids.ts",
     "./errors": "./src/errors.ts",
     "./lamport": "./src/lamport.ts",
+    "./subjects": "./src/subjects.ts",
     "./test-results-schema": "./src/test-results-schema.ts"
   },
   "scripts": {

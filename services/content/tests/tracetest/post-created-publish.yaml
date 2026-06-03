@@ -1,0 +1,47 @@
+# Tracetest assertion for the Milestone-4 publish-side async flow (ADR-0010). Creating a
+# post must produce a coherent trace that spans sync HTTP and async messaging: the HTTP
+# handler, the DB write (carrying tenant.id), the outbox insert, and — because the relay
+# restores the enqueue-time trace context — a `nats.publish` PRODUCER span on the SAME trace
+# with the correct subject. The cross-service CONSUMER-side assertion ("an unexpected
+# downstream call") lands in Milestone 5 with flags-service, the first real consumer.
+#
+# Runs in the merge / PR-full lane only (Tracetest infra does not fit the <10min PR-fast
+# budget). The relay drains every ~1s, so the publish span is asynchronous — the polling
+# profile waits for it on the originating trace.
+#
+# Triggers content directly (the publish originates there; the gateway POST-proxy is not
+# required to exercise the outbox→relay path). The `Idempotency-Key` is a RUN VARIABLE
+# (`${var:runId}`) and MUST be unique per run — a repeated key hits idempotent replay, which
+# skips createPost entirely (no db/outbox/publish spans). Run with e.g.
+# `tracetest run test -f <this> --vars runId=$(date +%s)`.
+type: Test
+spec:
+  id: post-created-publish
+  name: post.created spans sync HTTP and async publish coherently
+  trigger:
+    type: http
+    httpRequest:
+      method: POST
+      url: http://content.qaroom.svc.cluster.local/api/communities/comm_00000000000000000000000000/posts
+      headers:
+        - key: Content-Type
+          value: application/json
+        - key: Idempotency-Key
+          value: tt-${var:runId}
+      body: '{"author_id":"user_00000000000000000000000000","title":"traced","body":"via tracetest"}'
+  specs:
+    # Sync result: the create returns 201 on the HTTP span.
+    - selector: span[name = "POST"]
+      assertions:
+        - attr:http.status_code = 201
+    # The DB write carries the community tenant.id (Commitment 9) — not the `system` sentinel.
+    - selector: span[name = "db.posts.create"]
+      assertions:
+        - attr:tenant.id = "comm_00000000000000000000000000"
+    # The relay published to JetStream on the SAME trace, to the exact subject, AND the
+    # community tenant.id propagated through the async hop (the relay re-enters the scope).
+    - selector: span[name = "nats.publish"]
+      assertions:
+        - attr:messaging.system = "nats"
+        - attr:messaging.destination.name = "qaroom.content.posts.comm_00000000000000000000000000.created"
+        - attr:tenant.id = "comm_00000000000000000000000000"

@@ -11,3 +11,6 @@ otel:
 postgres:
   enabled: true
   database: qaroom_content
+extraEnv:
+  # Async messaging (Milestone 4): NATS JetStream client connection.
+  NATS_URL: nats://qaroom-nats.observability.svc.cluster.local:4222

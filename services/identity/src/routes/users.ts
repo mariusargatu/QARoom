@@ -1,37 +1,26 @@
 import { CreateUserRequest, User, UserId } from '@qaroom/contracts'
-import { idempotencyKeyFrom, problem } from '@qaroom/service-kit'
+import { problem, withIdempotency } from '@qaroom/service-kit'
 import type { FastifyInstance } from 'fastify'
 import type { RouteDeps } from '../deps'
-import { bodyHash } from '../idempotency'
-import { createUser, findIdempotent, getUser, storeIdempotent } from '../repository'
+import { createUser, getUser } from '../repository'
 
 const CREATE_ROUTE = 'POST /api/users'
 
 export function registerUserRoutes(app: FastifyInstance, deps: RouteDeps): void {
   app.post('/api/users', async (req, reply) => {
-    const key = idempotencyKeyFrom(req)
     const body = CreateUserRequest.parse(req.body)
-    const hash = bodyHash(req.body)
-
-    const replayed = await findIdempotent(deps.db, key, CREATE_ROUTE, hash)
-    if (replayed) {
-      reply.code(replayed.status).send(replayed.body)
-      return
-    }
-
-    const record = await createUser(deps.db, deps, {
-      handle: body.handle,
-      displayName: body.display_name,
-    })
-    const response = User.parse(record)
-    await storeIdempotent(deps.db, deps, {
-      key,
-      route: CREATE_ROUTE,
-      hash,
-      status: 201,
-      body: response,
-    })
-    reply.code(201).send(response)
+    await withIdempotency(
+      req,
+      reply,
+      { db: deps.db, clock: deps.clock, route: CREATE_ROUTE, status: 201 },
+      async () => {
+        const record = await createUser(deps.db, deps, {
+          handle: body.handle,
+          displayName: body.display_name,
+        })
+        return User.parse(record)
+      },
+    )
   })
 
   app.get<{ Params: { userId: string } }>('/api/users/:userId', async (req, reply) => {

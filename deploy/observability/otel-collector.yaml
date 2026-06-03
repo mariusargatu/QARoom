@@ -20,6 +20,12 @@ data:
         endpoint: qaroom-jaeger.observability.svc.cluster.local:4317
         tls:
           insecure: true
+      # Dual-export traces to Tracetest's own OTLP ingest (trace-based testing reads
+      # the same spans Jaeger sees). Tracetest's otlp DataStore listens on 4317.
+      otlp/tracetest:
+        endpoint: qaroom-tracetest.observability.svc.cluster.local:4317
+        tls:
+          insecure: true
       # Prometheus scrapes the collector here (service metrics surface via this exporter).
       prometheus:
         endpoint: 0.0.0.0:8889
@@ -30,7 +36,7 @@ data:
         traces:
           receivers: [otlp]
           processors: [batch]
-          exporters: [otlp/jaeger, debug]
+          exporters: [otlp/jaeger, otlp/tracetest, debug]
         metrics:
           receivers: [otlp]
           processors: [batch]

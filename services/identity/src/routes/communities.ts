@@ -7,17 +7,10 @@ import {
   MemberList,
   Membership,
 } from '@qaroom/contracts'
-import { idempotencyKeyFrom, problem } from '@qaroom/service-kit'
+import { problem, withIdempotency } from '@qaroom/service-kit'
 import type { FastifyInstance } from 'fastify'
 import type { RouteDeps } from '../deps'
-import { bodyHash } from '../idempotency'
-import {
-  addMembership,
-  createCommunity,
-  findIdempotent,
-  listMembers,
-  storeIdempotent,
-} from '../repository'
+import { addMembership, createCommunity, listMembers } from '../repository'
 
 const CREATE_COMMUNITY_ROUTE = 'POST /api/communities'
 
@@ -36,66 +29,52 @@ function communityNotFound(communityId: string) {
 
 export function registerCommunityRoutes(app: FastifyInstance, deps: RouteDeps): void {
   app.post('/api/communities', async (req, reply) => {
-    const key = idempotencyKeyFrom(req)
     const body = CreateCommunityRequest.parse(req.body)
-    const hash = bodyHash(req.body)
-
-    const replayed = await findIdempotent(deps.db, key, CREATE_COMMUNITY_ROUTE, hash)
-    if (replayed) {
-      reply.code(replayed.status).send(replayed.body)
-      return
-    }
-
-    const record = await createCommunity(deps.db, deps, { slug: body.slug, name: body.name })
-    if (!record) {
-      throw problem({
-        slug: 'community-slug-taken',
-        title: 'Community slug already taken',
-        status: 409,
-        failure_domain: 'conflict',
-        detail: `A community with slug "${body.slug}" already exists.`,
-      })
-    }
-    const response = Community.parse(record)
-    await storeIdempotent(deps.db, deps, {
-      key,
-      route: CREATE_COMMUNITY_ROUTE,
-      hash,
-      status: 201,
-      body: response,
-    })
-    reply.code(201).send(response)
+    await withIdempotency(
+      req,
+      reply,
+      { db: deps.db, clock: deps.clock, route: CREATE_COMMUNITY_ROUTE, status: 201 },
+      async () => {
+        const record = await createCommunity(deps.db, deps, { slug: body.slug, name: body.name })
+        if (!record) {
+          throw problem({
+            slug: 'community-slug-taken',
+            title: 'Community slug already taken',
+            status: 409,
+            failure_domain: 'conflict',
+            detail: `A community with slug "${body.slug}" already exists.`,
+          })
+        }
+        return Community.parse(record)
+      },
+    )
   })
 
   app.post<{ Params: { communityId: string } }>(
     '/api/communities/:communityId/members',
     async (req, reply) => {
       const communityId = CommunityId.parse(req.params.communityId)
-      const key = idempotencyKeyFrom(req)
       const body = AddMembershipRequest.parse(req.body)
-      const hash = bodyHash(req.body)
       const route = `POST /api/communities/${communityId}/members`
-
-      const replayed = await findIdempotent(deps.db, key, route, hash)
-      if (replayed) {
-        reply.code(replayed.status).send(replayed.body)
-        return
-      }
-
-      const result = await addMembership(deps.db, deps, communityId, body.user_id, body.role)
-      if ('error' in result) {
-        if (result.error === 'community-not-found') throw communityNotFound(communityId)
-        throw problem({
-          slug: 'membership-exists',
-          title: 'Membership already exists',
-          status: 409,
-          failure_domain: 'conflict',
-          detail: `User ${body.user_id} already belongs to community ${communityId}.`,
-        })
-      }
-      const response = Membership.parse(result.membership)
-      await storeIdempotent(deps.db, deps, { key, route, hash, status: 201, body: response })
-      reply.code(201).send(response)
+      await withIdempotency(
+        req,
+        reply,
+        { db: deps.db, clock: deps.clock, route, status: 201 },
+        async () => {
+          const result = await addMembership(deps.db, deps, communityId, body.user_id, body.role)
+          if ('error' in result) {
+            if (result.error === 'community-not-found') throw communityNotFound(communityId)
+            throw problem({
+              slug: 'membership-exists',
+              title: 'Membership already exists',
+              status: 409,
+              failure_domain: 'conflict',
+              detail: `User ${body.user_id} already belongs to community ${communityId}.`,
+            })
+          }
+          return Membership.parse(result.membership)
+        },
+      )
     },
   )
 

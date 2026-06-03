@@ -9,6 +9,7 @@
  *   - no-conditional-in-test (docs/05 L230)
  *   - no-snapshot            (docs/05 L227)
  *   - no-public-barrel       (docs/05 L319)
+ *   - no-raw-nats-subject    (Commitment 17 / Milestone 4)
  *
  * Rules are plain JS so they need no build step.
  */
@@ -219,6 +220,75 @@ const noPublicBarrel = {
   },
 }
 
+// A raw NATS subject literal matches the subject grammar at the START of the string:
+// `qaroom.<service>.<entity>…` (docs/05 §3). Anchoring + requiring two dotted segments
+// excludes false positives like the `https://qaroom.dev/...` error/issuer URIs and the
+// `qaroom.lamport` span-attribute key, which are not subjects. Subject construction is
+// centralised in `packages/contracts/src/subjects.ts`, the single sanctioned home for
+// these literals; everything else must call its builders.
+const RAW_SUBJECT_PATTERN = /^qaroom\.[a-z_]+\.[a-z_]+/
+
+/**
+ * Is `filename` the one module allowed to author raw `qaroom.*` subject literals?
+ * Matched on a normalised, OS-agnostic suffix so it holds for both the absolute paths
+ * ESLint supplies at runtime and the `<input>` placeholder RuleTester uses.
+ *
+ * @param {string} filename - The file being linted (`context.filename`).
+ * @returns {boolean} True for `packages/contracts/src/subjects.ts`.
+ */
+function isSubjectsModule(filename) {
+  return filename.replace(/\\/g, '/').endsWith('packages/contracts/src/subjects.ts')
+}
+
+/**
+ * Is `filename` a test file? Mirrors the `*.test.ts` / `*.spec.ts` exemption the
+ * determinism rules get via the ESLint config's `files`/`ignores` globs, applied here
+ * in-rule so the exemption also holds under RuleTester (which bypasses that config).
+ *
+ * @param {string} filename - The file being linted (`context.filename`).
+ * @returns {boolean} True for `*.test.ts` / `*.spec.ts` (incl. `*.property.test.ts`).
+ */
+function isTestFile(filename) {
+  const normalised = filename.replace(/\\/g, '/')
+  return /\.(test|spec)\.ts$/.test(normalised)
+}
+
+/** @type {import('eslint').Rule.RuleModule} */
+const noRawNatsSubject = {
+  meta: {
+    type: 'problem',
+    docs: {
+      description:
+        'Disallow raw `qaroom.*` NATS subject literals outside subjects.ts; use the subject builders (Commitment 17).',
+    },
+    schema: [],
+    messages: {
+      raw: 'Raw NATS subject literal — use the subject builders in @qaroom/contracts (subjects.ts), enforced for tenant-safety (Commitment 17).',
+    },
+  },
+  create(context) {
+    // `context.filename` is ESLint 9's accessor; fall back for older runtimes/test harnesses.
+    const filename =
+      context.filename ?? (typeof context.getFilename === 'function' ? context.getFilename() : '')
+    if (isSubjectsModule(filename) || isTestFile(filename)) {
+      return {}
+    }
+    return {
+      Literal(node) {
+        if (typeof node.value === 'string' && RAW_SUBJECT_PATTERN.test(node.value)) {
+          context.report({ node, messageId: 'raw' })
+        }
+      },
+      TemplateLiteral(node) {
+        const hasRawSubject = node.quasis.some((quasi) => RAW_SUBJECT_PATTERN.test(quasi.value.raw))
+        if (hasRawSubject) {
+          context.report({ node, messageId: 'raw' })
+        }
+      },
+    }
+  },
+}
+
 export default {
   meta: { name: 'eslint-plugin-qaroom', version: '0.0.0' },
   rules: {
@@ -228,5 +298,6 @@ export default {
     'no-conditional-in-test': noConditionalInTest,
     'no-snapshot': noSnapshot,
     'no-public-barrel': noPublicBarrel,
+    'no-raw-nats-subject': noRawNatsSubject,
   },
 }

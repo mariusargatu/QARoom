@@ -1,13 +1,6 @@
 import { and, desc, eq, sql } from 'drizzle-orm'
 import type { IdentityDb, SqlExecutor } from './db/client'
-import {
-  communities,
-  idempotencyResponses,
-  memberships,
-  sessions,
-  signingKeys,
-  users,
-} from './db/schema'
+import { communities, memberships, sessions, signingKeys, users } from './db/schema'
 import type { RepoDeps } from './deps'
 
 /** snake_case records matching the contracts; route handlers parse/brand them. */
@@ -28,11 +21,6 @@ export interface MembershipRecord {
   community_id: string
   role: string
   joined_at: string
-}
-
-export interface StoredResponse {
-  status: number
-  body: unknown
 }
 
 export type AddMembershipResult =
@@ -179,45 +167,6 @@ export async function recordSession(
   record: { id: string; userId: string; kid: string; issuedAt: Date; expiresAt: Date },
 ): Promise<void> {
   await db.insert(sessions).values(record)
-}
-
-export async function findIdempotent(
-  db: IdentityDb,
-  key: string,
-  route: string,
-  hash: string,
-): Promise<StoredResponse | null> {
-  const rows = await db
-    .select()
-    .from(idempotencyResponses)
-    .where(
-      and(
-        eq(idempotencyResponses.idempotencyKey, key),
-        eq(idempotencyResponses.route, route),
-        eq(idempotencyResponses.bodyHash, hash),
-      ),
-    )
-    .limit(1)
-  const r = rows[0]
-  return r ? { status: r.status, body: r.responseBody } : null
-}
-
-export async function storeIdempotent(
-  db: IdentityDb,
-  deps: RepoDeps,
-  record: { key: string; route: string; hash: string; status: number; body: unknown },
-): Promise<void> {
-  await db
-    .insert(idempotencyResponses)
-    .values({
-      idempotencyKey: record.key,
-      route: record.route,
-      bodyHash: record.hash,
-      status: record.status,
-      responseBody: record.body,
-      createdAt: deps.clock.now(),
-    })
-    .onConflictDoNothing()
 }
 
 export async function countRows(db: IdentityDb): Promise<{

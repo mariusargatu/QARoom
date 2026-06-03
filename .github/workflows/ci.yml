@@ -31,6 +31,9 @@ jobs:
       - name: Verify OpenAPI (Zod drift + oasdiff breaking-change gate)
         run: pnpm openapi:verify
 
+      - name: Verify AsyncAPI (Zod drift + classifier breaking-change gate)
+        run: pnpm asyncapi:verify
+
       - name: Upload test-results summary
         if: always()
         uses: actions/upload-artifact@v4
@@ -156,3 +159,47 @@ jobs:
           echo "✓ broken value correctly failed the smoke"
           helm upgrade content packages/helm-template -n qaroom \
             -f deploy/content/values.yaml --set image.pullPolicy=Never
+
+  # Trace-based testing (merge lane only — Tracetest infra exceeds the <10min PR-fast
+  # budget; roadmap §M4). Brings the stack up on KinD with NATS + Tracetest, then asserts
+  # the publish-side post.created trace spans sync HTTP and async messaging coherently. The
+  # consume-side assertion ("an unexpected downstream call") lands with flags-service in M5.
+  tracetest:
+    if: github.event_name == 'push'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: ./.github/actions/setup-workspace
+      - uses: azure/setup-helm@v4
+        with:
+          version: v4.1.1
+      - uses: helm/kind-action@v1
+        with:
+          cluster_name: qaroom
+      - name: Build + load service images
+        run: |
+          for svc in content identity gateway; do
+            docker build -f services/$svc/Dockerfile -t qaroom/$svc:latest .
+            kind load docker-image qaroom/$svc:latest --name qaroom
+          done
+      - name: Namespaces + observability (OTel + Jaeger + NATS + Tracetest)
+        run: |
+          kubectl create namespace qaroom
+          kubectl create namespace observability
+          kubectl apply -f deploy/observability/
+          kubectl wait --for=condition=available deploy --all -n observability --timeout=300s
+      - name: Install services
+        run: |
+          for svc in content identity gateway; do
+            helm install $svc packages/helm-template -n qaroom \
+              -f deploy/$svc/values.yaml --set image.pullPolicy=Never
+          done
+          kubectl wait --for=condition=ready pod --all -n qaroom --timeout=240s
+      - name: Install the Tracetest CLI
+        run: curl -L https://raw.githubusercontent.com/kubeshop/tracetest/main/install-cli.sh | sudo bash
+      - name: Assert the publish-side async trace
+        run: |
+          kubectl port-forward -n observability svc/qaroom-tracetest 11633:11633 &
+          for i in $(seq 1 30); do curl -fs http://localhost:11633 >/dev/null && break || sleep 2; done
+          tracetest configure --server-url http://localhost:11633
+          tracetest run test -f services/content/tests/tracetest/post-created-publish.yaml --wait-for-result

@@ -11,11 +11,13 @@
     "typecheck": "tsc -p tsconfig.json",
     "test": "vitest run",
     "dev": "tsx watch --import ./src/telemetry.ts src/server.ts",
-    "openapi:generate": "tsx src/openapi-build.ts"
+    "openapi:generate": "tsx src/openapi-build.ts",
+    "asyncapi:generate": "tsx src/asyncapi-build.ts"
   },
   "dependencies": {
     "@qaroom/contracts": "workspace:*",
     "@qaroom/determinism": "workspace:*",
+    "@qaroom/messaging": "workspace:*",
     "@qaroom/otel": "workspace:*",
     "@qaroom/service-kit": "workspace:*",
     "drizzle-orm": "^0.38.0",

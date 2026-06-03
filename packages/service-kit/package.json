@@ -14,6 +14,7 @@
   "dependencies": {
     "@qaroom/contracts": "workspace:*",
     "@qaroom/determinism": "workspace:*",
+    "@qaroom/messaging": "workspace:*",
     "fastify": "^5.2.0",
     "zod": "^4.0.0"
   },

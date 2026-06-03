@@ -1,0 +1,125 @@
+{
+  "consumer": {
+    "name": "community-projection"
+  },
+  "messages": [
+    {
+      "contents": {
+        "author_id": "user_00000000000000000000000000",
+        "body": "a body",
+        "community_id": "comm_00000000000000000000000000",
+        "created_at": "2026-06-03T00:00:00.000Z",
+        "event_id": "evt_00000000000000000000000000",
+        "post_id": "post_00000000000000000000000000",
+        "title": "a title"
+      },
+      "description": "a post created event",
+      "matchingRules": {
+        "body": {
+          "$.author_id": {
+            "combine": "AND",
+            "matchers": [
+              {
+                "match": "regex",
+                "regex": "^user_[0-9A-HJKMNP-TV-Z]{26}$"
+              }
+            ]
+          },
+          "$.body": {
+            "combine": "AND",
+            "matchers": [
+              {
+                "match": "type"
+              }
+            ]
+          },
+          "$.community_id": {
+            "combine": "AND",
+            "matchers": [
+              {
+                "match": "regex",
+                "regex": "^comm_[0-9A-HJKMNP-TV-Z]{26}$"
+              }
+            ]
+          },
+          "$.created_at": {
+            "combine": "AND",
+            "matchers": [
+              {
+                "match": "type"
+              }
+            ]
+          },
+          "$.event_id": {
+            "combine": "AND",
+            "matchers": [
+              {
+                "match": "regex",
+                "regex": "^evt_[0-9A-HJKMNP-TV-Z]{26}$"
+              }
+            ]
+          },
+          "$.post_id": {
+            "combine": "AND",
+            "matchers": [
+              {
+                "match": "regex",
+                "regex": "^post_[0-9A-HJKMNP-TV-Z]{26}$"
+              }
+            ]
+          },
+          "$.title": {
+            "combine": "AND",
+            "matchers": [
+              {
+                "match": "type"
+              }
+            ]
+          }
+        },
+        "metadata": {
+          "Nats-Msg-Id": {
+            "combine": "AND",
+            "matchers": [
+              {
+                "match": "regex",
+                "regex": "^evt_[0-9A-HJKMNP-TV-Z]{26}$"
+              }
+            ]
+          },
+          "tenant.id": {
+            "combine": "AND",
+            "matchers": [
+              {
+                "match": "regex",
+                "regex": "^comm_[0-9A-HJKMNP-TV-Z]{26}$"
+              }
+            ]
+          }
+        }
+      },
+      "metadata": {
+        "Nats-Msg-Id": "evt_00000000000000000000000000",
+        "contentType": "application/json",
+        "event-name": "post.created",
+        "event-version": "1",
+        "tenant.id": "comm_00000000000000000000000000"
+      }
+    }
+  ],
+  "metadata": {
+    "pact-js": {
+      "version": "13.2.0"
+    },
+    "pactRust": {
+      "ffi": "0.4.22",
+      "models": "1.2.3"
+    },
+    "pactSpecification": {
+      "version": "3.0.0"
+    }
+  },
+  "provider": {
+    "name": "content"
+  }
+}

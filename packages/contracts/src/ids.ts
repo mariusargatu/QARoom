@@ -51,6 +51,14 @@ export const KeyId = brandedId('key', 'KeyId')
 export type KeyId = z.infer<typeof KeyId>
 
 /**
+ * Event identifier (`evt_<ulid>`), emitted by the `IdGenerator` (Milestone 4). It doubles
+ * as the NATS `Nats-Msg-Id` (JetStream `duplicate_window` dedup, Commitment 17) and as the
+ * consumer-side `processed_events` key. Branded so it cannot be confused with a domain ID.
+ */
+export const EventId = brandedId('evt', 'EventId')
+export type EventId = z.infer<typeof EventId>
+
+/**
  * The well-known default community ("general"), seeded by the Milestone 2 migration
  * and the backfill target for Milestone 0 posts. It is a RESERVED branded id, not the
  * literal `comm_general` — that string is not 26 Crockford chars, so it cannot satisfy
@@ -81,4 +89,5 @@ export const ID_PREFIXES = {
   DonationId: 'dntn',
   SessionId: 'sess',
   KeyId: 'key',
+  EventId: 'evt',
 } as const

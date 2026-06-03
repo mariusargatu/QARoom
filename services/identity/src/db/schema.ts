@@ -1,4 +1,5 @@
-import { integer, jsonb, pgTable, primaryKey, text, timestamp } from 'drizzle-orm/pg-core'
+import { idempotencyResponses } from '@qaroom/messaging/schema'
+import { jsonb, pgTable, primaryKey, text, timestamp } from 'drizzle-orm/pg-core'
 import type { JWK } from 'jose'
 
 /**
@@ -51,20 +52,7 @@ export const signingKeys = pgTable('signing_keys', {
   retiredAt: timestamp('retired_at', { withTimezone: true }),
 })
 
-/** Idempotency-Key replay store (Commitment 4), keyed by (key, route, body_hash). */
-export const idempotencyResponses = pgTable(
-  'idempotency_responses',
-  {
-    idempotencyKey: text('idempotency_key').notNull(),
-    route: text('route').notNull(),
-    bodyHash: text('body_hash').notNull(),
-    status: integer('status').notNull(),
-    responseBody: jsonb('response_body').notNull(),
-    createdAt: timestamp('created_at', { withTimezone: true }).notNull(),
-  },
-  (t) => [primaryKey({ columns: [t.idempotencyKey, t.route, t.bodyHash] })],
-)
-
+// idempotency_responses is the shared @qaroom/messaging table (one shape across services).
 export const schema = {
   users,
   communities,
