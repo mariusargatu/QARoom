@@ -1,0 +1,19 @@
+{{- if .Values.postgres.enabled }}
+apiVersion: v1
+kind: Service
+metadata:
+  name: {{ include "qaroom-service.pgFullname" . }}
+  labels:
+    {{- include "qaroom-service.labels" . | nindent 4 }}
+    qaroom.io/component: postgres
+spec:
+  # Headless: the StatefulSet pod is addressable at the stable DNS the databaseUrl helper builds.
+  clusterIP: None
+  selector:
+    {{- include "qaroom-service.selectorLabels" . | nindent 4 }}
+    qaroom.io/component: postgres
+  ports:
+    - name: postgres
+      port: 5432
+      targetPort: 5432
+{{- end }}

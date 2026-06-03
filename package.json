@@ -20,8 +20,10 @@
     "test-results:generate": "tsx scripts/aggregate-test-results.ts",
     "test-results:verify": "tsx scripts/test-results-verify.ts",
     "test-results:report": "tsx scripts/render-test-summary.ts",
-    "dev": "docker compose -f services/content/docker-compose.yaml up -d && pnpm --filter @qaroom/content dev",
-    "dev:down": "docker compose -f services/content/docker-compose.yaml down"
+    "dev": "bash scripts/bootstrap-k3d.sh && tilt up",
+    "dev:down": "tilt down ; bash scripts/teardown-k3d.sh",
+    "smoke": "bash scripts/smoke.sh",
+    "check:tenant-spans": "tsx scripts/check-tenant-spans.ts"
   },
   "pnpm": {
     "onlyBuiltDependencies": [

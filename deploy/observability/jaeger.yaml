@@ -1,0 +1,41 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: qaroom-jaeger
+  namespace: observability
+  labels:
+    qaroom.io/observability: jaeger
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      qaroom.io/observability: jaeger
+  template:
+    metadata:
+      labels:
+        qaroom.io/observability: jaeger
+    spec:
+      containers:
+        # Jaeger v2 all-in-one: runs with sane defaults (OTLP receivers on 4317/4318,
+        # in-memory storage, UI on 16686) — no config file needed.
+        - name: jaeger
+          image: jaegertracing/jaeger:2.17.0
+          ports:
+            - { name: otlp-grpc, containerPort: 4317 }
+            - { name: otlp-http, containerPort: 4318 }
+            - { name: ui, containerPort: 16686 }
+          resources:
+            requests: { cpu: 50m, memory: 128Mi }
+            limits: { cpu: "1", memory: 512Mi }
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: qaroom-jaeger
+  namespace: observability
+spec:
+  selector:
+    qaroom.io/observability: jaeger
+  ports:
+    - { name: otlp-grpc, port: 4317, targetPort: 4317 }
+    - { name: ui, port: 16686, targetPort: 16686 }

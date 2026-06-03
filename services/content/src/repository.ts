@@ -1,3 +1,4 @@
+import { traced } from '@qaroom/otel'
 import { and, desc, eq, sql } from 'drizzle-orm'
 import type { ContentDb, SqlExecutor } from './db/client'
 import { idempotencyResponses, posts, votes } from './db/schema'
@@ -51,22 +52,26 @@ export async function createPost(
   deps: RepoDeps,
   input: CreatePostInput,
 ): Promise<PostRecord> {
-  const row = {
-    id: deps.ids.next('post'),
-    communityId: input.communityId,
-    authorId: input.authorId,
-    title: input.title,
-    body: input.body,
-    score: 0,
-    createdAt: deps.clock.now(),
-  }
-  await db.transaction(async (tx) => {
-    await advisoryLock(tx, row.id)
-    await tx.insert(posts).values(row)
+  // Explicit DB span (porsager `postgres` has no maintained OTel auto-instrumentation, ADR-0009).
+  // The span is a child of the route span and inherits the request's `tenant.id`.
+  return traced('db.posts.create', async () => {
+    const row = {
+      id: deps.ids.next('post'),
+      communityId: input.communityId,
+      authorId: input.authorId,
+      title: input.title,
+      body: input.body,
+      score: 0,
+      createdAt: deps.clock.now(),
+    }
+    await db.transaction(async (tx) => {
+      await advisoryLock(tx, row.id)
+      await tx.insert(posts).values(row)
+    })
+    deps.lamport.bump()
+    // One row object, one mapper: the insert and the returned record cannot drift.
+    return rowToPost(row)
   })
-  deps.lamport.bump()
-  // One row object, one mapper: the insert and the returned record cannot drift.
-  return rowToPost(row)
 }
 
 export async function getPost(db: ContentDb, postId: string): Promise<PostRecord | null> {

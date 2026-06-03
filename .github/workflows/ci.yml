@@ -87,3 +87,72 @@ jobs:
           for i in $(seq 1 30); do curl -fs http://localhost:8082/system/state && break || sleep 1; done
       - name: Schemathesis gate (identity)
         run: bash scripts/schemathesis-gate.sh services/identity http://host.docker.internal:8082
+
+  # Cheap per-PR gate: the shared Helm chart + observability manifests lint and validate
+  # against the Kubernetes schemas (kubeconform) — catches malformed manifests in seconds.
+  chart:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: azure/setup-helm@v4
+        with:
+          version: v4.1.1
+      - name: Install kubeconform
+        run: |
+          curl -sSL https://github.com/yannh/kubeconform/releases/latest/download/kubeconform-linux-amd64.tar.gz \
+            | sudo tar -xz -C /usr/local/bin kubeconform
+      - name: Lint + validate chart releases
+        run: |
+          for svc in content identity gateway; do
+            helm lint packages/helm-template -f deploy/$svc/values.yaml
+            helm template $svc packages/helm-template -f deploy/$svc/values.yaml \
+              | kubeconform -strict -summary -ignore-missing-schemas
+          done
+      - name: Validate observability manifests
+        run: kubeconform -strict -summary -ignore-missing-schemas deploy/observability/*.yaml
+
+  # Heavier, gated to push (off the PR-fast path): bring the whole stack up on KinD, smoke
+  # every /health through its Service, and prove the deliberate-broken value fails the smoke.
+  cluster-smoke:
+    if: github.event_name == 'push'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: ./.github/actions/setup-workspace
+      - uses: azure/setup-helm@v4
+        with:
+          version: v4.1.1
+      - uses: helm/kind-action@v1
+        with:
+          cluster_name: qaroom
+      - name: Build + load service images
+        run: |
+          for svc in content identity gateway; do
+            docker build -f services/$svc/Dockerfile -t qaroom/$svc:latest .
+            kind load docker-image qaroom/$svc:latest --name qaroom
+          done
+      - name: Namespaces + observability
+        run: |
+          kubectl create namespace qaroom
+          kubectl create namespace observability
+          kubectl apply -f deploy/observability/
+      - name: Install services (image pulled locally via kind load)
+        run: |
+          for svc in content identity gateway; do
+            helm install $svc packages/helm-template -n qaroom \
+              -f deploy/$svc/values.yaml --set image.pullPolicy=Never
+          done
+      - name: Wait for readiness
+        run: kubectl wait --for=condition=ready pod --all -n qaroom --timeout=180s
+      - name: Smoke (/health on every service via its Service)
+        run: bash scripts/smoke.sh
+      - name: Negative test — a broken service.targetPort must fail the smoke
+        run: |
+          helm upgrade content packages/helm-template -n qaroom \
+            -f deploy/content/values.yaml -f deploy/content/values.broken.yaml --set image.pullPolicy=Never
+          if bash scripts/smoke.sh; then
+            echo "ERROR: smoke passed with a broken targetPort"; exit 1
+          fi
+          echo "✓ broken value correctly failed the smoke"
+          helm upgrade content packages/helm-template -n qaroom \
+            -f deploy/content/values.yaml --set image.pullPolicy=Never

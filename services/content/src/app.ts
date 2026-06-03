@@ -1,5 +1,11 @@
 import { LamportGate } from '@qaroom/contracts'
-import { registerProblemHandler, registerSystemRoutes } from '@qaroom/service-kit'
+import { activeSpanSink, registerTenantContext } from '@qaroom/otel'
+import {
+  registerHealthRoutes,
+  registerProblemHandler,
+  registerSystemRoutes,
+} from '@qaroom/service-kit'
+import { sql } from 'drizzle-orm'
 import Fastify, { type FastifyInstance } from 'fastify'
 import type { ContentDeps, RouteDeps } from './deps'
 import { registerFeedRoutes } from './feed'
@@ -15,7 +21,7 @@ import { registerVoteRoutes } from './votes'
  * wiring (RFC 7807, /system/state + /system/capabilities) comes from @qaroom/service-kit.
  */
 export function buildApp(deps: ContentDeps): FastifyInstance {
-  const lamport = deps.lamport ?? new LamportGate(deps.ids)
+  const lamport = deps.lamport ?? new LamportGate(deps.ids, deps.sink ?? activeSpanSink)
   const routeDeps: RouteDeps = {
     db: deps.db,
     clock: deps.clock,
@@ -25,7 +31,14 @@ export function buildApp(deps: ContentDeps): FastifyInstance {
   }
 
   const app = Fastify({ logger: false })
+  registerTenantContext(app)
   registerProblemHandler(app)
+  registerHealthRoutes(app, {
+    service: 'content',
+    readiness: async () => {
+      await deps.db.execute(sql`select 1`)
+    },
+  })
   registerPostRoutes(app, routeDeps)
   registerFeedRoutes(app, routeDeps)
   registerVoteRoutes(app, routeDeps)

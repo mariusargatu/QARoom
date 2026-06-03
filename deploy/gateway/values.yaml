@@ -1,0 +1,14 @@
+image:
+  repository: qaroom/gateway
+service:
+  port: 80
+  targetPort: 8080
+container:
+  port: 8080
+otel:
+  serviceName: gateway
+postgres:
+  enabled: false
+extraEnv:
+  # Gateway calls the content Service (port 80 → content container 8081).
+  CONTENT_BASE_URL: http://content:80

@@ -1,5 +1,11 @@
 import { LamportGate } from '@qaroom/contracts'
-import { registerProblemHandler, registerSystemRoutes } from '@qaroom/service-kit'
+import { activeSpanSink, registerTenantContext } from '@qaroom/otel'
+import {
+  registerHealthRoutes,
+  registerProblemHandler,
+  registerSystemRoutes,
+} from '@qaroom/service-kit'
+import { sql } from 'drizzle-orm'
 import Fastify, { type FastifyInstance } from 'fastify'
 import { DEFAULT_TOKEN_TTL_SECONDS, type IdentityDeps, type RouteDeps } from './deps'
 import { createIssuer, type Issuer } from './jwt'
@@ -24,7 +30,7 @@ export interface BuiltIdentity {
  * issuance and rotation directly. `buildApp` is the thin Fastify-only wrapper.
  */
 export function buildIdentity(deps: IdentityDeps): BuiltIdentity {
-  const lamport = deps.lamport ?? new LamportGate(deps.ids)
+  const lamport = deps.lamport ?? new LamportGate(deps.ids, deps.sink ?? activeSpanSink)
   const keyStore = new KeyStore(deps.db, deps.clock, deps.ids, deps.keyMaterial, deps.rotation)
   const issuer = createIssuer(
     keyStore,
@@ -42,7 +48,14 @@ export function buildIdentity(deps: IdentityDeps): BuiltIdentity {
   }
 
   const app = Fastify({ logger: false })
+  registerTenantContext(app)
   registerProblemHandler(app)
+  registerHealthRoutes(app, {
+    service: 'identity',
+    readiness: async () => {
+      await deps.db.execute(sql`select 1`)
+    },
+  })
   registerUserRoutes(app, routeDeps)
   registerCommunityRoutes(app, routeDeps)
   registerSessionRoutes(app, routeDeps)

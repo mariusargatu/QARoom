@@ -1,4 +1,4 @@
-import type { LamportGate } from '@qaroom/contracts'
+import type { LamportGate, SpanAttributeSink } from '@qaroom/contracts'
 import type { Clock, IdGenerator, Randomness } from '@qaroom/determinism'
 import type { IdentityDb } from './db/client'
 import type { Issuer } from './jwt'
@@ -11,6 +11,8 @@ export interface IdentityDeps {
   ids: IdGenerator
   randomness: Randomness
   lamport?: LamportGate
+  /** Span-attribute sink for the LamportGate; defaults to the active-span bridge (Milestone 3). */
+  sink?: SpanAttributeSink
   keyMaterial: KeyMaterialSource
   rotation?: RotationConfig
   tokenTtlSeconds?: number

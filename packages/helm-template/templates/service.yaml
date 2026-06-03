@@ -1,0 +1,17 @@
+apiVersion: v1
+kind: Service
+metadata:
+  name: {{ include "qaroom-service.fullname" . }}
+  labels:
+    {{- include "qaroom-service.labels" . | nindent 4 }}
+spec:
+  type: {{ .Values.service.type }}
+  selector:
+    {{- include "qaroom-service.selectorLabels" . | nindent 4 }}
+    qaroom.io/component: app
+  ports:
+    - name: http
+      port: {{ .Values.service.port }}
+      # targetPort is the deliberate-broken-value knob (smoke demo): point it at a port
+      # nothing listens on and /health via the Service fails while the pod stays Ready.
+      targetPort: {{ .Values.service.targetPort }}

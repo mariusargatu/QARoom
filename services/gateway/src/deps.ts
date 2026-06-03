@@ -1,4 +1,4 @@
-import type { LamportGate } from '@qaroom/contracts'
+import type { LamportGate, SpanAttributeSink } from '@qaroom/contracts'
 import type { Clock, IdGenerator, Randomness } from '@qaroom/determinism'
 import type { ContentClient } from './content-client'
 import type { RateLimitConfig, RateLimiter } from './rate-limiter'
@@ -11,6 +11,8 @@ export interface GatewayDeps {
   randomness: Randomness
   lamport?: LamportGate
   rateLimit?: RateLimitConfig
+  /** Span-attribute sink for the LamportGate; defaults to the active-span bridge (Milestone 3). */
+  sink?: SpanAttributeSink
 }
 
 /** What route handlers receive: every dependency resolved, including the limiter. */

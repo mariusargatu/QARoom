@@ -1,0 +1,12 @@
+image:
+  repository: qaroom/identity
+service:
+  port: 80
+  targetPort: 8082
+container:
+  port: 8082
+otel:
+  serviceName: identity
+postgres:
+  enabled: true
+  database: qaroom_identity
