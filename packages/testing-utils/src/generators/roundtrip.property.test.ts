@@ -1,7 +1,13 @@
 import {
+  AddMembershipRequest,
   CastVoteRequest,
+  CreateCommunityRequest,
   CreatePostRequest,
+  CreateSessionRequest,
+  CreateUserRequest,
   IdempotencyKey,
+  Jwk,
+  Jwks,
   ProblemDetails,
 } from '@qaroom/contracts'
 import { Ajv } from 'ajv'
@@ -11,9 +17,15 @@ import { describe, expect, it } from 'vitest'
 import { z } from 'zod'
 import { configureFastCheck } from '../fast-check-seed'
 import {
+  addMembershipRequestArb,
   castVoteRequestArb,
+  createCommunityRequestArb,
   createPostRequestArb,
+  createSessionRequestArb,
+  createUserRequestArb,
   idempotencyKeyArb,
+  jwkArb,
+  jwksArb,
   problemDetailsArb,
 } from './index'
 
@@ -34,6 +46,16 @@ const cases = [
   { name: 'CastVoteRequest', schema: CastVoteRequest, arb: castVoteRequestArb },
   { name: 'ProblemDetails', schema: ProblemDetails, arb: problemDetailsArb },
   { name: 'IdempotencyKey', schema: IdempotencyKey, arb: idempotencyKeyArb },
+  { name: 'CreateUserRequest', schema: CreateUserRequest, arb: createUserRequestArb },
+  {
+    name: 'CreateCommunityRequest',
+    schema: CreateCommunityRequest,
+    arb: createCommunityRequestArb,
+  },
+  { name: 'AddMembershipRequest', schema: AddMembershipRequest, arb: addMembershipRequestArb },
+  { name: 'CreateSessionRequest', schema: CreateSessionRequest, arb: createSessionRequestArb },
+  { name: 'Jwk', schema: Jwk, arb: jwkArb },
+  { name: 'Jwks', schema: Jwks, arb: jwksArb },
 ] as const
 
 function ajvAcceptorFor(schema: z.ZodType): (value: unknown) => boolean {

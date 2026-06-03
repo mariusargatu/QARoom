@@ -24,6 +24,10 @@ jobs:
       - name: Verify test-results/summary.json against frozen schema
         run: pnpm test-results:verify
 
+      - name: Render test report to the run summary
+        if: always()
+        run: pnpm exec tsx scripts/render-test-summary.ts
+
       - name: Verify OpenAPI (Zod drift + oasdiff breaking-change gate)
         run: pnpm openapi:verify
 
@@ -35,8 +39,8 @@ jobs:
           path: test-results/summary.json
           if-no-files-found: warn
 
-  # Consumer-driven contract verification: content-service (provider) verifies every
-  # pact under services/*/pacts that names it, against a real Postgres (Testcontainers).
+  # Consumer-driven contract verification: each provider verifies every pact under
+  # services/*/pacts that names it, against a real Postgres (Testcontainers).
   contracts:
     runs-on: ubuntu-latest
     steps:
@@ -44,6 +48,8 @@ jobs:
       - uses: ./.github/actions/setup-workspace
       - name: Pact provider verification (content)
         run: pnpm pact:verify --provider content
+      - name: Pact provider verification (identity)
+        run: pnpm pact:verify --provider identity
 
   # Trust-boundary fuzzing: bring up content + gateway, then fuzz the gateway's OpenAPI
   # with Schemathesis (containerized — no Python in the monorepo).
@@ -64,3 +70,20 @@ jobs:
           for i in $(seq 1 30); do curl -fs http://localhost:8090/system/state && break || sleep 1; done
       - name: Schemathesis gate (gateway)
         run: bash scripts/schemathesis-gate.sh services/gateway http://host.docker.internal:8090
+
+  # Trust-boundary fuzzing for identity: its OAS is reachable and carries branded params +
+  # strict bodies, so Schemathesis proves no generated input yields a 5xx or a spec violation.
+  fuzz-identity:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: ./.github/actions/setup-workspace
+      - name: Start identity Postgres
+        run: docker compose -f services/identity/docker-compose.yaml up -d --wait
+      - name: Start identity-service
+        run: |
+          DATABASE_URL=postgres://qaroom:qaroom@localhost:5433/qaroom_identity PORT=8082 \
+            pnpm --filter @qaroom/identity exec tsx src/server.ts &
+          for i in $(seq 1 30); do curl -fs http://localhost:8082/system/state && break || sleep 1; done
+      - name: Schemathesis gate (identity)
+        run: bash scripts/schemathesis-gate.sh services/identity http://host.docker.internal:8082

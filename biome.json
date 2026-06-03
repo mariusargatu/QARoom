@@ -13,7 +13,8 @@
       "!**/*.gen.ts",
       "!**/migrations",
       "!**/dist",
-      "!**/pacts"
+      "!**/pacts",
+      "!**/.pnpm-store"
     ]
   },
   "formatter": {

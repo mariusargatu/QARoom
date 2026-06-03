@@ -17,6 +17,7 @@
   },
   "dependencies": {
     "@qaroom/determinism": "workspace:*",
+    "xstate": "^5.19.0",
     "yaml": "^2.7.0",
     "zod": "^4.0.0"
   },
