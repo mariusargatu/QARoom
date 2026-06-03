@@ -1,6 +1,6 @@
 export { registerTenantContext } from './fastify-tenant-plugin'
 export { activeSpanSink } from './lamport-sink'
-export { extractTraceContext, injectTraceContext } from './propagation'
+export { context, extractTraceContext, injectTraceContext, trace } from './propagation'
 export type { StartTelemetryOptions, TelemetryHandle } from './start-telemetry'
 export { startTelemetry } from './start-telemetry'
 export { currentTenant, SYSTEM_TENANT, tenantStore, withTenant } from './tenant-context'

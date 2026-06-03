@@ -16,6 +16,7 @@
   "dependencies": {
     "@qaroom/contracts": "workspace:*",
     "@qaroom/determinism": "workspace:*",
+    "@qaroom/messaging": "workspace:*",
     "@qaroom/otel": "workspace:*",
     "@qaroom/service-kit": "workspace:*",
     "drizzle-orm": "^0.38.0",

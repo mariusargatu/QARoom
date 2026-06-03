@@ -6,13 +6,13 @@ QARoom is a multi-tenant social platform (communities, posts, votes, a gradually
 
 ## Status
 
-**Milestone 0 shipped · Milestone 1 in progress.** Architecture and testing strategy are locked; the build is underway.
+**Milestones 0–4 shipped.** The async-messaging layer just landed; architecture and testing strategy are locked.
 
 | | |
 |---|---|
-| **Current milestone** | 1 of 10 — gateway, consumer-driven contracts (Pact), trust-boundary fuzzing (Schemathesis), rate limiting |
-| **Shipped** | Milestone 0 — determinism substrate, Zod→OpenAPI with `oasdiff` drift gate, branded IDs, RFC 7807, property + contract foundations |
-| **Built so far** | 2 services · 4 shared packages · 1 custom lint plugin · **112 passing tests** (unit, property, integration, contract) · 6 ADRs · 6 Milestone-0 spikes · CI with schema-validated `test-results/summary.json` |
+| **Shipped** | **M0** determinism substrate · Zod→OpenAPI + `oasdiff` gate · branded IDs · RFC 7807 — **M1** gateway · Pact v4 · Schemathesis · rate limiting — **M2** communities-as-tenants · JWT + JWKS · property-based isolation — **M3** k3d/Tilt/Helm · OpenTelemetry → Jaeger/Grafana · `tenant.id` on every span — **M4** NATS JetStream · transactional outbox + `Nats-Msg-Id` dedup · AsyncAPI drift gate · Pact-message · Tracetest |
+| **Next** | **M5** — feature gating as an XState state machine, model-based testing, a React + Vite web frontend |
+| **Built so far** | 3 services (`content`, `gateway`, `identity`) · 7 shared packages · 1 custom lint plugin · **214 passing tests** (unit · property · integration · contract) · 11 ADRs · CI with schema-validated `test-results/summary.json` |
 | **Locked** | [Vision](docs/01-vision.md) · [Architecture](docs/02-architecture.md) · [Testing strategy](docs/03-testing-strategy.md) · [Roadmap](docs/04-roadmap.md) · [Conventions](docs/05-conventions.md) · [ADR-0001](docs/adr/0001-foundational-decisions.md) |
 
 ## The one idea
@@ -47,16 +47,19 @@ The lint + CI gates fail the build on a violation — this is what "testability 
 - No `new Date()` / `Math.random()` / `crypto.randomUUID()` in non-test code — inject `Clock` / `Randomness` / `IdGenerator`.
 - No `toMatchSnapshot()`. No conditional logic in tests. Test names describe the invariant, not the function.
 - Every non-2xx response is RFC 7807 Problem Details with `retryable` / `next_actions` / `failure_domain`.
-- OpenAPI is generated from Zod and `oasdiff`-gated; no contract changes silently.
+- OpenAPI **and** AsyncAPI are generated from Zod and drift-gated; no contract changes silently.
+- Every NATS event has a Zod schema and a name; raw subject literals fail lint (use the `subjects.ts` builders). Duplicate delivery can't double-apply — transactional outbox + `Nats-Msg-Id` window + `processed_events`.
 
 ## Repository tour
 
 | Path | What |
 |---|---|
-| `services/` | One directory per microservice (`content`, `gateway`), each with its own `AGENTS.md`, `openapi.yaml`, tests. |
-| `packages/contracts/` | Zod schemas — the single source of truth — plus OpenAPI generation and (later) XState machines. |
+| `services/` | One directory per microservice (`content`, `gateway`, `identity`), each with its own `AGENTS.md`, `openapi.yaml`, `asyncapi.yaml`, tests. |
+| `packages/contracts/` | Zod schemas — the single source of truth — plus OpenAPI/AsyncAPI generation, branded IDs, NATS subject builders, XState machines. |
+| `packages/messaging/` | The async SDK: transactional outbox + relay, `Nats-Msg-Id` dedup, NATS-header trace propagation (Commitment 17). |
+| `packages/otel/` | OpenTelemetry SDK, the `tenant.id` span processor, and the trace-context carrier the messaging layer rides on. |
 | `packages/service-kit/` | Shared service plumbing: RFC 7807 handler, `/system/*` routes, determinism bootstrap. |
-| `packages/testing-utils/` | The test framework as a system: harness, generators, matchers, contract cross-check. |
+| `packages/testing-utils/` | The test framework as a system: PGlite harness, generators, matchers, contract + AsyncAPI cross-checks. |
 | `docs/` | Architecture, strategy, roadmap, conventions, ADRs — read in numbered order. |
 
 ## How to navigate
@@ -65,15 +68,26 @@ The lint + CI gates fail the build on a violation — this is what "testability 
 - **Reading the code?** [docs/00-tour.md](docs/00-tour.md) traces one create-post request through every boundary — naming the technique that defends each hop, with clickable `file:line` anchors.
 - **An LLM agent?** Start with [AGENTS.md](AGENTS.md) (commands, layout, conventions, do-not-touch paths), then the docs above.
 
-## Develop
+## Run it
+
+The whole suite runs with **no Docker** — Postgres is in-process (PGlite) — so `pnpm test` is the fastest way to see it work:
 
 ```bash
 pnpm install
-pnpm test           # all layers
-pnpm lint           # Biome + custom qaroom ESLint rules
-pnpm openapi:verify # Zod→OpenAPI drift + oasdiff breaking-change gate
+pnpm test            # 214 tests · unit · property · integration · contract — zero Docker (in-process PGlite)
+pnpm lint            # Biome + custom qaroom ESLint rules
+pnpm openapi:verify  # Zod→OpenAPI drift + oasdiff breaking-change gate
+pnpm asyncapi:verify # Zod→AsyncAPI drift + a direction-aware breaking-change classifier (M4)
 ```
+
+For the full distributed system — 3 services + NATS JetStream + OpenTelemetry → Jaeger / Grafana / Tracetest — on a local k3d cluster:
+
+```bash
+pnpm dev             # k3d + Tilt: build, deploy, live-reload. Jaeger :16686 · Grafana :3000 · Tracetest :11633
+```
+
+(Test count is from the schema-validated `test-results/summary.json` CI produces, not hand-maintained.)
 
 ## License
 
-Working assumption: **MIT** for code, **CC-BY** for written content. To be finalized before the first public release.
+**MIT** for code (see [LICENSE](LICENSE)); **CC-BY** for the written content under `docs/`.

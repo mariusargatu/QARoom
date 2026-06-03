@@ -1,0 +1,21 @@
+# Validation boundary: a mutation WITHOUT an Idempotency-Key is rejected at the edge (400,
+# failure_domain validation, Commitment 4) before any work. The trace shows the HTTP span at
+# 400. (Tracetest does not cleanly assert span ABSENCE, so the "no db/publish side-effect"
+# half is covered by the dedup + idempotency property tests, not here.)
+type: Test
+spec:
+  id: create-missing-idempotency-key
+  name: a mutation without an Idempotency-Key is rejected with 400
+  trigger:
+    type: http
+    httpRequest:
+      method: POST
+      url: http://content.qaroom.svc.cluster.local/api/communities/comm_00000000000000000000000000/posts
+      headers:
+        - key: Content-Type
+          value: application/json
+      body: '{"author_id":"user_00000000000000000000000000","title":"no key","body":"x"}'
+  specs:
+    - selector: span[name = "POST"]
+      assertions:
+        - attr:http.status_code = 400

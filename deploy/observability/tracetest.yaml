@@ -1,0 +1,140 @@
+# Tracetest (trace-based testing) deployed in-cluster with its own Postgres config store.
+# Config targets the Tracetest v1.7.1 server config schema:
+#   - postgres: config-store connection (resources, tests, runs live here).
+#   - DataStore type: otlp → Tracetest receives traces on its own OTLP ingest (4317),
+#     fed by the OTel Collector's otlp/tracetest dual-export.
+# The OTLP/UI ports follow the v1.7.x defaults: 11633 API+UI, 4317 OTLP gRPC ingest.
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: qaroom-tracetest-postgres
+  namespace: observability
+  labels:
+    qaroom.io/observability: tracetest-postgres
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      qaroom.io/observability: tracetest-postgres
+  template:
+    metadata:
+      labels:
+        qaroom.io/observability: tracetest-postgres
+    spec:
+      containers:
+        # Same Postgres image family the service charts use (deploy via helm-template
+        # values.yaml → postgres:18-alpine). Dev-only plaintext creds (ADR-0009).
+        - name: postgres
+          image: postgres:18-alpine
+          env:
+            - { name: POSTGRES_USER, value: "tracetest" }
+            - { name: POSTGRES_PASSWORD, value: "tracetest" }
+            - { name: POSTGRES_DB, value: "tracetest" }
+            - { name: PGDATA, value: "/var/lib/postgresql/data/pgdata" }
+          ports:
+            - { name: postgres, containerPort: 5432 }
+          readinessProbe:
+            exec:
+              command: ["pg_isready", "-U", "tracetest", "-d", "tracetest"]
+            initialDelaySeconds: 2
+            periodSeconds: 5
+            failureThreshold: 6
+          volumeMounts:
+            - name: data
+              mountPath: /var/lib/postgresql/data
+          resources:
+            requests: { cpu: 50m, memory: 128Mi }
+            limits: { cpu: "1", memory: 256Mi }
+      volumes:
+        # emptyDir is fine for the dev config store; not persisted across restarts.
+        - name: data
+          emptyDir: {}
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: qaroom-tracetest-postgres
+  namespace: observability
+spec:
+  selector:
+    qaroom.io/observability: tracetest-postgres
+  ports:
+    - { name: postgres, port: 5432, targetPort: 5432 }
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: qaroom-tracetest-config
+  namespace: observability
+data:
+  # Server config: where Tracetest stores its own state (resources, tests, runs).
+  tracetest.yaml: |
+    postgres:
+      host: qaroom-tracetest-postgres.observability.svc.cluster.local
+      user: tracetest
+      password: tracetest
+      port: 5432
+      dbname: tracetest
+      params: sslmode=disable
+  # Provisioning: register an otlp DataStore so Tracetest reads traces from the spans
+  # the OTel Collector dual-exports into Tracetest's OTLP ingest (4317).
+  provisioning.yaml: |
+    ---
+    type: DataStore
+    spec:
+      name: otlp
+      type: otlp
+      default: true
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: qaroom-tracetest
+  namespace: observability
+  labels:
+    qaroom.io/observability: tracetest
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      qaroom.io/observability: tracetest
+  template:
+    metadata:
+      labels:
+        qaroom.io/observability: tracetest
+    spec:
+      containers:
+        - name: tracetest
+          image: kubeshop/tracetest:v1.7.1
+          # Config mounts at /app/tracetest.yaml; provisioning passed by flag (v1.7.x).
+          args: ["--provisioning-file", "/app/provisioning.yaml"]
+          ports:
+            - { name: api-ui, containerPort: 11633 }
+            - { name: otlp-grpc, containerPort: 4317 }
+          volumeMounts:
+            - name: config
+              mountPath: /app/tracetest.yaml
+              subPath: tracetest.yaml
+            - name: config
+              mountPath: /app/provisioning.yaml
+              subPath: provisioning.yaml
+          resources:
+            requests: { cpu: 50m, memory: 128Mi }
+            limits: { cpu: "1", memory: 512Mi }
+      volumes:
+        - name: config
+          configMap:
+            name: qaroom-tracetest-config
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: qaroom-tracetest
+  namespace: observability
+spec:
+  selector:
+    qaroom.io/observability: tracetest
+  ports:
+    - { name: api-ui, port: 11633, targetPort: 11633 }
+    - { name: otlp-grpc, port: 4317, targetPort: 4317 }

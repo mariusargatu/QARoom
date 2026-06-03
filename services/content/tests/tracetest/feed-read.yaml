@@ -1,0 +1,17 @@
+# Read path: listing a community feed returns 200. Reads do not emit events — the trace is
+# the HTTP span alone (the repository read is not span-wrapped), so this asserts the sync
+# read result with no async tail. Self-contained: the general community is seeded on boot.
+type: Test
+spec:
+  id: content-feed-read
+  name: community feed read returns 200 (no async tail)
+  trigger:
+    type: http
+    httpRequest:
+      method: GET
+      url: http://content.qaroom.svc.cluster.local/api/communities/comm_00000000000000000000000000/feed
+  specs:
+    - selector: span[name = "GET"]
+      assertions:
+        - attr:http.status_code = 200
+        - attr:http.target contains "/feed"

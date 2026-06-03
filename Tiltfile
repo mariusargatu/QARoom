@@ -35,17 +35,29 @@ k8s_yaml([
     'deploy/observability/jaeger.yaml',
     'deploy/observability/prometheus.yaml',
     'deploy/observability/grafana.yaml',
+    'deploy/observability/nats.yaml',
+    'deploy/observability/tracetest.yaml',
+    'deploy/observability/gc-dedup-cronjob.yaml',
 ])
 
-# Services: Postgres first, gateway last.
-k8s_resource('content', resource_deps=['content-pg'], labels=['services'])
+# Services: Postgres first, gateway last. Content also waits on NATS (async messaging).
+k8s_resource('content', resource_deps=['content-pg', 'qaroom-nats'], labels=['services'])
 k8s_resource('identity', resource_deps=['identity-pg'], labels=['services'])
 k8s_resource('gateway', port_forwards='8080:8080', resource_deps=['content', 'identity'], labels=['services'])
 
-# Observability UIs.
-k8s_resource('qaroom-otel-collector', resource_deps=['qaroom-jaeger'], labels=['observability'])
+# Observability UIs. The collector exports traces to BOTH Jaeger and Tracetest, so it must
+# start AFTER both — otherwise its gRPC client to Tracetest resolves no endpoint ("no
+# children to pick from") and drops spans until it re-resolves. Tracetest is the receiver
+# (its own OTLP server + Postgres), so it does NOT depend on the collector — that back-edge
+# would be a cycle. This ordering makes a clean `pnpm dev` wire up trace ingestion with no
+# manual collector restart.
+k8s_resource('qaroom-otel-collector', resource_deps=['qaroom-jaeger', 'qaroom-tracetest'], labels=['observability'])
 k8s_resource('qaroom-jaeger', port_forwards='16686:16686', labels=['observability'])
 k8s_resource('qaroom-grafana', port_forwards='3000:3000', labels=['observability'])
 k8s_resource('qaroom-prometheus', port_forwards='9090:9090', labels=['observability'])
 
-print("QARoom on k3d — gateway :8080 · Jaeger :16686 · Grafana :3000 · Prometheus :9090")
+# Async messaging + trace-based testing (Milestone 4).
+k8s_resource('qaroom-nats', port_forwards='4222:4222', labels=['observability'])
+k8s_resource('qaroom-tracetest', port_forwards='11633:11633', resource_deps=['qaroom-tracetest-postgres'], labels=['observability'])
+
+print("QARoom on k3d — gateway :8080 · Jaeger :16686 · Grafana :3000 · Prometheus :9090 · NATS :4222 · Tracetest :11633")

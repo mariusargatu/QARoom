@@ -1,0 +1,145 @@
+asyncapi: 3.0.0
+info:
+  title: QARoom content-service events
+  version: 0.0.0
+  description: Events content-service publishes to NATS JetStream (Milestone 4).
+servers:
+  nats:
+    host: nats://localhost:4222
+    protocol: nats
+    description: Local JetStream broker.
+channels:
+  postCreated:
+    address: qaroom.content.posts.{community_id}.created
+    parameters:
+      community_id:
+        description: The community (tenant) id at the fixed third subject position.
+    messages:
+      PostCreatedEvent:
+        $ref: "#/components/messages/PostCreatedEvent"
+  voteCast:
+    address: qaroom.content.votes.{community_id}.cast
+    parameters:
+      community_id:
+        description: The community (tenant) id at the fixed third subject position.
+    messages:
+      VoteCastEvent:
+        $ref: "#/components/messages/VoteCastEvent"
+operations:
+  publishPostCreated:
+    action: send
+    channel:
+      $ref: "#/channels/postCreated"
+    summary: A post was created in a community
+    description: Emitted after a post commits; the Nats-Msg-Id is the event id (evt_<ulid>).
+    messages:
+      - $ref: "#/channels/postCreated/messages/PostCreatedEvent"
+  publishVoteCast:
+    action: send
+    channel:
+      $ref: "#/channels/voteCast"
+    summary: A vote was cast on a post
+    description: Emitted after a vote commits; carries the recomputed post score.
+    messages:
+      - $ref: "#/channels/voteCast/messages/VoteCastEvent"
+components:
+  messages:
+    PostCreatedEvent:
+      name: PostCreatedEvent
+      payload:
+        $ref: "#/components/schemas/PostCreatedEvent"
+    VoteCastEvent:
+      name: VoteCastEvent
+      payload:
+        $ref: "#/components/schemas/VoteCastEvent"
+  schemas:
+    CommunityId:
+      type: string
+      pattern: ^comm_[0-9A-HJKMNP-TV-Z]{26}$
+      description: "Branded identifier: comm_<ULID>"
+    EventId:
+      type: string
+      pattern: ^evt_[0-9A-HJKMNP-TV-Z]{26}$
+      description: "Branded identifier: evt_<ULID>"
+    PostCreatedEvent:
+      type: object
+      properties:
+        event_id:
+          $ref: "#/components/schemas/EventId"
+        post_id:
+          $ref: "#/components/schemas/PostId"
+        community_id:
+          $ref: "#/components/schemas/CommunityId"
+        author_id:
+          $ref: "#/components/schemas/UserId"
+        title:
+          type: string
+          minLength: 1
+          maxLength: 300
+          pattern: ^[^\x00]*$
+        body:
+          type: string
+          maxLength: 40000
+          pattern: ^[^\x00]*$
+        created_at:
+          type: string
+          format: date-time
+          pattern: ^(?:(?:\d\d[2468][048]|\d\d[13579][26]|\d\d0[48]|[02468][048]00|[13579][26]00)-02-29|\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\d|30)|(?:02)-(?:0[1-9]|1\d|2[0-8])))T(?:(?:[01]\d|2[0-3]):[0-5]\d(?::[0-5]\d(?:\.\d+)?)?(?:Z))$
+      required:
+        - event_id
+        - post_id
+        - community_id
+        - author_id
+        - title
+        - body
+        - created_at
+      additionalProperties: false
+      description: Emitted when a post is created.
+    PostId:
+      type: string
+      pattern: ^post_[0-9A-HJKMNP-TV-Z]{26}$
+      description: "Branded identifier: post_<ULID>"
+    UserId:
+      type: string
+      pattern: ^user_[0-9A-HJKMNP-TV-Z]{26}$
+      description: "Branded identifier: user_<ULID>"
+    VoteCastEvent:
+      type: object
+      properties:
+        event_id:
+          $ref: "#/components/schemas/EventId"
+        post_id:
+          $ref: "#/components/schemas/PostId"
+        community_id:
+          $ref: "#/components/schemas/CommunityId"
+        voter_id:
+          $ref: "#/components/schemas/UserId"
+        value:
+          $ref: "#/components/schemas/VoteValue"
+        score:
+          type: integer
+          minimum: -9007199254740991
+          maximum: 9007199254740991
+        cast_at:
+          type: string
+          format: date-time
+          pattern: ^(?:(?:\d\d[2468][048]|\d\d[13579][26]|\d\d0[48]|[02468][048]00|[13579][26]00)-02-29|\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\d|30)|(?:02)-(?:0[1-9]|1\d|2[0-8])))T(?:(?:[01]\d|2[0-3]):[0-5]\d(?::[0-5]\d(?:\.\d+)?)?(?:Z))$
+      required:
+        - event_id
+        - post_id
+        - community_id
+        - voter_id
+        - value
+        - score
+        - cast_at
+      additionalProperties: false
+      description: Emitted when a vote is cast on a post.
+    VoteValue:
+      anyOf:
+        - type: number
+          enum:
+            - 1
+        - type: number
+          enum:
+            - -1
+      description: "Vote direction: 1 (up) or -1 (down)."

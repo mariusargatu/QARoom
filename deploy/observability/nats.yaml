@@ -1,0 +1,71 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: qaroom-nats-config
+  namespace: observability
+data:
+  # NATS server config: JetStream on, file-backed store under /data/jetstream.
+  # The store_dir is an emptyDir in this dev cluster (durable enough for the inner
+  # loop; not persisted across pod restarts — production would use a PVC).
+  nats.conf: |
+    server_name: qaroom-nats
+    # Client connections.
+    port: 4222
+    # HTTP monitoring endpoint (serves /healthz, /varz, /jsz).
+    http_port: 8222
+    jetstream {
+      store_dir: "/data/jetstream"
+      max_memory_store: 256MB
+      max_file_store: 1GB
+    }
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: qaroom-nats
+  namespace: observability
+  labels:
+    qaroom.io/observability: nats
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      qaroom.io/observability: nats
+  template:
+    metadata:
+      labels:
+        qaroom.io/observability: nats
+    spec:
+      containers:
+        - name: nats
+          image: nats:2.14.2-alpine
+          args: ["--config", "/etc/nats/nats.conf"]
+          ports:
+            - { name: client, containerPort: 4222 }
+            - { name: monitor, containerPort: 8222 }
+          volumeMounts:
+            - name: config
+              mountPath: /etc/nats
+            - name: jetstream
+              mountPath: /data/jetstream
+          resources:
+            requests: { cpu: 50m, memory: 128Mi }
+            limits: { cpu: "1", memory: 512Mi }
+      volumes:
+        - name: config
+          configMap:
+            name: qaroom-nats-config
+        - name: jetstream
+          emptyDir: {}
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: qaroom-nats
+  namespace: observability
+spec:
+  selector:
+    qaroom.io/observability: nats
+  ports:
+    - { name: client, port: 4222, targetPort: 4222 }
+    - { name: monitor, port: 8222, targetPort: 8222 }

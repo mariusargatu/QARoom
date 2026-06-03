@@ -62,3 +62,41 @@ tester.run('no-public-barrel', plugin.rules['no-public-barrel'], {
   valid: ['export { a } from "./a"'],
   invalid: [{ code: 'export * from "./a"', errors: [{ messageId: 'barrel' }] }],
 })
+
+tester.run('no-raw-nats-subject', plugin.rules['no-raw-nats-subject'], {
+  valid: [
+    // A call site that goes through the builders carries no raw subject literal.
+    { code: 'const subject = postCreated(communityId)', filename: 'services/content/src/emit.ts' },
+    // The sanctioned home for raw subject literals is exempt.
+    {
+      // biome-ignore lint/suspicious/noTemplateCurlyInString: RuleTester fixture — this string IS template-literal source under test.
+      code: 'const subject = `${ROOT}.content.posts.${communityId}.created`',
+      filename: 'packages/contracts/src/subjects.ts',
+    },
+    // Tests legitimately assert on concrete subject strings; *.test.ts is exempt.
+    {
+      code: "expect(subject).toBe('qaroom.content.posts.comm_x.created')",
+      filename: 'services/content/src/emit.test.ts',
+    },
+    // ...as is *.spec.ts.
+    {
+      code: "expect(subject).toBe('qaroom.content.votes.comm_x.cast')",
+      filename: 'services/content/src/emit.spec.ts',
+    },
+    // A non-subject string is fine in normal source.
+    { code: "const greeting = 'hello world'", filename: 'services/content/src/emit.ts' },
+  ],
+  invalid: [
+    {
+      code: "const subject = 'qaroom.content.posts.comm_x.created'",
+      filename: 'services/content/src/emit.ts',
+      errors: [{ messageId: 'raw' }],
+    },
+    {
+      // biome-ignore lint/suspicious/noTemplateCurlyInString: RuleTester fixture — this string IS template-literal source under test.
+      code: 'const subject = `qaroom.content.votes.${communityId}.cast`',
+      filename: 'services/content/src/emit.ts',
+      errors: [{ messageId: 'raw' }],
+    },
+  ],
+})

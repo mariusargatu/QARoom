@@ -1,6 +1,8 @@
+export { buildServiceAsyncApiYaml } from './asyncapi'
 export type { HealthRoutesOptions } from './health-routes'
 export { registerHealthRoutes } from './health-routes'
 export { idempotencyKeyFrom } from './http'
+export { type IdempotencyOptions, withIdempotency } from './idempotency'
 export { buildServiceOpenApiYaml } from './openapi'
 export type { ProblemSpec } from './problem'
 export { ProblemError, problem, registerProblemHandler } from './problem'

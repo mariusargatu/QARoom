@@ -1,7 +1,18 @@
+import {
+  POST_CREATED_EVENT,
+  POST_CREATED_VERSION,
+  PostCreatedEvent,
+  postCreated,
+  VOTE_CAST_EVENT,
+  VOTE_CAST_VERSION,
+  VoteCastEvent,
+  voteCast,
+} from '@qaroom/contracts'
+import { outboxPublish } from '@qaroom/messaging'
 import { traced } from '@qaroom/otel'
-import { and, desc, eq, sql } from 'drizzle-orm'
+import { desc, eq, sql } from 'drizzle-orm'
 import type { ContentDb, SqlExecutor } from './db/client'
-import { idempotencyResponses, posts, votes } from './db/schema'
+import { posts, votes } from './db/schema'
 import type { RepoDeps } from './deps'
 
 /** snake_case post record matching the `Post` contract; handlers parse/brand it. */
@@ -20,11 +31,6 @@ export interface CreatePostInput {
   authorId: string
   title: string
   body: string
-}
-
-export interface StoredResponse {
-  status: number
-  body: unknown
 }
 
 /**
@@ -67,6 +73,29 @@ export async function createPost(
     await db.transaction(async (tx) => {
       await advisoryLock(tx, row.id)
       await tx.insert(posts).values(row)
+      // Transactional outbox (Commitment 17): the event row commits atomically with the
+      // post. The relay drains it to JetStream; `event_id` doubles as the `Nats-Msg-Id`.
+      const event = PostCreatedEvent.parse({
+        event_id: deps.ids.next('evt'),
+        post_id: row.id,
+        community_id: row.communityId,
+        author_id: row.authorId,
+        title: row.title,
+        body: row.body,
+        created_at: row.createdAt.toISOString(),
+      })
+      await outboxPublish(
+        tx,
+        {
+          eventId: event.event_id,
+          subject: postCreated(event.community_id),
+          eventName: POST_CREATED_EVENT,
+          eventVersion: POST_CREATED_VERSION,
+          communityId: event.community_id,
+          payload: event,
+        },
+        row.createdAt,
+      )
     })
     deps.lamport.bump()
     // One row object, one mapper: the insert and the returned record cannot drift.
@@ -105,12 +134,13 @@ export async function castVote(
   const score = await db.transaction(async (tx) => {
     await advisoryLock(tx, postId)
     const found = await tx
-      .select({ id: posts.id })
+      .select({ id: posts.id, communityId: posts.communityId })
       .from(posts)
       .where(eq(posts.id, postId))
       .for('update')
       .limit(1)
-    if (found.length === 0) return null
+    const post = found[0]
+    if (!post) return null
     const createdAt = deps.clock.now()
     await tx
       .insert(votes)
@@ -122,49 +152,32 @@ export async function castVote(
       .where(eq(votes.postId, postId))
     const next = agg[0]?.s ?? 0
     await tx.update(posts).set({ score: next }).where(eq(posts.id, postId))
+    // Transactional outbox (Commitment 17): the vote event commits with the score update.
+    const event = VoteCastEvent.parse({
+      event_id: deps.ids.next('evt'),
+      post_id: postId,
+      community_id: post.communityId,
+      voter_id: voterId,
+      value,
+      score: next,
+      cast_at: createdAt.toISOString(),
+    })
+    await outboxPublish(
+      tx,
+      {
+        eventId: event.event_id,
+        subject: voteCast(event.community_id),
+        eventName: VOTE_CAST_EVENT,
+        eventVersion: VOTE_CAST_VERSION,
+        communityId: event.community_id,
+        payload: event,
+      },
+      createdAt,
+    )
     return next
   })
   if (score !== null) deps.lamport.bump()
   return score
-}
-
-export async function findIdempotent(
-  db: ContentDb,
-  key: string,
-  route: string,
-  hash: string,
-): Promise<StoredResponse | null> {
-  const rows = await db
-    .select()
-    .from(idempotencyResponses)
-    .where(
-      and(
-        eq(idempotencyResponses.idempotencyKey, key),
-        eq(idempotencyResponses.route, route),
-        eq(idempotencyResponses.bodyHash, hash),
-      ),
-    )
-    .limit(1)
-  const r = rows[0]
-  return r ? { status: r.status, body: r.responseBody } : null
-}
-
-export async function storeIdempotent(
-  db: ContentDb,
-  deps: RepoDeps,
-  record: { key: string; route: string; hash: string; status: number; body: unknown },
-): Promise<void> {
-  await db
-    .insert(idempotencyResponses)
-    .values({
-      idempotencyKey: record.key,
-      route: record.route,
-      bodyHash: record.hash,
-      status: record.status,
-      responseBody: record.body,
-      createdAt: deps.clock.now(),
-    })
-    .onConflictDoNothing()
 }
 
 export async function countRows(db: ContentDb): Promise<{ posts: number; votes: number }> {

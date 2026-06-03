@@ -1,5 +1,22 @@
+import { composeMigrations } from '@qaroom/contracts'
+import {
+  idempotencyResponsesMigration,
+  outboxMigration,
+  processedEventsMigration,
+} from '@qaroom/messaging/migrations'
 import { sql } from 'drizzle-orm'
 import type { SqlExecutor } from './client'
+
+/**
+ * Shared substrate tables, applied from the `@qaroom/messaging` fragments so every service
+ * provisions the SAME shape: the transactional outbox, the consumer dedup table, and the
+ * Idempotency-Key replay store (Commitments 4 + 17) — no per-service copies of the DDL.
+ */
+const messagingTables = composeMigrations([
+  outboxMigration,
+  processedEventsMigration,
+  idempotencyResponsesMigration,
+])
 
 /**
  * Milestone 0 schema is applied programmatically (idempotent DDL) so the test
@@ -24,15 +41,6 @@ export const MIGRATION_STATEMENTS: readonly string[] = [
     created_at timestamptz NOT NULL,
     PRIMARY KEY (post_id, voter_id)
   )`,
-  `CREATE TABLE IF NOT EXISTS idempotency_responses (
-    idempotency_key text NOT NULL,
-    route text NOT NULL,
-    body_hash text NOT NULL,
-    status integer NOT NULL,
-    response_body jsonb NOT NULL,
-    created_at timestamptz NOT NULL,
-    PRIMARY KEY (idempotency_key, route, body_hash)
-  )`,
   `CREATE INDEX IF NOT EXISTS posts_community_created_idx ON posts (community_id, created_at DESC)`,
 ]
 
@@ -41,4 +49,5 @@ export async function ensureSchema(db: SqlExecutor): Promise<void> {
   for (const stmt of MIGRATION_STATEMENTS) {
     await db.execute(sql.raw(stmt))
   }
+  await messagingTables.up(db)
 }

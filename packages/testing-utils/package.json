@@ -9,7 +9,8 @@
     "./matchers": "./src/matchers/index.ts",
     "./determinism": "./src/determinism/index.ts",
     "./setup": "./src/setup.ts",
-    "./contract-crosscheck": "./src/contract-crosscheck/index.ts"
+    "./contract-crosscheck": "./src/contract-crosscheck/index.ts",
+    "./async-diff": "./src/async-diff/index.ts"
   },
   "scripts": {
     "build": "tsc -p tsconfig.json",
@@ -18,6 +19,8 @@
   },
   "dependencies": {
     "@apidevtools/swagger-parser": "^10.1.0",
+    "@asyncapi/diff": "0.5.0",
+    "@asyncapi/parser": "3.6.0",
     "@electric-sql/pglite": "^0.2.0",
     "@qaroom/contracts": "workspace:*",
     "@qaroom/determinism": "workspace:*",

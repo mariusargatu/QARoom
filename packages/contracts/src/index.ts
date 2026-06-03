@@ -1,3 +1,5 @@
+export type { AsyncChannel, AsyncInfo, AsyncServer } from './asyncapi/builder'
+export { buildAsyncApiDocument, stringifyAsyncApi } from './asyncapi/builder'
 export {
   AddMembershipRequest,
   Community,
@@ -15,6 +17,16 @@ export {
   NextAction,
   ProblemDetails,
 } from './errors'
+export {
+  POST_CREATED_EVENT,
+  POST_CREATED_VERSION,
+  PostCreatedEvent,
+} from './events/post-created'
+export {
+  VOTE_CAST_EVENT,
+  VOTE_CAST_VERSION,
+  VoteCastEvent,
+} from './events/vote-cast'
 export {
   EXAMPLE_COMMUNITY,
   EXAMPLE_COMMUNITY_ID,
@@ -34,6 +46,7 @@ export {
   CommentId,
   CommunityId,
   DonationId,
+  EventId,
   ID_PREFIXES,
   IdempotencyKey,
   KeyId,
@@ -81,6 +94,17 @@ export {
   Jwks,
   MembershipClaim,
 } from './session'
+export type { ParsedSubject } from './subjects'
+export {
+  contentPostsForCommunity,
+  POST_CREATED_ADDRESS,
+  parseSubject,
+  postCreated,
+  postsCreatedAnyCommunity,
+  QAROOM_STREAM_SUBJECTS,
+  VOTE_CAST_ADDRESS,
+  voteCast,
+} from './subjects'
 export { Capabilities, Capability, SystemState } from './system'
 export { RunnerResult, SCHEMA_VERSION, TestResultsSummary } from './test-results-schema'
 export { CreateUserRequest, User } from './user'

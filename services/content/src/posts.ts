@@ -1,9 +1,8 @@
 import { CommunityId, CreatePostRequest, Post, PostId } from '@qaroom/contracts'
-import { idempotencyKeyFrom, problem } from '@qaroom/service-kit'
+import { problem, withIdempotency } from '@qaroom/service-kit'
 import type { FastifyInstance } from 'fastify'
 import type { RouteDeps } from './deps'
-import { bodyHash } from './idempotency'
-import { createPost, findIdempotent, getPost, storeIdempotent } from './repository'
+import { createPost, getPost } from './repository'
 
 const CREATE_ROUTE = 'POST /api/communities/{communityId}/posts'
 
@@ -12,31 +11,21 @@ export function registerPostRoutes(app: FastifyInstance, deps: RouteDeps): void 
     '/api/communities/:communityId/posts',
     async (req, reply) => {
       const communityId = CommunityId.parse(req.params.communityId)
-      const key = idempotencyKeyFrom(req)
       const body = CreatePostRequest.parse(req.body)
-      const hash = bodyHash(req.body)
-
-      const replayed = await findIdempotent(deps.db, key, CREATE_ROUTE, hash)
-      if (replayed) {
-        reply.code(replayed.status).send(replayed.body)
-        return
-      }
-
-      const record = await createPost(deps.db, deps, {
-        communityId,
-        authorId: body.author_id,
-        title: body.title,
-        body: body.body,
-      })
-      const response = Post.parse(record)
-      await storeIdempotent(deps.db, deps, {
-        key,
-        route: CREATE_ROUTE,
-        hash,
-        status: 201,
-        body: response,
-      })
-      reply.code(201).send(response)
+      await withIdempotency(
+        req,
+        reply,
+        { db: deps.db, clock: deps.clock, route: CREATE_ROUTE, status: 201 },
+        async () => {
+          const record = await createPost(deps.db, deps, {
+            communityId,
+            authorId: body.author_id,
+            title: body.title,
+            body: body.body,
+          })
+          return Post.parse(record)
+        },
+      )
     },
   )
 

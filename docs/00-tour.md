@@ -8,8 +8,8 @@ Read this after `01-vision.md` if you want the *idea*, or first if you want the 
 
 | Service | Boot | App wiring | Routes | Contract surface |
 |---|---|---|---|---|
-| `gateway` | `services/gateway/src/server.ts` | `services/gateway/src/app.ts:17` | `services/gateway/src/proxy-routes.ts` | `services/gateway/src/operations.ts` |
-| `content` | `services/content/src/server.ts` | `services/content/src/app.ts:17` | `services/content/src/posts.ts` · `votes.ts` · `feed.ts` | `services/content/src/operations.ts` |
+| `gateway` | `services/gateway/src/server.ts` | `services/gateway/src/app.ts:22` | `services/gateway/src/proxy-routes.ts` | `services/gateway/src/operations.ts` |
+| `content` | `services/content/src/server.ts` | `services/content/src/app.ts:23` | `services/content/src/posts.ts` · `votes.ts` · `feed.ts` | `services/content/src/operations.ts` |
 | shared | — | `packages/service-kit` (RFC 7807, `/system/*`) | — | `packages/contracts` (Zod = source of truth) |
 
 Both `app.ts` files read the same shape: build a Fastify instance purely from injected `deps` (no globals — Commitment 6), register the problem handler, register routes, register `/system/*`. Read one and you've read both.

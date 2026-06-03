@@ -1,0 +1,45 @@
+# Hourly TTL GC for content-service's dedup tables (processed_events,
+# idempotency_responses). HYGIENE ONLY — Commitment 17: correctness rests on the
+# Nats-Msg-Id dedup window + the processed_events table, NOT on GC timing. Late or
+# skipped GC never causes a duplicate to be processed; it only lets old rows linger.
+#
+# The script (scripts/gc-dedup.ts in @qaroom/content) is authored separately; this
+# manifest only invokes it. DATABASE_URL matches the in-cluster DSN the shared helm
+# chart builds for content (postgres://qaroom:qaroom@content-pg:5432/qaroom_content).
+apiVersion: batch/v1
+kind: CronJob
+metadata:
+  name: content-gc-dedup
+  namespace: qaroom
+  labels:
+    qaroom.io/component: gc-dedup
+    qaroom.io/service: content
+spec:
+  schedule: "0 * * * *"
+  concurrencyPolicy: Forbid
+  successfulJobsHistoryLimit: 3
+  failedJobsHistoryLimit: 3
+  jobTemplate:
+    spec:
+      backoffLimit: 1
+      template:
+        metadata:
+          labels:
+            qaroom.io/component: gc-dedup
+            qaroom.io/service: content
+        spec:
+          restartPolicy: Never
+          containers:
+            - name: gc-dedup
+              # Same image content-service runs; Tilt rewrites to the k3d registry.
+              image: qaroom/content:latest
+              imagePullPolicy: IfNotPresent
+              command: ["pnpm", "--filter", "@qaroom/content", "exec", "tsx", "src/jobs/gc-dedup.ts"]
+              env:
+                - name: DATABASE_URL
+                  value: "postgres://qaroom:qaroom@content-pg:5432/qaroom_content"
+                - name: NODE_ENV
+                  value: "production"
+              resources:
+                requests: { cpu: 50m, memory: 128Mi }
+                limits: { cpu: "500m", memory: 256Mi }
