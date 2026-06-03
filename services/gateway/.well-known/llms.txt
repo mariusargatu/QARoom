@@ -1,0 +1,21 @@
+# gateway
+
+> QARoom gateway: the external API fronting content-service. Validates at the edge,
+> rate-limits, and proxies posts/votes/feed.
+
+The machine-readable contract is `openapi.yaml` (OpenAPI 3.0, generated from Zod).
+Live capabilities at `GET /system/capabilities` (MCP-tool-shaped); observable state at
+`GET /system/state`. Errors are RFC 7807 `application/problem+json` with `retryable`,
+`next_actions`, `failure_domain` (incl. `rate_limit` on 429 and `dependency_failure` on 502).
+
+## Operations
+- POST /api/communities/{communityId}/posts — createPost (mutating; Idempotency-Key)
+- GET  /api/communities/{communityId}/feed  — listCommunityFeed
+- GET  /api/posts/{postId}                   — getPost
+- POST /api/posts/{postId}/votes             — castVote (mutating; Idempotency-Key)
+- GET  /system/state | /system/capabilities | /system/limits
+
+## Docs
+- Contract: ./openapi.yaml
+- Agent reference: ./AGENTS.md
+- Repo conventions: /AGENTS.md, /docs
