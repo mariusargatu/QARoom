@@ -1,0 +1,28 @@
+# QARoom
+
+> A multi-tenant social platform built to demonstrate testing-driven architecture.
+> Microservices monorepo; TypeScript end-to-end. This is the agent-discovery entry point.
+
+QARoom is built across 10 milestones. The current milestone determines which services exist
+(see `/AGENTS.md` → "Milestone awareness"). Every service is contract-first (Zod → OpenAPI),
+deterministic (injected Clock/IdGenerator/Randomness), and observable (`/system/state`
+and `/system/capabilities` per service). Every error is RFC 7807 `application/problem+json`.
+
+## Start here
+- Repo conventions and how to make changes: /AGENTS.md (symlinked as /CLAUDE.md)
+- Architecture, strategy, roadmap, conventions, ADRs: /docs (read in numbered order)
+- Immutable foundational decisions: /docs/adr/0001-foundational-decisions.md
+- Service-level SLOs: /docs/slos.md
+
+## Services (Milestone 0)
+- content-service — posts and votes within communities.
+  - Contract: /services/content/openapi.yaml
+  - Agent reference: /services/content/AGENTS.md
+  - Discovery: /services/content/.well-known/llms.txt
+  - Live capabilities: GET /system/capabilities (MCP-tool-shaped)
+
+## Conventions an agent must respect
+- Schemas are the source of truth (`packages/contracts`); never hand-edit generated OpenAPI.
+- Mutations carry `Idempotency-Key`; every mutating endpoint declares OAS `links`.
+- Determinism is enforced by lint: no `new Date()` / `Math.random()` / unseeded UUID in runtime code.
+- Test outputs are machine-readable: `test-results/summary.json` (frozen schema).

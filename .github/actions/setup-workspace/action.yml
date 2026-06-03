@@ -1,0 +1,22 @@
+name: Setup workspace
+description: >-
+  Shared CI prelude — pnpm, Node, and a frozen-lockfile install. Checkout stays in
+  the job (a local composite action cannot run before the repo exists). Thin on
+  purpose: per-boundary bootstrap (Postgres, service start-up) belongs in the job,
+  not here.
+
+runs:
+  using: composite
+  steps:
+    - name: Install pnpm
+      uses: pnpm/action-setup@v4
+
+    - name: Setup Node
+      uses: actions/setup-node@v4
+      with:
+        node-version: 24
+        cache: pnpm
+
+    - name: Install dependencies
+      shell: bash
+      run: pnpm install --frozen-lockfile

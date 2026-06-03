@@ -1,0 +1,552 @@
+openapi: 3.0.3
+info:
+  title: QARoom content-service
+  version: 0.0.0
+  description: Posts and votes within communities. Generated from Zod — do not edit by hand.
+paths:
+  /api/communities/{communityId}/posts:
+    post:
+      operationId: createPost
+      summary: Create a post in a community
+      description: Creates a post. Idempotent on the Idempotency-Key header; replays return the original response.
+      responses:
+        "201":
+          description: The created post.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Post"
+              example:
+                id: post_01HZY0K7M3QF8VN2J5RX9TB4CE
+                community_id: comm_01HZY0K7M3QF8VN2J5RX9TB4CD
+                author_id: user_01HZY0K7M3QF8VN2J5RX9TB4CF
+                title: Why deterministic clocks matter
+                body: A short note on testability.
+                score: 0
+                created_at: 2026-05-28T12:00:00.000Z
+          links:
+            GetCreatedPost:
+              operationId: getPost
+              parameters:
+                postId: $response.body#/id
+              description: Fetch the post that was just created.
+        "400":
+          description: The request body or headers failed validation.
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ProblemDetails"
+              example:
+                type: https://qaroom.dev/errors/validation-failed
+                title: Request failed validation
+                status: 400
+                detail: Request failed validation.
+                instance: /api/posts/post_01HZY0K7M3QF8VN2J5RX9TB4CE
+                retryable: false
+                next_actions: []
+                failure_domain: validation
+      tags:
+        - posts
+      parameters:
+        - name: communityId
+          in: path
+          required: true
+          description: Target community (tenant).
+          schema:
+            type: string
+            pattern: ^comm_[0-9A-HJKMNP-TV-Z]{26}$
+        - name: Idempotency-Key
+          in: header
+          required: true
+          description: Client-supplied key making this mutation safely retryable (Commitment 4).
+          schema:
+            type: string
+            minLength: 1
+            maxLength: 255
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CreatePostRequest"
+            example:
+              author_id: user_01HZY0K7M3QF8VN2J5RX9TB4CF
+              title: Why deterministic clocks matter
+              body: A short note on testability.
+  /api/communities/{communityId}/feed:
+    get:
+      operationId: listCommunityFeed
+      summary: List a community feed
+      description: Returns the most recent posts in a community, newest first, with a read consistency envelope.
+      responses:
+        "200":
+          description: A page of community posts.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Feed"
+        "400":
+          description: The community id in the path is malformed.
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ProblemDetails"
+              example:
+                type: https://qaroom.dev/errors/validation-failed
+                title: Request failed validation
+                status: 400
+                detail: Request failed validation.
+                instance: /api/posts/post_01HZY0K7M3QF8VN2J5RX9TB4CE
+                retryable: false
+                next_actions: []
+                failure_domain: validation
+      tags:
+        - posts
+      parameters:
+        - name: communityId
+          in: path
+          required: true
+          description: Target community (tenant).
+          schema:
+            type: string
+            pattern: ^comm_[0-9A-HJKMNP-TV-Z]{26}$
+  /api/posts/{postId}:
+    get:
+      operationId: getPost
+      summary: Get a single post
+      description: Returns a post by id, including its current score.
+      responses:
+        "200":
+          description: The post.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Post"
+              example:
+                id: post_01HZY0K7M3QF8VN2J5RX9TB4CE
+                community_id: comm_01HZY0K7M3QF8VN2J5RX9TB4CD
+                author_id: user_01HZY0K7M3QF8VN2J5RX9TB4CF
+                title: Why deterministic clocks matter
+                body: A short note on testability.
+                score: 0
+                created_at: 2026-05-28T12:00:00.000Z
+        "400":
+          description: The post id in the path is malformed.
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ProblemDetails"
+              example:
+                type: https://qaroom.dev/errors/validation-failed
+                title: Request failed validation
+                status: 400
+                detail: Request failed validation.
+                instance: /api/posts/post_01HZY0K7M3QF8VN2J5RX9TB4CE
+                retryable: false
+                next_actions: []
+                failure_domain: validation
+        "404":
+          description: No post with that id exists.
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ProblemDetails"
+              example:
+                type: https://qaroom.dev/errors/post-not-found
+                title: Post not found
+                status: 404
+                detail: Post not found.
+                instance: /api/posts/post_01HZY0K7M3QF8VN2J5RX9TB4CE
+                retryable: false
+                next_actions: []
+                failure_domain: not_found
+      tags:
+        - posts
+      parameters:
+        - name: postId
+          in: path
+          required: true
+          description: Target post.
+          schema:
+            type: string
+            pattern: ^post_[0-9A-HJKMNP-TV-Z]{26}$
+  /api/posts/{postId}/votes:
+    post:
+      operationId: castVote
+      summary: Cast a vote on a post
+      description: Casts or changes a vote (+1 / -1) and returns the recomputed score. Idempotent on Idempotency-Key.
+      responses:
+        "200":
+          description: The recomputed post score.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/CastVoteResponse"
+              example:
+                post_id: post_01HZY0K7M3QF8VN2J5RX9TB4CE
+                score: 1
+                voter_value: 1
+          links:
+            GetVotedPost:
+              operationId: getPost
+              parameters:
+                postId: $response.body#/post_id
+              description: Fetch the post that was voted on.
+        "400":
+          description: The request body or headers failed validation.
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ProblemDetails"
+              example:
+                type: https://qaroom.dev/errors/validation-failed
+                title: Request failed validation
+                status: 400
+                detail: Request failed validation.
+                instance: /api/posts/post_01HZY0K7M3QF8VN2J5RX9TB4CE
+                retryable: false
+                next_actions: []
+                failure_domain: validation
+        "404":
+          description: No post with that id exists.
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ProblemDetails"
+              example:
+                type: https://qaroom.dev/errors/post-not-found
+                title: Post not found
+                status: 404
+                detail: Post not found.
+                instance: /api/posts/post_01HZY0K7M3QF8VN2J5RX9TB4CE
+                retryable: false
+                next_actions: []
+                failure_domain: not_found
+      tags:
+        - votes
+      parameters:
+        - name: postId
+          in: path
+          required: true
+          description: Target post.
+          schema:
+            type: string
+            pattern: ^post_[0-9A-HJKMNP-TV-Z]{26}$
+        - name: Idempotency-Key
+          in: header
+          required: true
+          description: Client-supplied key making this mutation safely retryable (Commitment 4).
+          schema:
+            type: string
+            minLength: 1
+            maxLength: 255
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CastVoteRequest"
+            example:
+              voter_id: user_01HZY0K7M3QF8VN2J5RX9TB4CF
+              value: 1
+  /system/state:
+    get:
+      operationId: getSystemState
+      summary: Observable state of every model
+      description: Returns the current state of every model the service runs, with an as_of envelope (Commitment 7).
+      responses:
+        "200":
+          description: Current observable state.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/SystemState"
+      tags:
+        - system
+  /system/capabilities:
+    get:
+      operationId: getSystemCapabilities
+      summary: Operations the service exposes
+      description: Returns every operation in MCP-tool-shaped form (Commitment 7).
+      responses:
+        "200":
+          description: The capability list.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Capabilities"
+      tags:
+        - system
+components:
+  schemas:
+    AsOf:
+      type: object
+      properties:
+        snapshot_id:
+          type: string
+        lamport:
+          type: integer
+          minimum: 0
+          maximum: 9007199254740991
+        wall_clock:
+          type: string
+          format: date-time
+          pattern: ^(?:(?:\d\d[2468][048]|\d\d[13579][26]|\d\d0[48]|[02468][048]00|[13579][26]00)-02-29|\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\d|30)|(?:02)-(?:0[1-9]|1\d|2[0-8])))T(?:(?:[01]\d|2[0-3]):[0-5]\d(?::[0-5]\d(?:\.\d+)?)?(?:Z))$
+      required:
+        - snapshot_id
+        - lamport
+        - wall_clock
+      additionalProperties: false
+      description: "Read consistency envelope: {snapshot_id, lamport, wall_clock}."
+    Capabilities:
+      type: object
+      properties:
+        service:
+          type: string
+        capabilities:
+          type: array
+          items:
+            $ref: "#/components/schemas/Capability"
+        as_of:
+          $ref: "#/components/schemas/AsOf"
+      required:
+        - service
+        - capabilities
+        - as_of
+      additionalProperties: false
+      description: All operations the service exposes, MCP-tool-shaped.
+    Capability:
+      type: object
+      properties:
+        operation_id:
+          type: string
+        method:
+          type: string
+        path:
+          type: string
+        summary:
+          type: string
+        description:
+          type: string
+        mutating:
+          type: boolean
+        input_schema:
+          type: object
+          additionalProperties: {}
+      required:
+        - operation_id
+        - method
+        - path
+        - summary
+        - description
+        - mutating
+        - input_schema
+      additionalProperties: false
+      description: An MCP-tool-shaped description of one operation.
+    CastVoteRequest:
+      type: object
+      properties:
+        voter_id:
+          $ref: "#/components/schemas/UserId"
+        value:
+          $ref: "#/components/schemas/VoteValue"
+      required:
+        - voter_id
+        - value
+      additionalProperties: false
+      description: Body for castVote.
+    CastVoteResponse:
+      type: object
+      properties:
+        post_id:
+          $ref: "#/components/schemas/PostId"
+        score:
+          type: integer
+          minimum: -9007199254740991
+          maximum: 9007199254740991
+        voter_value:
+          $ref: "#/components/schemas/VoteValue"
+      required:
+        - post_id
+        - score
+        - voter_value
+      additionalProperties: false
+      description: Resulting post score after a vote.
+    CommunityId:
+      type: string
+      pattern: ^comm_[0-9A-HJKMNP-TV-Z]{26}$
+      description: "Branded identifier: comm_<ULID>"
+    CreatePostRequest:
+      type: object
+      properties:
+        author_id:
+          $ref: "#/components/schemas/UserId"
+        title:
+          type: string
+          minLength: 1
+          maxLength: 300
+          pattern: ^[^\x00]*$
+        body:
+          type: string
+          maxLength: 40000
+          pattern: ^[^\x00]*$
+      required:
+        - author_id
+        - title
+        - body
+      additionalProperties: false
+      description: Body for createPost.
+    FailureDomain:
+      type: string
+      enum:
+        - validation
+        - authentication
+        - authorization
+        - tenant_resolution
+        - rate_limit
+        - conflict
+        - not_found
+        - dependency_failure
+        - internal_error
+    Feed:
+      type: object
+      properties:
+        community_id:
+          $ref: "#/components/schemas/CommunityId"
+        posts:
+          type: array
+          items:
+            $ref: "#/components/schemas/Post"
+        as_of:
+          $ref: "#/components/schemas/AsOf"
+      required:
+        - community_id
+        - posts
+        - as_of
+      additionalProperties: false
+      description: A community feed page with a read envelope.
+    NextAction:
+      type: object
+      properties:
+        verb:
+          type: string
+          enum:
+            - GET
+            - POST
+            - PUT
+            - PATCH
+            - DELETE
+        href:
+          type: string
+        description:
+          type: string
+      required:
+        - verb
+        - href
+        - description
+      additionalProperties: false
+    Post:
+      type: object
+      properties:
+        id:
+          $ref: "#/components/schemas/PostId"
+        community_id:
+          $ref: "#/components/schemas/CommunityId"
+        author_id:
+          $ref: "#/components/schemas/UserId"
+        title:
+          type: string
+          minLength: 1
+          maxLength: 300
+          pattern: ^[^\x00]*$
+        body:
+          type: string
+          maxLength: 40000
+          pattern: ^[^\x00]*$
+        score:
+          type: integer
+          minimum: -9007199254740991
+          maximum: 9007199254740991
+        created_at:
+          type: string
+          format: date-time
+          pattern: ^(?:(?:\d\d[2468][048]|\d\d[13579][26]|\d\d0[48]|[02468][048]00|[13579][26]00)-02-29|\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\d|30)|(?:02)-(?:0[1-9]|1\d|2[0-8])))T(?:(?:[01]\d|2[0-3]):[0-5]\d(?::[0-5]\d(?:\.\d+)?)?(?:Z))$
+      required:
+        - id
+        - community_id
+        - author_id
+        - title
+        - body
+        - score
+        - created_at
+      additionalProperties: false
+      description: A post within a community.
+    PostId:
+      type: string
+      pattern: ^post_[0-9A-HJKMNP-TV-Z]{26}$
+      description: "Branded identifier: post_<ULID>"
+    ProblemDetails:
+      type: object
+      properties:
+        type:
+          type: string
+          description: Absolute URI identifying the problem type.
+        title:
+          type: string
+        status:
+          type: integer
+          minimum: 100
+          maximum: 599
+        detail:
+          type: string
+        instance:
+          type: string
+        retryable:
+          type: boolean
+        next_actions:
+          type: array
+          items:
+            $ref: "#/components/schemas/NextAction"
+        failure_domain:
+          $ref: "#/components/schemas/FailureDomain"
+      required:
+        - type
+        - title
+        - status
+        - retryable
+        - next_actions
+        - failure_domain
+      additionalProperties: false
+      description: RFC 7807 Problem Details with QARoom agent extensions.
+    SystemState:
+      type: object
+      properties:
+        service:
+          type: string
+        models:
+          type: object
+          additionalProperties: {}
+        as_of:
+          $ref: "#/components/schemas/AsOf"
+      required:
+        - service
+        - models
+        - as_of
+      additionalProperties: false
+      description: Current observable state of every model the service runs.
+    UserId:
+      type: string
+      pattern: ^user_[0-9A-HJKMNP-TV-Z]{26}$
+      description: "Branded identifier: user_<ULID>"
+    VoteValue:
+      anyOf:
+        - type: number
+          enum:
+            - 1
+        - type: number
+          enum:
+            - -1
+      description: "Vote direction: 1 (up) or -1 (down)."
+servers:
+  - url: http://localhost:8081
+    description: local docker-compose

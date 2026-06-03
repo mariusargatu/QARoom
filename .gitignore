@@ -1,0 +1,29 @@
+node_modules/
+dist/
+.turbo/
+coverage/
+test-results/
+*.tsbuildinfo
+.DS_Store
+.env
+.env.*
+!.env.example
+pglite-data/
+.spikes-tmp/
+
+# Local agent tooling — holds machine-specific settings (settings.local.json), not versioned.
+# docs/ and .well-known/ ARE versioned (Commitment 15: the substrate lives in-repo).
+.claude/
+
+# Decision log — raw build-in-public capture, kept local (not versioned).
+docs/journey/
+
+# Editors / IDEs
+.vscode/
+.idea/
+*.swp
+
+# Logs
+*.log
+npm-debug.log*
+pnpm-debug.log*

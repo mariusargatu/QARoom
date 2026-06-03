@@ -1,0 +1,13 @@
+openapi: 3.0.3
+info:
+  title: oasdiff gate fixture
+  version: 2.0.0
+paths:
+  /gadgets:
+    post:
+      operationId: createGadget
+      summary: Create a gadget
+      description: An unrelated new endpoint; the original getWidget was removed (breaking).
+      responses:
+        "201":
+          description: Created.
