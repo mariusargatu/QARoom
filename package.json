@@ -1,0 +1,42 @@
+{
+  "name": "qaroom",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "packageManager": "pnpm@10.17.1",
+  "engines": {
+    "node": ">=24"
+  },
+  "scripts": {
+    "build": "turbo run build",
+    "test": "turbo run test",
+    "typecheck": "turbo run typecheck",
+    "lint": "biome check . && eslint .",
+    "lint:fix": "biome check --write . && eslint . --fix",
+    "format": "biome format --write .",
+    "openapi:generate": "turbo run openapi:generate",
+    "openapi:verify": "tsx scripts/openapi-verify.ts",
+    "pact:verify": "tsx scripts/pact-verify.ts",
+    "test-results:generate": "tsx scripts/aggregate-test-results.ts",
+    "test-results:verify": "tsx scripts/test-results-verify.ts",
+    "dev": "docker compose -f services/content/docker-compose.yaml up -d && pnpm --filter @qaroom/content dev",
+    "dev:down": "docker compose -f services/content/docker-compose.yaml down"
+  },
+  "pnpm": {
+    "onlyBuiltDependencies": [
+      "esbuild"
+    ]
+  },
+  "devDependencies": {
+    "@biomejs/biome": "^2.2.0",
+    "@qaroom/contracts": "workspace:*",
+    "@types/node": "^24.0.0",
+    "@typescript-eslint/parser": "^8.21.0",
+    "eslint": "^9.18.0",
+    "eslint-plugin-qaroom": "workspace:*",
+    "tsx": "^4.19.0",
+    "turbo": "^2.3.0",
+    "typescript": "^5.7.0",
+    "vitest": "^3.0.0"
+  }
+}

@@ -1,0 +1,36 @@
+{
+  "name": "@qaroom/content",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "exports": {
+    ".": "./src/app.ts"
+  },
+  "scripts": {
+    "build": "tsc -p tsconfig.json",
+    "typecheck": "tsc -p tsconfig.json",
+    "test": "vitest run",
+    "dev": "tsx watch src/server.ts",
+    "openapi:generate": "tsx src/openapi-build.ts"
+  },
+  "dependencies": {
+    "@qaroom/contracts": "workspace:*",
+    "@qaroom/determinism": "workspace:*",
+    "@qaroom/service-kit": "workspace:*",
+    "drizzle-orm": "^0.38.0",
+    "fastify": "^5.2.0",
+    "postgres": "^3.4.0",
+    "zod": "^4.0.0"
+  },
+  "devDependencies": {
+    "@electric-sql/pglite": "^0.2.0",
+    "@pact-foundation/pact": "^13.0.0",
+    "@qaroom/testing-utils": "workspace:*",
+    "@testcontainers/postgresql": "^10.0.0",
+    "drizzle-kit": "^0.30.0",
+    "fast-check": "^3.23.0",
+    "tsx": "^4.19.0",
+    "typescript": "^5.7.0",
+    "vitest": "^3.0.0"
+  }
+}

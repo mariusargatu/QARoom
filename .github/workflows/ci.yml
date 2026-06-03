@@ -1,0 +1,66 @@
+name: CI
+
+on:
+  push:
+    branches: [main, master]
+  pull_request:
+
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: ./.github/actions/setup-workspace
+
+      - name: Lint (Biome + ESLint custom rules)
+        run: pnpm lint
+
+      - name: Typecheck
+        run: pnpm typecheck
+
+      - name: Test + aggregate results
+        run: pnpm test-results:generate
+
+      - name: Verify test-results/summary.json against frozen schema
+        run: pnpm test-results:verify
+
+      - name: Verify OpenAPI (Zod drift + oasdiff breaking-change gate)
+        run: pnpm openapi:verify
+
+      - name: Upload test-results summary
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: test-results-summary
+          path: test-results/summary.json
+          if-no-files-found: warn
+
+  # Consumer-driven contract verification: content-service (provider) verifies every
+  # pact under services/*/pacts that names it, against a real Postgres (Testcontainers).
+  contracts:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: ./.github/actions/setup-workspace
+      - name: Pact provider verification (content)
+        run: pnpm pact:verify --provider content
+
+  # Trust-boundary fuzzing: bring up content + gateway, then fuzz the gateway's OpenAPI
+  # with Schemathesis (containerized — no Python in the monorepo).
+  fuzz:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: ./.github/actions/setup-workspace
+      - name: Start Postgres
+        run: docker compose -f services/content/docker-compose.yaml up -d
+      - name: Start content + gateway
+        run: |
+          DATABASE_URL=postgres://qaroom:qaroom@localhost:5432/qaroom_content PORT=8081 \
+            pnpm --filter @qaroom/content exec tsx src/server.ts &
+          for i in $(seq 1 30); do curl -fs http://localhost:8081/system/state && break || sleep 1; done
+          CONTENT_BASE_URL=http://localhost:8081 PORT=8090 \
+            pnpm --filter @qaroom/gateway exec tsx src/server.ts &
+          for i in $(seq 1 30); do curl -fs http://localhost:8090/system/state && break || sleep 1; done
+      - name: Schemathesis gate (gateway)
+        run: bash scripts/schemathesis-gate.sh services/gateway http://host.docker.internal:8090
