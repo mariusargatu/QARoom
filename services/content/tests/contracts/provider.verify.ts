@@ -28,7 +28,7 @@ if (pactFiles.length === 0) {
   process.exit(0)
 }
 
-const container = await new PostgreSqlContainer('postgres:16-alpine').start()
+const container = await new PostgreSqlContainer('postgres:18-alpine').start()
 const sql = postgres(container.getConnectionUri(), { max: 4 })
 const db = drizzle(sql, { schema })
 await ensureSchema(db)

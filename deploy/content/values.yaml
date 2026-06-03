@@ -1,0 +1,13 @@
+image:
+  # Bare name — Tilt's default_registry rewrites to the k3d registry; CI uses kind load.
+  repository: qaroom/content
+service:
+  port: 80
+  targetPort: 8081
+container:
+  port: 8081
+otel:
+  serviceName: content
+postgres:
+  enabled: true
+  database: qaroom_content

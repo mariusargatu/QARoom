@@ -1,0 +1,159 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: qaroom-grafana-datasources
+  namespace: observability
+data:
+  datasources.yaml: |
+    apiVersion: 1
+    datasources:
+      - name: Prometheus
+        uid: prometheus
+        type: prometheus
+        access: proxy
+        url: http://qaroom-prometheus.observability:9090
+        isDefault: true
+      - name: Jaeger
+        uid: jaeger
+        type: jaeger
+        access: proxy
+        url: http://qaroom-jaeger.observability:16686
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: qaroom-grafana-dashboard-provider
+  namespace: observability
+data:
+  provider.yaml: |
+    apiVersion: 1
+    providers:
+      - name: qaroom
+        type: file
+        disableDeletion: true
+        editable: true
+        options:
+          path: /var/lib/grafana/dashboards
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: qaroom-grafana-dashboards
+  namespace: observability
+data:
+  qaroom-services.json: |
+    {
+      "uid": "qaroom-services",
+      "title": "QARoom — services",
+      "tags": ["qaroom"],
+      "timezone": "browser",
+      "schemaVersion": 39,
+      "version": 1,
+      "refresh": "10s",
+      "time": { "from": "now-15m", "to": "now" },
+      "panels": [
+        {
+          "id": 1,
+          "type": "timeseries",
+          "title": "Request rate (req/s) by service",
+          "gridPos": { "h": 8, "w": 12, "x": 0, "y": 0 },
+          "datasource": { "type": "prometheus", "uid": "prometheus" },
+          "fieldConfig": { "defaults": { "unit": "reqps" } },
+          "targets": [
+            { "refId": "A", "expr": "sum by (exported_job) (rate(http_server_duration_milliseconds_count[1m]))", "legendFormat": "{{exported_job}}" }
+          ]
+        },
+        {
+          "id": 2,
+          "type": "timeseries",
+          "title": "p95 request latency (ms) by service",
+          "gridPos": { "h": 8, "w": 12, "x": 12, "y": 0 },
+          "datasource": { "type": "prometheus", "uid": "prometheus" },
+          "fieldConfig": { "defaults": { "unit": "ms" } },
+          "targets": [
+            { "refId": "A", "expr": "histogram_quantile(0.95, sum by (exported_job, le) (rate(http_server_duration_milliseconds_bucket[5m])))", "legendFormat": "{{exported_job}}" }
+          ]
+        },
+        {
+          "id": 3,
+          "type": "timeseries",
+          "title": "Request rate by HTTP status",
+          "gridPos": { "h": 8, "w": 12, "x": 0, "y": 8 },
+          "datasource": { "type": "prometheus", "uid": "prometheus" },
+          "fieldConfig": { "defaults": { "unit": "reqps" } },
+          "targets": [
+            { "refId": "A", "expr": "sum by (http_status_code) (rate(http_server_duration_milliseconds_count[5m]))", "legendFormat": "{{http_status_code}}" }
+          ]
+        },
+        {
+          "id": 4,
+          "type": "stat",
+          "title": "Total HTTP requests observed",
+          "gridPos": { "h": 8, "w": 12, "x": 12, "y": 8 },
+          "datasource": { "type": "prometheus", "uid": "prometheus" },
+          "targets": [
+            { "refId": "A", "expr": "sum(http_server_duration_milliseconds_count)" }
+          ]
+        }
+      ]
+    }
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: qaroom-grafana
+  namespace: observability
+  labels:
+    qaroom.io/observability: grafana
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      qaroom.io/observability: grafana
+  template:
+    metadata:
+      labels:
+        qaroom.io/observability: grafana
+    spec:
+      containers:
+        - name: grafana
+          image: grafana/grafana:13.0.2
+          # Dev-only anonymous admin; NOT production (documented in ADR-0009).
+          env:
+            - { name: GF_AUTH_ANONYMOUS_ENABLED, value: "true" }
+            - { name: GF_AUTH_ANONYMOUS_ORG_ROLE, value: "Admin" }
+            - { name: GF_AUTH_DISABLE_LOGIN_FORM, value: "true" }
+            - { name: GF_SECURITY_ADMIN_PASSWORD, value: "admin" }
+          ports:
+            - { name: http, containerPort: 3000 }
+          volumeMounts:
+            - name: datasources
+              mountPath: /etc/grafana/provisioning/datasources
+            - name: dashboard-provider
+              mountPath: /etc/grafana/provisioning/dashboards
+            - name: dashboards
+              mountPath: /var/lib/grafana/dashboards
+          resources:
+            requests: { cpu: 50m, memory: 128Mi }
+            limits: { cpu: "1", memory: 512Mi }
+      volumes:
+        - name: datasources
+          configMap:
+            name: qaroom-grafana-datasources
+        - name: dashboard-provider
+          configMap:
+            name: qaroom-grafana-dashboard-provider
+        - name: dashboards
+          configMap:
+            name: qaroom-grafana-dashboards
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: qaroom-grafana
+  namespace: observability
+spec:
+  selector:
+    qaroom.io/observability: grafana
+  ports:
+    - { name: http, port: 3000, targetPort: 3000 }

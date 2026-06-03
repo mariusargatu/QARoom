@@ -1,5 +1,10 @@
 import { LamportGate } from '@qaroom/contracts'
-import { registerProblemHandler, registerSystemRoutes } from '@qaroom/service-kit'
+import { activeSpanSink, registerTenantContext } from '@qaroom/otel'
+import {
+  registerHealthRoutes,
+  registerProblemHandler,
+  registerSystemRoutes,
+} from '@qaroom/service-kit'
 import Fastify, { type FastifyInstance } from 'fastify'
 import { DEFAULT_RATE_LIMIT, type GatewayDeps, type GatewayRouteDeps } from './deps'
 import { OPERATIONS } from './operations'
@@ -15,7 +20,7 @@ import { registerLimitsRoute } from './system'
  * /system/state + /system/capabilities) comes from @qaroom/service-kit.
  */
 export function buildGatewayApp(deps: GatewayDeps): FastifyInstance {
-  const lamport = deps.lamport ?? new LamportGate(deps.ids)
+  const lamport = deps.lamport ?? new LamportGate(deps.ids, deps.sink ?? activeSpanSink)
   const limiter = new RateLimiter(deps.clock, deps.rateLimit ?? DEFAULT_RATE_LIMIT)
   const routeDeps: GatewayRouteDeps = {
     content: deps.content,
@@ -27,7 +32,9 @@ export function buildGatewayApp(deps: GatewayDeps): FastifyInstance {
   }
 
   const app = Fastify({ logger: false })
+  registerTenantContext(app)
   registerProblemHandler(app)
+  registerHealthRoutes(app, { service: 'gateway' })
   registerRateLimit(app, limiter)
   registerProxyRoutes(app, routeDeps)
   registerSystemRoutes(app, {

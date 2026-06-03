@@ -4,6 +4,7 @@ import Fastify, { type FastifyInstance } from 'fastify'
 import { describe, expect, it } from 'vitest'
 import { z } from 'zod'
 import { buildCapabilities } from './capabilities'
+import { registerHealthRoutes } from './health-routes'
 import { ProblemError, problem, registerProblemHandler } from './problem'
 
 const stubIds = { next: (prefix: string) => `${prefix}_stub` }
@@ -123,6 +124,53 @@ describe('the service-kit problem handler', () => {
     const res = await app.inject({ method: 'GET', url: '/does-not-exist' })
     expect(res.statusCode).toBe(404)
     expect(res.json().failure_domain).toBe('not_found')
+    await app.close()
+  })
+})
+
+describe('the service-kit health routes', () => {
+  it('serves a 200 liveness response on /health naming the service', async () => {
+    const app = Fastify({ logger: false })
+    registerProblemHandler(app)
+    registerHealthRoutes(app, { service: 'demo' })
+    const res = await app.inject({ method: 'GET', url: '/health' })
+    expect(res.statusCode).toBe(200)
+    expect(res.json()).toEqual({ status: 'ok', service: 'demo' })
+    await app.close()
+  })
+
+  it('reports ready on /ready when the injected readiness check resolves', async () => {
+    const app = Fastify({ logger: false })
+    registerProblemHandler(app)
+    registerHealthRoutes(app, { service: 'demo', readiness: async () => {} })
+    const res = await app.inject({ method: 'GET', url: '/ready' })
+    expect(res.statusCode).toBe(200)
+    expect(res.json().status).toBe('ready')
+    await app.close()
+  })
+
+  it('reports a 503 dependency_failure problem on /ready when the readiness check rejects', async () => {
+    const app = Fastify({ logger: false })
+    registerProblemHandler(app)
+    registerHealthRoutes(app, {
+      service: 'demo',
+      readiness: async () => {
+        throw new Error('db unreachable')
+      },
+    })
+    const res = await app.inject({ method: 'GET', url: '/ready' })
+    expect(res.statusCode).toBe(503)
+    expect(res.headers['content-type']).toContain('application/problem+json')
+    expect(res.json().failure_domain).toBe('dependency_failure')
+    await app.close()
+  })
+
+  it('treats a service with no readiness check as always ready', async () => {
+    const app = Fastify({ logger: false })
+    registerProblemHandler(app)
+    registerHealthRoutes(app, { service: 'gateway' })
+    const res = await app.inject({ method: 'GET', url: '/ready' })
+    expect(res.statusCode).toBe(200)
     await app.close()
   })
 })

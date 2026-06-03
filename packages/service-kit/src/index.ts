@@ -1,3 +1,5 @@
+export type { HealthRoutesOptions } from './health-routes'
+export { registerHealthRoutes } from './health-routes'
 export { idempotencyKeyFrom } from './http'
 export { buildServiceOpenApiYaml } from './openapi'
 export type { ProblemSpec } from './problem'

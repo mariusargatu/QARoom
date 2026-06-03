@@ -1,0 +1,8 @@
+apiVersion: v2
+name: qaroom-service
+description: >-
+  Shared chart for every QARoom Fastify service — Deployment + Service + optional
+  per-service Postgres StatefulSet. Deployed once per service (one chart, N releases).
+type: application
+version: 0.1.0
+appVersion: "3.0.0"

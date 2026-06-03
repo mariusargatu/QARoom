@@ -1,0 +1,6 @@
+# Deliberate-broken-value demo (Milestone 3 exit criterion). Layer on top of values.yaml:
+#   helm upgrade content packages/helm-template -f deploy/content/values.yaml -f deploy/content/values.broken.yaml
+# The Service now forwards :80 → a port nothing listens on. The pod stays Ready (its probes
+# use container.port), but /health THROUGH the Service fails — caught by scripts/smoke.sh.
+service:
+  targetPort: 9999

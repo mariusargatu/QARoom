@@ -1,6 +1,6 @@
 # AGENTS.md
 
-You are working on **QARoom**, a multi-tenant social platform built to demonstrate testing-driven architecture. This file is your quick reference. Read it first, then read the docs in `docs/` in numbered order. Per-package conventions live in each package's own `AGENTS.md` (loaded as you navigate there) — keep this root file lean. *Reviewed through Milestone 2.*
+You are working on **QARoom**, a multi-tenant social platform built to demonstrate testing-driven architecture. This file is your quick reference. Read it first, then read the docs in `docs/` in numbered order. Per-package conventions live in each package's own `AGENTS.md` (loaded as you navigate there) — keep this root file lean. *Reviewed through Milestone 3.*
 
 ## Commands
 
@@ -48,11 +48,12 @@ Reach for a repo-map or code graph only if cross-service scale ever makes agenti
 
 ## Repository layout
 
-- `services/` — one directory per microservice (`content`, `gateway`, `identity` so far). Each has its own `AGENTS.md`, `openapi.yaml`, `src/`, and `chart/`.
-- `packages/` — shared code: `contracts/` (Zod, OpenAPI, XState — hand-authored machines live in `contracts/src/machines/`, invoke-free + context-free), `messaging/` (NATS+OTel SDK), `testing-utils/` (fixtures, generators, harness, `screenplay/` + `screenplay-system/` + `screenplay-ct/`, `contract-crosscheck/`), `helm-template/`.
+- `services/` — one directory per microservice (`content`, `gateway`, `identity` so far). Each has its own `AGENTS.md`, `openapi.yaml`, `src/`, and `Dockerfile`. (The per-service `chart/` sketch was superseded in Milestone 3 by the shared `packages/helm-template/` + `deploy/<service>/values.yaml`.)
+- `packages/` — shared code: `contracts/` (Zod, OpenAPI, XState — hand-authored machines in `contracts/src/machines/`, invoke-free + context-free), `otel/` (OpenTelemetry SDK, `tenant.id` span processor, propagation primitives — Milestone 3; M4's `messaging/` will build the NATS layer on it), `service-kit/`, `testing-utils/` (fixtures, generators, harness, `contract-crosscheck/`), `helm-template/` (the shared `qaroom-service` chart).
+- `deploy/` — per-service Helm values (`<service>/values.yaml`) and `observability/` manifests (OTel Collector, Jaeger, Prometheus, Grafana). `Tiltfile` at the repo root drives the local cluster.
 - `docs/` — architecture, strategy, roadmap, conventions, ADRs. Read in numbered order.
 - `chaos-experiments/` — Chaos Mesh and Litmus YAML (Milestone 6 onwards).
-- `scripts/` — orchestration scripts. `spin-up-ephemeral.sh`, `aggregate-test-results.ts`, `qaroom-replay/`.
+- `scripts/` — orchestration scripts. `bootstrap-k3d.sh`/`teardown-k3d.sh`, `smoke.sh`, `check-tenant-spans.ts`, `aggregate-test-results.ts`.
 - `.claude/` — agent definitions and skills. `.claude/skills/journey-log/` captures per-decision entries into `docs/journey/`; raw material for blog/LinkedIn.
 - `.well-known/llms.txt` — agent-discovery affordance.
 

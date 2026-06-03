@@ -1,0 +1,86 @@
+# Shared qaroom-service chart values. Each service overrides via deploy/<service>/values.yaml.
+nameOverride: ""
+
+image:
+  # Bare name — Tilt's default_registry rewrites to the k3d registry locally; CI uses
+  # `kind load` + pullPolicy=Never. Never a remote pull.
+  repository: qaroom/content
+  tag: latest
+  pullPolicy: IfNotPresent
+
+replicaCount: 1
+
+service:
+  type: ClusterIP
+  port: 80
+  # Container port the Service forwards to. The deliberate-broken-value smoke demo
+  # sets this to a port nothing listens on (e.g. 9999) → /health fails.
+  targetPort: 8081
+
+container:
+  port: 8081
+
+# NODE_ENV=production turns the OTel SDK on (it is a no-op only under NODE_ENV=test).
+nodeEnv: production
+
+# DATABASE_URL. Leave empty for a service with no DB (gateway). When postgres.enabled,
+# the _helpers.tpl databaseUrl builds the in-cluster DSN and this is ignored.
+database:
+  url: ""
+
+otel:
+  enabled: true
+  endpoint: http://qaroom-otel-collector.observability.svc.cluster.local:4318
+  protocol: http/protobuf
+  serviceName: "" # defaults to the release name
+  semconvOptIn: gen_ai_latest_experimental
+  resourceAttributes: "service.namespace=qaroom,deployment.environment=local"
+
+# Arbitrary extra env (e.g. gateway's CONTENT_BASE_URL).
+extraEnv: {}
+
+resources:
+  requests:
+    cpu: 50m
+    memory: 128Mi
+  limits:
+    cpu: "1"
+    memory: 512Mi
+
+probes:
+  liveness:
+    path: /health
+    initialDelaySeconds: 3
+    periodSeconds: 10
+    failureThreshold: 6
+  readiness:
+    path: /ready
+    initialDelaySeconds: 2
+    periodSeconds: 5
+    failureThreshold: 6
+
+# Prometheus pod-annotation scrape (off until per-service /metrics ships; the Collector's
+# prometheus exporter is the current metrics source).
+metrics:
+  enabled: false
+  path: /metrics
+
+serviceAccount:
+  create: true
+  name: ""
+
+# Per-service Postgres StatefulSet. content/identity = true; gateway = false.
+postgres:
+  enabled: false
+  image: postgres:18-alpine
+  user: qaroom
+  password: qaroom # dev-only plaintext; NOT production (documented in ADR-0009)
+  database: qaroom_content
+  storage: 1Gi
+  resources:
+    requests:
+      cpu: 50m
+      memory: 128Mi
+    limits:
+      cpu: "1"
+      memory: 256Mi
