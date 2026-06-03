@@ -44,6 +44,9 @@ importers:
       '@qaroom/determinism':
         specifier: workspace:*
         version: link:../determinism
+      xstate:
+        specifier: ^5.19.0
+        version: 5.32.0
       yaml:
         specifier: ^2.7.0
         version: 2.9.0
@@ -218,6 +221,61 @@ importers:
       '@qaroom/testing-utils':
         specifier: workspace:*
         version: link:../../packages/testing-utils
+      fast-check:
+        specifier: ^3.23.0
+        version: 3.23.2
+      tsx:
+        specifier: ^4.19.0
+        version: 4.22.3
+      typescript:
+        specifier: ^5.7.0
+        version: 5.9.3
+      vitest:
+        specifier: ^3.0.0
+        version: 3.2.4(@types/node@24.12.4)(tsx@4.22.3)(yaml@2.9.0)
+
+  services/identity:
+    dependencies:
+      '@qaroom/contracts':
+        specifier: workspace:*
+        version: link:../../packages/contracts
+      '@qaroom/determinism':
+        specifier: workspace:*
+        version: link:../../packages/determinism
+      '@qaroom/service-kit':
+        specifier: workspace:*
+        version: link:../../packages/service-kit
+      drizzle-orm:
+        specifier: ^0.38.0
+        version: 0.38.4(@electric-sql/pglite@0.2.17)(postgres@3.4.9)
+      fastify:
+        specifier: ^5.2.0
+        version: 5.8.5
+      jose:
+        specifier: ^5.9.0
+        version: 5.10.0
+      postgres:
+        specifier: ^3.4.0
+        version: 3.4.9
+      zod:
+        specifier: ^4.0.0
+        version: 4.4.3
+    devDependencies:
+      '@electric-sql/pglite':
+        specifier: ^0.2.0
+        version: 0.2.17
+      '@pact-foundation/pact':
+        specifier: ^13.0.0
+        version: 13.2.0
+      '@qaroom/testing-utils':
+        specifier: workspace:*
+        version: link:../../packages/testing-utils
+      '@testcontainers/postgresql':
+        specifier: ^10.0.0
+        version: 10.28.0
+      drizzle-kit:
+        specifier: ^0.30.0
+        version: 0.30.6
       fast-check:
         specifier: ^3.23.0
         version: 3.23.2
@@ -2263,6 +2321,9 @@ packages:
   jackspeak@3.4.3:
     resolution: {integrity: sha512-OGlZQpz2yfahA/Rd1Y8Cd9SIEsqvXkLVoSw/cgwhnhFMDbsQFeZYoJJ7bIZBS9BcamUW96asq/npPWugM+RQBw==}
 
+  jose@5.10.0:
+    resolution: {integrity: sha512-s+3Al/p9g32Iq+oqXxkW//7jk2Vig6FF1CFqzVXoTUXt2qz89YWbL+OwS17NFYEvxC35n0FKeGO2LGYSxeM2Gg==}
+
   joycon@3.1.1:
     resolution: {integrity: sha512-34wB/Y7MW7bzjKRjUKTa46I2Z7eV62Rkhva+KkopW7Qvv/OSWBqvkSY7vusOPrNuZcUG3tApvdVgNB8POj3SPw==}
     engines: {node: '>=10'}
@@ -3066,6 +3127,9 @@ packages:
 
   wrappy@1.0.2:
     resolution: {integrity: sha512-l4Sp/DRseor9wL6EvV2+TuQn63dMkPjZ/sp9XkghTEbV9KlPS1xUsZ3u7/IQO4wxtcFB4bgpQPRcR3QCvezPcQ==}
+
+  xstate@5.32.0:
+    resolution: {integrity: sha512-zsk73aWGmxn9z34P0kbiod5JwTvdYRW3+IDxITq8sd9+VWwMyW7BUzpplnYy9mIEXa6V8IMDv7Hy4m0mhT5+2Q==}
 
   y18n@5.0.8:
     resolution: {integrity: sha512-0pfFzegeDWJHJIAmTLRP2DwHjdF5s7jo9tuztdQxAhINCdvS+3nGINqPd00AphqJR/0LhANUS6/+7SCb98YOfA==}
@@ -4883,6 +4947,8 @@ snapshots:
     optionalDependencies:
       '@pkgjs/parseargs': 0.11.0
 
+  jose@5.10.0: {}
+
   joycon@3.1.1: {}
 
   js-base64@3.7.8: {}
@@ -5738,6 +5804,8 @@ snapshots:
       strip-ansi: 7.2.0
 
   wrappy@1.0.2: {}
+
+  xstate@5.32.0: {}
 
   y18n@5.0.8: {}
 

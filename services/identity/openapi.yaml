@@ -1,0 +1,848 @@
+openapi: 3.0.3
+info:
+  title: QARoom identity-service
+  version: 0.0.0
+  description: Users, communities-as-tenants, memberships, sessions, and JWT/JWKS. Generated from Zod — do not edit by hand.
+paths:
+  /api/users:
+    post:
+      operationId: createUser
+      summary: Create a user
+      description: Creates a user identity. Idempotent on the Idempotency-Key header.
+      responses:
+        "201":
+          description: The created user.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/User"
+              example:
+                id: user_01HZY0K7M3QF8VN2J5RX9TB4CF
+                handle: ada
+                display_name: Ada Lovelace
+                created_at: 2026-05-28T12:00:00.000Z
+          links:
+            GetCreatedUser:
+              operationId: getUser
+              parameters:
+                userId: $response.body#/id
+              description: Fetch the user that was just created.
+        "400":
+          description: The request body or headers failed validation.
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ProblemDetails"
+              example:
+                type: https://qaroom.dev/errors/validation-failed
+                title: Request failed validation
+                status: 400
+                detail: Request failed validation.
+                instance: /api/users/user_01HZY0K7M3QF8VN2J5RX9TB4CF
+                retryable: false
+                next_actions: []
+                failure_domain: validation
+      tags:
+        - users
+      parameters:
+        - name: Idempotency-Key
+          in: header
+          required: true
+          description: Client-supplied key making this mutation safely retryable (Commitment 4).
+          schema:
+            type: string
+            minLength: 1
+            maxLength: 255
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CreateUserRequest"
+            example:
+              handle: ada
+              display_name: Ada Lovelace
+  /api/users/{userId}:
+    get:
+      operationId: getUser
+      summary: Get a single user
+      description: Returns a user identity by id.
+      responses:
+        "200":
+          description: The user.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/User"
+              example:
+                id: user_01HZY0K7M3QF8VN2J5RX9TB4CF
+                handle: ada
+                display_name: Ada Lovelace
+                created_at: 2026-05-28T12:00:00.000Z
+        "400":
+          description: The request body or headers failed validation.
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ProblemDetails"
+              example:
+                type: https://qaroom.dev/errors/validation-failed
+                title: Request failed validation
+                status: 400
+                detail: Request failed validation.
+                instance: /api/users/user_01HZY0K7M3QF8VN2J5RX9TB4CF
+                retryable: false
+                next_actions: []
+                failure_domain: validation
+        "404":
+          description: No user with that id exists.
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ProblemDetails"
+              example:
+                type: https://qaroom.dev/errors/user-not-found
+                title: User not found
+                status: 404
+                detail: User not found.
+                instance: /api/users/user_01HZY0K7M3QF8VN2J5RX9TB4CF
+                retryable: false
+                next_actions: []
+                failure_domain: not_found
+      tags:
+        - users
+      parameters:
+        - name: userId
+          in: path
+          required: true
+          description: Target user.
+          schema:
+            type: string
+            pattern: ^user_[0-9A-HJKMNP-TV-Z]{26}$
+  /api/communities:
+    post:
+      operationId: createCommunity
+      summary: Create a community (tenant)
+      description: Creates a community. Idempotent on Idempotency-Key; the slug must be unique.
+      responses:
+        "201":
+          description: The created community.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Community"
+              example:
+                id: comm_01HZY0K7M3QF8VN2J5RX9TB4CD
+                slug: general
+                name: General
+                created_at: 2026-05-28T12:00:00.000Z
+          links:
+            ListCommunityMembers:
+              operationId: listMembers
+              parameters:
+                communityId: $response.body#/id
+              description: List the members of the community that was just created.
+        "400":
+          description: The request body or headers failed validation.
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ProblemDetails"
+              example:
+                type: https://qaroom.dev/errors/validation-failed
+                title: Request failed validation
+                status: 400
+                detail: Request failed validation.
+                instance: /api/users/user_01HZY0K7M3QF8VN2J5RX9TB4CF
+                retryable: false
+                next_actions: []
+                failure_domain: validation
+        "409":
+          description: A community with that slug already exists.
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ProblemDetails"
+              example:
+                type: https://qaroom.dev/errors/community-slug-taken
+                title: Community slug already taken
+                status: 409
+                detail: Community slug already taken.
+                instance: /api/communities
+                retryable: false
+                next_actions: []
+                failure_domain: conflict
+      tags:
+        - communities
+      parameters:
+        - name: Idempotency-Key
+          in: header
+          required: true
+          description: Client-supplied key making this mutation safely retryable (Commitment 4).
+          schema:
+            type: string
+            minLength: 1
+            maxLength: 255
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CreateCommunityRequest"
+            example:
+              slug: general
+              name: General
+  /api/communities/{communityId}/members:
+    post:
+      operationId: addMembership
+      summary: Add a member to a community
+      description: Grants a user a role in a community. Idempotent on Idempotency-Key.
+      responses:
+        "201":
+          description: The created membership.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Membership"
+              example:
+                user_id: user_01HZY0K7M3QF8VN2J5RX9TB4CF
+                community_id: comm_01HZY0K7M3QF8VN2J5RX9TB4CD
+                role: member
+                joined_at: 2026-05-28T12:00:00.000Z
+          links:
+            ListCommunityMembers:
+              operationId: listMembers
+              parameters:
+                communityId: $response.body#/community_id
+              description: List the community members after adding one.
+        "400":
+          description: The request body or headers failed validation.
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ProblemDetails"
+              example:
+                type: https://qaroom.dev/errors/validation-failed
+                title: Request failed validation
+                status: 400
+                detail: Request failed validation.
+                instance: /api/users/user_01HZY0K7M3QF8VN2J5RX9TB4CF
+                retryable: false
+                next_actions: []
+                failure_domain: validation
+        "404":
+          description: No community with that id exists.
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ProblemDetails"
+              example:
+                type: https://qaroom.dev/errors/community-not-found
+                title: Community not found
+                status: 404
+                detail: Community not found.
+                instance: /api/communities/comm_01HZY0K7M3QF8VN2J5RX9TB4CD/members
+                retryable: false
+                next_actions: []
+                failure_domain: tenant_resolution
+        "409":
+          description: That user already belongs to the community.
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ProblemDetails"
+              example:
+                type: https://qaroom.dev/errors/membership-exists
+                title: Membership already exists
+                status: 409
+                detail: Membership already exists.
+                instance: /api/communities/comm_01HZY0K7M3QF8VN2J5RX9TB4CD/members
+                retryable: false
+                next_actions: []
+                failure_domain: conflict
+      tags:
+        - communities
+      parameters:
+        - name: communityId
+          in: path
+          required: true
+          description: Target community (tenant).
+          schema:
+            type: string
+            pattern: ^comm_[0-9A-HJKMNP-TV-Z]{26}$
+        - name: Idempotency-Key
+          in: header
+          required: true
+          description: Client-supplied key making this mutation safely retryable (Commitment 4).
+          schema:
+            type: string
+            minLength: 1
+            maxLength: 255
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/AddMembershipRequest"
+            example:
+              user_id: user_01HZY0K7M3QF8VN2J5RX9TB4CF
+              role: member
+    get:
+      operationId: listMembers
+      summary: List a community’s members
+      description: Returns the members of a community, newest first, with a read consistency envelope.
+      responses:
+        "200":
+          description: The community members.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/MemberList"
+        "400":
+          description: The request body or headers failed validation.
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ProblemDetails"
+              example:
+                type: https://qaroom.dev/errors/validation-failed
+                title: Request failed validation
+                status: 400
+                detail: Request failed validation.
+                instance: /api/users/user_01HZY0K7M3QF8VN2J5RX9TB4CF
+                retryable: false
+                next_actions: []
+                failure_domain: validation
+        "404":
+          description: No community with that id exists.
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ProblemDetails"
+              example:
+                type: https://qaroom.dev/errors/community-not-found
+                title: Community not found
+                status: 404
+                detail: Community not found.
+                instance: /api/communities/comm_01HZY0K7M3QF8VN2J5RX9TB4CD/members
+                retryable: false
+                next_actions: []
+                failure_domain: tenant_resolution
+      tags:
+        - communities
+      parameters:
+        - name: communityId
+          in: path
+          required: true
+          description: Target community (tenant).
+          schema:
+            type: string
+            pattern: ^comm_[0-9A-HJKMNP-TV-Z]{26}$
+  /api/sessions:
+    post:
+      operationId: createSession
+      summary: Create a session (issue an access token)
+      description: Issues a short-lived ES256 access token for a user. Idempotent on Idempotency-Key.
+      responses:
+        "201":
+          description: The issued access token.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AccessTokenResponse"
+              example:
+                session_id: sess_01HZY0K7M3QF8VN2J5RX9TB4CG
+                access_token: eyJhbGciOiJFUzI1NiIsImtpZCI6ImtleV8wMSJ9.eyJzdWIiOiJ1c2VyXzAxIn0.sig
+                token_type: Bearer
+                expires_at: 2026-05-28T12:00:00.000Z
+                kid: key_01HZY0K7M3QF8VN2J5RX9TB4CH
+          links:
+            FetchJwks:
+              operationId: getJwks
+              description: Fetch the JWKS to verify the issued token’s signature.
+        "400":
+          description: The request body or headers failed validation.
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ProblemDetails"
+              example:
+                type: https://qaroom.dev/errors/validation-failed
+                title: Request failed validation
+                status: 400
+                detail: Request failed validation.
+                instance: /api/users/user_01HZY0K7M3QF8VN2J5RX9TB4CF
+                retryable: false
+                next_actions: []
+                failure_domain: validation
+        "404":
+          description: No user with that id exists.
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ProblemDetails"
+              example:
+                type: https://qaroom.dev/errors/user-not-found
+                title: User not found
+                status: 404
+                detail: User not found.
+                instance: /api/users/user_01HZY0K7M3QF8VN2J5RX9TB4CF
+                retryable: false
+                next_actions: []
+                failure_domain: not_found
+      tags:
+        - sessions
+      parameters:
+        - name: Idempotency-Key
+          in: header
+          required: true
+          description: Client-supplied key making this mutation safely retryable (Commitment 4).
+          schema:
+            type: string
+            minLength: 1
+            maxLength: 255
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CreateSessionRequest"
+            example:
+              user_id: user_01HZY0K7M3QF8VN2J5RX9TB4CF
+  /jwks.json:
+    get:
+      operationId: getJwks
+      summary: JSON Web Key Set
+      description: Returns the JWKS-eligible public keys (current plus in-grace previous keys) for ES256 verification.
+      responses:
+        "200":
+          description: The JWKS.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Jwks"
+              example:
+                keys:
+                  - kty: EC
+                    crv: P-256
+                    x: MKBCTNIcKUSDii11ySs3526iDZ8AiTo7Tu6KPAqv7D4
+                    y: 4Etl6SRW2YiLUrN5vfvVHuhp7x8PxltmWWlbbM4IFyM
+                    kid: key_01HZY0K7M3QF8VN2J5RX9TB4CH
+                    use: sig
+                    alg: ES256
+      tags:
+        - jwks
+  /system/state:
+    get:
+      operationId: getSystemState
+      summary: Observable state of every model
+      description: Returns the current state of every model the service runs, with an as_of envelope (Commitment 7).
+      responses:
+        "200":
+          description: Current observable state.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/SystemState"
+      tags:
+        - system
+  /system/capabilities:
+    get:
+      operationId: getSystemCapabilities
+      summary: Operations the service exposes
+      description: Returns every operation in MCP-tool-shaped form (Commitment 7).
+      responses:
+        "200":
+          description: The capability list.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Capabilities"
+      tags:
+        - system
+components:
+  schemas:
+    AccessTokenResponse:
+      type: object
+      properties:
+        session_id:
+          $ref: "#/components/schemas/SessionId"
+        access_token:
+          type: string
+        token_type:
+          type: string
+          enum:
+            - Bearer
+        expires_at:
+          type: string
+          format: date-time
+          pattern: ^(?:(?:\d\d[2468][048]|\d\d[13579][26]|\d\d0[48]|[02468][048]00|[13579][26]00)-02-29|\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\d|30)|(?:02)-(?:0[1-9]|1\d|2[0-8])))T(?:(?:[01]\d|2[0-3]):[0-5]\d(?::[0-5]\d(?:\.\d+)?)?(?:Z))$
+        kid:
+          type: string
+      required:
+        - session_id
+        - access_token
+        - token_type
+        - expires_at
+        - kid
+      additionalProperties: false
+      description: Issued access token and its signing kid.
+    AddMembershipRequest:
+      type: object
+      properties:
+        user_id:
+          $ref: "#/components/schemas/UserId"
+        role:
+          $ref: "#/components/schemas/Role"
+      required:
+        - user_id
+        - role
+      additionalProperties: false
+      description: Body for addMembership.
+    AsOf:
+      type: object
+      properties:
+        snapshot_id:
+          type: string
+        lamport:
+          type: integer
+          minimum: 0
+          maximum: 9007199254740991
+        wall_clock:
+          type: string
+          format: date-time
+          pattern: ^(?:(?:\d\d[2468][048]|\d\d[13579][26]|\d\d0[48]|[02468][048]00|[13579][26]00)-02-29|\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\d|30)|(?:02)-(?:0[1-9]|1\d|2[0-8])))T(?:(?:[01]\d|2[0-3]):[0-5]\d(?::[0-5]\d(?:\.\d+)?)?(?:Z))$
+      required:
+        - snapshot_id
+        - lamport
+        - wall_clock
+      additionalProperties: false
+      description: "Read consistency envelope: {snapshot_id, lamport, wall_clock}."
+    Capabilities:
+      type: object
+      properties:
+        service:
+          type: string
+        capabilities:
+          type: array
+          items:
+            $ref: "#/components/schemas/Capability"
+        as_of:
+          $ref: "#/components/schemas/AsOf"
+      required:
+        - service
+        - capabilities
+        - as_of
+      additionalProperties: false
+      description: All operations the service exposes, MCP-tool-shaped.
+    Capability:
+      type: object
+      properties:
+        operation_id:
+          type: string
+        method:
+          type: string
+        path:
+          type: string
+        summary:
+          type: string
+        description:
+          type: string
+        mutating:
+          type: boolean
+        input_schema:
+          type: object
+          additionalProperties: {}
+      required:
+        - operation_id
+        - method
+        - path
+        - summary
+        - description
+        - mutating
+        - input_schema
+      additionalProperties: false
+      description: An MCP-tool-shaped description of one operation.
+    Community:
+      type: object
+      properties:
+        id:
+          $ref: "#/components/schemas/CommunityId"
+        slug:
+          type: string
+          minLength: 2
+          maxLength: 64
+          pattern: ^[a-z0-9_]+$
+        name:
+          type: string
+          minLength: 1
+          maxLength: 120
+          pattern: ^[^\x00]*$
+        created_at:
+          type: string
+          format: date-time
+          pattern: ^(?:(?:\d\d[2468][048]|\d\d[13579][26]|\d\d0[48]|[02468][048]00|[13579][26]00)-02-29|\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\d|30)|(?:02)-(?:0[1-9]|1\d|2[0-8])))T(?:(?:[01]\d|2[0-3]):[0-5]\d(?::[0-5]\d(?:\.\d+)?)?(?:Z))$
+      required:
+        - id
+        - slug
+        - name
+        - created_at
+      additionalProperties: false
+      description: A community (tenant) in the identity registry.
+    CommunityId:
+      type: string
+      pattern: ^comm_[0-9A-HJKMNP-TV-Z]{26}$
+      description: "Branded identifier: comm_<ULID>"
+    CreateCommunityRequest:
+      type: object
+      properties:
+        slug:
+          type: string
+          minLength: 2
+          maxLength: 64
+          pattern: ^[a-z0-9_]+$
+        name:
+          type: string
+          minLength: 1
+          maxLength: 120
+          pattern: ^[^\x00]*$
+      required:
+        - slug
+        - name
+      additionalProperties: false
+      description: Body for createCommunity.
+    CreateSessionRequest:
+      type: object
+      properties:
+        user_id:
+          $ref: "#/components/schemas/UserId"
+      required:
+        - user_id
+      additionalProperties: false
+      description: Body for createSession.
+    CreateUserRequest:
+      type: object
+      properties:
+        handle:
+          type: string
+          minLength: 2
+          maxLength: 40
+          pattern: ^[a-z0-9_]+$
+        display_name:
+          type: string
+          minLength: 1
+          maxLength: 120
+          pattern: ^[^\x00]*$
+      required:
+        - handle
+        - display_name
+      additionalProperties: false
+      description: Body for createUser.
+    FailureDomain:
+      type: string
+      enum:
+        - validation
+        - authentication
+        - authorization
+        - tenant_resolution
+        - rate_limit
+        - conflict
+        - not_found
+        - dependency_failure
+        - internal_error
+    Jwk:
+      type: object
+      properties:
+        kty:
+          type: string
+          enum:
+            - EC
+        crv:
+          type: string
+          enum:
+            - P-256
+        x:
+          type: string
+        y:
+          type: string
+        kid:
+          type: string
+        use:
+          type: string
+          enum:
+            - sig
+        alg:
+          type: string
+          enum:
+            - ES256
+      required:
+        - kty
+        - crv
+        - x
+        - y
+        - kid
+        - use
+        - alg
+      additionalProperties: false
+      description: Public EC P-256 JWK for ES256 verification.
+    Jwks:
+      type: object
+      properties:
+        keys:
+          type: array
+          items:
+            $ref: "#/components/schemas/Jwk"
+      required:
+        - keys
+      additionalProperties: false
+      description: "JSON Web Key Set: the JWKS-eligible public keys."
+    MemberList:
+      type: object
+      properties:
+        community_id:
+          $ref: "#/components/schemas/CommunityId"
+        members:
+          type: array
+          items:
+            $ref: "#/components/schemas/Membership"
+        as_of:
+          $ref: "#/components/schemas/AsOf"
+      required:
+        - community_id
+        - members
+        - as_of
+      additionalProperties: false
+      description: Members of a community with a read envelope.
+    Membership:
+      type: object
+      properties:
+        user_id:
+          $ref: "#/components/schemas/UserId"
+        community_id:
+          $ref: "#/components/schemas/CommunityId"
+        role:
+          $ref: "#/components/schemas/Role"
+        joined_at:
+          type: string
+          format: date-time
+          pattern: ^(?:(?:\d\d[2468][048]|\d\d[13579][26]|\d\d0[48]|[02468][048]00|[13579][26]00)-02-29|\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\d|30)|(?:02)-(?:0[1-9]|1\d|2[0-8])))T(?:(?:[01]\d|2[0-3]):[0-5]\d(?::[0-5]\d(?:\.\d+)?)?(?:Z))$
+      required:
+        - user_id
+        - community_id
+        - role
+        - joined_at
+      additionalProperties: false
+      description: A user↔community↔role grant.
+    NextAction:
+      type: object
+      properties:
+        verb:
+          type: string
+          enum:
+            - GET
+            - POST
+            - PUT
+            - PATCH
+            - DELETE
+        href:
+          type: string
+        description:
+          type: string
+      required:
+        - verb
+        - href
+        - description
+      additionalProperties: false
+    ProblemDetails:
+      type: object
+      properties:
+        type:
+          type: string
+          description: Absolute URI identifying the problem type.
+        title:
+          type: string
+        status:
+          type: integer
+          minimum: 100
+          maximum: 599
+        detail:
+          type: string
+        instance:
+          type: string
+        retryable:
+          type: boolean
+        next_actions:
+          type: array
+          items:
+            $ref: "#/components/schemas/NextAction"
+        failure_domain:
+          $ref: "#/components/schemas/FailureDomain"
+      required:
+        - type
+        - title
+        - status
+        - retryable
+        - next_actions
+        - failure_domain
+      additionalProperties: false
+      description: RFC 7807 Problem Details with QARoom agent extensions.
+    Role:
+      type: string
+      enum:
+        - owner
+        - moderator
+        - member
+      description: Membership role within a community.
+    SessionId:
+      type: string
+      pattern: ^sess_[0-9A-HJKMNP-TV-Z]{26}$
+      description: "Branded identifier: sess_<ULID>"
+    SystemState:
+      type: object
+      properties:
+        service:
+          type: string
+        models:
+          type: object
+          additionalProperties: {}
+        as_of:
+          $ref: "#/components/schemas/AsOf"
+      required:
+        - service
+        - models
+        - as_of
+      additionalProperties: false
+      description: Current observable state of every model the service runs.
+    User:
+      type: object
+      properties:
+        id:
+          $ref: "#/components/schemas/UserId"
+        handle:
+          type: string
+          minLength: 2
+          maxLength: 40
+          pattern: ^[a-z0-9_]+$
+        display_name:
+          type: string
+          minLength: 1
+          maxLength: 120
+          pattern: ^[^\x00]*$
+        created_at:
+          type: string
+          format: date-time
+          pattern: ^(?:(?:\d\d[2468][048]|\d\d[13579][26]|\d\d0[48]|[02468][048]00|[13579][26]00)-02-29|\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\d|30)|(?:02)-(?:0[1-9]|1\d|2[0-8])))T(?:(?:[01]\d|2[0-3]):[0-5]\d(?::[0-5]\d(?:\.\d+)?)?(?:Z))$
+      required:
+        - id
+        - handle
+        - display_name
+        - created_at
+      additionalProperties: false
+      description: A user identity.
+    UserId:
+      type: string
+      pattern: ^user_[0-9A-HJKMNP-TV-Z]{26}$
+      description: "Branded identifier: user_<ULID>"
+servers:
+  - url: http://localhost:8082
+    description: local docker-compose

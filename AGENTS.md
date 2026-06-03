@@ -1,6 +1,6 @@
 # AGENTS.md
 
-You are working on **QARoom**, a multi-tenant social platform built to demonstrate testing-driven architecture. This file is your quick reference. Read it first, then read the docs in `docs/` in numbered order. Per-package conventions live in each package's own `AGENTS.md` (loaded as you navigate there) — keep this root file lean. *Reviewed through Milestone 1.*
+You are working on **QARoom**, a multi-tenant social platform built to demonstrate testing-driven architecture. This file is your quick reference. Read it first, then read the docs in `docs/` in numbered order. Per-package conventions live in each package's own `AGENTS.md` (loaded as you navigate there) — keep this root file lean. *Reviewed through Milestone 2.*
 
 ## Commands
 
@@ -48,8 +48,8 @@ Reach for a repo-map or code graph only if cross-service scale ever makes agenti
 
 ## Repository layout
 
-- `services/` — one directory per microservice. Each has its own `AGENTS.md`, `openapi.yaml`, `src/`, and `chart/`.
-- `packages/` — shared code: `contracts/` (Zod, OpenAPI, XState), `messaging/` (NATS+OTel SDK), `testing-utils/` (fixtures, generators, harness, `screenplay/` + `screenplay-system/` + `screenplay-ct/`, `contract-crosscheck/`), `helm-template/`.
+- `services/` — one directory per microservice (`content`, `gateway`, `identity` so far). Each has its own `AGENTS.md`, `openapi.yaml`, `src/`, and `chart/`.
+- `packages/` — shared code: `contracts/` (Zod, OpenAPI, XState — hand-authored machines live in `contracts/src/machines/`, invoke-free + context-free), `messaging/` (NATS+OTel SDK), `testing-utils/` (fixtures, generators, harness, `screenplay/` + `screenplay-system/` + `screenplay-ct/`, `contract-crosscheck/`), `helm-template/`.
 - `docs/` — architecture, strategy, roadmap, conventions, ADRs. Read in numbered order.
 - `chaos-experiments/` — Chaos Mesh and Litmus YAML (Milestone 6 onwards).
 - `scripts/` — orchestration scripts. `spin-up-ephemeral.sh`, `aggregate-test-results.ts`, `qaroom-replay/`.

@@ -43,6 +43,22 @@ export type CommentId = z.infer<typeof CommentId>
 export const DonationId = brandedId('dntn', 'DonationId')
 export type DonationId = z.infer<typeof DonationId>
 
+export const SessionId = brandedId('sess', 'SessionId')
+export type SessionId = z.infer<typeof SessionId>
+
+/** JWT signing-key id, used as the JOSE `kid` header (Milestone 2). */
+export const KeyId = brandedId('key', 'KeyId')
+export type KeyId = z.infer<typeof KeyId>
+
+/**
+ * The well-known default community ("general"), seeded by the Milestone 2 migration
+ * and the backfill target for Milestone 0 posts. It is a RESERVED branded id, not the
+ * literal `comm_general` — that string is not 26 Crockford chars, so it cannot satisfy
+ * `CommunityId.parse()`. The human-facing name lives in the `slug` ('general'); storage
+ * uses this parseable id. See ADR-0007.
+ */
+export const COMM_GENERAL: CommunityId = CommunityId.parse('comm_00000000000000000000000000')
+
 /**
  * Client-supplied idempotency key (HTTP `Idempotency-Key` header, Commitment 4).
  * Opaque to us; we only bound its length. Branded so it cannot be confused with
@@ -63,4 +79,6 @@ export const ID_PREFIXES = {
   PostId: 'post',
   CommentId: 'cmnt',
   DonationId: 'dntn',
+  SessionId: 'sess',
+  KeyId: 'key',
 } as const

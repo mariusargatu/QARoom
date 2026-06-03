@@ -22,6 +22,7 @@ export const communityIdParam = brandedPathParam(
   'Target community (tenant).',
 )
 export const postIdParam = brandedPathParam('postId', 'post', 'Target post.')
+export const userIdParam = brandedPathParam('userId', 'user', 'Target user.')
 
 export const idempotencyKeyHeaderParam: OasParam = {
   name: 'Idempotency-Key',
@@ -36,6 +37,8 @@ const PROBLEM_CONTENT_TYPE = 'application/problem+json'
 export interface ProblemResponseOptions {
   description: string
   retryable?: boolean
+  /** Example `instance` path. Defaults to a content-service post path; identity overrides it. */
+  instance?: string
 }
 
 /** An RFC 7807 error response entry with a worked example (single source for both services). */
@@ -58,7 +61,7 @@ export function problemResponse(
       title,
       status: code,
       detail: `${title}.`,
-      instance: `/api/posts/${EXAMPLE_POST_ID}`,
+      instance: opts.instance ?? `/api/posts/${EXAMPLE_POST_ID}`,
       retryable: opts.retryable,
       failure_domain: domain,
     }),

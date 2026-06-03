@@ -1,0 +1,21 @@
+name: qaroom-identity
+
+services:
+  postgres:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_USER: qaroom
+      POSTGRES_PASSWORD: qaroom
+      POSTGRES_DB: qaroom_identity
+    ports:
+      - '5433:5432'
+    healthcheck:
+      test: ['CMD-SHELL', 'pg_isready -U qaroom -d qaroom_identity']
+      interval: 2s
+      timeout: 3s
+      retries: 20
+    volumes:
+      - qaroom_identity_pg:/var/lib/postgresql/data
+
+volumes:
+  qaroom_identity_pg:

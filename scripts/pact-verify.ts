@@ -25,7 +25,7 @@ if (!provider) {
 // these means the consumer test never ran or the pact was not committed — NOT that there
 // is genuinely nothing to verify. The gate fails loudly instead of going false-green on a
 // clean CI checkout (the artifact-lifecycle hole a glob-as-broker is otherwise prone to).
-const KNOWN_PROVIDERS = new Set(['content'])
+const KNOWN_PROVIDERS = new Set(['content', 'identity'])
 
 const pactFiles = globSync('services/*/pacts/*.json', { cwd: ROOT }).filter(
   (f) => JSON.parse(readFileSync(resolve(ROOT, f), 'utf8')).provider?.name === provider,

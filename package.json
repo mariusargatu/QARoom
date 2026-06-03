@@ -19,6 +19,7 @@
     "pact:verify": "tsx scripts/pact-verify.ts",
     "test-results:generate": "tsx scripts/aggregate-test-results.ts",
     "test-results:verify": "tsx scripts/test-results-verify.ts",
+    "test-results:report": "tsx scripts/render-test-summary.ts",
     "dev": "docker compose -f services/content/docker-compose.yaml up -d && pnpm --filter @qaroom/content dev",
     "dev:down": "docker compose -f services/content/docker-compose.yaml down"
   },

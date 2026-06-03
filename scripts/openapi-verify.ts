@@ -4,28 +4,33 @@ import { resolve } from 'node:path'
 
 /**
  * Two gates (Commitment 3):
- *   1. Drift — regenerate content-service openapi.yaml from Zod and fail if the
+ *   1. Drift — regenerate each service's openapi.yaml from Zod and fail if the
  *      committed file differs (the round-trip must hold).
  *   2. Breaking changes — run oasdiff (via Docker) and prove it both passes for
  *      identical specs AND fails for a deliberately breaking change (exit crit 3).
  */
 const ROOT = process.cwd()
-const specPath = resolve(ROOT, 'services/content/openapi.yaml')
+const DRIFT_SERVICES = ['content', 'identity'] as const
 
-const before = readFileSync(specPath, 'utf8')
-execFileSync('pnpm', ['--filter', '@qaroom/content', 'openapi:generate'], {
-  cwd: ROOT,
-  stdio: 'inherit',
-})
-const after = readFileSync(specPath, 'utf8')
-
-if (before !== after) {
-  process.stderr.write(
-    'OpenAPI drift: committed services/content/openapi.yaml was stale. It has been regenerated — commit the result.\n',
-  )
-  process.exit(1)
+/** Regenerate one service's OpenAPI and fail if the committed file is stale. */
+function checkDrift(svc: string): void {
+  const specPath = resolve(ROOT, `services/${svc}/openapi.yaml`)
+  const before = readFileSync(specPath, 'utf8')
+  execFileSync('pnpm', ['--filter', `@qaroom/${svc}`, 'openapi:generate'], {
+    cwd: ROOT,
+    stdio: 'inherit',
+  })
+  const after = readFileSync(specPath, 'utf8')
+  if (before !== after) {
+    process.stderr.write(
+      `OpenAPI drift: committed services/${svc}/openapi.yaml was stale. It has been regenerated — commit the result.\n`,
+    )
+    process.exit(1)
+  }
+  process.stdout.write(`openapi drift gate (${svc}): committed spec matches Zod ✓\n`)
 }
-process.stdout.write('openapi drift gate: committed spec matches Zod ✓\n')
+
+for (const svc of DRIFT_SERVICES) checkDrift(svc)
 
 function hasDocker(): boolean {
   try {
