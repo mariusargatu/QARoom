@@ -1,0 +1,697 @@
+{
+  "consumer": {
+    "name": "gateway"
+  },
+  "interactions": [
+    {
+      "description": "a request for a community feed",
+      "pending": false,
+      "providerStates": [
+        {
+          "name": "a post exists",
+          "params": {
+            "author_id": "user_01HZY0K7M3QF8VN2J5RX9TB4CF",
+            "body": "seeded body",
+            "community_id": "comm_01HZY0K7M3QF8VN2J5RX9TB4CD",
+            "id": "post_01HZY0K7M3QF8VN2J5RX9TB4CE",
+            "title": "seeded title"
+          }
+        }
+      ],
+      "request": {
+        "method": "GET",
+        "path": "/api/communities/comm_01HZY0K7M3QF8VN2J5RX9TB4CD/feed"
+      },
+      "response": {
+        "body": {
+          "content": {
+            "as_of": {
+              "lamport": 0,
+              "snapshot_id": "snap_01HZY0K7M3QF8VN2J5RX9TB4CD",
+              "wall_clock": "2026-01-01T00:00:00.000Z"
+            },
+            "community_id": "comm_01HZY0K7M3QF8VN2J5RX9TB4CD",
+            "posts": [
+              {
+                "author_id": "user_01HZY0K7M3QF8VN2J5RX9TB4CF",
+                "body": "seeded body",
+                "community_id": "comm_01HZY0K7M3QF8VN2J5RX9TB4CD",
+                "created_at": "2026-01-01T00:00:00.000Z",
+                "id": "post_01HZY0K7M3QF8VN2J5RX9TB4CE",
+                "score": 0,
+                "title": "seeded title"
+              }
+            ]
+          },
+          "contentType": "application/json",
+          "encoded": false
+        },
+        "headers": {
+          "Content-Type": [
+            "application/json"
+          ]
+        },
+        "matchingRules": {
+          "body": {
+            "$": {
+              "combine": "AND",
+              "matchers": [
+                {
+                  "match": "type"
+                }
+              ]
+            },
+            "$.as_of": {
+              "combine": "AND",
+              "matchers": [
+                {
+                  "match": "type"
+                }
+              ]
+            },
+            "$.as_of.lamport": {
+              "combine": "AND",
+              "matchers": [
+                {
+                  "match": "integer"
+                }
+              ]
+            },
+            "$.as_of.snapshot_id": {
+              "combine": "AND",
+              "matchers": [
+                {
+                  "match": "type"
+                }
+              ]
+            },
+            "$.as_of.wall_clock": {
+              "combine": "AND",
+              "matchers": [
+                {
+                  "match": "regex",
+                  "regex": "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}\\.\\d{3}Z$"
+                }
+              ]
+            },
+            "$.community_id": {
+              "combine": "AND",
+              "matchers": [
+                {
+                  "match": "regex",
+                  "regex": "^comm_[0-9A-HJKMNP-TV-Z]{26}$"
+                }
+              ]
+            },
+            "$.posts": {
+              "combine": "AND",
+              "matchers": [
+                {
+                  "match": "type",
+                  "min": 1
+                }
+              ]
+            },
+            "$.posts[*].author_id": {
+              "combine": "AND",
+              "matchers": [
+                {
+                  "match": "regex",
+                  "regex": "^user_[0-9A-HJKMNP-TV-Z]{26}$"
+                }
+              ]
+            },
+            "$.posts[*].body": {
+              "combine": "AND",
+              "matchers": [
+                {
+                  "match": "type"
+                }
+              ]
+            },
+            "$.posts[*].community_id": {
+              "combine": "AND",
+              "matchers": [
+                {
+                  "match": "regex",
+                  "regex": "^comm_[0-9A-HJKMNP-TV-Z]{26}$"
+                }
+              ]
+            },
+            "$.posts[*].created_at": {
+              "combine": "AND",
+              "matchers": [
+                {
+                  "match": "regex",
+                  "regex": "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}\\.\\d{3}Z$"
+                }
+              ]
+            },
+            "$.posts[*].id": {
+              "combine": "AND",
+              "matchers": [
+                {
+                  "match": "regex",
+                  "regex": "^post_[0-9A-HJKMNP-TV-Z]{26}$"
+                }
+              ]
+            },
+            "$.posts[*].score": {
+              "combine": "AND",
+              "matchers": [
+                {
+                  "match": "integer"
+                }
+              ]
+            },
+            "$.posts[*].title": {
+              "combine": "AND",
+              "matchers": [
+                {
+                  "match": "type"
+                }
+              ]
+            }
+          },
+          "status": {}
+        },
+        "status": 200
+      },
+      "type": "Synchronous/HTTP"
+    },
+    {
+      "description": "a request to create a post",
+      "pending": false,
+      "request": {
+        "body": {
+          "content": {
+            "author_id": "user_01HZY0K7M3QF8VN2J5RX9TB4CF",
+            "body": "hello",
+            "title": "a new post"
+          },
+          "contentType": "application/json",
+          "encoded": false
+        },
+        "headers": {
+          "Content-Type": [
+            "application/json"
+          ],
+          "Idempotency-Key": [
+            "idem-create-1"
+          ],
+          "content-type": [
+            "application/json"
+          ]
+        },
+        "matchingRules": {
+          "body": {},
+          "header": {
+            "Idempotency-Key": {
+              "combine": "AND",
+              "matchers": [
+                {
+                  "match": "type"
+                }
+              ]
+            }
+          }
+        },
+        "method": "POST",
+        "path": "/api/communities/comm_01HZY0K7M3QF8VN2J5RX9TB4CD/posts"
+      },
+      "response": {
+        "body": {
+          "content": {
+            "author_id": "user_01HZY0K7M3QF8VN2J5RX9TB4CF",
+            "body": "seeded body",
+            "community_id": "comm_01HZY0K7M3QF8VN2J5RX9TB4CD",
+            "created_at": "2026-01-01T00:00:00.000Z",
+            "id": "post_01HZY0K7M3QF8VN2J5RX9TB4CE",
+            "score": 0,
+            "title": "seeded title"
+          },
+          "contentType": "application/json",
+          "encoded": false
+        },
+        "headers": {
+          "Content-Type": [
+            "application/json"
+          ]
+        },
+        "matchingRules": {
+          "body": {
+            "$": {
+              "combine": "AND",
+              "matchers": [
+                {
+                  "match": "type"
+                }
+              ]
+            },
+            "$.author_id": {
+              "combine": "AND",
+              "matchers": [
+                {
+                  "match": "regex",
+                  "regex": "^user_[0-9A-HJKMNP-TV-Z]{26}$"
+                }
+              ]
+            },
+            "$.body": {
+              "combine": "AND",
+              "matchers": [
+                {
+                  "match": "type"
+                }
+              ]
+            },
+            "$.community_id": {
+              "combine": "AND",
+              "matchers": [
+                {
+                  "match": "regex",
+                  "regex": "^comm_[0-9A-HJKMNP-TV-Z]{26}$"
+                }
+              ]
+            },
+            "$.created_at": {
+              "combine": "AND",
+              "matchers": [
+                {
+                  "match": "regex",
+                  "regex": "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}\\.\\d{3}Z$"
+                }
+              ]
+            },
+            "$.id": {
+              "combine": "AND",
+              "matchers": [
+                {
+                  "match": "regex",
+                  "regex": "^post_[0-9A-HJKMNP-TV-Z]{26}$"
+                }
+              ]
+            },
+            "$.score": {
+              "combine": "AND",
+              "matchers": [
+                {
+                  "match": "integer"
+                }
+              ]
+            },
+            "$.title": {
+              "combine": "AND",
+              "matchers": [
+                {
+                  "match": "type"
+                }
+              ]
+            }
+          },
+          "status": {}
+        },
+        "status": 201
+      },
+      "type": "Synchronous/HTTP"
+    },
+    {
+      "description": "a request to get a missing post",
+      "pending": false,
+      "providerStates": [
+        {
+          "name": "no such post exists",
+          "params": {
+            "id": "post_01HZY0K7M3QF8VN2J5RX9TB4XX"
+          }
+        }
+      ],
+      "request": {
+        "method": "GET",
+        "path": "/api/posts/post_01HZY0K7M3QF8VN2J5RX9TB4XX"
+      },
+      "response": {
+        "body": {
+          "content": {
+            "failure_domain": "not_found",
+            "next_actions": [
+              {
+                "description": "Browse a community feed to find posts.",
+                "href": "/api/communities/{communityId}/feed",
+                "verb": "GET"
+              }
+            ],
+            "retryable": false,
+            "status": 404,
+            "title": "Post not found",
+            "type": "https://qaroom.dev/errors/post-not-found"
+          },
+          "contentType": "application/json",
+          "encoded": false
+        },
+        "headers": {
+          "Content-Type": [
+            "application/json"
+          ],
+          "content-type": [
+            "application/problem+json"
+          ]
+        },
+        "matchingRules": {
+          "body": {
+            "$": {
+              "combine": "AND",
+              "matchers": [
+                {
+                  "match": "type"
+                }
+              ]
+            },
+            "$.failure_domain": {
+              "combine": "AND",
+              "matchers": [
+                {
+                  "match": "type"
+                }
+              ]
+            },
+            "$.next_actions": {
+              "combine": "AND",
+              "matchers": [
+                {
+                  "match": "type",
+                  "min": 1
+                }
+              ]
+            },
+            "$.next_actions[*].description": {
+              "combine": "AND",
+              "matchers": [
+                {
+                  "match": "type"
+                }
+              ]
+            },
+            "$.next_actions[*].href": {
+              "combine": "AND",
+              "matchers": [
+                {
+                  "match": "type"
+                }
+              ]
+            },
+            "$.next_actions[*].verb": {
+              "combine": "AND",
+              "matchers": [
+                {
+                  "match": "type"
+                }
+              ]
+            },
+            "$.retryable": {
+              "combine": "AND",
+              "matchers": [
+                {
+                  "match": "type"
+                }
+              ]
+            },
+            "$.status": {
+              "combine": "AND",
+              "matchers": [
+                {
+                  "match": "integer"
+                }
+              ]
+            },
+            "$.title": {
+              "combine": "AND",
+              "matchers": [
+                {
+                  "match": "type"
+                }
+              ]
+            },
+            "$.type": {
+              "combine": "AND",
+              "matchers": [
+                {
+                  "match": "type"
+                }
+              ]
+            }
+          },
+          "header": {
+            "content-type": {
+              "combine": "AND",
+              "matchers": [
+                {
+                  "match": "regex",
+                  "regex": "application/problem\\+json.*"
+                }
+              ]
+            }
+          },
+          "status": {}
+        },
+        "status": 404
+      },
+      "type": "Synchronous/HTTP"
+    },
+    {
+      "description": "a request to get an existing post",
+      "pending": false,
+      "providerStates": [
+        {
+          "name": "a post exists",
+          "params": {
+            "author_id": "user_01HZY0K7M3QF8VN2J5RX9TB4CF",
+            "body": "seeded body",
+            "community_id": "comm_01HZY0K7M3QF8VN2J5RX9TB4CD",
+            "id": "post_01HZY0K7M3QF8VN2J5RX9TB4CE",
+            "title": "seeded title"
+          }
+        }
+      ],
+      "request": {
+        "method": "GET",
+        "path": "/api/posts/post_01HZY0K7M3QF8VN2J5RX9TB4CE"
+      },
+      "response": {
+        "body": {
+          "content": {
+            "author_id": "user_01HZY0K7M3QF8VN2J5RX9TB4CF",
+            "body": "seeded body",
+            "community_id": "comm_01HZY0K7M3QF8VN2J5RX9TB4CD",
+            "created_at": "2026-01-01T00:00:00.000Z",
+            "id": "post_01HZY0K7M3QF8VN2J5RX9TB4CE",
+            "score": 0,
+            "title": "seeded title"
+          },
+          "contentType": "application/json",
+          "encoded": false
+        },
+        "headers": {
+          "Content-Type": [
+            "application/json"
+          ]
+        },
+        "matchingRules": {
+          "body": {
+            "$": {
+              "combine": "AND",
+              "matchers": [
+                {
+                  "match": "type"
+                }
+              ]
+            },
+            "$.author_id": {
+              "combine": "AND",
+              "matchers": [
+                {
+                  "match": "regex",
+                  "regex": "^user_[0-9A-HJKMNP-TV-Z]{26}$"
+                }
+              ]
+            },
+            "$.body": {
+              "combine": "AND",
+              "matchers": [
+                {
+                  "match": "type"
+                }
+              ]
+            },
+            "$.community_id": {
+              "combine": "AND",
+              "matchers": [
+                {
+                  "match": "regex",
+                  "regex": "^comm_[0-9A-HJKMNP-TV-Z]{26}$"
+                }
+              ]
+            },
+            "$.created_at": {
+              "combine": "AND",
+              "matchers": [
+                {
+                  "match": "regex",
+                  "regex": "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}\\.\\d{3}Z$"
+                }
+              ]
+            },
+            "$.id": {
+              "combine": "AND",
+              "matchers": [
+                {
+                  "match": "regex",
+                  "regex": "^post_[0-9A-HJKMNP-TV-Z]{26}$"
+                }
+              ]
+            },
+            "$.score": {
+              "combine": "AND",
+              "matchers": [
+                {
+                  "match": "integer"
+                }
+              ]
+            },
+            "$.title": {
+              "combine": "AND",
+              "matchers": [
+                {
+                  "match": "type"
+                }
+              ]
+            }
+          },
+          "status": {}
+        },
+        "status": 200
+      },
+      "type": "Synchronous/HTTP"
+    },
+    {
+      "description": "a request to vote on a post",
+      "pending": false,
+      "providerStates": [
+        {
+          "name": "a post exists",
+          "params": {
+            "author_id": "user_01HZY0K7M3QF8VN2J5RX9TB4CF",
+            "body": "seeded body",
+            "community_id": "comm_01HZY0K7M3QF8VN2J5RX9TB4CD",
+            "id": "post_01HZY0K7M3QF8VN2J5RX9TB4CE",
+            "title": "seeded title"
+          }
+        }
+      ],
+      "request": {
+        "body": {
+          "content": {
+            "value": 1,
+            "voter_id": "user_01HZY0K7M3QF8VN2J5RX9TB4CF"
+          },
+          "contentType": "application/json",
+          "encoded": false
+        },
+        "headers": {
+          "Content-Type": [
+            "application/json"
+          ],
+          "Idempotency-Key": [
+            "idem-vote-1"
+          ],
+          "content-type": [
+            "application/json"
+          ]
+        },
+        "matchingRules": {
+          "body": {},
+          "header": {
+            "Idempotency-Key": {
+              "combine": "AND",
+              "matchers": [
+                {
+                  "match": "type"
+                }
+              ]
+            }
+          }
+        },
+        "method": "POST",
+        "path": "/api/posts/post_01HZY0K7M3QF8VN2J5RX9TB4CE/votes"
+      },
+      "response": {
+        "body": {
+          "content": {
+            "post_id": "post_01HZY0K7M3QF8VN2J5RX9TB4CE",
+            "score": 1,
+            "voter_value": 1
+          },
+          "contentType": "application/json",
+          "encoded": false
+        },
+        "headers": {
+          "Content-Type": [
+            "application/json"
+          ]
+        },
+        "matchingRules": {
+          "body": {
+            "$": {
+              "combine": "AND",
+              "matchers": [
+                {
+                  "match": "type"
+                }
+              ]
+            },
+            "$.post_id": {
+              "combine": "AND",
+              "matchers": [
+                {
+                  "match": "regex",
+                  "regex": "^post_[0-9A-HJKMNP-TV-Z]{26}$"
+                }
+              ]
+            },
+            "$.score": {
+              "combine": "AND",
+              "matchers": [
+                {
+                  "match": "integer"
+                }
+              ]
+            },
+            "$.voter_value": {
+              "combine": "AND",
+              "matchers": [
+                {
+                  "match": "integer"
+                }
+              ]
+            }
+          },
+          "status": {}
+        },
+        "status": 200
+      },
+      "type": "Synchronous/HTTP"
+    }
+  ],
+  "metadata": {
+    "pactRust": {
+      "ffi": "0.4.22",
+      "models": "1.2.3"
+    },
+    "pactSpecification": {
+      "version": "4.0"
+    }
+  },
+  "provider": {
+    "name": "content"
+  }
+}
