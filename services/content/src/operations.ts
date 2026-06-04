@@ -22,6 +22,19 @@ const badRequest = (description: string) =>
 const postNotFound = problemResponse(404, 'post-not-found', 'Post not found', 'not_found', {
   description: 'No post with that id exists.',
 })
+// EvoMaster (Milestone 8, black-box search) found this 409 was returned by the withIdempotency
+// wrapper but never declared in the spec (fault type 101). Declaring it closes the impl/spec drift;
+// every mutating endpoint can return it. See docs/adr/0016-testing-your-tests.md.
+const idempotencyConflict = problemResponse(
+  409,
+  'idempotency-key-conflict',
+  'Idempotency-Key reused with a different body',
+  'conflict',
+  {
+    description: 'The Idempotency-Key was already used for a request with a different body.',
+    retryable: false,
+  },
+)
 
 export const OPERATIONS: readonly OasOperation[] = [
   {
@@ -55,6 +68,7 @@ export const OPERATIONS: readonly OasOperation[] = [
         },
       },
       badRequest('The request body or headers failed validation.'),
+      idempotencyConflict,
     ],
   },
   {
@@ -115,6 +129,7 @@ export const OPERATIONS: readonly OasOperation[] = [
       },
       postNotFound,
       badRequest('The request body or headers failed validation.'),
+      idempotencyConflict,
     ],
   },
   {

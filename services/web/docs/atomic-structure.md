@@ -37,9 +37,10 @@ hex literals — so a theme is a token remap, not a component rewrite.
 
 - **Stories** feed Storybook autodocs + `addon-a11y` + a `play()` interaction test (run headlessly
   via `@storybook/addon-vitest`, M8), and are READ (via `composeStories`) by the Playwright CTs,
-  which **mount the raw component spread with `story.args`** through the `mountStory` helper
-  (`src/test-support/mount-story.ts`) — a `composeStories()` result cannot be `mount()`-ed (the
-  Node↔browser split; ADR-0005), and the `qaroom/no-mount-composed-story` lint rule enforces it.
+  which **mount the raw component spread as static JSX** `mount(<Component {...story.args} />)` (then
+  await the `readyFonts` helper, `src/test-support/ready-fonts.ts`) — a `composeStories()` result
+  cannot be `mount()`-ed, nor can a runtime `createElement` (the Node↔browser split; ADR-0005), and
+  the `qaroom/no-mount-composed-story` lint rule enforces it.
 - **Screenplay** (`@qaroom/testing-utils/screenplay`) Tasks/Questions touch the browser only
   through `actor.withPageProvider().getPage()`, so the same `advanceRollout` / `theFlagState`
   source runs as an E2E test (`BrowseTheWeb`) and a component test. The CT→Actor bridge is

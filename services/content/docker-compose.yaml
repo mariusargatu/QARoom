@@ -15,7 +15,22 @@ services:
       timeout: 3s
       retries: 20
     volumes:
-      - qaroom_content_pg:/var/lib/postgresql/data
+      - qaroom_content_pg:/var/lib/postgresql
+
+  # JetStream broker for the transactional-outbox relay (Commitment 17). content-service connects at
+  # boot and exits if it is absent, so it ships here with PG. `-alpine` carries wget for the healthcheck
+  # (the default image is too minimal); `-m 8222` exposes the monitoring endpoint /healthz reads.
+  nats:
+    image: nats:2-alpine
+    command: ['-js', '-m', '8222']
+    ports:
+      - '4222:4222'
+      - '8222:8222'
+    healthcheck:
+      test: ['CMD', 'wget', '--spider', '-q', 'http://localhost:8222/healthz']
+      interval: 2s
+      timeout: 3s
+      retries: 15
 
 volumes:
   qaroom_content_pg:

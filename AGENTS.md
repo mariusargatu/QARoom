@@ -1,6 +1,6 @@
 # AGENTS.md
 
-You are working on **QARoom**, a multi-tenant social platform built to demonstrate testing-driven architecture. This file is your quick reference. Read it first, then read the docs in `docs/` in numbered order. Per-package conventions live in each package's own `AGENTS.md` (loaded as you navigate there) — keep this root file lean. *Reviewed through Milestone 5.*
+You are working on **QARoom**, a multi-tenant social platform built to demonstrate testing-driven architecture. This file is your quick reference. Read it first, then read the docs in `docs/` in numbered order. Per-package conventions live in each package's own `AGENTS.md` (loaded as you navigate there) — keep this root file lean. *Reviewed through Milestone 8.*
 
 ## Commands
 
@@ -35,6 +35,15 @@ pnpm dev:down     # tilt down + k3d cluster delete
 # scoped scenario replay (Milestone 7 onwards)
 pnpm replay:capture <scenario-name>
 pnpm replay:load <scenario-name>
+
+# testing-the-tests (Milestone 8 onwards)
+pnpm k6:gen                                   # project SLO_TARGETS → load-tests thresholds
+pnpm k6:results                               # fold a k6 load run into summary.json
+pnpm stryker:critical && pnpm stryker:results # mutation testing on the docs/03 §11 modules
+pnpm evomaster && pnpm evomaster:results      # EvoMaster v6 black-box fuzzing (needs Java + live content)
+pnpm --filter @qaroom/web test:stories        # Storybook play() + a11y, headless (Chromium)
+pnpm --filter @qaroom/web ct                  # Playwright Component Tests
+pnpm --filter @qaroom/web coverage:merge      # unified V8 (Vitest) + Istanbul (CT) coverage
 ```
 
 ## Code intelligence
@@ -119,7 +128,7 @@ QARoom is built across 10 milestones. The current milestone determines what serv
 | 5 | flags-service, donations-service, web frontend, XState, MBT, reverse-conformance via OTel + Tracetest, Microcks, WebSocket push (JWT-via-subprotocol auth) + polling parity, Screenplay foundation | Chaos, scenario replay, agent |
 | 6 | Chaos Mesh, Litmus, chaos experiments (chaos manifests captured into snapshot for replay), failure-modes.md | Scenario replay, agent |
 | 7 | qaroom-replay CLI, /system/snapshot endpoints with versioned bundle manifest, regression catalog | Agent |
-| 8 | k6 vs SLOs, Stryker, EvoMaster v3 (if spike passed) or Schemathesis stateful-links, Storybook + component tests | Agent |
+| 8 | k6 vs SLOs, Stryker mutation (docs/03 §11 modules), EvoMaster v6 black-box (M0 spike passed), Storybook 10 + Vitest 4 + Playwright CT + unified coverage, ADR-0016 | Agent |
 | 9 | moderator-agent (Python, LangGraph), Promptfoo (OpenAI provider), metamorphic tests | — |
 
 Always check the current milestone before introducing infrastructure that doesn't yet exist. The roadmap in `docs/04-roadmap.md` has full exit criteria per milestone.

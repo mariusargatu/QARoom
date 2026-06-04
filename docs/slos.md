@@ -18,7 +18,7 @@ milestone.
 | `POST /api/communities/{id}/posts` | 50 / 200 / 500 ms | < 0.5% | 99% |
 | `GET /api/communities/{id}/feed` | 30 / 100 / 300 ms | < 0.1% | 99% |
 | `POST /api/posts/{id}/votes` | 40 / 150 / 400 ms | < 1% | 99% |
-| `POST /api/donations` | 200 / 800 / 2000 ms | < 1% | 99% |
+| `POST /api/communities/{id}/donations` | 200 / 800 / 2000 ms | < 1% | 99% |
 | `GET /system/state` | 20 / 80 / 200 ms | < 0.1% | 99% |
 | `GET /system/snapshot` | unbounded | < 1% | best-effort |
 

@@ -29,10 +29,12 @@ Tailwind 4 CSS-first `@theme` block — no `tailwind.config.js`, no hex literals
 - **Storybook** — every atom/molecule/organism has a story (the source of truth); `addon-a11y`.
   One `play()` (`RolloutStepper.stories.tsx`) is the example headless interaction test, run via
   `@storybook/addon-vitest` (M8; browser-required, no dangling script shipped).
-- **Playwright CT** (`.ct.tsx`) — mounts the **raw component spread with `story.args`** via the
-  `mountStory` helper (`src/test-support/mount-story.ts`); reads args with `composeStories`, never
-  `mount()`s the composed story — enforced by the `qaroom/no-mount-composed-story` lint rule
-  (ADR-0005). `RolloutPanel.ct.tsx` is the single canonical example; more land in M8.
+- **Playwright CT** (`.ct.tsx`) — mounts the **raw component spread as static JSX**
+  `mount(<Component {...story.args} />)` (a runtime `createElement` is rejected by CT); reads args
+  with `composeStories`, never `mount()`s the composed story — enforced by the
+  `qaroom/no-mount-composed-story` lint rule (ADR-0005). The `readyFonts` helper
+  (`src/test-support/ready-fonts.ts`) awaits `document.fonts.ready` for stable visuals.
+  `RolloutPanel.ct.tsx`/`Button.ct.tsx`/`DonationForm.ct.tsx` are the examples.
 - **MBT E2E** (`tests/e2e/`) — Screenplay flows generated from the rollout model; the SAME Tasks
   (`advanceRollout`/`theFlagState`) run in CT via `createComponentActor`
   (`@qaroom/testing-utils/screenplay-ct` → `InteractWithComponent`) and E2E via `BrowseTheWeb`,
@@ -58,6 +60,10 @@ pnpm --filter @qaroom/web coverage:merge # monocart: merge Vitest V8 + CT Istanb
 
 ## Stack note
 
-The pinned target is ADR-0005 (Storybook 10 / Playwright 1.60 / Vitest 4 / Tailwind 4). This
-package resolves to the latest installable equivalents in the build environment (Storybook 9 /
-Playwright 1.60 / Vitest 3 / Tailwind 4 / React 19 / Vite 6); the patterns are identical.
+The ADR-0005 stack is installed (Milestone 8): Storybook 10.4 / Vitest 4.1 (`projects`, not
+`workspace`) / Playwright 1.60 (CT, pinned) / `@vitest/browser-playwright` 4.1 / Tailwind 4.3 /
+React 19 / Vite 7 (capped by Playwright CT) / `@vitejs/plugin-react` 5.2. Tests split into the
+`unit` Vitest project (`pnpm test`, node), the headless `storybook` project (`pnpm test:stories`,
+real Chromium — play() + addon-a11y, which is set to FAIL on a violation), and Playwright CT
+(`pnpm ct`). See ADR-0005 "Implementation notes (Milestone 8)" for the upgrade corrections
+(provider `playwright()`, no manual `vitest.setup.ts`, static-JSX CT mounts).

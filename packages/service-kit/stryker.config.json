@@ -1,0 +1,16 @@
+{
+  "$schema": "./node_modules/@stryker-mutator/core/schema/stryker-schema.json",
+  "governance_comment": "Critical-modules list is GOVERNED in docs/03-testing-strategy.md §11 — adding a module is an ADR, removing requires a retrospective.",
+  "packageManager": "pnpm",
+  "testRunner": "vitest",
+  "plugins": ["@stryker-mutator/vitest-runner"],
+  "vitest": { "configFile": "vitest.stryker.config.ts" },
+  "mutate": ["src/problem.ts"],
+  "ignoreStatic": true,
+  "inPlace": true,
+  "tempDirName": ".stryker-tmp",
+  "reporters": ["json", "clear-text"],
+  "jsonReporter": { "fileName": "../../test-results/stryker-service-kit.json" },
+  "break_comment": "problem.ts is RFC 7807 envelope CONSTRUCTION — much of it is literal slug/title/detail/next_actions data passed to makeProblem, so a large share of mutants are low-value string edits the handler tests do not (and need not) assert. The break is a ratcheting FLOOR over the current behavioural-coverage baseline, not a 100% target; raise it as detail assertions are added. The behavioural logic (clientFaultStatus 4xx/5xx routing, status/header mapping) is covered.",
+  "thresholds": { "high": 70, "low": 50, "break": 45 }
+}

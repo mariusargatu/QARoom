@@ -17,6 +17,9 @@ export default [
       '**/*.gen.ts',
       '**/openapi.yaml',
       '**/migrations/**',
+      // EvoMaster-generated black-box test suites (Milestone 8): `// @generated`, JS_JEST output,
+      // regenerated each nightly run — review artifacts, never hand-edited, line-limit exempt.
+      '**/evomaster-generated/**',
     ],
   },
   // Production source: determinism + structural rules. Tests excluded (see next block).
@@ -47,7 +50,10 @@ export default [
     files: [
       'packages/determinism/src/production/**/*.ts',
       'packages/testing-utils/src/determinism/**/*.ts',
+      // Build/CI scripts are tooling, not the deterministic runtime — at the repo root and inside any
+      // package (e.g. services/web/scripts/ct-results.ts merging coverage into summary.json).
       'scripts/**/*.ts',
+      '**/scripts/**/*.ts',
     ],
     rules: {
       'qaroom/no-new-date': 'off',
@@ -89,6 +95,21 @@ export default [
     plugins: { qaroom },
     rules: {
       'qaroom/no-mount-composed-story': 'error',
+    },
+  },
+  // k6 load scripts (Milestone 8): plain ESM .js with goja globals. The determinism guardrails apply
+  // here too — k6 scripts must not reach for raw Date/Math.random (use __VU/__ITER for variation).
+  {
+    files: ['load-tests/**/*.js'],
+    languageOptions: {
+      ecmaVersion: 2023,
+      sourceType: 'module',
+      globals: { __ENV: 'readonly', __VU: 'readonly', __ITER: 'readonly', open: 'readonly' },
+    },
+    plugins: { qaroom },
+    rules: {
+      'qaroom/no-new-date': 'error',
+      'qaroom/no-unseeded-random': 'error',
     },
   },
 ]

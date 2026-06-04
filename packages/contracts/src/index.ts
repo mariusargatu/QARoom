@@ -139,6 +139,8 @@ export {
   Jwks,
   MembershipClaim,
 } from './session'
+export type { LatencyTargetMs, SloKey, SloTarget } from './slos'
+export { K6_ENDPOINTS, SLO_TARGETS } from './slos'
 export type { SnapshotStore, SnapshotTables } from './snapshot'
 export {
   ServiceSnapshot,

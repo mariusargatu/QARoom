@@ -57,3 +57,47 @@ describe('rate limiter (property)', () => {
     expect(b.allowed).toBe(true)
   })
 })
+
+// The /system/limits route exposes remaining / secondsToFull / retryAfterSec verbatim, so each
+// numeric field needs an exact assertion (the property suite above only checks booleans/invariants).
+describe('rate limiter decision fields (exact values)', () => {
+  it('remaining is the floor of the tokens left after each consume', () => {
+    const limiter = new RateLimiter(new FakeClock(FROZEN), { capacity: 3, refillPerSec: 0 })
+    expect(limiter.consume('p').remaining).toBe(2)
+    expect(limiter.consume('p').remaining).toBe(1)
+    expect(limiter.consume('p').remaining).toBe(0)
+  })
+
+  it('secondsToFull is ceil(token deficit / refill rate)', () => {
+    const limiter = new RateLimiter(new FakeClock(FROZEN), { capacity: 10, refillPerSec: 3 })
+    Array.from({ length: 10 }, () => limiter.consume('p'))
+    const decision = limiter.peek('p')
+    expect(decision.secondsToFull).toBe(4) // ceil(10 / 3)
+    expect(decision.allowed).toBe(true) // peek never denies
+    expect(decision.retryAfterSec).toBe(0) // peek is not a denied consume
+  })
+
+  it('secondsToFull and retryAfterSec are zero when refill is disabled', () => {
+    const limiter = new RateLimiter(new FakeClock(FROZEN), { capacity: 1, refillPerSec: 0 })
+    limiter.consume('p')
+    const denied = limiter.consume('p')
+    expect(denied.allowed).toBe(false)
+    expect(denied.secondsToFull).toBe(0)
+    expect(denied.retryAfterSec).toBe(0)
+  })
+
+  it('refill caps tokens at capacity even after a long idle period', () => {
+    const clock = new FakeClock(FROZEN)
+    const limiter = new RateLimiter(clock, { capacity: 2, refillPerSec: 5 })
+    limiter.consume('p')
+    limiter.consume('p')
+    clock.advance(10_000) // far more than enough to overfill
+    expect(limiter.peek('p').remaining).toBe(2) // capped, not 2 + 50
+  })
+
+  it('peek does not consume a token', () => {
+    const limiter = new RateLimiter(new FakeClock(FROZEN), { capacity: 2, refillPerSec: 0 })
+    limiter.peek('p')
+    expect(limiter.consume('p').remaining).toBe(1)
+  })
+})

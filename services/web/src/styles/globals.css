@@ -18,6 +18,7 @@
   --color-primary-fg: var(--c-primary-fg);
   --color-success: var(--c-success);
   --color-danger: var(--c-danger);
+  --color-danger-solid: var(--c-danger-solid);
   --color-warning: var(--c-warning);
 }
 
@@ -31,7 +32,10 @@
   --c-primary: #5b8cff;
   --c-primary-fg: #0b0e14;
   --c-success: #3fb950;
-  --c-danger: #f85149;
+  /* danger = bright accent for text/icons on subtle (`bg-danger/15`) surfaces; danger-solid = dark
+   * fill for solid buttons with white text. Split to satisfy WCAG AA both ways (M8 a11y gate). */
+  --c-danger: #ff8079;
+  --c-danger-solid: #b32b29;
   --c-warning: #d29922;
 }
 
@@ -45,7 +49,10 @@
   --c-primary: #2f6feb;
   --c-primary-fg: #ffffff;
   --c-success: #1a7f37;
-  --c-danger: #cf222e;
+  /* danger (accent text on `bg-danger/15`) darkened to clear WCAG AA 4.5:1 over the light surface;
+   * danger-solid stays for white-text fills (Button danger). */
+  --c-danger: #c01c28;
+  --c-danger-solid: #cf222e;
   --c-warning: #9a6700;
 }
 

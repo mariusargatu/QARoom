@@ -15,7 +15,7 @@ services:
       timeout: 3s
       retries: 20
     volumes:
-      - qaroom_identity_pg:/var/lib/postgresql/data
+      - qaroom_identity_pg:/var/lib/postgresql
 
 volumes:
   qaroom_identity_pg:

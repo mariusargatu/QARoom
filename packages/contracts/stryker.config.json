@@ -1,0 +1,16 @@
+{
+  "$schema": "./node_modules/@stryker-mutator/core/schema/stryker-schema.json",
+  "governance_comment": "Critical-modules list is GOVERNED in docs/03-testing-strategy.md §11 — adding a module is an ADR, removing requires a retrospective. Do not edit the scope here without that.",
+  "packageManager": "pnpm",
+  "testRunner": "vitest",
+  "plugins": ["@stryker-mutator/vitest-runner"],
+  "vitest": { "configFile": "vitest.stryker.config.ts" },
+  "mutate": ["src/lamport.ts", "src/ids.ts"],
+  "ignoreStatic_comment": "Mutation targets RUNTIME logic. ids.ts is module-load static initialisation (branded-id factories + Zod metadata); its guard is ids.test.ts accept/reject + the brandedIdPattern drift test, not mutation — so static-only mutants are ignored (they report n/a).",
+  "ignoreStatic": true,
+  "inPlace": true,
+  "tempDirName": ".stryker-tmp",
+  "reporters": ["json", "clear-text"],
+  "jsonReporter": { "fileName": "../../test-results/stryker-contracts.json" },
+  "thresholds": { "high": 90, "low": 80, "break": 80 }
+}

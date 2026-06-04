@@ -1,0 +1,17 @@
+{
+  "$schema": "./node_modules/@stryker-mutator/core/schema/stryker-schema.json",
+  "governance_comment": "Critical-modules list is GOVERNED in docs/03-testing-strategy.md §11 — adding a module is an ADR, removing requires a retrospective.",
+  "packageManager": "pnpm",
+  "testRunner": "vitest",
+  "plugins": ["@stryker-mutator/vitest-runner"],
+  "vitest": { "configFile": "vitest.stryker.config.ts" },
+  "mutate": ["src/repository.ts"],
+  "ignoreStatic": true,
+  "inPlace": true,
+  "tempDirName": ".stryker-tmp",
+  "timeoutMS": 30000,
+  "reporters": ["json", "clear-text"],
+  "break_comment": "repository.ts also has outbox/payment paths covered only by the Testcontainers consumer specs (excluded from the fast Stryker suite), so those mutants are NoCoverage here. break is a floor over the gate+idempotency baseline.",
+  "jsonReporter": { "fileName": "../../test-results/stryker-donations.json" },
+  "thresholds": { "high": 80, "low": 50, "break": 60 }
+}

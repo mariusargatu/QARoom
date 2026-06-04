@@ -13,4 +13,8 @@ export const TESTID = {
   donationSubmit: 'donation-submit',
   donationList: 'donation-list',
   notificationFeed: 'notification-feed',
+  /** The atom under test in the Milestone-8 broken-atom component test. */
+  buttonUnderTest: 'button-under-test',
+  /** A visible counter the broken-atom Question reads to confirm the click dispatched. */
+  buttonClickCount: 'button-click-count',
 } as const

@@ -20,6 +20,7 @@ import { schema } from '../src/db/schema'
  *   2. full-state-fidelity — posts + votes round-trip exactly (state counts, feed, lamport).
  *   3. empty-restore — restoring an empty capture wipes a dirtied DB (truncation works).
  *   4. plumbing-reset — restore clears the idempotency cache so a reused env serves no stale reply.
+ *   5. evomaster-idempotency-conflict — a black-box-fuzzing find (M8) reified deterministically.
  */
 const COMMUNITY = EXAMPLE_COMMUNITY_ID
 const AUTHOR = EXAMPLE_USER_ID
@@ -137,6 +138,41 @@ async function scenarioEmptyRestore(): Promise<void> {
   assert.equal(state.models.posts.count, 0, 'restoring an empty snapshot truncates the DB')
 }
 
+async function scenarioEvomasterIdempotencyConflict(): Promise<void> {
+  // EvoMaster v6 (black-box search, Milestone 8) reused an Idempotency-Key with a DIFFERENT body on
+  // createPost and hit a 409 the OpenAPI spec did not declare (fault type 101 — undocumented response
+  // status). Schemathesis never reaches this: it sends a single static key, so the conflict branch is
+  // invisible to schema-driven fuzzing. Reified here as a deterministic regression — same key + a
+  // different body must return the RFC 7807 conflict envelope. Provenance:
+  // services/content/tests/evomaster-generated/EvoMaster_faults_Test.js (regenerated each nightly run).
+  await clearDomain()
+  const key = 'evomaster-conflict'
+  const first = await request.post(
+    `/api/communities/${COMMUNITY}/posts`,
+    { author_id: AUTHOR, title: 'Why deterministic clocks matter', body: 'A short note.' },
+    { 'idempotency-key': key },
+  )
+  assert.equal(first.status, 201, `first create should be 201, got ${first.status}`)
+  const conflict = await request.post(
+    `/api/communities/${COMMUNITY}/posts`,
+    { author_id: AUTHOR, title: 'A different title', body: 'A different body.' },
+    { 'idempotency-key': key },
+  )
+  assert.equal(
+    conflict.status,
+    409,
+    `reused key + different body should be 409, got ${conflict.status}`,
+  )
+  const problem = conflict.json as { type: string; failure_domain: string; retryable: boolean }
+  assert.equal(problem.failure_domain, 'conflict', 'failure_domain is conflict')
+  assert.equal(
+    problem.type,
+    'https://qaroom.dev/errors/idempotency-key-conflict',
+    'carries the RFC 7807 conflict type',
+  )
+  assert.equal(problem.retryable, false, 'an idempotency conflict is not retryable')
+}
+
 let failed = false
 try {
   await scenarioFeedOrderBug()
@@ -149,6 +185,10 @@ try {
   process.stdout.write('✓ scenario 3 empty-restore: restoring an empty capture wipes the DB\n')
   await scenarioPlumbingReset()
   process.stdout.write('✓ scenario 4 plumbing-reset: restore clears the idempotency cache\n')
+  await scenarioEvomasterIdempotencyConflict()
+  process.stdout.write(
+    '✓ scenario 5 evomaster-idempotency-conflict: reused key + different body → RFC 7807 409\n',
+  )
 } catch (err) {
   failed = true
   process.stderr.write(`✗ snapshot-replay regression failed: ${String(err)}\n`)

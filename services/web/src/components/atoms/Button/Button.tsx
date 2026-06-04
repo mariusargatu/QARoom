@@ -9,7 +9,7 @@ export interface ButtonProps extends ButtonHTMLAttributes<HTMLButtonElement> {
 const VARIANT: Record<ButtonVariant, string> = {
   primary: 'bg-primary text-primary-fg hover:opacity-90',
   ghost: 'bg-transparent text-text border border-border hover:bg-elevated',
-  danger: 'bg-danger text-white hover:opacity-90',
+  danger: 'bg-danger-solid text-white hover:opacity-90',
 }
 
 /** Atom: a button styled exclusively through semantic tokens. forwardRef + displayName (ADR-0005). */

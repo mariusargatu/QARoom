@@ -98,6 +98,176 @@ jobs:
       - name: Schemathesis gate (identity)
         run: bash scripts/schemathesis-gate.sh services/identity http://host.docker.internal:8082
 
+  # Load testing vs SLOs (Milestone 8, merge-to-main lane — exceeds the PR-fast budget, docs/03 §8).
+  # Brings up content-service (mirroring `fuzz`), runs the k6 write-heavy + read-heavy scripts against
+  # the documented SLOs, then PROVES the gate is sensitive: a deliberate slow path
+  # (CONTENT_BUG_VOTE_SLOW_MS) must breach the vote SLO and make k6 exit 99. K6_SLO_MULTIPLIER widens
+  # the clean-run thresholds to absorb shared-runner variance; the negative test is the hard proof.
+  load:
+    if: github.event_name == 'push' || github.event_name == 'schedule'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: ./.github/actions/setup-workspace
+      - name: Start Postgres + NATS (compose waits for both healthchecks)
+        run: docker compose -f services/content/docker-compose.yaml up -d --wait
+      - name: Generate k6 thresholds from SLO_TARGETS (and fail on drift vs committed)
+        run: |
+          pnpm k6:gen
+          git diff --exit-code load-tests/lib/slo-thresholds.gen.json
+      - name: Start content-service
+        run: |
+          DATABASE_URL=postgres://qaroom:qaroom@localhost:5432/qaroom_content \
+            NATS_URL=nats://localhost:4222 PORT=8081 \
+            pnpm --filter @qaroom/content exec tsx src/server.ts &
+          for i in $(seq 1 30); do curl -fs http://localhost:8081/system/state && break || sleep 1; done
+      - name: k6 — vote casting + feed (clean run must pass)
+        run: |
+          mkdir -p test-results
+          for script in vote-cast feed; do
+            docker run --rm --network host --user "$(id -u):$(id -g)" -v "$PWD":/work -w /work \
+              grafana/k6 run "load-tests/$script.js" \
+              -e CONTENT_BASE_URL=http://localhost:8081 -e K6_SLO_MULTIPLIER=3
+          done
+      - name: Fold the clean k6 results into summary.json
+        run: pnpm k6:results
+      - name: Negative test — a deliberate slow path must breach the vote SLO (k6 exit 99)
+        run: |
+          # Stop the clean server by its real process (pnpm's $! is only the wrapper) and wait for
+          # the port to free before relaunching with the slow-path toggle, so k6 measures the SLOW
+          # server — not the clean one still holding :8081.
+          pkill -f 'tsx src/server.ts' || true
+          for i in $(seq 1 15); do curl -fs http://localhost:8081/system/state >/dev/null 2>&1 || break; sleep 1; done
+          DATABASE_URL=postgres://qaroom:qaroom@localhost:5432/qaroom_content \
+            NATS_URL=nats://localhost:4222 PORT=8081 CONTENT_BUG_VOTE_SLOW_MS=800 \
+            pnpm --filter @qaroom/content exec tsx src/server.ts &
+          for i in $(seq 1 30); do curl -fs http://localhost:8081/system/state && break || sleep 1; done
+          set +e
+          docker run --rm --network host --user "$(id -u):$(id -g)" -v "$PWD":/work -w /work \
+            grafana/k6 run load-tests/vote-cast.js \
+            -e CONTENT_BASE_URL=http://localhost:8081 -e K6_SLO_MULTIPLIER=3
+          code=$?
+          set -e
+          if [ "$code" -ne 99 ]; then
+            echo "ERROR: expected k6 exit 99 (SLO threshold breach), got $code"; exit 1
+          fi
+          echo "✓ slow path correctly breached the vote SLO (k6 exit 99)"
+      - name: Upload k6 summary
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: k6-summary
+          path: test-results/summary.json
+          if-no-files-found: warn
+
+  # Mutation testing on the locked critical-modules list (docs/03 §11, ADR-0016). Nightly — Stryker
+  # re-runs each module's suite per mutant, far exceeding the PR-fast budget. The fast tier (pure
+  # logic + in-process pglite) needs no cluster; each package enforces its own thresholds.break.
+  mutation:
+    if: github.event_name == 'schedule'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: ./.github/actions/setup-workspace
+      - name: Stryker on the critical modules
+        run: pnpm stryker:critical
+      - name: Merge mutation results into summary.json
+        if: always()
+        run: pnpm stryker:results || true
+      - name: Upload mutation summary
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: mutation-summary
+          path: test-results/summary.json
+          if-no-files-found: warn
+
+  # Search-based fuzzing (EvoMaster v6 black-box, ADR-0016). Nightly — the search budget far exceeds
+  # the PR-fast window. Brings up content (mirroring `fuzz`), runs EvoMaster from the committed OAS,
+  # and gates DETERMINISTICALLY on "ran + emitted ≥1 test file" (never the stochastic fault count).
+  # Findings are hand-reified into the regression catalog (scenario 5); raw output is a disposable
+  # artifact. The jar is cached by version; the M0 spike validated EvoMaster against TS Fastify.
+  evomaster:
+    if: github.event_name == 'schedule'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: ./.github/actions/setup-workspace
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+      - name: Cache the EvoMaster v6.0.0 jar
+        uses: actions/cache@v4
+        with:
+          path: .evomaster/evomaster.jar
+          key: evomaster-jar-v6.0.0
+      - name: Start Postgres + NATS (compose waits for both healthchecks)
+        run: docker compose -f services/content/docker-compose.yaml up -d --wait
+      - name: Start content-service
+        run: |
+          DATABASE_URL=postgres://qaroom:qaroom@localhost:5432/qaroom_content \
+            NATS_URL=nats://localhost:4222 PORT=8081 \
+            pnpm --filter @qaroom/content exec tsx src/server.ts &
+          for i in $(seq 1 30); do curl -fs http://localhost:8081/system/state && break || sleep 1; done
+      - name: EvoMaster black-box search
+        run: pnpm evomaster
+      - name: Gate — ran and emitted ≥1 test file; merge into summary.json
+        if: always()
+        run: pnpm evomaster:results
+      - name: Upload EvoMaster output + summary
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: evomaster-output
+          path: |
+            services/content/tests/evomaster-generated
+            test-results/summary.json
+          if-no-files-found: warn
+
+  # Storybook portable stories headless (Milestone 8, ADR-0005): every story's play() + addon-a11y
+  # run in real Chromium via the @storybook/addon-vitest Vitest runner. Per-PR — fast enough, and it
+  # catches the broken-atom regression early (a11y is set to fail, parameters.a11y.test: 'error').
+  web-stories:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: ./.github/actions/setup-workspace
+      - name: Install Chromium
+        run: pnpm --filter @qaroom/web exec playwright install --with-deps chromium
+      - name: Storybook stories (play + a11y, headless)
+        run: pnpm --filter @qaroom/web run test:stories
+
+  # Playwright Component Tests + unified coverage (Milestone 8). Heavier (real Chromium per mount +
+  # the V8↔Istanbul coverage merge), so push-gated like cluster-smoke/tracetest. Folds a `web-ct`
+  # runner into summary.json (scripts/ct-results.ts).
+  web-ct:
+    if: github.event_name == 'push'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: ./.github/actions/setup-workspace
+      - name: Install Chromium
+        run: pnpm --filter @qaroom/web exec playwright install --with-deps chromium
+      - name: Component tests with coverage (Istanbul)
+        run: pnpm --filter @qaroom/web run ct:coverage
+      - name: Story coverage (V8)
+        run: pnpm --filter @qaroom/web run test:stories:coverage
+      - name: Merge V8 + Istanbul coverage (monocart)
+        run: pnpm --filter @qaroom/web run coverage:merge
+      - name: Fold web-ct runner into summary.json
+        if: always()
+        run: pnpm --filter @qaroom/web run ct:results
+      - name: Upload merged web coverage + summary
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: web-coverage
+          path: |
+            services/web/coverage/merged
+            test-results/summary.json
+          if-no-files-found: warn
+
   # Cheap per-PR gate: the shared Helm chart + observability manifests lint and validate
   # against the Kubernetes schemas (kubeconform) — catches malformed manifests in seconds.
   chart:

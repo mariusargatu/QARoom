@@ -1,6 +1,6 @@
-import { existsSync, readFileSync, writeFileSync } from 'node:fs'
+import { existsSync, readFileSync } from 'node:fs'
 import { resolve } from 'node:path'
-import { TestResultsSummary } from '@qaroom/contracts'
+import { foldRunner } from './lib/fold-runner'
 
 /**
  * Fold the chaos vitest run (test-results/chaos.json) into the frozen
@@ -47,22 +47,7 @@ const chaosRunner = {
   },
 }
 
-const base = existsSync(summaryPath)
-  ? JSON.parse(readFileSync(summaryPath, 'utf8'))
-  : { schema_version: 1, generated_at: new Date().toISOString(), totals: {}, runners: [] }
-
-const runners = [...base.runners.filter((r: { name: string }) => r.name !== 'chaos'), chaosRunner]
-const totals = runners.reduce(
-  (acc: { passed: number; failed: number; skipped: number }, r: typeof chaosRunner) => ({
-    passed: acc.passed + r.passed,
-    failed: acc.failed + r.failed,
-    skipped: acc.skipped + r.skipped,
-  }),
-  { passed: 0, failed: 0, skipped: 0 },
-)
-
-const summary = TestResultsSummary.parse({ ...base, totals, runners })
-writeFileSync(summaryPath, `${JSON.stringify(summary, null, 2)}\n`)
+foldRunner(summaryPath, chaosRunner)
 process.stdout.write(
   `merged chaos runner into summary.json — ${chaosRunner.passed} passed, ${chaosRunner.failed} failed\n`,
 )

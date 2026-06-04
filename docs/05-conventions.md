@@ -316,7 +316,7 @@ These are bugs, not stylistic issues. Each is enforced by lint where possible.
 - Hidden retries inside service-to-service clients. Retries belong at the call site and are configured per call.
 - "Magic" abstractions: framework decorators that hide what would otherwise be explicit code paths.
 - Any file longer than 500 lines, including tests. Caught by lint. Two exceptions:
-  - Generated artifacts marked `// @generated` (OpenAPI YAML, Drizzle migration scaffolds, code emitted by build scripts) are exempt and counted against a separate, untracked budget.
+  - Generated artifacts marked `// @generated` (OpenAPI YAML, Drizzle migration scaffolds, code emitted by build scripts, and EvoMaster black-box suites under `services/*/tests/evomaster-generated/`) are exempt and counted against a separate, untracked budget. The EvoMaster output is also gitignored and lint-ignored — a disposable nightly review artifact, never hand-edited (Milestone 8, ADR-0016).
   - Hand-authored files may exceed via a `// biome-ignore lint/style/maxFileLength` comment with a tracking issue. The baseline is 500; the threshold may be raised later when concrete examples justify it.
 - Barrel exports (`index.ts` that re-exports many modules) for non-public APIs.
 - Untyped JSON in NATS event payloads. Every event has a Zod schema and a name.

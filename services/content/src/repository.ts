@@ -128,6 +128,12 @@ export async function castVote(
   voterId: string,
   value: number,
 ): Promise<number | null> {
+  // Deliberate SLO-regression toggle (Milestone-8 k6 exit criterion): when set, injects a fixed
+  // delay into the vote write path so a k6 latency threshold deliberately breaches and the load
+  // gate turns red — the load analogue of CONTENT_BUG_FEED_REVERSED. Read per call so a single CI
+  // step proves the lane is sensitive (slow run → red, clean run → green). 0 = no behavioural change.
+  const slowMs = Number(process.env.CONTENT_BUG_VOTE_SLOW_MS ?? 0)
+  if (slowMs > 0) await new Promise((resolve) => setTimeout(resolve, slowMs))
   const score = await db.transaction(async (tx) => {
     await advisoryLock(tx, postId)
     const found = await tx

@@ -14,7 +14,8 @@
   "scripts": {
     "build": "tsc -p tsconfig.json",
     "typecheck": "tsc -p tsconfig.json",
-    "test": "vitest run"
+    "test": "vitest run",
+    "stryker": "stryker run"
   },
   "dependencies": {
     "@qaroom/determinism": "workspace:*",
@@ -23,6 +24,8 @@
     "zod": "^4.0.0"
   },
   "devDependencies": {
+    "@stryker-mutator/core": "9.6.1",
+    "@stryker-mutator/vitest-runner": "9.6.1",
     "tsx": "^4.19.0",
     "typescript": "^5.7.0",
     "vitest": "^3.0.0"

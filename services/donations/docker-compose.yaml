@@ -15,7 +15,7 @@ services:
       timeout: 3s
       retries: 20
     volumes:
-      - qaroom_donations_pg:/var/lib/postgresql/data
+      - qaroom_donations_pg:/var/lib/postgresql
 
 volumes:
   qaroom_donations_pg:

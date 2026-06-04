@@ -415,5 +415,42 @@ Milestones beyond 9 are deliberately uncommitted. Candidate follow-ups, in rough
 - **Milestone 11: Webhooks** with their unique testing problems (delivery guarantees, retry contracts).
 - **Milestone 12: Continuous testing in production** using the feature flag system as the canary substrate.
 - **Milestone 13: Visual regression and accessibility testing** for the frontend.
+- **Milestone 14: Deterministic simulation testing (tier 1+2, in-house).** Complete the determinism story with a `ModelClient` seam (a 4th injected dependency) plus a build-your-own seeded in-process simulator that explores async message interleavings to *discover* the dedup / single-writer / tenant-isolation bugs Milestone 7 can only *replay* — and DST the Milestone 9 agent harness (scripted model, injected faults). Tier-3 (the Antithesis hypervisor) is documented as the ceiling, not built. Expanded as a candidate spec below; hard-depends on the Milestone 4 messaging transport being injectable.
 
 These are future series, not deferred milestones. The v1 commitment ends with Milestone 9.
+
+---
+
+## Milestone 14 (candidate) — Deterministic simulation testing
+
+Post-v1, uncommitted, additive. The scope is recorded here because the decision has been made to build **tier 1 + tier 2 in-house** (and to *skip* tier 3, the proprietary hypervisor) for demonstration value. No superseding ADR is required: ADR-0001 pre-rejected only *full* Antithesis-style DST; the scoped tiers are exactly the "principles without the multi-year investment" it left open. Tier reference: tier 1 = determinism injection; tier 2 = a framework-level simulator you build; tier 3 = a deterministic hypervisor (Antithesis) you buy.
+
+**Goal.** Move from *reproducing known* bugs (Milestone 7 scoped replay) to *discovering unknown* ones by exploring interleavings — on a TypeScript microservice stack *and* an LLM agent harness. The ecosystem (madsim/Rust, VOPR/Zig, FoundationDB/C++) has no JS/TS entry; building the scoped version is the demonstration.
+
+**Scope (built).**
+- **Tier 1 — complete the determinism set.** A 4th injected dependency, `ModelClient` (`packages/model`), quarantines the LLM behind an interface: production wires OpenAI; tests wire a **Replay** double (recorded cassette, keyed by the existing `stableStringify`/`bodyHash`) or a **Scripted** double (seeded oracle). Every call is a GenAI OTel span carrying `tenant.id`; failures map to RFC 7807 `dependency_failure`. A `no-raw-model-client` lint rule bans the raw SDK at call sites, mirroring `no-new-date`. Lands with the Milestone 9 moderator.
+- **Tier 2 — the scoped simulator** (`packages/dst-sim`). A seeded single-threaded scheduler runs N in-process service instances against a **simulated NATS transport** (seeded delivery order + drop / reorder / duplicate / partition), swapped in through the Milestone 4 messaging transport interface. One shared `FakeClock` is advanced by the scheduler, compressing time. A seed-driven fault injector perturbs ordering and failures; an invariant checker runs after each step and, on violation, emits the seed plus a minimal scenario.
+- **Discover→replay loop.** A failing seed is captured into the Milestone 7 regression catalog and runs on every PR.
+- **Agent harness target.** The Milestone 9 LangGraph moderator runs under the simulator with a `ScriptedModelClient` and injected tool/event faults.
+
+**Testing techniques introduced.**
+- Framework-level deterministic simulation testing (tier 2), built in-house — no vendor.
+- Model-as-injected-dependency: record/replay cassettes + scripted oracle.
+- Interleaving exploration of the async invariants (Commitments 17, 4, 9) under fault injection.
+- Harness DST for an LLM agent: "eval the model, DST the harness."
+
+**Exit criteria.**
+- The simulator runs ≥1000 seeded worlds; a deliberately planted dedup/ordering bug is found and its seed reproduces it identically; fixing the bug turns the same seed green.
+- A discovered seed is committed to the Milestone 7 regression catalog and runs on every PR.
+- Time compression demonstrated: ≥ a target span of simulated hours collapses into seconds.
+- Each of tenant isolation (Commitment 9), single-writer (Commitment 4), and dedup (Commitment 17) has an interleaving-explored property under fault injection — not just example-sampled.
+- The moderator harness is proven, with the model scripted, to terminate within a step bound, never infinite-loop, and stay idempotent under retry.
+- ADR: "Scoped DST for TypeScript microservices and an LLM agent harness — tier 1+2 in-house, where tier 3 starts, and why we stopped there."
+
+**Blog post angle.** *"Deterministic simulation testing for a TypeScript agent stack: the ecosystem says it can't be done in JS, so we built the scoped version — DST the harness, eval the model."*
+
+**Dependencies.** Hard prereq: the Milestone 4 `@qaroom/messaging` transport must be **injectable** (real JetStream ↔ seeded in-memory), or tier 2 becomes a retrofit. Reuses the Milestone 0 determinism trio + `FakeClock`, the Milestone 5 XState / Milestone 9 LangGraph models, and the Milestone 7 catalog.
+
+**Risk and mitigation.** Risk: a correct deterministic scheduler in Node is genuinely hard — the event loop is nondeterministic, which is *why* the ecosystem skipped JS. Mitigation: scope to the message layer only; run services as in-process state machines fed by the seeded transport; do **not** attempt to make V8/libuv deterministic. Minimum deliverable is one invariant, one planted bug, one reproduced seed. Tier 3 (Antithesis) stays a one-paragraph "here's the ceiling" comparison, not a build.
+
+---

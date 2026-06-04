@@ -45,6 +45,21 @@ paths:
                 retryable: false
                 next_actions: []
                 failure_domain: validation
+        "409":
+          description: The Idempotency-Key was already used for a request with a different body.
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ProblemDetails"
+              example:
+                type: https://qaroom.dev/errors/idempotency-key-conflict
+                title: Idempotency-Key reused with a different body
+                status: 409
+                detail: Idempotency-Key reused with a different body.
+                instance: /api/posts/post_01HZY0K7M3QF8VN2J5RX9TB4CE
+                retryable: false
+                next_actions: []
+                failure_domain: conflict
       tags:
         - posts
       parameters:
@@ -222,6 +237,21 @@ paths:
                 retryable: false
                 next_actions: []
                 failure_domain: not_found
+        "409":
+          description: The Idempotency-Key was already used for a request with a different body.
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ProblemDetails"
+              example:
+                type: https://qaroom.dev/errors/idempotency-key-conflict
+                title: Idempotency-Key reused with a different body
+                status: 409
+                detail: Idempotency-Key reused with a different body.
+                instance: /api/posts/post_01HZY0K7M3QF8VN2J5RX9TB4CE
+                retryable: false
+                next_actions: []
+                failure_domain: conflict
       tags:
         - votes
       parameters:

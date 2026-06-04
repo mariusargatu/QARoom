@@ -16,6 +16,9 @@ export default defineConfig({
   snapshotDir: './.snapshots',
   // Stable, platform-suffix-free baseline layout; pin CT to a container to keep it portable.
   snapshotPathTemplate: '{snapshotDir}/{testFilePath}/{arg}{ext}',
+  // Emit a JSON report so `scripts/ct-results.ts` reads pass/fail without re-running the suite
+  // (mirrors how the other *-results.ts scripts parse an artifact). `list` keeps console output.
+  reporter: [['list'], ['json', { outputFile: 'test-results/ct.json' }]],
   use: {
     ...devices['Desktop Chrome'],
     ctTemplateDir: './playwright',

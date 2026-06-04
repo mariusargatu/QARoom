@@ -1,0 +1,49 @@
+{
+  "generated_from": "packages/contracts/src/slos.ts",
+  "endpoints": {
+    "createPost": {
+      "route": "POST /api/communities/{id}/posts",
+      "method": "POST",
+      "latencyMs": {
+        "p50": 50,
+        "p95": 200,
+        "p99": 500
+      },
+      "errorRate": 0.005,
+      "availability": 0.99
+    },
+    "feed": {
+      "route": "GET /api/communities/{id}/feed",
+      "method": "GET",
+      "latencyMs": {
+        "p50": 30,
+        "p95": 100,
+        "p99": 300
+      },
+      "errorRate": 0.001,
+      "availability": 0.99
+    },
+    "castVote": {
+      "route": "POST /api/posts/{id}/votes",
+      "method": "POST",
+      "latencyMs": {
+        "p50": 40,
+        "p95": 150,
+        "p99": 400
+      },
+      "errorRate": 0.01,
+      "availability": 0.99
+    },
+    "donation": {
+      "route": "POST /api/communities/{id}/donations",
+      "method": "POST",
+      "latencyMs": {
+        "p50": 200,
+        "p95": 800,
+        "p99": 2000
+      },
+      "errorRate": 0.01,
+      "availability": 0.99
+    }
+  }
+}

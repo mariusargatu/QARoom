@@ -4,6 +4,8 @@ dist/
 .turbo/
 coverage/
 test-results/
+.nyc_output/
+.cache/
 *.tsbuildinfo
 .DS_Store
 .env
@@ -31,3 +33,17 @@ pnpm-debug.log*
 
 # Scenario-replay tarballs are regenerable from the committed scenario dirs (Milestone 7).
 scenarios/*.tar.gz
+
+# Stryker mutation testing (Milestone 8): sandbox/temp + HTML reports. JSON reports land in
+# test-results/ (already ignored) and are folded into summary.json by scripts/stryker-results.ts.
+**/.stryker-tmp/
+reports/mutation/
+# Stryker vitest-runner scratch files dropped into each package root during a run.
+**/stryker-setup-*.js
+**/stryker-setup-*.js.map
+
+# EvoMaster black-box suites (Milestone 8): disposable nightly artifacts, never committed raw —
+# findings are hand-reified into the regression catalog (snapshot-replay.verify.ts).
+**/evomaster-generated/
+.evomaster/
+em.yaml

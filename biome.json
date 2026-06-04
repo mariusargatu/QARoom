@@ -15,7 +15,8 @@
       "!**/migrations",
       "!**/dist",
       "!**/pacts",
-      "!**/.pnpm-store"
+      "!**/.pnpm-store",
+      "!**/evomaster-generated"
     ]
   },
   "formatter": {

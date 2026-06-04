@@ -61,4 +61,38 @@ The web frontend and its tests need a stack. The naive choice (React Testing Lib
 
 - `docs/04-roadmap.md` Milestone 5 (MBT + Screenplay + atomic frontend) and Milestone 8 (Storybook + CT).
 - `docs/03-testing-strategy.md` §4 (Component + Model-based E2E layers), `docs/01-vision.md` (testability-as-architecture).
-- Sibling ADRs: [ADR-0003](0003-websocket-mock-strategy.md) (WS), [ADR-0004](0004-code-intelligence-stack.md).
+- Sibling ADRs: [ADR-0003](0003-websocket-mock-strategy.md) (WS), [ADR-0004](0004-code-intelligence-stack.md), [ADR-0016](0016-testing-your-tests.md) (the load/mutation/fuzz half of Milestone 8).
+
+## Implementation notes (Milestone 8, 2026-06-04)
+
+Implementing the pinned stack against the live registry surfaced corrections to the table above —
+recorded here rather than rewriting the decision:
+
+- **Add `@vitest/browser-playwright@4.1.8`.** Vitest 4 extracted the Playwright browser provider into
+  this package; `@storybook/addon-vitest@10.4` peer-depends on it. It was missing from the pin table.
+- **`provider` is the function `playwright()`** imported from `@vitest/browser-playwright`, **not the
+  string `'playwright'`** — the string is the Vitest-3/Storybook-9 form.
+- **No hand-authored `.storybook/vitest.setup.ts`.** Storybook 10's `@storybook/addon-vitest`
+  auto-injects its own `setProjectAnnotations` setup; a manual file logs "you can safely remove." The
+  file was deleted.
+- **vite is pinned to `^7`, `@vitejs/plugin-react` to `^5.2`** (not vite 8 / plugin-react 6): the
+  pinned `@playwright/experimental-ct-react@1.60` caps the workspace vite at 7, and vite 7 satisfies
+  storybook 10.4 + vitest 4.1. `tailwindcss`/`@tailwindcss/vite` → `4.3`.
+- **`vite-plugin-istanbul` is pinned `^8`, not `^9`** (corrects the table above): the CT coverage
+  instrument is injected into the vite that Playwright CT **bundles internally (vite 6)**, not the
+  workspace vite 7. istanbul@9 peers `vite >=7`, so it would be unsatisfied on that path; istanbul@8
+  peers `vite >=4` and covers it cleanly.
+- **Playwright CT mounts STATIC JSX**, not `createElement(...)`. CT's transform rejects a
+  runtime-built element ("Object mount notation is not supported"), so each `.ct.tsx` does
+  `mount(<Component {...story.args} />)` and the `readyFonts` helper (`src/test-support/ready-fonts.ts`)
+  only awaits `document.fonts.ready`.
+  This is still "raw component spread with story.args" — the `no-mount-composed-story` rule holds.
+- **Vitest 4 V8 coverage** requires an explicit `coverage.include` (the default now reports only
+  covered files), aggregates at the **root** config (not per-project), and remaps differently — so the
+  browser-tier coverage is **reported, not gated at 80%**: story+CT coverage of a 14-component library
+  is naturally partial, and the merged V8+Istanbul report (`coverage/merged`, via `monocart.add()`)
+  feeds `summary.json` as an artifact, not a hard threshold.
+- **A real a11y find:** turning on `parameters.a11y.test: 'error'` exposed pre-existing WCAG-AA
+  contrast failures on the single `--color-danger` token (white-on-danger and danger-on-subtle pull
+  opposite ways). Split into `--color-danger` (bright accent) + `--color-danger-solid` (dark fill);
+  `Button` danger now uses `bg-danger-solid`.

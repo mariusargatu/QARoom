@@ -51,7 +51,7 @@ The risk this strategy is most exposed to is **technique-overlap confusion** —
 | **REST contract** | Pact v4 | Consumer-perceived breakages of provider contracts; consumer evolution | Bugs in payloads consumers don't actually use | PR CI |
 | **Async contract** | Pact v4 message | Mismatched message shapes between publisher and subscriber | NATS-specific delivery semantics (durability, redelivery) | PR CI |
 | **API schema fuzzing** | Schemathesis | Server crashes on edge-case inputs; schema-violating responses; stateful workflow errors (with `--stateful=links`) | Bugs that require domain knowledge to trigger | Nightly; on schema change |
-| **Search-based fuzzing** | EvoMaster v3 | Code paths and edge cases that schema-driven tools haven't reached | Bugs requiring application semantics beyond the schema | Nightly |
+| **Search-based fuzzing** | EvoMaster v6 | Code paths and edge cases that schema-driven tools haven't reached | Bugs requiring application semantics beyond the schema | Nightly |
 | **Integration** | Vitest + Testcontainers (Postgres, NATS) | Database queries, real-driver behavior, transactional semantics | Cross-service interaction (covered by contract + E2E) | PR CI per service |
 | **Component** | Storybook portable stories + Playwright CT + Screenplay | Rendering bugs, prop contracts, interaction logic in isolated components | Bugs that only manifest with real backend data or cross-component routing | PR CI (changed components); nightly (full) |
 | **Model-based E2E** | XState + @xstate/graph + Playwright + Screenplay | State transitions, sequence-dependent bugs, donations rollout edge cases | Bugs in non-modeled flows | PR CI (shortest paths); nightly (simple paths) |
@@ -183,7 +183,7 @@ When tests run determines what they catch and what they cost. The strategy assig
 | **PR CI, fast** | < 10 min | < 1% | Unit + property + integration + REST contract + RFC 7807 conformance + oasdiff drift + Tracetest critical-flow assertions |
 | **PR CI, full** | < 25 min | < 2% | Above + async contract + MBT shortest paths + Schemathesis (changed services) + Pact ↔ OpenAPI cross-check |
 | **Merge to main** | < 45 min | < 3% | Above + MBT simple paths + load tests against SLOs + Tracetest broad assertions |
-| **Nightly** | Unbounded | < 5% | Above + Schemathesis broad + EvoMaster v3 + chaos experiments + Stryker on critical modules |
+| **Nightly** | Unbounded | < 5% | Above + Schemathesis broad + EvoMaster v6 + chaos experiments + Stryker on critical modules |
 | **Weekly** | Unbounded | n/a | Above + Stryker full + Promptfoo evals *(Milestone 9)* |
 
 **Flake budgets are intentional and emulate a real project.** Pre-commit and on-save use the developer machine and tolerate zero / < 0.5% because the loop is tight; CI loops carry small but realistic budgets to reflect KinD spin-up, shared-runner contention, and Testcontainers warm-up — sources of flake that no amount of test-code discipline will fully eliminate. A test that flakes more than its layer's budget is quarantined (skipped with a tracking issue) and treated as a bug — non-determinism (P0), an unreachable external service (wrong layer), or a layer-mismatch problem.
@@ -280,7 +280,7 @@ QARoom is a demo product, not a production service. The SLOs below are *sensible
 | `POST /api/communities/{id}/posts` | 50 / 200 / 500 ms | < 0.5% | 99% |
 | `GET /api/communities/{id}/feed` | 30 / 100 / 300 ms | < 0.1% | 99% |
 | `POST /api/posts/{id}/votes` | 40 / 150 / 400 ms | < 1% | 99% |
-| `POST /api/donations` | 200 / 800 / 2000 ms | < 1% | 99% |
+| `POST /api/communities/{id}/donations` | 200 / 800 / 2000 ms | < 1% | 99% |
 | `GET /system/state` | 20 / 80 / 200 ms | < 0.1% | 99% |
 | `GET /system/snapshot` | unbounded | < 1% | best-effort |
 
