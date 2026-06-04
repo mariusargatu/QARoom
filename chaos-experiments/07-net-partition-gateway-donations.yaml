@@ -1,0 +1,36 @@
+# Experiment 07 — NetworkChaos: partition between gateway and donations-service.
+#
+# Hypothesis (docs/failure-modes.md#07-net-partition-gateway-donations): with the gateway's
+# bounded upstream timeout in place, a gateway→donations partition surfaces as a PROMPT, typed
+# RFC 7807 502 `dependency_failure` (retryable) — never an unbounded socket hang. The steady-state
+# probe (GET /api/communities/{id}/donations) must complete within the probe budget with 200
+# (healthy) or 502 (partitioned), in both the healthy and the chaos phase.
+#
+# Deliberate-bug demo: widen GATEWAY_UPSTREAM_TIMEOUT_MS (the mitigation toggle) far past the
+# probe budget → the request hangs → the assertion goes red. Restore → green.
+#
+# This manifest is the replayable artifact (Commitment 6): self-contained, committed, captured
+# verbatim into the Milestone 7 snapshot bundle's `chaos_manifests`. `duration` is a safety net;
+# the steady-state harness heals by deleting this manifest after the during-chaos phase.
+apiVersion: chaos-mesh.org/v1alpha1
+kind: NetworkChaos
+metadata:
+  name: net-partition-gateway-donations
+  namespace: qaroom
+spec:
+  action: partition
+  mode: all
+  duration: 5m
+  selector:
+    namespaces: [qaroom]
+    labelSelectors:
+      app.kubernetes.io/instance: gateway
+      qaroom.io/component: app
+  direction: to
+  target:
+    mode: all
+    selector:
+      namespaces: [qaroom]
+      labelSelectors:
+        app.kubernetes.io/instance: donations
+        qaroom.io/component: app

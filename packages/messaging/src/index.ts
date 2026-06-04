@@ -1,4 +1,10 @@
-export { connectNats, ensureStream, type NatsHandle, QAROOM_STREAM } from './connection'
+export {
+  connectNats,
+  ensureConsumer,
+  ensureStream,
+  type NatsHandle,
+  QAROOM_STREAM,
+} from './connection'
 export { alreadyProcessed, markProcessed } from './dedup'
 export { gcDedup } from './gc'
 export { buildEventHeaders, headersToRecord, readEventHeaders } from './headers'

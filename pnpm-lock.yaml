@@ -364,6 +364,9 @@ importers:
       '@qaroom/testing-utils':
         specifier: workspace:*
         version: link:../../packages/testing-utils
+      '@testcontainers/postgresql':
+        specifier: ^10.0.0
+        version: 10.28.0
       drizzle-kit:
         specifier: ^0.30.0
         version: 0.30.6
@@ -419,6 +422,9 @@ importers:
       '@qaroom/testing-utils':
         specifier: workspace:*
         version: link:../../packages/testing-utils
+      '@testcontainers/postgresql':
+        specifier: ^10.0.0
+        version: 10.28.0
       drizzle-kit:
         specifier: ^0.30.0
         version: 0.30.6

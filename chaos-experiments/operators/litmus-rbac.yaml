@@ -1,0 +1,45 @@
+# RBAC for the LitmusChaos `litmus-admin` ServiceAccount that experiment 06's ChaosEngine
+# (chaos-experiments/06-http-gateway-500-donations.yaml) references. Applied by
+# `pnpm chaos:install:litmus`. Namespaced to `qaroom` (the experiment targets donations there).
+#
+# The LitmusChaos operator + the pod-http-status-code ChaosExperiment themselves require the
+# ChaosCenter platform and are a documented MANUAL nightly step (ADR-0014) — this only guarantees
+# the SA the ChaosEngine binds to exists, so the engine does not stall on a missing ServiceAccount.
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: litmus-admin
+  namespace: qaroom
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: Role
+metadata:
+  name: litmus-admin
+  namespace: qaroom
+rules:
+  - apiGroups: ['']
+    resources: ['pods', 'pods/exec', 'pods/log', 'events', 'configmaps', 'services']
+    verbs: ['create', 'delete', 'get', 'list', 'patch', 'update', 'watch', 'deletecollection']
+  - apiGroups: ['batch']
+    resources: ['jobs']
+    verbs: ['create', 'delete', 'get', 'list', 'patch', 'update', 'watch', 'deletecollection']
+  - apiGroups: ['apps']
+    resources: ['deployments', 'replicasets']
+    verbs: ['get', 'list', 'patch', 'update']
+  - apiGroups: ['litmuschaos.io']
+    resources: ['chaosengines', 'chaosexperiments', 'chaosresults']
+    verbs: ['create', 'delete', 'get', 'list', 'patch', 'update', 'watch']
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: RoleBinding
+metadata:
+  name: litmus-admin
+  namespace: qaroom
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: Role
+  name: litmus-admin
+subjects:
+  - kind: ServiceAccount
+    name: litmus-admin
+    namespace: qaroom

@@ -7,7 +7,9 @@ import {
 import { createSeededDeps, injectClient } from '@qaroom/testing-utils/harness'
 import { buildGatewayApp } from '../src/app'
 import type { ClientResponse, ContentClient } from '../src/content-client'
+import type { DonationsClient } from '../src/donations-client'
 import { CommunityEventStream } from '../src/event-stream'
+import type { FlagsClient } from '../src/flags-client'
 import type { RateLimitConfig } from '../src/rate-limiter'
 import type { TicketClient } from '../src/ticket-client'
 
@@ -15,6 +17,8 @@ export interface GatewayTestOptions {
   rateLimit?: RateLimitConfig
   tickets?: TicketClient
   eventStream?: CommunityEventStream
+  donations?: DonationsClient
+  flags?: FlagsClient
 }
 
 /** Build the gateway with injected stub clients + seeded determinism. */
@@ -23,6 +27,8 @@ export function setupGatewayTest(content: ContentClient, options: GatewayTestOpt
   const eventStream = options.eventStream ?? new CommunityEventStream()
   const app = buildGatewayApp({
     content,
+    donations: options.donations,
+    flags: options.flags,
     tickets: options.tickets ?? noTickets(),
     clock: deps.clock,
     ids: deps.ids,
@@ -45,6 +51,34 @@ export function unreachableContent(): ContentClient {
     throw new Error('ECONNREFUSED')
   }
   return { getFeed: fail, getPost: fail, createPost: fail, castVote: fail }
+}
+
+/** A donations stub returning the same response for every call. */
+export function constantDonations(response: ClientResponse): DonationsClient {
+  const reply = async () => response
+  return { listDonations: reply, getDonation: reply, createDonation: reply }
+}
+
+/** A donations stub whose every call throws (unreachable / timed-out / circuit open). */
+export function unreachableDonations(): DonationsClient {
+  const fail = async (): Promise<ClientResponse> => {
+    throw new Error('ECONNREFUSED')
+  }
+  return { listDonations: fail, getDonation: fail, createDonation: fail }
+}
+
+/** A flags stub returning the same response for every call. */
+export function constantFlags(response: ClientResponse): FlagsClient {
+  const reply = async () => response
+  return { resolveFlag: reply, listFlags: reply, advanceRollout: reply }
+}
+
+/** A flags stub whose every call throws (unreachable / timed-out). */
+export function unreachableFlags(): FlagsClient {
+  const fail = async (): Promise<ClientResponse> => {
+    throw new Error('ECONNREFUSED')
+  }
+  return { resolveFlag: fail, listFlags: fail, advanceRollout: fail }
 }
 
 /** A ticket client that never recognizes any ticket (the default — no valid tickets). */

@@ -1,0 +1,31 @@
+# Experiment 05 — TimeChaos: clock skew between services.
+#
+# Hypothesis (docs/failure-modes.md#05-time-clock-skew): skewing a pod's OS wall-clock does NOT
+# change business behaviour — ordering, expiries, idempotency, and the `as_of` envelope stay
+# correct — because business logic reads only the injected Clock (Commitment 6), never OS time.
+# OS time is reserved for chaos and OTel span stamps.
+#
+# Deliberate-bug demo (docs/failure-modes.md#05): plant a `new Date()` in a business path → under
+# skew that path diverges from injected-clock ordering → red. Remove it → green.
+#
+# REQUIRES a cluster created with `--kubelet-arg=allowed-unsafe-sysctls=*` (bootstrap-k3d.sh sets
+# this for M6). TimeChaos needs SYS_TIME/SYS_BOOT on its target pod; a cluster created before M6
+# must be recreated (`pnpm dev:down && pnpm dev`). Replayable artifact (Commitment 6).
+apiVersion: chaos-mesh.org/v1alpha1
+kind: TimeChaos
+metadata:
+  name: time-clock-skew
+  namespace: qaroom
+spec:
+  mode: all
+  duration: 5m
+  selector:
+    namespaces: [qaroom]
+    labelSelectors:
+      app.kubernetes.io/instance: donations
+      qaroom.io/component: app
+  # Realistic clock drift (NTP-scale), not an hour. FINDING (docs/failure-modes.md#05): a large
+  # skew (e.g. +1h) trips the postgres-js connection timeouts and poisons the donations pool —
+  # readiness sticks NotReady and does not self-recover without a pod restart. A seconds-scale
+  # skew models real drift and is what the service must tolerate.
+  timeOffset: '5s'

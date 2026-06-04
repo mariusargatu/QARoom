@@ -2,7 +2,7 @@ openapi: 3.0.3
 info:
   title: QARoom gateway
   version: 0.0.0
-  description: External API gateway fronting content-service. Generated from Zod — do not edit by hand.
+  description: External API gateway fronting content-, donations-, and flags-service. Generated from Zod — do not edit by hand.
 paths:
   /api/communities/{communityId}/posts:
     post:
@@ -369,6 +369,583 @@ paths:
             example:
               voter_id: user_01HZY0K7M3QF8VN2J5RX9TB4CF
               value: 1
+  /api/communities/{communityId}/donations:
+    post:
+      operationId: createDonation
+      summary: Create a donation (proxied to donations-service)
+      description: Validates at the edge, forwards to donations-service. Gated by the donations flag and settled via the payment provider. Idempotent on Idempotency-Key. The gateway circuit breaker fails fast with a 502 when donations is sick (experiment 06).
+      responses:
+        "201":
+          description: The recorded donation.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Donation"
+              example:
+                id: dntn_01HZY0K7M3QF8VN2J5RX9TB4CJ
+                community_id: comm_01HZY0K7M3QF8VN2J5RX9TB4CD
+                donor_id: user_01HZY0K7M3QF8VN2J5RX9TB4CF
+                amount_cents: 2500
+                currency: USD
+                status: Captured
+                created_at: 2026-05-28T12:00:00.000Z
+                updated_at: 2026-05-28T12:00:00.000Z
+          links:
+            GetCreatedDonation:
+              operationId: getDonation
+              parameters:
+                communityId: $response.body#/community_id
+                donationId: $response.body#/id
+              description: Fetch the donation that was just created.
+        "400":
+          description: The request failed validation at the gateway edge.
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ProblemDetails"
+              example:
+                type: https://qaroom.dev/errors/validation-failed
+                title: Request failed validation
+                status: 400
+                detail: Request failed validation.
+                instance: /api/posts/post_01HZY0K7M3QF8VN2J5RX9TB4CE
+                retryable: false
+                next_actions: []
+                failure_domain: validation
+        "409":
+          description: The donations feature flag has not reached Enabled for this community.
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ProblemDetails"
+              example:
+                type: https://qaroom.dev/errors/donations-not-enabled
+                title: Donations are not enabled
+                status: 409
+                detail: Donations are not enabled.
+                instance: /api/posts/post_01HZY0K7M3QF8VN2J5RX9TB4CE
+                retryable: false
+                next_actions: []
+                failure_domain: conflict
+        "429":
+          description: The per-principal rate limit was exceeded. Carries a Retry-After header.
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ProblemDetails"
+              example:
+                type: https://qaroom.dev/errors/rate-limited
+                title: Too many requests
+                status: 429
+                detail: Too many requests.
+                instance: /api/posts/post_01HZY0K7M3QF8VN2J5RX9TB4CE
+                retryable: true
+                next_actions: []
+                failure_domain: rate_limit
+        "502":
+          description: donations-service is unreachable, timed out, or the gateway circuit breaker is open (chaos experiments 06/07). The upstream payment-provider 502 is also surfaced here.
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ProblemDetails"
+              example:
+                type: https://qaroom.dev/errors/donations-unreachable
+                title: Upstream donations-service unavailable
+                status: 502
+                detail: Upstream donations-service unavailable.
+                instance: /api/posts/post_01HZY0K7M3QF8VN2J5RX9TB4CE
+                retryable: true
+                next_actions: []
+                failure_domain: dependency_failure
+      tags:
+        - donations
+      parameters:
+        - name: communityId
+          in: path
+          required: true
+          description: Target community (tenant).
+          schema:
+            type: string
+            pattern: ^comm_[0-9A-HJKMNP-TV-Z]{26}$
+        - name: Idempotency-Key
+          in: header
+          required: true
+          description: Client-supplied key making this mutation safely retryable (Commitment 4).
+          schema:
+            type: string
+            minLength: 1
+            maxLength: 255
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CreateDonationRequest"
+            example:
+              donor_id: user_01HZY0K7M3QF8VN2J5RX9TB4CF
+              amount_cents: 2500
+              currency: USD
+    get:
+      operationId: listDonations
+      summary: List a community’s donations (proxied)
+      description: Returns the most recent donations in a community, newest first, via donations-service.
+      responses:
+        "200":
+          description: A page of donations.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/DonationList"
+              example:
+                community_id: comm_01HZY0K7M3QF8VN2J5RX9TB4CD
+                donations:
+                  - id: dntn_01HZY0K7M3QF8VN2J5RX9TB4CJ
+                    community_id: comm_01HZY0K7M3QF8VN2J5RX9TB4CD
+                    donor_id: user_01HZY0K7M3QF8VN2J5RX9TB4CF
+                    amount_cents: 2500
+                    currency: USD
+                    status: Captured
+                    created_at: 2026-05-28T12:00:00.000Z
+                    updated_at: 2026-05-28T12:00:00.000Z
+        "400":
+          description: The request failed validation at the gateway edge.
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ProblemDetails"
+              example:
+                type: https://qaroom.dev/errors/validation-failed
+                title: Request failed validation
+                status: 400
+                detail: Request failed validation.
+                instance: /api/posts/post_01HZY0K7M3QF8VN2J5RX9TB4CE
+                retryable: false
+                next_actions: []
+                failure_domain: validation
+        "429":
+          description: The per-principal rate limit was exceeded. Carries a Retry-After header.
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ProblemDetails"
+              example:
+                type: https://qaroom.dev/errors/rate-limited
+                title: Too many requests
+                status: 429
+                detail: Too many requests.
+                instance: /api/posts/post_01HZY0K7M3QF8VN2J5RX9TB4CE
+                retryable: true
+                next_actions: []
+                failure_domain: rate_limit
+        "502":
+          description: donations-service is unreachable, timed out, or the gateway circuit breaker is open (chaos experiments 06/07). The upstream payment-provider 502 is also surfaced here.
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ProblemDetails"
+              example:
+                type: https://qaroom.dev/errors/donations-unreachable
+                title: Upstream donations-service unavailable
+                status: 502
+                detail: Upstream donations-service unavailable.
+                instance: /api/posts/post_01HZY0K7M3QF8VN2J5RX9TB4CE
+                retryable: true
+                next_actions: []
+                failure_domain: dependency_failure
+      tags:
+        - donations
+      parameters:
+        - name: communityId
+          in: path
+          required: true
+          description: Target community (tenant).
+          schema:
+            type: string
+            pattern: ^comm_[0-9A-HJKMNP-TV-Z]{26}$
+  /api/communities/{communityId}/donations/{donationId}:
+    get:
+      operationId: getDonation
+      summary: Get a single donation (proxied)
+      description: Returns a donation by id within a community, via donations-service.
+      responses:
+        "200":
+          description: The donation.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Donation"
+              example:
+                id: dntn_01HZY0K7M3QF8VN2J5RX9TB4CJ
+                community_id: comm_01HZY0K7M3QF8VN2J5RX9TB4CD
+                donor_id: user_01HZY0K7M3QF8VN2J5RX9TB4CF
+                amount_cents: 2500
+                currency: USD
+                status: Captured
+                created_at: 2026-05-28T12:00:00.000Z
+                updated_at: 2026-05-28T12:00:00.000Z
+        "400":
+          description: The request failed validation at the gateway edge.
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ProblemDetails"
+              example:
+                type: https://qaroom.dev/errors/validation-failed
+                title: Request failed validation
+                status: 400
+                detail: Request failed validation.
+                instance: /api/posts/post_01HZY0K7M3QF8VN2J5RX9TB4CE
+                retryable: false
+                next_actions: []
+                failure_domain: validation
+        "404":
+          description: No donation with that id exists in this community.
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ProblemDetails"
+              example:
+                type: https://qaroom.dev/errors/donation-not-found
+                title: Donation not found
+                status: 404
+                detail: Donation not found.
+                instance: /api/posts/post_01HZY0K7M3QF8VN2J5RX9TB4CE
+                retryable: false
+                next_actions: []
+                failure_domain: not_found
+        "429":
+          description: The per-principal rate limit was exceeded. Carries a Retry-After header.
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ProblemDetails"
+              example:
+                type: https://qaroom.dev/errors/rate-limited
+                title: Too many requests
+                status: 429
+                detail: Too many requests.
+                instance: /api/posts/post_01HZY0K7M3QF8VN2J5RX9TB4CE
+                retryable: true
+                next_actions: []
+                failure_domain: rate_limit
+        "502":
+          description: donations-service is unreachable, timed out, or the gateway circuit breaker is open (chaos experiments 06/07). The upstream payment-provider 502 is also surfaced here.
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ProblemDetails"
+              example:
+                type: https://qaroom.dev/errors/donations-unreachable
+                title: Upstream donations-service unavailable
+                status: 502
+                detail: Upstream donations-service unavailable.
+                instance: /api/posts/post_01HZY0K7M3QF8VN2J5RX9TB4CE
+                retryable: true
+                next_actions: []
+                failure_domain: dependency_failure
+      tags:
+        - donations
+      parameters:
+        - name: communityId
+          in: path
+          required: true
+          description: Target community (tenant).
+          schema:
+            type: string
+            pattern: ^comm_[0-9A-HJKMNP-TV-Z]{26}$
+        - name: donationId
+          in: path
+          required: true
+          description: Target donation.
+          schema:
+            type: string
+            pattern: ^dntn_[0-9A-HJKMNP-TV-Z]{26}$
+  /api/communities/{communityId}/flags/{flagKey}:
+    get:
+      operationId: resolveFlag
+      summary: Resolve a feature flag (proxied to flags-service)
+      description: Returns the flag’s current rollout state and gating boolean, with a read envelope.
+      responses:
+        "200":
+          description: The resolved flag.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/FlagResolution"
+              example:
+                community_id: comm_01HZY0K7M3QF8VN2J5RX9TB4CD
+                flag_key: donations
+                state: Enabled
+                enabled: true
+                as_of:
+                  snapshot_id: snap_01HZY0K7M3QF8VN2J5RX9TB4CL
+                  lamport: 7
+                  wall_clock: 2026-05-28T12:00:00.000Z
+        "400":
+          description: The request failed validation at the gateway edge.
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ProblemDetails"
+              example:
+                type: https://qaroom.dev/errors/validation-failed
+                title: Request failed validation
+                status: 400
+                detail: Request failed validation.
+                instance: /api/posts/post_01HZY0K7M3QF8VN2J5RX9TB4CE
+                retryable: false
+                next_actions: []
+                failure_domain: validation
+        "429":
+          description: The per-principal rate limit was exceeded. Carries a Retry-After header.
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ProblemDetails"
+              example:
+                type: https://qaroom.dev/errors/rate-limited
+                title: Too many requests
+                status: 429
+                detail: Too many requests.
+                instance: /api/posts/post_01HZY0K7M3QF8VN2J5RX9TB4CE
+                retryable: true
+                next_actions: []
+                failure_domain: rate_limit
+        "502":
+          description: flags-service is unreachable or timed out.
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ProblemDetails"
+              example:
+                type: https://qaroom.dev/errors/flags-unreachable
+                title: Upstream flags-service unavailable
+                status: 502
+                detail: Upstream flags-service unavailable.
+                instance: /api/posts/post_01HZY0K7M3QF8VN2J5RX9TB4CE
+                retryable: true
+                next_actions: []
+                failure_domain: dependency_failure
+      tags:
+        - flags
+      parameters:
+        - name: communityId
+          in: path
+          required: true
+          description: Target community (tenant).
+          schema:
+            type: string
+            pattern: ^comm_[0-9A-HJKMNP-TV-Z]{26}$
+        - name: flagKey
+          in: path
+          required: true
+          description: Feature-flag key (lowercase, hyphen-separated slug).
+          schema:
+            type: string
+            pattern: ^[a-z][a-z0-9-]{1,63}$
+  /api/communities/{communityId}/flags:
+    get:
+      operationId: listFlags
+      summary: List all flags for a community (proxied)
+      description: Returns every flag resolved for the community, with a read envelope, via flags-service.
+      responses:
+        "200":
+          description: The resolved flags.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/FlagList"
+              example:
+                community_id: comm_01HZY0K7M3QF8VN2J5RX9TB4CD
+                flags:
+                  - community_id: comm_01HZY0K7M3QF8VN2J5RX9TB4CD
+                    flag_key: donations
+                    state: Enabled
+                    enabled: true
+                    as_of:
+                      snapshot_id: snap_01HZY0K7M3QF8VN2J5RX9TB4CL
+                      lamport: 7
+                      wall_clock: 2026-05-28T12:00:00.000Z
+                as_of:
+                  snapshot_id: snap_01HZY0K7M3QF8VN2J5RX9TB4CL
+                  lamport: 7
+                  wall_clock: 2026-05-28T12:00:00.000Z
+        "400":
+          description: The request failed validation at the gateway edge.
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ProblemDetails"
+              example:
+                type: https://qaroom.dev/errors/validation-failed
+                title: Request failed validation
+                status: 400
+                detail: Request failed validation.
+                instance: /api/posts/post_01HZY0K7M3QF8VN2J5RX9TB4CE
+                retryable: false
+                next_actions: []
+                failure_domain: validation
+        "429":
+          description: The per-principal rate limit was exceeded. Carries a Retry-After header.
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ProblemDetails"
+              example:
+                type: https://qaroom.dev/errors/rate-limited
+                title: Too many requests
+                status: 429
+                detail: Too many requests.
+                instance: /api/posts/post_01HZY0K7M3QF8VN2J5RX9TB4CE
+                retryable: true
+                next_actions: []
+                failure_domain: rate_limit
+        "502":
+          description: flags-service is unreachable or timed out.
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ProblemDetails"
+              example:
+                type: https://qaroom.dev/errors/flags-unreachable
+                title: Upstream flags-service unavailable
+                status: 502
+                detail: Upstream flags-service unavailable.
+                instance: /api/posts/post_01HZY0K7M3QF8VN2J5RX9TB4CE
+                retryable: true
+                next_actions: []
+                failure_domain: dependency_failure
+      tags:
+        - flags
+      parameters:
+        - name: communityId
+          in: path
+          required: true
+          description: Target community (tenant).
+          schema:
+            type: string
+            pattern: ^comm_[0-9A-HJKMNP-TV-Z]{26}$
+  /api/communities/{communityId}/flags/{flagKey}/rollout:
+    post:
+      operationId: advanceRollout
+      summary: Advance a flag rollout (proxied)
+      description: Applies one rollout event (e.g. EnableRequested). Idempotent on Idempotency-Key; an event illegal from the current state returns 409.
+      responses:
+        "200":
+          description: The flag after the transition.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/FlagResolution"
+              example:
+                community_id: comm_01HZY0K7M3QF8VN2J5RX9TB4CD
+                flag_key: donations
+                state: Enabled
+                enabled: true
+                as_of:
+                  snapshot_id: snap_01HZY0K7M3QF8VN2J5RX9TB4CL
+                  lamport: 7
+                  wall_clock: 2026-05-28T12:00:00.000Z
+          links:
+            ResolveAdvancedFlag:
+              operationId: resolveFlag
+              parameters:
+                communityId: $response.body#/community_id
+                flagKey: $response.body#/flag_key
+              description: Re-resolve the flag that was just advanced.
+        "400":
+          description: The request failed validation at the gateway edge.
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ProblemDetails"
+              example:
+                type: https://qaroom.dev/errors/validation-failed
+                title: Request failed validation
+                status: 400
+                detail: Request failed validation.
+                instance: /api/posts/post_01HZY0K7M3QF8VN2J5RX9TB4CE
+                retryable: false
+                next_actions: []
+                failure_domain: validation
+        "409":
+          description: The requested event is not a legal transition from the flag’s current state.
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ProblemDetails"
+              example:
+                type: https://qaroom.dev/errors/rollout-transition-illegal
+                title: Illegal rollout transition
+                status: 409
+                detail: Illegal rollout transition.
+                instance: /api/posts/post_01HZY0K7M3QF8VN2J5RX9TB4CE
+                retryable: false
+                next_actions: []
+                failure_domain: conflict
+        "429":
+          description: The per-principal rate limit was exceeded. Carries a Retry-After header.
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ProblemDetails"
+              example:
+                type: https://qaroom.dev/errors/rate-limited
+                title: Too many requests
+                status: 429
+                detail: Too many requests.
+                instance: /api/posts/post_01HZY0K7M3QF8VN2J5RX9TB4CE
+                retryable: true
+                next_actions: []
+                failure_domain: rate_limit
+        "502":
+          description: flags-service is unreachable or timed out.
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ProblemDetails"
+              example:
+                type: https://qaroom.dev/errors/flags-unreachable
+                title: Upstream flags-service unavailable
+                status: 502
+                detail: Upstream flags-service unavailable.
+                instance: /api/posts/post_01HZY0K7M3QF8VN2J5RX9TB4CE
+                retryable: true
+                next_actions: []
+                failure_domain: dependency_failure
+      tags:
+        - flags
+      parameters:
+        - name: communityId
+          in: path
+          required: true
+          description: Target community (tenant).
+          schema:
+            type: string
+            pattern: ^comm_[0-9A-HJKMNP-TV-Z]{26}$
+        - name: flagKey
+          in: path
+          required: true
+          description: Feature-flag key (lowercase, hyphen-separated slug).
+          schema:
+            type: string
+            pattern: ^[a-z][a-z0-9-]{1,63}$
+        - name: Idempotency-Key
+          in: header
+          required: true
+          description: Client-supplied key making this mutation safely retryable (Commitment 4).
+          schema:
+            type: string
+            minLength: 1
+            maxLength: 255
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/AdvanceRolloutRequest"
+            example:
+              event: EnableRequested
   /api/communities/{communityId}/events:
     get:
       operationId: listEvents
@@ -472,6 +1049,15 @@ paths:
         - system
 components:
   schemas:
+    AdvanceRolloutRequest:
+      type: object
+      properties:
+        event:
+          $ref: "#/components/schemas/RolloutEventName"
+      required:
+        - event
+      additionalProperties: false
+      description: "Body for advanceRollout: the rollout event to apply."
     AsOf:
       type: object
       properties:
@@ -569,6 +1155,25 @@ components:
       type: string
       pattern: ^comm_[0-9A-HJKMNP-TV-Z]{26}$
       description: "Branded identifier: comm_<ULID>"
+    CreateDonationRequest:
+      type: object
+      properties:
+        donor_id:
+          $ref: "#/components/schemas/UserId"
+        amount_cents:
+          type: integer
+          minimum: 0
+          exclusiveMinimum: true
+          maximum: 9007199254740991
+        currency:
+          type: string
+          pattern: ^[A-Z]{3}$
+      required:
+        - donor_id
+        - amount_cents
+        - currency
+      additionalProperties: false
+      description: Body for createDonation.
     CreatePostRequest:
       type: object
       properties:
@@ -589,10 +1194,62 @@ components:
         - body
       additionalProperties: false
       description: Body for createPost.
+    Donation:
+      type: object
+      properties:
+        id:
+          $ref: "#/components/schemas/DonationId"
+        community_id:
+          $ref: "#/components/schemas/CommunityId"
+        donor_id:
+          $ref: "#/components/schemas/UserId"
+        amount_cents:
+          type: integer
+          minimum: 0
+          exclusiveMinimum: true
+          maximum: 9007199254740991
+        currency:
+          type: string
+          pattern: ^[A-Z]{3}$
+        status:
+          $ref: "#/components/schemas/DonationStatus"
+        created_at:
+          type: string
+          format: date-time
+          pattern: ^(?:(?:\d\d[2468][048]|\d\d[13579][26]|\d\d0[48]|[02468][048]00|[13579][26]00)-02-29|\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\d|30)|(?:02)-(?:0[1-9]|1\d|2[0-8])))T(?:(?:[01]\d|2[0-3]):[0-5]\d(?::[0-5]\d(?:\.\d+)?)?(?:Z))$
+        updated_at:
+          type: string
+          format: date-time
+          pattern: ^(?:(?:\d\d[2468][048]|\d\d[13579][26]|\d\d0[48]|[02468][048]00|[13579][26]00)-02-29|\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\d|30)|(?:02)-(?:0[1-9]|1\d|2[0-8])))T(?:(?:[01]\d|2[0-3]):[0-5]\d(?::[0-5]\d(?:\.\d+)?)?(?:Z))$
+      required:
+        - id
+        - community_id
+        - donor_id
+        - amount_cents
+        - currency
+        - status
+        - created_at
+        - updated_at
+      additionalProperties: false
+      description: A monetary donation within a community.
     DonationId:
       type: string
       pattern: ^dntn_[0-9A-HJKMNP-TV-Z]{26}$
       description: "Branded identifier: dntn_<ULID>"
+    DonationList:
+      type: object
+      properties:
+        community_id:
+          $ref: "#/components/schemas/CommunityId"
+        donations:
+          type: array
+          items:
+            $ref: "#/components/schemas/Donation"
+      required:
+        - community_id
+        - donations
+      additionalProperties: false
+      description: A page of a community’s donations.
     DonationStatus:
       type: string
       enum:
@@ -654,6 +1311,44 @@ components:
       type: string
       pattern: ^[a-z][a-z0-9-]{1,63}$
       description: A lowercase, hyphen-separated feature-flag key.
+    FlagList:
+      type: object
+      properties:
+        community_id:
+          $ref: "#/components/schemas/CommunityId"
+        flags:
+          type: array
+          items:
+            $ref: "#/components/schemas/FlagResolution"
+        as_of:
+          $ref: "#/components/schemas/AsOf"
+      required:
+        - community_id
+        - flags
+        - as_of
+      additionalProperties: false
+      description: All resolved flags for a community.
+    FlagResolution:
+      type: object
+      properties:
+        community_id:
+          $ref: "#/components/schemas/CommunityId"
+        flag_key:
+          $ref: "#/components/schemas/FlagKey"
+        state:
+          $ref: "#/components/schemas/FlagState"
+        enabled:
+          type: boolean
+        as_of:
+          $ref: "#/components/schemas/AsOf"
+      required:
+        - community_id
+        - flag_key
+        - state
+        - enabled
+        - as_of
+      additionalProperties: false
+      description: Resolved feature-flag value for a community.
     FlagState:
       type: string
       enum:
@@ -756,6 +1451,16 @@ components:
         - failure_domain
       additionalProperties: false
       description: RFC 7807 Problem Details with QARoom agent extensions.
+    RolloutEventName:
+      type: string
+      enum:
+        - EnableRequested
+        - CanaryConfirmed
+        - RolloutCompleted
+        - DisableRequested
+        - DisableCompleted
+        - RolloutAborted
+      description: A rollout state-machine event a client may request.
     SystemLimits:
       type: object
       properties:

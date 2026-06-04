@@ -1,0 +1,39 @@
+# Experiment 06 — LitmusChaos HTTPChaos: donations returns 500 (so the gateway must degrade).
+#
+# Litmus, not Chaos Mesh: Chaos Mesh HTTPChaos is unreliable on k3d's flannel CNI (ADR-0014), so
+# HTTP-layer faults use Litmus's proxy-injection model.
+#
+# Hypothesis (docs/failure-modes.md#06-http-gateway-500-donations): under sustained provider 500s,
+# the gateway's donations endpoint settles to a typed 502 dependency_failure (retryable) with
+# bounded latency — it never leaks a naked provider 500 indefinitely. The donations circuit
+# breaker (opens after N consecutive 5xx, fails fast for a cooldown) is the mitigation.
+#
+# Deliberate-bug demo (docs/failure-modes.md#06): CHAOS_DISABLE_CIRCUIT_BREAKER=1 on the gateway
+# → every request proxies the raw 500 and pays full latency → the "settles to typed 502" property
+# goes red. Restore → green.
+#
+# Setup: `pnpm chaos:install:litmus` (operator) + apply the pod-http-status-code ChaosExperiment
+# CR and the litmus-admin RBAC into `qaroom`. Runs in the nightly tier. Replayable (Commitment 6).
+apiVersion: litmuschaos.io/v1alpha1
+kind: ChaosEngine
+metadata:
+  name: http-donations-500
+  namespace: qaroom
+spec:
+  appinfo:
+    appns: qaroom
+    applabel: 'app.kubernetes.io/instance=donations'
+    appkind: deployment
+  engineState: active
+  chaosServiceAccount: litmus-admin
+  experiments:
+    - name: pod-http-status-code
+      spec:
+        components:
+          env:
+            - name: TARGET_SERVICE_PORT
+              value: '8084'
+            - name: STATUS_CODE
+              value: '500'
+            - name: TOTAL_CHAOS_DURATION
+              value: '120'

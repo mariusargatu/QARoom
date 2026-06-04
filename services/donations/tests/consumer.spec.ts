@@ -1,6 +1,6 @@
 import { processEvent } from '@qaroom/messaging'
 import { describe, expect, it } from 'vitest'
-import { flagStateChangedHandler } from '../src/consumer'
+import { FLAG_SUBSCRIPTION, flagStateChangedHandler } from '../src/consumer'
 import type { DonationsDb } from '../src/db/client'
 import { isDonationsEnabled } from '../src/repository'
 import { SAMPLE, setupDonationsTest } from './harness'
@@ -21,7 +21,7 @@ describe('flag-state consumer projection', () => {
     const ctx = await setupDonationsTest()
     await processEvent(
       ctx.db,
-      'donations.on-flag-state',
+      FLAG_SUBSCRIPTION,
       {
         eventId: 'evt_00000000000000000000000000',
         communityId: SAMPLE.communityA,
@@ -43,20 +43,8 @@ describe('flag-state consumer projection', () => {
       payload: flagEvent('Enabled', true),
     }
     const handler = flagStateChangedHandler(ctx.clock)
-    const first = await processEvent(
-      ctx.db,
-      'donations.on-flag-state',
-      delivered,
-      handler,
-      ctx.clock,
-    )
-    const second = await processEvent(
-      ctx.db,
-      'donations.on-flag-state',
-      delivered,
-      handler,
-      ctx.clock,
-    )
+    const first = await processEvent(ctx.db, FLAG_SUBSCRIPTION, delivered, handler, ctx.clock)
+    const second = await processEvent(ctx.db, FLAG_SUBSCRIPTION, delivered, handler, ctx.clock)
     const enabled = await isDonationsEnabled(ctx.db as unknown as DonationsDb, SAMPLE.communityA)
     await ctx.close()
     expect(first.skipped).toBe(false)

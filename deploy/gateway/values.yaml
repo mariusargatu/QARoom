@@ -10,5 +10,12 @@ otel:
 postgres:
   enabled: false
 extraEnv:
-  # Gateway calls the content Service (port 80 → content container 8081).
+  # Gateway calls each upstream Service (port 80 → that service's container port).
   CONTENT_BASE_URL: http://content:80
+  DONATIONS_BASE_URL: http://donations:80
+  FLAGS_BASE_URL: http://flags:80
+  # Bounded upstream timeout so a partition (chaos experiment 07) surfaces as a prompt 502
+  # rather than a socket hang. Widen this to demonstrate the deliberate-bug (the hang).
+  GATEWAY_UPSTREAM_TIMEOUT_MS: "5000"
+  # NATS JetStream — the gateway tails flag/donation events to feed the WS/poll stream.
+  NATS_URL: nats://qaroom-nats.observability.svc.cluster.local:4222

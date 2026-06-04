@@ -28,12 +28,16 @@ export async function processEvent(
   handler: EventHandler,
   clock: Clock,
 ): Promise<{ skipped: boolean }> {
+  // CHAOS_SKIP_DEDUP is the experiment-03 deliberate-bug toggle: when set, the dedup check +
+  // record are bypassed, so a redelivered event re-applies its effect. Off in all normal
+  // operation (and every unit test), so the dedup invariant is unchanged outside the demo.
+  const skipDedup = process.env.CHAOS_SKIP_DEDUP === '1'
   return db.transaction(async (tx) => {
-    if (await alreadyProcessed(tx, subscriptionName, event.eventId)) {
+    if (!skipDedup && (await alreadyProcessed(tx, subscriptionName, event.eventId))) {
       return { skipped: true }
     }
     await withTenant(event.communityId, () => handler(tx, event.payload))
-    await markProcessed(tx, subscriptionName, event.eventId, clock.now())
+    if (!skipDedup) await markProcessed(tx, subscriptionName, event.eventId, clock.now())
     return { skipped: false }
   })
 }

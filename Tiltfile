@@ -38,7 +38,7 @@ docker_build(
     'qaroom/web',
     '.',
     dockerfile='services/web/Dockerfile',
-    only=['pnpm-workspace.yaml', 'package.json', 'pnpm-lock.yaml', 'packages', 'services/web', 'tools'],
+    only=['pnpm-workspace.yaml', 'package.json', 'pnpm-lock.yaml', 'tsconfig.base.json', 'packages', 'services/web', 'tools'],
 )
 k8s_yaml(helm('packages/helm-template', name='web', namespace='qaroom', values=['deploy/web/values.yaml']))
 
@@ -54,12 +54,13 @@ k8s_yaml([
 ])
 
 # Services: Postgres first. flags/donations also wait on NATS; donations on Microcks (payment
-# mock); the gateway is last (it proxies content + redeems WS tickets at identity + reads NATS).
+# mock); the gateway is last (it proxies content/donations/flags, redeems WS tickets at
+# identity, and reads NATS).
 k8s_resource('content', resource_deps=['content-pg', 'qaroom-nats'], labels=['services'])
 k8s_resource('identity', resource_deps=['identity-pg'], labels=['services'])
 k8s_resource('flags', resource_deps=['flags-pg', 'qaroom-nats'], labels=['services'])
 k8s_resource('donations', resource_deps=['donations-pg', 'qaroom-nats', 'qaroom-microcks'], labels=['services'])
-k8s_resource('gateway', port_forwards='8080:8080', resource_deps=['content', 'identity', 'qaroom-nats'], labels=['services'])
+k8s_resource('gateway', port_forwards='8080:8080', resource_deps=['content', 'identity', 'donations', 'flags', 'qaroom-nats'], labels=['services'])
 k8s_resource('web', port_forwards='8085:8085', resource_deps=['gateway'], labels=['services'])
 
 # Observability UIs. The collector exports traces to BOTH Jaeger and Tracetest, so it must

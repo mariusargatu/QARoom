@@ -1,5 +1,5 @@
 import { connectNats, createRelay, natsPublisher } from '@qaroom/messaging'
-import { createProductionDeps, runServer } from '@qaroom/service-kit'
+import { createProductionDeps, pgPoolMax, runServer } from '@qaroom/service-kit'
 import { drizzle } from 'drizzle-orm/postgres-js'
 import postgres from 'postgres'
 import { buildApp } from './app'
@@ -15,7 +15,7 @@ const RELAY_INTERVAL_MS = 1000
 runServer(
   async () => {
     const deps = createProductionDeps()
-    const db = drizzle(postgres(connectionString), { schema })
+    const db = drizzle(postgres(connectionString, { max: pgPoolMax() }), { schema })
     await ensureSchema(db)
     // Transactional-outbox relay (Commitment 17): drain committed flag-changed events to
     // JetStream. The HTTP path only writes the outbox row, so it serves even if NATS is

@@ -1,0 +1,27 @@
+# Experiment 01 — PodChaos: donations-service unreachable mid-rollout.
+#
+# Hypothesis (docs/failure-modes.md#01-pod-donations-unreachable): while donations is down, the
+# gateway's donations endpoint stays bounded (a typed 502 dependency_failure, never a hang), and
+# once Kubernetes restarts the pod the endpoint returns to 200 — the system self-heals. The
+# durable JetStream consumer + processed_events dedup additionally guarantee the flag-gating
+# projection catches up on any flag event missed during the downtime (unit-tested in @qaroom/messaging).
+#
+# Deliberate-bug demo: widen GATEWAY_UPSTREAM_TIMEOUT_MS so a request to the dead pod hangs past
+# the probe budget instead of failing fast → the during-chaos assertion goes red. Restore → green.
+#
+# Replayable artifact (Commitment 6). The harness heals by deleting this manifest; `duration` is
+# a safety net.
+apiVersion: chaos-mesh.org/v1alpha1
+kind: PodChaos
+metadata:
+  name: pod-donations-unreachable
+  namespace: qaroom
+spec:
+  action: pod-failure
+  mode: all
+  duration: 5m
+  selector:
+    namespaces: [qaroom]
+    labelSelectors:
+      app.kubernetes.io/instance: donations
+      qaroom.io/component: app

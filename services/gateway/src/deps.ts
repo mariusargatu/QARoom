@@ -1,13 +1,18 @@
 import type { LamportGate, SpanAttributeSink } from '@qaroom/contracts'
 import type { Clock, IdGenerator, Randomness } from '@qaroom/determinism'
 import type { ContentClient } from './content-client'
+import type { DonationsClient } from './donations-client'
 import type { CommunityEventStream } from './event-stream'
+import type { FlagsClient } from './flags-client'
 import type { RateLimitConfig, RateLimiter } from './rate-limiter'
 import type { TicketClient } from './ticket-client'
 
 /** What `buildGatewayApp` receives. `lamport`/`rateLimit`/`eventStream` optional with defaults. */
 export interface GatewayDeps {
   content: ContentClient
+  /** donations/flags proxy clients. When omitted, those routes are simply not registered. */
+  donations?: DonationsClient
+  flags?: FlagsClient
   /** Redeems WebSocket tickets against identity-service (ADR-0013). */
   tickets: TicketClient
   clock: Clock

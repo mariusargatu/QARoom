@@ -1,5 +1,5 @@
 import { connectNats, createRelay, natsPublisher } from '@qaroom/messaging'
-import { createProductionDeps, runServer } from '@qaroom/service-kit'
+import { createProductionDeps, pgPoolMax, runServer } from '@qaroom/service-kit'
 import { drizzle } from 'drizzle-orm/postgres-js'
 import postgres from 'postgres'
 import { buildApp } from './app'
@@ -16,7 +16,7 @@ const RELAY_INTERVAL_MS = 1000
 runServer(
   async () => {
     const deps = createProductionDeps()
-    const db = drizzle(postgres(connectionString), { schema })
+    const db = drizzle(postgres(connectionString, { max: pgPoolMax() }), { schema })
     await ensureSchema(db)
     // Communities-as-tenants (Milestone 2): normalize any legacy community_id to the
     // general community before serving. Modeled as a state machine; see db/backfill.ts.

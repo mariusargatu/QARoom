@@ -4,6 +4,9 @@ on:
   push:
     branches: [main, master]
   pull_request:
+  schedule:
+    # Nightly chaos tier (ADR-0014): chaos experiments exceed the PR-fast budget.
+    - cron: '0 4 * * *'
 
 jobs:
   verify:
@@ -53,6 +56,10 @@ jobs:
         run: pnpm pact:verify --provider content
       - name: Pact provider verification (identity)
         run: pnpm pact:verify --provider identity
+      - name: Pact provider verification (donations)
+        run: pnpm pact:verify --provider donations
+      - name: Pact provider verification (flags)
+        run: pnpm pact:verify --provider flags
 
   # Trust-boundary fuzzing: bring up content + gateway, then fuzz the gateway's OpenAPI
   # with Schemathesis (containerized — no Python in the monorepo).
@@ -203,3 +210,54 @@ jobs:
           for i in $(seq 1 30); do curl -fs http://localhost:11633 >/dev/null && break || sleep 2; done
           tracetest configure --server-url http://localhost:11633
           tracetest run test -f services/content/tests/tracetest/post-created-publish.yaml --wait-for-result
+
+  # Nightly chaos tier (ADR-0014): bring the full stack up on KinD, install Chaos Mesh, and run
+  # the TypeScript steady-state harness (tests/chaos). Gated to the schedule — chaos needs a live
+  # cluster and exceeds the PR-fast budget. KinD's containerd socket differs from k3d's, so the
+  # chaos-daemon socket is overridden via CHAOS_CONTAINERD_SOCKET.
+  chaos:
+    if: github.event_name == 'schedule'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: ./.github/actions/setup-workspace
+      - uses: azure/setup-helm@v4
+        with:
+          version: v4.1.1
+      - uses: helm/kind-action@v1
+        with:
+          cluster_name: qaroom
+      - name: Build + load service images
+        run: |
+          for svc in content identity flags donations gateway; do
+            docker build -f services/$svc/Dockerfile -t qaroom/$svc:latest .
+            kind load docker-image qaroom/$svc:latest --name qaroom
+          done
+      - name: Namespaces + observability (NATS + Microcks + OTel)
+        run: |
+          kubectl create namespace qaroom
+          kubectl create namespace observability
+          kubectl apply -f deploy/observability/
+          kubectl wait --for=condition=available deploy --all -n observability --timeout=300s
+      - name: Install services
+        run: |
+          for svc in content identity flags donations gateway; do
+            helm install $svc packages/helm-template -n qaroom \
+              -f deploy/$svc/values.yaml --set image.pullPolicy=Never
+          done
+          kubectl wait --for=condition=ready pod --all -n qaroom --timeout=300s
+      - name: Install Chaos Mesh (KinD containerd socket)
+        run: CHAOS_CONTAINERD_SOCKET=/run/containerd/containerd.sock pnpm chaos:install
+      - name: Chaos smoke — prove injection works
+        run: pnpm chaos:smoke
+      - name: Run chaos experiments (steady-state harness)
+        run: pnpm chaos:run
+      - name: Merge chaos runner into summary.json
+        if: always()
+        run: pnpm chaos:results
+      - name: Upload chaos summary
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: chaos-summary
+          path: test-results/summary.json

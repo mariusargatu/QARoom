@@ -1,4 +1,7 @@
 export { buildServiceAsyncApiYaml } from './asyncapi'
+export type { DbPoolOptions } from './db'
+export { pgPoolMax } from './db'
+export { intFromEnv } from './env'
 export type { HealthRoutesOptions } from './health-routes'
 export { registerHealthRoutes } from './health-routes'
 export { idempotencyKeyFrom } from './http'

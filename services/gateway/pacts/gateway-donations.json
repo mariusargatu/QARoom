@@ -1,0 +1,550 @@
+{
+  "consumer": {
+    "name": "gateway"
+  },
+  "interactions": [
+    {
+      "description": "a request to create a donation",
+      "pending": false,
+      "providerStates": [
+        {
+          "name": "donations are enabled for the community",
+          "params": {
+            "community_id": "comm_01HZY0K7M3QF8VN2J5RX9TB4CD"
+          }
+        }
+      ],
+      "request": {
+        "body": {
+          "content": {
+            "amount_cents": 2500,
+            "currency": "USD",
+            "donor_id": "user_01HZY0K7M3QF8VN2J5RX9TB4CF"
+          },
+          "contentType": "application/json",
+          "encoded": false
+        },
+        "headers": {
+          "Content-Type": [
+            "application/json"
+          ],
+          "Idempotency-Key": [
+            "idem-don-1"
+          ],
+          "content-type": [
+            "application/json"
+          ]
+        },
+        "matchingRules": {
+          "body": {},
+          "header": {
+            "Idempotency-Key": {
+              "combine": "AND",
+              "matchers": [
+                {
+                  "match": "type"
+                }
+              ]
+            }
+          }
+        },
+        "method": "POST",
+        "path": "/api/communities/comm_01HZY0K7M3QF8VN2J5RX9TB4CD/donations"
+      },
+      "response": {
+        "body": {
+          "content": {
+            "amount_cents": 2500,
+            "community_id": "comm_01HZY0K7M3QF8VN2J5RX9TB4CD",
+            "created_at": "2026-01-01T00:00:00.000Z",
+            "currency": "USD",
+            "donor_id": "user_01HZY0K7M3QF8VN2J5RX9TB4CF",
+            "id": "dntn_01HZY0K7M3QF8VN2J5RX9TB4CJ",
+            "status": "Captured",
+            "updated_at": "2026-01-01T00:00:00.000Z"
+          },
+          "contentType": "application/json",
+          "encoded": false
+        },
+        "headers": {
+          "Content-Type": [
+            "application/json"
+          ]
+        },
+        "matchingRules": {
+          "body": {
+            "$": {
+              "combine": "AND",
+              "matchers": [
+                {
+                  "match": "type"
+                }
+              ]
+            },
+            "$.amount_cents": {
+              "combine": "AND",
+              "matchers": [
+                {
+                  "match": "integer"
+                }
+              ]
+            },
+            "$.community_id": {
+              "combine": "AND",
+              "matchers": [
+                {
+                  "match": "regex",
+                  "regex": "^comm_[0-9A-HJKMNP-TV-Z]{26}$"
+                }
+              ]
+            },
+            "$.created_at": {
+              "combine": "AND",
+              "matchers": [
+                {
+                  "match": "regex",
+                  "regex": "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}\\.\\d{3}Z$"
+                }
+              ]
+            },
+            "$.currency": {
+              "combine": "AND",
+              "matchers": [
+                {
+                  "match": "regex",
+                  "regex": "^[A-Z]{3}$"
+                }
+              ]
+            },
+            "$.donor_id": {
+              "combine": "AND",
+              "matchers": [
+                {
+                  "match": "regex",
+                  "regex": "^user_[0-9A-HJKMNP-TV-Z]{26}$"
+                }
+              ]
+            },
+            "$.id": {
+              "combine": "AND",
+              "matchers": [
+                {
+                  "match": "regex",
+                  "regex": "^dntn_[0-9A-HJKMNP-TV-Z]{26}$"
+                }
+              ]
+            },
+            "$.status": {
+              "combine": "AND",
+              "matchers": [
+                {
+                  "match": "regex",
+                  "regex": "^(Pending|Authorized|Captured|Failed|Refunded)$"
+                }
+              ]
+            },
+            "$.updated_at": {
+              "combine": "AND",
+              "matchers": [
+                {
+                  "match": "regex",
+                  "regex": "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}\\.\\d{3}Z$"
+                }
+              ]
+            }
+          },
+          "status": {}
+        },
+        "status": 201
+      },
+      "type": "Synchronous/HTTP"
+    },
+    {
+      "description": "a request to get a missing donation",
+      "pending": false,
+      "providerStates": [
+        {
+          "name": "no such donation exists",
+          "params": {
+            "community_id": "comm_01HZY0K7M3QF8VN2J5RX9TB4CD",
+            "id": "dntn_01HZY0K7M3QF8VN2J5RX9TB4XX"
+          }
+        }
+      ],
+      "request": {
+        "method": "GET",
+        "path": "/api/communities/comm_01HZY0K7M3QF8VN2J5RX9TB4CD/donations/dntn_01HZY0K7M3QF8VN2J5RX9TB4XX"
+      },
+      "response": {
+        "body": {
+          "content": {
+            "failure_domain": "not_found",
+            "retryable": false,
+            "status": 404,
+            "title": "Donation not found",
+            "type": "https://qaroom.dev/errors/donation-not-found"
+          },
+          "contentType": "application/json",
+          "encoded": false
+        },
+        "headers": {
+          "Content-Type": [
+            "application/json"
+          ],
+          "content-type": [
+            "application/problem+json"
+          ]
+        },
+        "matchingRules": {
+          "body": {
+            "$": {
+              "combine": "AND",
+              "matchers": [
+                {
+                  "match": "type"
+                }
+              ]
+            },
+            "$.failure_domain": {
+              "combine": "AND",
+              "matchers": [
+                {
+                  "match": "type"
+                }
+              ]
+            },
+            "$.retryable": {
+              "combine": "AND",
+              "matchers": [
+                {
+                  "match": "type"
+                }
+              ]
+            },
+            "$.status": {
+              "combine": "AND",
+              "matchers": [
+                {
+                  "match": "integer"
+                }
+              ]
+            },
+            "$.title": {
+              "combine": "AND",
+              "matchers": [
+                {
+                  "match": "type"
+                }
+              ]
+            },
+            "$.type": {
+              "combine": "AND",
+              "matchers": [
+                {
+                  "match": "type"
+                }
+              ]
+            }
+          },
+          "header": {
+            "content-type": {
+              "combine": "AND",
+              "matchers": [
+                {
+                  "match": "regex",
+                  "regex": "application/problem\\+json.*"
+                }
+              ]
+            }
+          },
+          "status": {}
+        },
+        "status": 404
+      },
+      "type": "Synchronous/HTTP"
+    },
+    {
+      "description": "a request to get an existing donation",
+      "pending": false,
+      "providerStates": [
+        {
+          "name": "a donation exists in the community",
+          "params": {
+            "community_id": "comm_01HZY0K7M3QF8VN2J5RX9TB4CD",
+            "id": "dntn_01HZY0K7M3QF8VN2J5RX9TB4CJ"
+          }
+        }
+      ],
+      "request": {
+        "method": "GET",
+        "path": "/api/communities/comm_01HZY0K7M3QF8VN2J5RX9TB4CD/donations/dntn_01HZY0K7M3QF8VN2J5RX9TB4CJ"
+      },
+      "response": {
+        "body": {
+          "content": {
+            "amount_cents": 2500,
+            "community_id": "comm_01HZY0K7M3QF8VN2J5RX9TB4CD",
+            "created_at": "2026-01-01T00:00:00.000Z",
+            "currency": "USD",
+            "donor_id": "user_01HZY0K7M3QF8VN2J5RX9TB4CF",
+            "id": "dntn_01HZY0K7M3QF8VN2J5RX9TB4CJ",
+            "status": "Captured",
+            "updated_at": "2026-01-01T00:00:00.000Z"
+          },
+          "contentType": "application/json",
+          "encoded": false
+        },
+        "headers": {
+          "Content-Type": [
+            "application/json"
+          ]
+        },
+        "matchingRules": {
+          "body": {
+            "$": {
+              "combine": "AND",
+              "matchers": [
+                {
+                  "match": "type"
+                }
+              ]
+            },
+            "$.amount_cents": {
+              "combine": "AND",
+              "matchers": [
+                {
+                  "match": "integer"
+                }
+              ]
+            },
+            "$.community_id": {
+              "combine": "AND",
+              "matchers": [
+                {
+                  "match": "regex",
+                  "regex": "^comm_[0-9A-HJKMNP-TV-Z]{26}$"
+                }
+              ]
+            },
+            "$.created_at": {
+              "combine": "AND",
+              "matchers": [
+                {
+                  "match": "regex",
+                  "regex": "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}\\.\\d{3}Z$"
+                }
+              ]
+            },
+            "$.currency": {
+              "combine": "AND",
+              "matchers": [
+                {
+                  "match": "regex",
+                  "regex": "^[A-Z]{3}$"
+                }
+              ]
+            },
+            "$.donor_id": {
+              "combine": "AND",
+              "matchers": [
+                {
+                  "match": "regex",
+                  "regex": "^user_[0-9A-HJKMNP-TV-Z]{26}$"
+                }
+              ]
+            },
+            "$.id": {
+              "combine": "AND",
+              "matchers": [
+                {
+                  "match": "regex",
+                  "regex": "^dntn_[0-9A-HJKMNP-TV-Z]{26}$"
+                }
+              ]
+            },
+            "$.status": {
+              "combine": "AND",
+              "matchers": [
+                {
+                  "match": "regex",
+                  "regex": "^(Pending|Authorized|Captured|Failed|Refunded)$"
+                }
+              ]
+            },
+            "$.updated_at": {
+              "combine": "AND",
+              "matchers": [
+                {
+                  "match": "regex",
+                  "regex": "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}\\.\\d{3}Z$"
+                }
+              ]
+            }
+          },
+          "status": {}
+        },
+        "status": 200
+      },
+      "type": "Synchronous/HTTP"
+    },
+    {
+      "description": "a request to list donations",
+      "pending": false,
+      "providerStates": [
+        {
+          "name": "a donation exists in the community",
+          "params": {
+            "community_id": "comm_01HZY0K7M3QF8VN2J5RX9TB4CD",
+            "id": "dntn_01HZY0K7M3QF8VN2J5RX9TB4CJ"
+          }
+        }
+      ],
+      "request": {
+        "method": "GET",
+        "path": "/api/communities/comm_01HZY0K7M3QF8VN2J5RX9TB4CD/donations"
+      },
+      "response": {
+        "body": {
+          "content": {
+            "community_id": "comm_01HZY0K7M3QF8VN2J5RX9TB4CD",
+            "donations": [
+              {
+                "amount_cents": 2500,
+                "community_id": "comm_01HZY0K7M3QF8VN2J5RX9TB4CD",
+                "created_at": "2026-01-01T00:00:00.000Z",
+                "currency": "USD",
+                "donor_id": "user_01HZY0K7M3QF8VN2J5RX9TB4CF",
+                "id": "dntn_01HZY0K7M3QF8VN2J5RX9TB4CJ",
+                "status": "Captured",
+                "updated_at": "2026-01-01T00:00:00.000Z"
+              }
+            ]
+          },
+          "contentType": "application/json",
+          "encoded": false
+        },
+        "headers": {
+          "Content-Type": [
+            "application/json"
+          ]
+        },
+        "matchingRules": {
+          "body": {
+            "$": {
+              "combine": "AND",
+              "matchers": [
+                {
+                  "match": "type"
+                }
+              ]
+            },
+            "$.community_id": {
+              "combine": "AND",
+              "matchers": [
+                {
+                  "match": "regex",
+                  "regex": "^comm_[0-9A-HJKMNP-TV-Z]{26}$"
+                }
+              ]
+            },
+            "$.donations": {
+              "combine": "AND",
+              "matchers": [
+                {
+                  "match": "type",
+                  "min": 1
+                }
+              ]
+            },
+            "$.donations[*].amount_cents": {
+              "combine": "AND",
+              "matchers": [
+                {
+                  "match": "integer"
+                }
+              ]
+            },
+            "$.donations[*].community_id": {
+              "combine": "AND",
+              "matchers": [
+                {
+                  "match": "regex",
+                  "regex": "^comm_[0-9A-HJKMNP-TV-Z]{26}$"
+                }
+              ]
+            },
+            "$.donations[*].created_at": {
+              "combine": "AND",
+              "matchers": [
+                {
+                  "match": "regex",
+                  "regex": "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}\\.\\d{3}Z$"
+                }
+              ]
+            },
+            "$.donations[*].currency": {
+              "combine": "AND",
+              "matchers": [
+                {
+                  "match": "regex",
+                  "regex": "^[A-Z]{3}$"
+                }
+              ]
+            },
+            "$.donations[*].donor_id": {
+              "combine": "AND",
+              "matchers": [
+                {
+                  "match": "regex",
+                  "regex": "^user_[0-9A-HJKMNP-TV-Z]{26}$"
+                }
+              ]
+            },
+            "$.donations[*].id": {
+              "combine": "AND",
+              "matchers": [
+                {
+                  "match": "regex",
+                  "regex": "^dntn_[0-9A-HJKMNP-TV-Z]{26}$"
+                }
+              ]
+            },
+            "$.donations[*].status": {
+              "combine": "AND",
+              "matchers": [
+                {
+                  "match": "regex",
+                  "regex": "^(Pending|Authorized|Captured|Failed|Refunded)$"
+                }
+              ]
+            },
+            "$.donations[*].updated_at": {
+              "combine": "AND",
+              "matchers": [
+                {
+                  "match": "regex",
+                  "regex": "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}\\.\\d{3}Z$"
+                }
+              ]
+            }
+          },
+          "status": {}
+        },
+        "status": 200
+      },
+      "type": "Synchronous/HTTP"
+    }
+  ],
+  "metadata": {
+    "pactRust": {
+      "ffi": "0.4.22",
+      "models": "1.2.3"
+    },
+    "pactSpecification": {
+      "version": "4.0"
+    }
+  },
+  "provider": {
+    "name": "donations"
+  }
+}

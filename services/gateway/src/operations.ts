@@ -1,10 +1,16 @@
 import {
+  brandedPathParam,
   communityIdParam,
+  EXAMPLE_AS_OF,
+  EXAMPLE_COMMUNITY_ID,
+  EXAMPLE_DONATION,
+  EXAMPLE_FLAG_RESOLUTION,
   EXAMPLE_POST,
   EXAMPLE_POST_ID,
   EXAMPLE_USER_ID,
   idempotencyKeyHeaderParam,
   type OasOperation,
+  type OasParam,
   postIdParam,
   problemResponse,
 } from '@qaroom/contracts'
@@ -42,6 +48,59 @@ const rateLimited429 = problemResponse(429, 'rate-limited', 'Too many requests',
   description: 'The per-principal rate limit was exceeded. Carries a Retry-After header.',
   retryable: true,
 })
+const donationsUnreachable502 = problemResponse(
+  502,
+  'donations-unreachable',
+  'Upstream donations-service unavailable',
+  'dependency_failure',
+  {
+    description:
+      'donations-service is unreachable, timed out, or the gateway circuit breaker is open (chaos experiments 06/07). The upstream payment-provider 502 is also surfaced here.',
+    retryable: true,
+  },
+)
+const flagsUnreachable502 = problemResponse(
+  502,
+  'flags-unreachable',
+  'Upstream flags-service unavailable',
+  'dependency_failure',
+  { description: 'flags-service is unreachable or timed out.', retryable: true },
+)
+const donationsGated409 = problemResponse(
+  409,
+  'donations-not-enabled',
+  'Donations are not enabled',
+  'conflict',
+  { description: 'The donations feature flag has not reached Enabled for this community.' },
+)
+const donationNotFound404 = problemResponse(
+  404,
+  'donation-not-found',
+  'Donation not found',
+  'not_found',
+  { description: 'No donation with that id exists in this community.' },
+)
+const rolloutConflict409 = problemResponse(
+  409,
+  'rollout-transition-illegal',
+  'Illegal rollout transition',
+  'conflict',
+  { description: 'The requested event is not a legal transition from the flag’s current state.' },
+)
+
+const donationIdParam = brandedPathParam('donationId', 'dntn', 'Target donation.')
+const flagKeyParam: OasParam = {
+  name: 'flagKey',
+  in: 'path',
+  required: true,
+  description: 'Feature-flag key (lowercase, hyphen-separated slug).',
+  schema: { type: 'string', pattern: '^[a-z][a-z0-9-]{1,63}$' },
+}
+const EXAMPLE_FLAG_LIST = {
+  community_id: EXAMPLE_COMMUNITY_ID,
+  flags: [EXAMPLE_FLAG_RESOLUTION],
+  as_of: EXAMPLE_AS_OF,
+}
 
 export const OPERATIONS: readonly OasOperation[] = [
   {
@@ -141,6 +200,159 @@ export const OPERATIONS: readonly OasOperation[] = [
       validation400,
       notFound404,
       upstream502,
+      rateLimited429,
+    ],
+  },
+  {
+    operationId: 'createDonation',
+    method: 'post',
+    path: '/api/communities/{communityId}/donations',
+    summary: 'Create a donation (proxied to donations-service)',
+    description:
+      'Validates at the edge, forwards to donations-service. Gated by the donations flag and settled via the payment provider. Idempotent on Idempotency-Key. The gateway circuit breaker fails fast with a 502 when donations is sick (experiment 06).',
+    tags: ['donations'],
+    mutating: true,
+    params: [communityIdParam, idempotencyKeyHeaderParam],
+    requestBodyRef: 'CreateDonationRequest',
+    requestExample: { donor_id: EXAMPLE_USER_ID, amount_cents: 2500, currency: 'USD' },
+    responses: [
+      {
+        code: 201,
+        description: 'The recorded donation.',
+        bodyRef: 'Donation',
+        example: EXAMPLE_DONATION,
+        links: {
+          GetCreatedDonation: {
+            operationId: 'getDonation',
+            parameters: {
+              communityId: '$response.body#/community_id',
+              donationId: '$response.body#/id',
+            },
+            description: 'Fetch the donation that was just created.',
+          },
+        },
+      },
+      validation400,
+      donationsGated409,
+      donationsUnreachable502,
+      rateLimited429,
+    ],
+  },
+  {
+    operationId: 'listDonations',
+    method: 'get',
+    path: '/api/communities/{communityId}/donations',
+    summary: 'List a community’s donations (proxied)',
+    description:
+      'Returns the most recent donations in a community, newest first, via donations-service.',
+    tags: ['donations'],
+    mutating: false,
+    params: [communityIdParam],
+    responses: [
+      {
+        code: 200,
+        description: 'A page of donations.',
+        bodyRef: 'DonationList',
+        example: { community_id: EXAMPLE_COMMUNITY_ID, donations: [EXAMPLE_DONATION] },
+      },
+      validation400,
+      donationsUnreachable502,
+      rateLimited429,
+    ],
+  },
+  {
+    operationId: 'getDonation',
+    method: 'get',
+    path: '/api/communities/{communityId}/donations/{donationId}',
+    summary: 'Get a single donation (proxied)',
+    description: 'Returns a donation by id within a community, via donations-service.',
+    tags: ['donations'],
+    mutating: false,
+    params: [communityIdParam, donationIdParam],
+    responses: [
+      { code: 200, description: 'The donation.', bodyRef: 'Donation', example: EXAMPLE_DONATION },
+      validation400,
+      donationNotFound404,
+      donationsUnreachable502,
+      rateLimited429,
+    ],
+  },
+  {
+    operationId: 'resolveFlag',
+    method: 'get',
+    path: '/api/communities/{communityId}/flags/{flagKey}',
+    summary: 'Resolve a feature flag (proxied to flags-service)',
+    description:
+      'Returns the flag’s current rollout state and gating boolean, with a read envelope.',
+    tags: ['flags'],
+    mutating: false,
+    params: [communityIdParam, flagKeyParam],
+    responses: [
+      {
+        code: 200,
+        description: 'The resolved flag.',
+        bodyRef: 'FlagResolution',
+        example: EXAMPLE_FLAG_RESOLUTION,
+      },
+      validation400,
+      flagsUnreachable502,
+      rateLimited429,
+    ],
+  },
+  {
+    operationId: 'listFlags',
+    method: 'get',
+    path: '/api/communities/{communityId}/flags',
+    summary: 'List all flags for a community (proxied)',
+    description:
+      'Returns every flag resolved for the community, with a read envelope, via flags-service.',
+    tags: ['flags'],
+    mutating: false,
+    params: [communityIdParam],
+    responses: [
+      {
+        code: 200,
+        description: 'The resolved flags.',
+        bodyRef: 'FlagList',
+        example: EXAMPLE_FLAG_LIST,
+      },
+      validation400,
+      flagsUnreachable502,
+      rateLimited429,
+    ],
+  },
+  {
+    operationId: 'advanceRollout',
+    method: 'post',
+    path: '/api/communities/{communityId}/flags/{flagKey}/rollout',
+    summary: 'Advance a flag rollout (proxied)',
+    description:
+      'Applies one rollout event (e.g. EnableRequested). Idempotent on Idempotency-Key; an event illegal from the current state returns 409.',
+    tags: ['flags'],
+    mutating: true,
+    params: [communityIdParam, flagKeyParam, idempotencyKeyHeaderParam],
+    requestBodyRef: 'AdvanceRolloutRequest',
+    requestExample: { event: 'EnableRequested' },
+    responses: [
+      {
+        code: 200,
+        description: 'The flag after the transition.',
+        bodyRef: 'FlagResolution',
+        example: EXAMPLE_FLAG_RESOLUTION,
+        links: {
+          ResolveAdvancedFlag: {
+            operationId: 'resolveFlag',
+            parameters: {
+              communityId: '$response.body#/community_id',
+              flagKey: '$response.body#/flag_key',
+            },
+            description: 'Re-resolve the flag that was just advanced.',
+          },
+        },
+      },
+      validation400,
+      rolloutConflict409,
+      flagsUnreachable502,
       rateLimited429,
     ],
   },

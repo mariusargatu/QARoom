@@ -8,7 +8,9 @@ ENV PATH="$PNPM_HOME:$PATH"
 RUN corepack enable
 WORKDIR /repo
 
-COPY pnpm-workspace.yaml package.json pnpm-lock.yaml* ./
+# tsconfig.base.json is required: services/web/tsconfig.json extends it, so the `tsc` build step
+# below fails without it (it lives at the repo root, outside services/web).
+COPY pnpm-workspace.yaml package.json pnpm-lock.yaml* tsconfig.base.json ./
 COPY packages ./packages
 COPY services/web ./services/web
 COPY tools ./tools

@@ -1,0 +1,29 @@
+# Experiment 02 — NetworkChaos: slow NATS broker.
+#
+# Hypothesis (docs/failure-modes.md#02-net-slow-nats): a slow broker does NOT slow the HTTP
+# request path. Creating a donation (or advancing a rollout) commits the domain row + an outbox
+# row in one transaction and returns promptly (201/409); the background relay drains to NATS
+# asynchronously, so request latency is independent of broker latency. Events still drain once
+# the broker recovers.
+#
+# Deliberate-bug demo (docs/failure-modes.md#02): publish synchronously on the request path
+# (bypass the outbox) → a slow broker now stalls HTTP → the latency assertion goes red.
+#
+# Replayable artifact (Commitment 6). The harness heals by deleting this manifest.
+apiVersion: chaos-mesh.org/v1alpha1
+kind: NetworkChaos
+metadata:
+  name: net-slow-nats
+  namespace: qaroom
+spec:
+  action: delay
+  mode: all
+  duration: 5m
+  selector:
+    namespaces: [observability]
+    labelSelectors:
+      qaroom.io/observability: nats
+  delay:
+    latency: '2s'
+    jitter: '250ms'
+    correlation: '50'

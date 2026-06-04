@@ -7,8 +7,10 @@ import {
 } from '@qaroom/service-kit'
 import Fastify, { type FastifyInstance } from 'fastify'
 import { DEFAULT_RATE_LIMIT, type GatewayDeps, type GatewayRouteDeps } from './deps'
+import { registerDonationsRoutes } from './donations-routes'
 import { CommunityEventStream } from './event-stream'
 import { registerEventsRoute } from './events-routes'
+import { registerFlagsRoutes } from './flags-routes'
 import { OPERATIONS } from './operations'
 import { registerProxyRoutes } from './proxy-routes'
 import { registerRateLimit } from './rate-limit'
@@ -43,6 +45,8 @@ export function buildGatewayApp(deps: GatewayDeps): FastifyInstance {
   registerHealthRoutes(app, { service: 'gateway' })
   registerRateLimit(app, limiter)
   registerProxyRoutes(app, routeDeps)
+  if (deps.donations) registerDonationsRoutes(app, routeDeps, deps.donations)
+  if (deps.flags) registerFlagsRoutes(app, routeDeps, deps.flags)
   registerEventsRoute(app, routeDeps)
   registerWsUpgrade(app, routeDeps)
   registerSystemRoutes(app, {

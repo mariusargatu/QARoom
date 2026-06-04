@@ -1,0 +1,34 @@
+# Experiment 04 — StressChaos: Postgres under resource pressure (pool-exhaustion family).
+#
+# Hypothesis (docs/failure-modes.md#04-stress-pg-pool-exhaustion): under DB pressure the service
+# stays available and bounded — it sheds cleanly (readiness 503) rather than crashing or hanging,
+# and never corrupts data. The bounded connection pool (pgPoolMax) + the DB-free /health vs
+# DB-checking /ready split are the mitigation.
+#
+# Deliberate-bug demo (docs/failure-modes.md#04): set PG_POOL_MAX very high (effectively
+# unbounded) → under real load the service opens too many connections (Postgres `FATAL: too many
+# connections`) and returns naked 5xx instead of cleanly shedding via 503. NOTE: a *clean* pool-
+# exhaustion demo needs concurrent load (M8 k6) — StressChaos pressures CPU/memory, which this
+# experiment uses to assert availability-under-pressure; the full exhaustion demo is load-driven.
+#
+# Replayable artifact (Commitment 6). The harness heals by deleting this manifest.
+apiVersion: chaos-mesh.org/v1alpha1
+kind: StressChaos
+metadata:
+  name: stress-pg-pool-exhaustion
+  namespace: qaroom
+spec:
+  mode: all
+  duration: 5m
+  selector:
+    namespaces: [qaroom]
+    labelSelectors:
+      app.kubernetes.io/instance: donations
+      qaroom.io/component: postgres
+  stressors:
+    cpu:
+      workers: 4
+      load: 100
+    memory:
+      workers: 2
+      size: '256MB'

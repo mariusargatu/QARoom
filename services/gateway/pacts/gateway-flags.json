@@ -1,0 +1,279 @@
+{
+  "consumer": {
+    "name": "gateway"
+  },
+  "interactions": [
+    {
+      "description": "a request to advance a rollout",
+      "pending": false,
+      "request": {
+        "body": {
+          "content": {
+            "event": "EnableRequested"
+          },
+          "contentType": "application/json",
+          "encoded": false
+        },
+        "headers": {
+          "Content-Type": [
+            "application/json"
+          ],
+          "Idempotency-Key": [
+            "idem-roll-1"
+          ],
+          "content-type": [
+            "application/json"
+          ]
+        },
+        "matchingRules": {
+          "body": {},
+          "header": {
+            "Idempotency-Key": {
+              "combine": "AND",
+              "matchers": [
+                {
+                  "match": "type"
+                }
+              ]
+            }
+          }
+        },
+        "method": "POST",
+        "path": "/api/communities/comm_01HZY0K7M3QF8VN2J5RX9TB4CD/flags/donations/rollout"
+      },
+      "response": {
+        "body": {
+          "content": {
+            "as_of": {
+              "lamport": 0,
+              "snapshot_id": "snap_01HZY0K7M3QF8VN2J5RX9TB4CL",
+              "wall_clock": "2026-01-01T00:00:00.000Z"
+            },
+            "community_id": "comm_01HZY0K7M3QF8VN2J5RX9TB4CD",
+            "enabled": false,
+            "flag_key": "donations",
+            "state": "Enabling"
+          },
+          "contentType": "application/json",
+          "encoded": false
+        },
+        "headers": {
+          "Content-Type": [
+            "application/json"
+          ]
+        },
+        "matchingRules": {
+          "body": {
+            "$": {
+              "combine": "AND",
+              "matchers": [
+                {
+                  "match": "type"
+                }
+              ]
+            },
+            "$.as_of": {
+              "combine": "AND",
+              "matchers": [
+                {
+                  "match": "type"
+                },
+                {
+                  "match": "type"
+                }
+              ]
+            },
+            "$.as_of.lamport": {
+              "combine": "AND",
+              "matchers": [
+                {
+                  "match": "integer"
+                }
+              ]
+            },
+            "$.as_of.snapshot_id": {
+              "combine": "AND",
+              "matchers": [
+                {
+                  "match": "regex",
+                  "regex": "^snap_[0-9A-HJKMNP-TV-Z]{26}$"
+                }
+              ]
+            },
+            "$.as_of.wall_clock": {
+              "combine": "AND",
+              "matchers": [
+                {
+                  "match": "regex",
+                  "regex": "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}\\.\\d{3}Z$"
+                }
+              ]
+            },
+            "$.community_id": {
+              "combine": "AND",
+              "matchers": [
+                {
+                  "match": "regex",
+                  "regex": "^comm_[0-9A-HJKMNP-TV-Z]{26}$"
+                }
+              ]
+            },
+            "$.enabled": {
+              "combine": "AND",
+              "matchers": [
+                {
+                  "match": "type"
+                }
+              ]
+            },
+            "$.flag_key": {
+              "combine": "AND",
+              "matchers": [
+                {
+                  "match": "type"
+                }
+              ]
+            },
+            "$.state": {
+              "combine": "AND",
+              "matchers": [
+                {
+                  "match": "regex",
+                  "regex": "^(Off|Enabling|Canary|Enabled|Disabling)$"
+                }
+              ]
+            }
+          },
+          "status": {}
+        },
+        "status": 200
+      },
+      "type": "Synchronous/HTTP"
+    },
+    {
+      "description": "a request to resolve a flag",
+      "pending": false,
+      "request": {
+        "method": "GET",
+        "path": "/api/communities/comm_01HZY0K7M3QF8VN2J5RX9TB4CD/flags/donations"
+      },
+      "response": {
+        "body": {
+          "content": {
+            "as_of": {
+              "lamport": 0,
+              "snapshot_id": "snap_01HZY0K7M3QF8VN2J5RX9TB4CL",
+              "wall_clock": "2026-01-01T00:00:00.000Z"
+            },
+            "community_id": "comm_01HZY0K7M3QF8VN2J5RX9TB4CD",
+            "enabled": false,
+            "flag_key": "donations",
+            "state": "Off"
+          },
+          "contentType": "application/json",
+          "encoded": false
+        },
+        "headers": {
+          "Content-Type": [
+            "application/json"
+          ]
+        },
+        "matchingRules": {
+          "body": {
+            "$": {
+              "combine": "AND",
+              "matchers": [
+                {
+                  "match": "type"
+                }
+              ]
+            },
+            "$.as_of": {
+              "combine": "AND",
+              "matchers": [
+                {
+                  "match": "type"
+                }
+              ]
+            },
+            "$.as_of.lamport": {
+              "combine": "AND",
+              "matchers": [
+                {
+                  "match": "integer"
+                }
+              ]
+            },
+            "$.as_of.snapshot_id": {
+              "combine": "AND",
+              "matchers": [
+                {
+                  "match": "regex",
+                  "regex": "^snap_[0-9A-HJKMNP-TV-Z]{26}$"
+                }
+              ]
+            },
+            "$.as_of.wall_clock": {
+              "combine": "AND",
+              "matchers": [
+                {
+                  "match": "regex",
+                  "regex": "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}\\.\\d{3}Z$"
+                }
+              ]
+            },
+            "$.community_id": {
+              "combine": "AND",
+              "matchers": [
+                {
+                  "match": "regex",
+                  "regex": "^comm_[0-9A-HJKMNP-TV-Z]{26}$"
+                }
+              ]
+            },
+            "$.enabled": {
+              "combine": "AND",
+              "matchers": [
+                {
+                  "match": "type"
+                }
+              ]
+            },
+            "$.flag_key": {
+              "combine": "AND",
+              "matchers": [
+                {
+                  "match": "type"
+                }
+              ]
+            },
+            "$.state": {
+              "combine": "AND",
+              "matchers": [
+                {
+                  "match": "regex",
+                  "regex": "^(Off|Enabling|Canary|Enabled|Disabling)$"
+                }
+              ]
+            }
+          },
+          "status": {}
+        },
+        "status": 200
+      },
+      "type": "Synchronous/HTTP"
+    }
+  ],
+  "metadata": {
+    "pactRust": {
+      "ffi": "0.4.22",
+      "models": "1.2.3"
+    },
+    "pactSpecification": {
+      "version": "4.0"
+    }
+  },
+  "provider": {
+    "name": "flags"
+  }
+}

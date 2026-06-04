@@ -39,3 +39,41 @@ export async function ensureStream(connection: NatsConnection): Promise<void> {
     await jsm.streams.add(config)
   }
 }
+
+/**
+ * Idempotently ensure a durable consumer exists on the stream, optionally filtered to a subset
+ * of subjects. `runConsumer` calls `consumers.get`, which requires a pre-created durable — so a
+ * consuming service must `ensureConsumer` first. The filter keeps a service's own published
+ * events out of a handler that only understands a sibling's events. Durable names cannot contain
+ * a '.' (JetStream rejects it), so callers pass hyphenated names.
+ */
+export async function ensureConsumer(
+  handle: NatsHandle,
+  opts: { stream: string; durable: string; filterSubjects?: string[] },
+): Promise<void> {
+  const jsm = await jetstreamManager(handle.connection)
+  const want = opts.filterSubjects ?? []
+  try {
+    await jsm.consumers.add(opts.stream, {
+      durable_name: opts.durable,
+      ack_policy: 'explicit',
+      ...(want.length > 0 ? { filter_subjects: want } : {}),
+    })
+  } catch (err) {
+    // Tolerate "already exists"; surface anything else (e.g. missing stream, connection fault) —
+    // a blanket `.catch(() => undefined)` would hide those and resurface them as a confusing
+    // `consumers.get` ConsumerNotFound in `runConsumer`.
+    const existing = await jsm.consumers.info(opts.stream, opts.durable).catch(() => null)
+    if (!existing) throw err
+    // It exists — but if the committed filter drifted from the live consumer, warn loudly: a
+    // durable's filter cannot be changed by re-adding, so the old filter silently stays in force.
+    const have = existing.config.filter_subjects ?? []
+    if (JSON.stringify(have) !== JSON.stringify(want)) {
+      process.stderr.write(
+        `ensureConsumer: durable "${opts.durable}" already exists with filter_subjects ` +
+          `${JSON.stringify(have)}, wanted ${JSON.stringify(want)} — delete the durable to apply ` +
+          `the change (re-adding does not update it).\n`,
+      )
+    }
+  }
+}

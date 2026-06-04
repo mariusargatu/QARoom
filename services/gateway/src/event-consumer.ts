@@ -1,4 +1,3 @@
-import { jetstreamManager } from '@nats-io/jetstream'
 import {
   DONATIONS_FEED_SUBJECT,
   DonationStateChangedEvent,
@@ -6,6 +5,7 @@ import {
   FlagStateChangedEvent,
 } from '@qaroom/contracts'
 import {
+  ensureConsumer,
   headersToRecord,
   type NatsHandle,
   QAROOM_STREAM,
@@ -62,14 +62,11 @@ export async function startWsFeed(
   handle: NatsHandle,
   stream: CommunityEventStream,
 ): Promise<() => Promise<void>> {
-  const jsm = await jetstreamManager(handle.connection)
-  await jsm.consumers
-    .add(QAROOM_STREAM, {
-      durable_name: WS_FEED_DURABLE,
-      ack_policy: 'explicit',
-      filter_subjects: [FLAGS_FEED_SUBJECT, DONATIONS_FEED_SUBJECT],
-    })
-    .catch(() => undefined)
+  await ensureConsumer(handle, {
+    stream: QAROOM_STREAM,
+    durable: WS_FEED_DURABLE,
+    filterSubjects: [FLAGS_FEED_SUBJECT, DONATIONS_FEED_SUBJECT],
+  })
 
   const consumer = await handle.js.consumers.get(QAROOM_STREAM, WS_FEED_DURABLE)
   const messages = await consumer.consume()

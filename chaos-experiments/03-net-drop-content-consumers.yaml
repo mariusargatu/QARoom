@@ -1,0 +1,37 @@
+# Experiment 03 — NetworkChaos: dropped messages between content-service and consumers.
+#
+# Hypothesis (docs/failure-modes.md#03-net-drop-content-consumers): despite ~50% packet loss on
+# the content ↔ NATS path, every committed content event is eventually processed by its consumers
+# exactly once — no lost effect (at-least-once redelivery via outbox retry + JetStream), no double
+# effect (processed_events dedup + the 5-minute Nats-Msg-Id duplicate window).
+#
+# Deliberate-bug demo (docs/failure-modes.md#03): CHAOS_SKIP_DEDUP=1 on the consumer — a
+# dropped-then-redelivered message applies twice. Because current consumer effects are idempotent
+# upserts, the double-effect is asserted at the @qaroom/messaging unit/property level (a counting
+# handler), not black-box; this experiment proves availability + eventual delivery under loss.
+#
+# Replayable artifact (Commitment 6). The harness heals by deleting this manifest.
+apiVersion: chaos-mesh.org/v1alpha1
+kind: NetworkChaos
+metadata:
+  name: net-drop-content-consumers
+  namespace: qaroom
+spec:
+  action: loss
+  mode: all
+  duration: 5m
+  selector:
+    namespaces: [qaroom]
+    labelSelectors:
+      app.kubernetes.io/instance: content
+      qaroom.io/component: app
+  direction: both
+  loss:
+    loss: '50'
+    correlation: '50'
+  target:
+    mode: all
+    selector:
+      namespaces: [observability]
+      labelSelectors:
+        qaroom.io/observability: nats
