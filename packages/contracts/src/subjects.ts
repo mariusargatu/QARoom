@@ -16,6 +16,8 @@ import { CommunityId } from './ids'
  */
 const ROOT = 'qaroom'
 const CONTENT = 'content'
+const FLAGS = 'flags'
+const DONATIONS = 'donations'
 
 /** `qaroom.content.posts.<community_id>.created` — emitted when a post is created. */
 export function postCreated(communityId: CommunityId): string {
@@ -25,6 +27,26 @@ export function postCreated(communityId: CommunityId): string {
 /** `qaroom.content.votes.<community_id>.cast` — emitted when a vote is cast. */
 export function voteCast(communityId: CommunityId): string {
   return `${ROOT}.${CONTENT}.votes.${communityId}.cast`
+}
+
+/** `qaroom.flags.flag.<community_id>.changed` — emitted when a flag rollout transitions (Milestone 5). */
+export function flagStateChanged(communityId: CommunityId): string {
+  return `${ROOT}.${FLAGS}.flag.${communityId}.changed`
+}
+
+/** `qaroom.donations.donation.<community_id>.changed` — emitted when a donation's status changes (Milestone 5). */
+export function donationStateChanged(communityId: CommunityId): string {
+  return `${ROOT}.${DONATIONS}.donation.${communityId}.changed`
+}
+
+/** Tenant-scoped subscription: every flags event for one community (the gateway WS/poll feed). */
+export function flagsForCommunity(communityId: CommunityId): string {
+  return `${ROOT}.${FLAGS}.flag.${communityId}.>`
+}
+
+/** Tenant-scoped subscription: every donations event for one community. */
+export function donationsForCommunity(communityId: CommunityId): string {
+  return `${ROOT}.${DONATIONS}.donation.${communityId}.>`
 }
 
 /** Tenant-scoped subscription: every content `posts` event for one community. */
@@ -45,12 +67,30 @@ export function postsCreatedAnyCommunity(): string {
 export const QAROOM_STREAM_SUBJECTS = `${ROOT}.>`
 
 /**
+ * Cross-community entity-level filter subjects (Milestone 5). The gateway's WebSocket/poll feed
+ * consumer subscribes to ALL communities' flag/donation changes, so it filters at the entity
+ * level (`community_id` wildcarded). Built here so call sites never author a raw `qaroom.*`
+ * literal (the `qaroom/no-raw-nats-subject` rule).
+ */
+export const FLAGS_FEED_SUBJECT = `${ROOT}.${FLAGS}.flag.>`
+export const DONATIONS_FEED_SUBJECT = `${ROOT}.${DONATIONS}.donation.>`
+
+/**
+ * AsyncAPI address for the gateway's server→client WebSocket push (Milestone 5). Not a NATS
+ * subject the broker routes — it documents the WS channel — but it follows the same grammar so
+ * the AsyncAPI generator places `community_id` at the fixed third position.
+ */
+export const GATEWAY_EVENTS_ADDRESS = `${ROOT}.gateway.events.{community_id}.push`
+
+/**
  * AsyncAPI channel addresses — the parameterized subject form with a `{community_id}`
  * placeholder at the fixed third position. The generated AsyncAPI document declares
  * `community_id` as a channel parameter; the runtime builders above fill it.
  */
 export const POST_CREATED_ADDRESS = `${ROOT}.${CONTENT}.posts.{community_id}.created`
 export const VOTE_CAST_ADDRESS = `${ROOT}.${CONTENT}.votes.{community_id}.cast`
+export const FLAG_STATE_CHANGED_ADDRESS = `${ROOT}.${FLAGS}.flag.{community_id}.changed`
+export const DONATION_STATE_CHANGED_ADDRESS = `${ROOT}.${DONATIONS}.donation.{community_id}.changed`
 
 export interface ParsedSubject {
   service: string

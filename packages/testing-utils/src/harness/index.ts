@@ -1,3 +1,4 @@
+export { nextIdempotencyKey } from './idempotency-key'
 export type { NormalizedResponse, RequestClient } from './inject-client'
 export { injectClient } from './inject-client'
 export type { SeededDeps } from './seeded-deps'

@@ -14,7 +14,7 @@ import { parse } from 'yaml'
  *      caught before merge).
  */
 const ROOT = process.cwd()
-const DRIFT_SERVICES = ['content'] as const
+const DRIFT_SERVICES = ['content', 'flags', 'donations', 'gateway'] as const
 
 function checkDrift(svc: string): void {
   const specPath = resolve(ROOT, `services/${svc}/asyncapi.yaml`)

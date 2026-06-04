@@ -1,0 +1,24 @@
+# flags-service
+
+> QARoom flags-service: per-community feature-flag resolution and gradual rollout (Milestone 5).
+
+A flag's value is the current state of an XState rollout machine, advanced through explicit
+events. The machine-readable contract is `openapi.yaml` (OpenAPI 3.0, generated from Zod);
+published events are described in `asyncapi.yaml`. Live capabilities at
+`GET /system/capabilities` (MCP-tool-shaped), observable state at `GET /system/state`. Every
+error is RFC 7807 `application/problem+json` with `retryable`, `next_actions`, `failure_domain`.
+
+## Operations
+- GET  /api/communities/{communityId}/flags/{flagKey}          — resolveFlag
+- GET  /api/communities/{communityId}/flags                    — listFlags
+- POST /api/communities/{communityId}/flags/{flagKey}/rollout  — advanceRollout (mutating; Idempotency-Key required)
+- GET  /system/state                                           — getSystemState
+- GET  /system/capabilities                                    — getSystemCapabilities
+
+## Events
+- qaroom.flags.flag.{community_id}.changed — FlagStateChangedEvent (rollout transitioned)
+
+## Docs
+- Contract: ./openapi.yaml · ./asyncapi.yaml
+- Agent reference: ./AGENTS.md
+- Repo conventions: /AGENTS.md, /docs

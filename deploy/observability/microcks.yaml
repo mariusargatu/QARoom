@@ -1,0 +1,133 @@
+# Microcks (Milestone 5): service virtualization for the external payment provider. The
+# donations-service `PAYMENT_PROVIDER_BASE_URL` points at the mock Microcks serves from
+# `payment-provider.openapi.yaml` (the OpenAPI examples drive the mock responses). The
+# all-in-one `microcks-uber` image keeps the demo to a single pod (the async-minion + broker
+# ensemble for WS mocking is the optional upgrade per ADR-0003 — the WS story uses mock-socket).
+#
+# The spec is uploaded by the post-start importer Job below. Authored to spec; validated
+# in-cluster (not in the unit-test loop).
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: qaroom-payment-provider-spec
+  namespace: observability
+data:
+  payment-provider.openapi.yaml: |
+    openapi: 3.0.3
+    info:
+      title: QARoom Payment Provider (mock)
+      version: 1.0.0
+    paths:
+      /charges:
+        post:
+          operationId: createCharge
+          parameters:
+            - name: Idempotency-Key
+              in: header
+              required: true
+              schema: { type: string }
+          requestBody:
+            required: true
+            content:
+              application/json:
+                schema: { $ref: '#/components/schemas/ChargeRequest' }
+                examples:
+                  captured:
+                    value: { amount_cents: 2500, currency: USD }
+          responses:
+            '200':
+              description: The charge outcome.
+              content:
+                application/json:
+                  schema: { $ref: '#/components/schemas/Charge' }
+                  examples:
+                    captured:
+                      value: { id: pay_01HZY0K7M3QF8VN2J5RX9TB4CM, status: captured }
+    components:
+      schemas:
+        ChargeRequest:
+          type: object
+          required: [amount_cents, currency]
+          properties:
+            amount_cents: { type: integer, minimum: 1 }
+            currency: { type: string, pattern: '^[A-Z]{3}$' }
+        Charge:
+          type: object
+          required: [id, status]
+          properties:
+            id: { type: string }
+            status: { type: string, enum: [captured, declined] }
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: qaroom-microcks
+  namespace: observability
+spec:
+  replicas: 1
+  selector:
+    matchLabels: { app: qaroom-microcks }
+  template:
+    metadata:
+      labels: { app: qaroom-microcks }
+    spec:
+      containers:
+        - name: microcks
+          image: quay.io/microcks/microcks-uber:1.11.0
+          ports:
+            - containerPort: 8080
+          env:
+            - name: SPRING_PROFILES_ACTIVE
+              value: uber
+          readinessProbe:
+            httpGet: { path: /api/health, port: 8080 }
+            initialDelaySeconds: 10
+            periodSeconds: 5
+            failureThreshold: 12
+          volumeMounts:
+            - name: spec
+              mountPath: /work/specs
+      volumes:
+        - name: spec
+          configMap:
+            name: qaroom-payment-provider-spec
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: qaroom-microcks
+  namespace: observability
+spec:
+  selector: { app: qaroom-microcks }
+  ports:
+    - port: 8080
+      targetPort: 8080
+---
+# Uploads the payment-provider spec to Microcks once it is ready, so donations-service finds
+# the mock. Re-runnable; Microcks upserts the artifact.
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: qaroom-microcks-import
+  namespace: observability
+spec:
+  backoffLimit: 6
+  template:
+    spec:
+      restartPolicy: OnFailure
+      containers:
+        - name: import
+          image: curlimages/curl:8.11.0
+          command: ['/bin/sh', '-c']
+          args:
+            - >
+              until curl -sf http://qaroom-microcks:8080/api/health; do sleep 3; done;
+              curl -sf -F "file=@/work/specs/payment-provider.openapi.yaml" -F "mainArtifact=true"
+              http://qaroom-microcks:8080/api/artifact/upload
+          volumeMounts:
+            - name: spec
+              mountPath: /work/specs
+      volumes:
+        - name: spec
+          configMap:
+            name: qaroom-payment-provider-spec

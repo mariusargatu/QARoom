@@ -1,0 +1,132 @@
+import {
+  CommunityId,
+  type EventPage,
+  FlagKey,
+  type FlagState,
+  type RedeemTicketResponse,
+  UserId,
+} from '@qaroom/contracts'
+import { expectWsEventMatchesPolling } from '@qaroom/testing-utils/matchers'
+import { afterEach, describe, expect, it, vi } from 'vitest'
+import { WebSocket } from 'ws'
+import type { FrameInput } from '../src/event-stream'
+import { constantContent, SAMPLE, setupGatewayTest, ticketStub } from './harness'
+
+const PRINCIPAL: RedeemTicketResponse = {
+  user_id: UserId.parse(SAMPLE.user),
+  memberships: [{ community_id: CommunityId.parse(SAMPLE.community), role: 'member' }],
+}
+
+const flagFrame = (state: FlagState, enabled: boolean): FrameInput => ({
+  type: 'flag.state.changed',
+  community_id: CommunityId.parse(SAMPLE.community),
+  occurred_at: '2026-06-04T00:00:00.000Z',
+  flag_key: FlagKey.parse('donations'),
+  state,
+  enabled,
+})
+
+type Gateway = ReturnType<typeof setupGatewayTest>
+let open: Gateway | undefined
+
+afterEach(async () => {
+  await open?.app.close()
+  open = undefined
+})
+
+async function listen(ctx: Gateway): Promise<string> {
+  open = ctx
+  await ctx.app.listen({ port: 0, host: '127.0.0.1' })
+  const addr = ctx.app.server.address()
+  const port = typeof addr === 'object' && addr ? addr.port : 0
+  return `ws://127.0.0.1:${port}`
+}
+
+function openSocket(
+  url: string,
+  protocols: string[],
+  onMessage: (frame: unknown) => void = () => {},
+): Promise<WebSocket> {
+  return new Promise((resolve, reject) => {
+    const socket = new WebSocket(url, protocols)
+    // Attach the message listener BEFORE 'open' so a backlog frame replayed on connect is never missed.
+    socket.on('message', (data) => onMessage(JSON.parse(data.toString())))
+    socket.on('open', () => resolve(socket))
+    socket.on('unexpected-response', (_req, res) => {
+      reject(
+        Object.assign(new Error(`handshake rejected: ${res.statusCode}`), {
+          statusCode: res.statusCode,
+        }),
+      )
+    })
+    socket.on('error', (err) => reject(err))
+  })
+}
+
+describe('WebSocket ticket handshake', () => {
+  it('rejects the handshake (401) when no ticket subprotocol is presented', async () => {
+    const ctx = setupGatewayTest(constantContent({ status: 200, body: {}, contentType: null }))
+    const url = await listen(ctx)
+    const err = await openSocket(`${url}/ws?community=${SAMPLE.community}`, []).catch((e) => e)
+    expect((err as { statusCode?: number }).statusCode).toBe(401)
+  }, 15000)
+
+  it('rejects the handshake (401) for an unknown ticket', async () => {
+    const ctx = setupGatewayTest(constantContent({ status: 200, body: {}, contentType: null }), {
+      tickets: ticketStub({}),
+    })
+    const url = await listen(ctx)
+    const err = await openSocket(`${url}/ws?community=${SAMPLE.community}`, [
+      'ticket.tkt_nope',
+    ]).catch((e) => e)
+    expect((err as { statusCode?: number }).statusCode).toBe(401)
+  }, 15000)
+
+  it('accepts a valid ticket and streams live envelopes', async () => {
+    const ctx = setupGatewayTest(constantContent({ status: 200, body: {}, contentType: null }), {
+      tickets: ticketStub({ tkt_good: PRINCIPAL }),
+    })
+    const url = await listen(ctx)
+    const received: unknown[] = []
+    const socket = await openSocket(
+      `${url}/ws?community=${SAMPLE.community}`,
+      ['ticket.tkt_good'],
+      (m) => received.push(m),
+    )
+
+    ctx.eventStream.publish(flagFrame('Enabling', false))
+    ctx.eventStream.publish(flagFrame('Canary', false))
+    await vi.waitFor(() => expect(received).toHaveLength(2), { timeout: 5000 })
+    socket.close()
+
+    expect(received).toHaveLength(2)
+    expect((received[0] as { state: string }).state).toBe('Enabling')
+  }, 15000)
+})
+
+describe('WebSocket / polling parity (Commitment 11)', () => {
+  it('delivers the same envelopes over WS and over the polling endpoint', async () => {
+    const ctx = setupGatewayTest(constantContent({ status: 200, body: {}, contentType: null }), {
+      tickets: ticketStub({ tkt_good: PRINCIPAL }),
+    })
+    // Pre-publish a backlog, then connect (the handler replays backlog), then publish live.
+    ctx.eventStream.publish(flagFrame('Enabling', false))
+    const url = await listen(ctx)
+    const wsReceived: unknown[] = []
+    const socket = await openSocket(
+      `${url}/ws?community=${SAMPLE.community}`,
+      ['ticket.tkt_good'],
+      (m) => wsReceived.push(m),
+    )
+
+    ctx.eventStream.publish(flagFrame('Canary', false))
+    ctx.eventStream.publish(flagFrame('Enabled', true))
+    await vi.waitFor(() => expect(wsReceived).toHaveLength(3), { timeout: 5000 })
+    socket.close()
+
+    const poll = await ctx.request.get(`/api/communities/${SAMPLE.community}/events`)
+    const polled = (poll.json as EventPage).events
+    // The two transports must agree exactly for the window.
+    expectWsEventMatchesPolling(wsReceived, polled)
+  }, 15000)
+})

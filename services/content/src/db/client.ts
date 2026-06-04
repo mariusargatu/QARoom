@@ -1,4 +1,3 @@
-import type { SQL } from 'drizzle-orm'
 import type { PostgresJsDatabase } from 'drizzle-orm/postgres-js'
 import type { schema } from './schema'
 
@@ -10,7 +9,5 @@ import type { schema } from './schema'
  */
 export type ContentDb = PostgresJsDatabase<typeof schema>
 
-/** Minimal raw-SQL surface: lets repository code and migrations accept a db or a tx without an `any` cast. */
-export interface SqlExecutor {
-  execute(query: SQL): Promise<unknown>
-}
+/** Shared cross-driver raw-SQL surface (one definition for every service). */
+export type { SqlExecutor } from '@qaroom/messaging'

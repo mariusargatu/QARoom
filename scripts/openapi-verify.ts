@@ -10,7 +10,7 @@ import { resolve } from 'node:path'
  *      identical specs AND fails for a deliberately breaking change (exit crit 3).
  */
 const ROOT = process.cwd()
-const DRIFT_SERVICES = ['content', 'identity'] as const
+const DRIFT_SERVICES = ['content', 'identity', 'gateway', 'flags', 'donations'] as const
 
 /** Regenerate one service's OpenAPI and fail if the committed file is stale. */
 function checkDrift(svc: string): void {

@@ -100,3 +100,67 @@ tester.run('no-raw-nats-subject', plugin.rules['no-raw-nats-subject'], {
     },
   ],
 })
+
+// JSX-enabled tester for the Milestone-5 frontend rules.
+const jsxTester = new RuleTester({
+  languageOptions: {
+    ecmaVersion: 2023,
+    sourceType: 'module',
+    parserOptions: { ecmaFeatures: { jsx: true } },
+  },
+})
+
+jsxTester.run('no-mount-composed-story', plugin.rules['no-mount-composed-story'], {
+  valid: [
+    // The CANONICAL pattern: read args via composeStories, mount the RAW component.
+    'const { Default } = composeStories(stories); mount(<Button {...Default.args} />)',
+    // Mounting an ordinary component is fine.
+    'mount(<Button label="x" />)',
+  ],
+  invalid: [
+    {
+      // Destructured composed story mounted directly.
+      code: 'const { Default } = composeStories(stories); mount(<Default />)',
+      errors: [{ messageId: 'composed' }],
+    },
+    {
+      // Composed map member mounted directly.
+      code: 'const composed = composeStories(stories); mount(<composed.Default />)',
+      errors: [{ messageId: 'composed' }],
+    },
+  ],
+})
+
+jsxTester.run('atomic-import-direction', plugin.rules['atomic-import-direction'], {
+  valid: [
+    // Downward import: a molecule may use an atom.
+    {
+      code: "import { Button } from '../../atoms/Button'",
+      filename: 'services/web/src/components/molecules/RolloutStepper/RolloutStepper.tsx',
+    },
+    // Same-tier sibling (no tier segment in the source) is allowed.
+    {
+      code: "import { Badge } from '../Badge'",
+      filename: 'services/web/src/components/atoms/Button/Button.tsx',
+    },
+    // A file outside the tiers is skipped entirely.
+    {
+      code: "import { Organism } from '../components/organisms/X'",
+      filename: 'services/web/src/hooks/useThing.ts',
+    },
+  ],
+  invalid: [
+    {
+      // An atom must not import an organism (upward).
+      code: "import { Panel } from '../../organisms/RolloutPanel'",
+      filename: 'services/web/src/components/atoms/Button/Button.tsx',
+      errors: [{ messageId: 'direction' }],
+    },
+    {
+      // A molecule must not import a page (upward).
+      code: "import { Page } from '../../pages/CommunityDashboardPage'",
+      filename: 'services/web/src/components/molecules/RolloutStepper/RolloutStepper.tsx',
+      errors: [{ messageId: 'direction' }],
+    },
+  ],
+})

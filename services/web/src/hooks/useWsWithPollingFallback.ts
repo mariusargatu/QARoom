@@ -1,0 +1,82 @@
+import type { WsEnvelope } from '@qaroom/contracts'
+import { useEffect, useState } from 'react'
+import type { ApiClient } from '../api/client'
+
+export interface UseEventFeed {
+  events: WsEnvelope[]
+  /** True while a WebSocket connection is open; false on the polling fallback. */
+  live: boolean
+}
+
+/** Connect to the push stream; matches `connectWs`'s handler shape. Returns a disconnect fn. */
+export type StreamConnector = (handlers: {
+  onEvent: (event: WsEnvelope) => void
+  onOpen: () => void
+  onClose: () => void
+}) => () => void
+
+export interface EventFeedOptions {
+  intervalMs?: number
+  /**
+   * Optional WebSocket connector (e.g. `connectWs` bound to a redeemed ticket). When supplied,
+   * `live` reflects the socket; when absent — the no-auth demo — the hook polls only and `live`
+   * stays false. Either way the parity test guarantees both transports carry the same envelopes.
+   */
+  connect?: StreamConnector
+}
+
+const FEED_CAP = 50
+const prepend = (prev: WsEnvelope[], incoming: WsEnvelope[]): WsEnvelope[] =>
+  [...incoming, ...prev].slice(0, FEED_CAP)
+
+/**
+ * The activity feed with the Commitment-11 polling fallback. Polling always runs (the fallback,
+ * and what the demo uses); a WebSocket layers on top when a `connect` capability is provided,
+ * and `live` then reflects the real socket state rather than a constant.
+ */
+export function useWsWithPollingFallback(
+  api: ApiClient,
+  communityId: string,
+  opts: EventFeedOptions = {},
+): UseEventFeed {
+  const { intervalMs = 2000, connect } = opts
+  const [events, setEvents] = useState<WsEnvelope[]>([])
+  const [live, setLive] = useState(false)
+
+  useEffect(() => {
+    let cursor = 0
+    let active = true
+
+    const poll = async () => {
+      const page = await api.listEvents(communityId, cursor)
+      if (!active || page.events.length === 0) return
+      cursor = page.cursor
+      // Newest first, capped — the feed shows the most recent activity.
+      setEvents((prev) => prepend(prev, [...page.events].reverse()))
+    }
+
+    void poll()
+    const id = setInterval(() => {
+      void poll()
+    }, intervalMs)
+    return () => {
+      active = false
+      clearInterval(id)
+    }
+  }, [api, communityId, intervalMs])
+
+  useEffect(() => {
+    if (!connect) return
+    const disconnect = connect({
+      onEvent: (event) => setEvents((prev) => prepend(prev, [event])),
+      onOpen: () => setLive(true),
+      onClose: () => setLive(false),
+    })
+    return () => {
+      disconnect()
+      setLive(false)
+    }
+  }, [connect])
+
+  return { events, live }
+}

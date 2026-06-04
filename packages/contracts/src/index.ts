@@ -8,6 +8,12 @@ export {
   Membership,
   Role,
 } from './community'
+export {
+  CreateDonationRequest,
+  Donation,
+  DonationList,
+  DonationStatus,
+} from './donation'
 export type { ProblemInput } from './errors'
 export {
   ERROR_TYPE_BASE,
@@ -17,6 +23,16 @@ export {
   NextAction,
   ProblemDetails,
 } from './errors'
+export {
+  DONATION_STATE_CHANGED_EVENT,
+  DONATION_STATE_CHANGED_VERSION,
+  DonationStateChangedEvent,
+} from './events/donation-state-changed'
+export {
+  FLAG_STATE_CHANGED_EVENT,
+  FLAG_STATE_CHANGED_VERSION,
+  FlagStateChangedEvent,
+} from './events/flag-state-changed'
 export {
   POST_CREATED_EVENT,
   POST_CREATED_VERSION,
@@ -28,8 +44,13 @@ export {
   VoteCastEvent,
 } from './events/vote-cast'
 export {
+  EXAMPLE_AS_OF,
   EXAMPLE_COMMUNITY,
   EXAMPLE_COMMUNITY_ID,
+  EXAMPLE_DONATION,
+  EXAMPLE_DONATION_ID,
+  EXAMPLE_FLAG_KEY,
+  EXAMPLE_FLAG_RESOLUTION,
   EXAMPLE_HANDLE,
   EXAMPLE_JWK,
   EXAMPLE_KEY_ID,
@@ -37,10 +58,19 @@ export {
   EXAMPLE_POST,
   EXAMPLE_POST_ID,
   EXAMPLE_SESSION_ID,
+  EXAMPLE_TICKET_ID,
   EXAMPLE_USER,
   EXAMPLE_USER_ID,
   EXAMPLE_WHEN,
 } from './examples'
+export {
+  AdvanceRolloutRequest,
+  FlagKey,
+  FlagList,
+  FlagResolution,
+  FlagState,
+  RolloutEventName,
+} from './flag'
 export {
   COMM_GENERAL,
   CommentId,
@@ -52,6 +82,7 @@ export {
   KeyId,
   PostId,
   SessionId,
+  TicketId,
   UserId,
 } from './ids'
 export type { LamportTick, SpanAttributeSink } from './lamport'
@@ -74,6 +105,20 @@ export type {
   RunMigrationOptions,
 } from './machines/migration.runner'
 export { rollbackMigration, runMigration } from './machines/migration.runner'
+export type {
+  RolloutContext,
+  RolloutEvent,
+  RolloutMachine,
+  RolloutState,
+} from './machines/rollout.machine'
+export { rolloutEnabled, rolloutMachine } from './machines/rollout.machine'
+export type {
+  ApplyRolloutOptions,
+  RolloutApplyResult,
+  RolloutTransitionRecord,
+  RolloutTransitionSink,
+} from './machines/rollout.runner'
+export { applyRolloutEvent } from './machines/rollout.runner'
 export type { OasInfo, OasOperation, OasParam, OasResponse, OasServer } from './openapi/builder'
 export { buildOpenApiDocument, schemaRef, stringifyOpenApi } from './openapi/builder'
 export type { ProblemResponseOptions } from './openapi/params'
@@ -97,6 +142,15 @@ export {
 export type { ParsedSubject } from './subjects'
 export {
   contentPostsForCommunity,
+  DONATION_STATE_CHANGED_ADDRESS,
+  DONATIONS_FEED_SUBJECT,
+  donationStateChanged,
+  donationsForCommunity,
+  FLAG_STATE_CHANGED_ADDRESS,
+  FLAGS_FEED_SUBJECT,
+  flagStateChanged,
+  flagsForCommunity,
+  GATEWAY_EVENTS_ADDRESS,
   POST_CREATED_ADDRESS,
   parseSubject,
   postCreated,
@@ -107,5 +161,7 @@ export {
 } from './subjects'
 export { Capabilities, Capability, SystemState } from './system'
 export { RunnerResult, SCHEMA_VERSION, TestResultsSummary } from './test-results-schema'
+export { RedeemTicketRequest, RedeemTicketResponse, TicketResponse } from './ticket'
 export { CreateUserRequest, User } from './user'
 export { CastVoteRequest, CastVoteResponse, VoteValue } from './vote'
+export { EventPage, WsEnvelope } from './ws'

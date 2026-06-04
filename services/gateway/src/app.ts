@@ -7,11 +7,14 @@ import {
 } from '@qaroom/service-kit'
 import Fastify, { type FastifyInstance } from 'fastify'
 import { DEFAULT_RATE_LIMIT, type GatewayDeps, type GatewayRouteDeps } from './deps'
+import { CommunityEventStream } from './event-stream'
+import { registerEventsRoute } from './events-routes'
 import { OPERATIONS } from './operations'
 import { registerProxyRoutes } from './proxy-routes'
 import { registerRateLimit } from './rate-limit'
 import { RateLimiter } from './rate-limiter'
 import { registerLimitsRoute } from './system'
+import { registerWsUpgrade } from './ws-upgrade'
 
 /**
  * Build the gateway Fastify instance from injected dependencies. The content client
@@ -22,13 +25,16 @@ import { registerLimitsRoute } from './system'
 export function buildGatewayApp(deps: GatewayDeps): FastifyInstance {
   const lamport = deps.lamport ?? new LamportGate(deps.ids, deps.sink ?? activeSpanSink)
   const limiter = new RateLimiter(deps.clock, deps.rateLimit ?? DEFAULT_RATE_LIMIT)
+  const eventStream = deps.eventStream ?? new CommunityEventStream()
   const routeDeps: GatewayRouteDeps = {
     content: deps.content,
+    tickets: deps.tickets,
     clock: deps.clock,
     ids: deps.ids,
     randomness: deps.randomness,
     lamport,
     limiter,
+    eventStream,
   }
 
   const app = Fastify({ logger: false })
@@ -37,6 +43,8 @@ export function buildGatewayApp(deps: GatewayDeps): FastifyInstance {
   registerHealthRoutes(app, { service: 'gateway' })
   registerRateLimit(app, limiter)
   registerProxyRoutes(app, routeDeps)
+  registerEventsRoute(app, routeDeps)
+  registerWsUpgrade(app, routeDeps)
   registerSystemRoutes(app, {
     service: 'gateway',
     clock: deps.clock,

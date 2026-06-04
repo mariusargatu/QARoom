@@ -1,7 +1,7 @@
 export { connectNats, ensureStream, type NatsHandle, QAROOM_STREAM } from './connection'
 export { alreadyProcessed, markProcessed } from './dedup'
 export { gcDedup } from './gc'
-export { buildEventHeaders, readEventHeaders } from './headers'
+export { buildEventHeaders, headersToRecord, readEventHeaders } from './headers'
 export {
   bodyHash,
   conflictingIdempotencyKey,
@@ -10,6 +10,7 @@ export {
   stableStringify,
   storeIdempotent,
 } from './idempotency'
+export { advisoryLock } from './locks'
 export { outboxPublish } from './outbox'
 export { natsPublisher } from './publish'
 export { createRelay, type Relay } from './relay'

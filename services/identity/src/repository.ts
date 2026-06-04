@@ -1,5 +1,6 @@
+import { advisoryLock } from '@qaroom/messaging'
 import { and, desc, eq, sql } from 'drizzle-orm'
-import type { IdentityDb, SqlExecutor } from './db/client'
+import type { IdentityDb } from './db/client'
 import { communities, memberships, sessions, signingKeys, users } from './db/schema'
 import type { RepoDeps } from './deps'
 
@@ -27,11 +28,6 @@ export type AddMembershipResult =
   | { membership: MembershipRecord }
   | { error: 'community-not-found' }
   | { error: 'membership-exists' }
-
-/** Single-writer-per-resource (Commitment 4): serialize writers on a transaction-scoped advisory lock. */
-async function advisoryLock(ex: SqlExecutor, resourceId: string): Promise<void> {
-  await ex.execute(sql`SELECT pg_advisory_xact_lock(hashtextextended(${resourceId}, 0))`)
-}
 
 function rowToUser(r: typeof users.$inferSelect): UserRecord {
   return {

@@ -1,0 +1,52 @@
+# Tracetest reverse-conformance assertion (Milestone 5, ADR-0012). Advancing a rollout must
+# produce an `xstate.transition` span whose (from, to, event) is a LEGAL edge of the model
+# graph — the system can never enter a state the XState model cannot reach. This is the
+# exit-criterion demo: introduce an OFF-MODEL transition in flags-service (emit a `to` state
+# unreachable from `from` via this event) and the `xstate.to` assertion below fails, catching
+# the divergence from observed spans (the spans are the truth, not the endpoint).
+#
+# `xstate.transition` spans are always-sampled (XStateTransitionSampler, @qaroom/otel), so a
+# head-sampling decision can never drop the span this assertion depends on.
+#
+# Runs in the PR-full / merge lane (Tracetest infra does not fit the <10min PR-fast budget).
+# The relay drains every ~1s, so the publish span is asynchronous — the polling profile waits
+# for it on the originating trace. The `Idempotency-Key` MUST be unique per run (a repeat hits
+# idempotent replay → no transition). Run e.g.
+# `tracetest run test -f <this> --vars runId=$(date +%s)`.
+type: Test
+spec:
+  id: rollout-transition-conformance
+  name: a rollout advance emits an on-model xstate.transition span + flag-changed publish
+  trigger:
+    type: http
+    httpRequest:
+      method: POST
+      url: http://flags.qaroom.svc.cluster.local/api/communities/comm_00000000000000000000000000/flags/donations/rollout
+      headers:
+        - key: Content-Type
+          value: application/json
+        - key: Idempotency-Key
+          value: tt-${var:runId}
+      body: '{"event":"EnableRequested"}'
+  specs:
+    # Sync result: the advance returns 200.
+    - selector: span[name = "POST"]
+      assertions:
+        - attr:http.status_code = 200
+    # The DB write carries the community tenant.id (Commitment 9).
+    - selector: span[name = "db.flags.advance"]
+      assertions:
+        - attr:tenant.id = "comm_00000000000000000000000000"
+    # REVERSE CONFORMANCE: the emitted transition is a legal model edge (Off --EnableRequested--> Enabling).
+    - selector: span[name = "xstate.transition"]
+      assertions:
+        - attr:xstate.machine = "rollout"
+        - attr:xstate.from = "Off"
+        - attr:xstate.to = "Enabling"
+        - attr:xstate.event = "EnableRequested"
+    # The relay published flag.state.changed on the SAME trace, to the exact subject, tenant-scoped.
+    - selector: span[name = "nats.publish"]
+      assertions:
+        - attr:messaging.system = "nats"
+        - attr:messaging.destination.name = "qaroom.flags.flag.comm_00000000000000000000000000.changed"
+        - attr:tenant.id = "comm_00000000000000000000000000"

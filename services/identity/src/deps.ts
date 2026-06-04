@@ -3,6 +3,7 @@ import type { Clock, IdGenerator, Randomness } from '@qaroom/determinism'
 import type { IdentityDb } from './db/client'
 import type { Issuer } from './jwt'
 import type { KeyMaterialSource, KeyStore, RotationConfig } from './keys'
+import type { TicketStore } from './ticket-store'
 
 /** What `buildApp`/`buildIdentity` receives. `lamport`, `rotation`, `tokenTtlSeconds` optional with defaults. */
 export interface IdentityDeps {
@@ -27,6 +28,7 @@ export interface RouteDeps {
   lamport: LamportGate
   keyStore: KeyStore
   issuer: Issuer
+  ticketStore: TicketStore
 }
 
 /** Subset the repository needs to mint ids, stamp time, and advance the gate. */

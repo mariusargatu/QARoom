@@ -1,0 +1,492 @@
+openapi: 3.0.3
+info:
+  title: QARoom donations-service
+  version: 0.0.0
+  description: Per-community donations, gated by the donations feature flag. Generated from Zod — do not edit by hand.
+paths:
+  /api/communities/{communityId}/donations:
+    post:
+      operationId: createDonation
+      summary: Create a donation in a community
+      description: Creates a donation, gated by the donations feature flag and settled through the payment provider. Idempotent on Idempotency-Key.
+      responses:
+        "201":
+          description: The recorded donation.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Donation"
+              example:
+                id: dntn_01HZY0K7M3QF8VN2J5RX9TB4CJ
+                community_id: comm_01HZY0K7M3QF8VN2J5RX9TB4CD
+                donor_id: user_01HZY0K7M3QF8VN2J5RX9TB4CF
+                amount_cents: 2500
+                currency: USD
+                status: Captured
+                created_at: 2026-05-28T12:00:00.000Z
+                updated_at: 2026-05-28T12:00:00.000Z
+          links:
+            GetDonation:
+              operationId: getDonation
+              parameters:
+                communityId: $response.body#/community_id
+                donationId: $response.body#/id
+              description: Fetch the donation that was just created.
+        "400":
+          description: The request body or headers failed validation.
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ProblemDetails"
+              example:
+                type: https://qaroom.dev/errors/validation-failed
+                title: Request failed validation
+                status: 400
+                detail: Request failed validation.
+                instance: /api/communities/comm_01HZY0K7M3QF8VN2J5RX9TB4CD/donations
+                retryable: false
+                next_actions: []
+                failure_domain: validation
+        "409":
+          description: The donations feature flag has not reached Enabled for this community.
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ProblemDetails"
+              example:
+                type: https://qaroom.dev/errors/donations-not-enabled
+                title: Donations are not enabled
+                status: 409
+                detail: Donations are not enabled.
+                instance: /api/communities/comm_01HZY0K7M3QF8VN2J5RX9TB4CD/donations
+                retryable: false
+                next_actions: []
+                failure_domain: conflict
+        "502":
+          description: The payment provider could not be reached.
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ProblemDetails"
+              example:
+                type: https://qaroom.dev/errors/payment-provider-unavailable
+                title: Payment provider unavailable
+                status: 502
+                detail: Payment provider unavailable.
+                instance: /api/communities/comm_01HZY0K7M3QF8VN2J5RX9TB4CD/donations
+                retryable: true
+                next_actions: []
+                failure_domain: dependency_failure
+      tags:
+        - donations
+      parameters:
+        - name: communityId
+          in: path
+          required: true
+          description: Target community (tenant).
+          schema:
+            type: string
+            pattern: ^comm_[0-9A-HJKMNP-TV-Z]{26}$
+        - name: Idempotency-Key
+          in: header
+          required: true
+          description: Client-supplied key making this mutation safely retryable (Commitment 4).
+          schema:
+            type: string
+            minLength: 1
+            maxLength: 255
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CreateDonationRequest"
+            example:
+              donor_id: user_01HZY0K7M3QF8VN2J5RX9TB4CF
+              amount_cents: 2500
+              currency: USD
+    get:
+      operationId: listDonations
+      summary: List a community’s donations
+      description: Returns the most recent donations in a community, newest first.
+      responses:
+        "200":
+          description: A page of donations.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/DonationList"
+              example:
+                community_id: comm_01HZY0K7M3QF8VN2J5RX9TB4CD
+                donations:
+                  - id: dntn_01HZY0K7M3QF8VN2J5RX9TB4CJ
+                    community_id: comm_01HZY0K7M3QF8VN2J5RX9TB4CD
+                    donor_id: user_01HZY0K7M3QF8VN2J5RX9TB4CF
+                    amount_cents: 2500
+                    currency: USD
+                    status: Captured
+                    created_at: 2026-05-28T12:00:00.000Z
+                    updated_at: 2026-05-28T12:00:00.000Z
+        "400":
+          description: The community id in the path is malformed.
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ProblemDetails"
+              example:
+                type: https://qaroom.dev/errors/validation-failed
+                title: Request failed validation
+                status: 400
+                detail: Request failed validation.
+                instance: /api/communities/comm_01HZY0K7M3QF8VN2J5RX9TB4CD/donations
+                retryable: false
+                next_actions: []
+                failure_domain: validation
+      tags:
+        - donations
+      parameters:
+        - name: communityId
+          in: path
+          required: true
+          description: Target community (tenant).
+          schema:
+            type: string
+            pattern: ^comm_[0-9A-HJKMNP-TV-Z]{26}$
+  /api/communities/{communityId}/donations/{donationId}:
+    get:
+      operationId: getDonation
+      summary: Get a single donation
+      description: Returns a donation by id within a community.
+      responses:
+        "200":
+          description: The donation.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Donation"
+              example:
+                id: dntn_01HZY0K7M3QF8VN2J5RX9TB4CJ
+                community_id: comm_01HZY0K7M3QF8VN2J5RX9TB4CD
+                donor_id: user_01HZY0K7M3QF8VN2J5RX9TB4CF
+                amount_cents: 2500
+                currency: USD
+                status: Captured
+                created_at: 2026-05-28T12:00:00.000Z
+                updated_at: 2026-05-28T12:00:00.000Z
+        "400":
+          description: The community id or donation id in the path is malformed.
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ProblemDetails"
+              example:
+                type: https://qaroom.dev/errors/validation-failed
+                title: Request failed validation
+                status: 400
+                detail: Request failed validation.
+                instance: /api/communities/comm_01HZY0K7M3QF8VN2J5RX9TB4CD/donations
+                retryable: false
+                next_actions: []
+                failure_domain: validation
+        "404":
+          description: No donation with that id exists in this community.
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ProblemDetails"
+              example:
+                type: https://qaroom.dev/errors/donation-not-found
+                title: Donation not found
+                status: 404
+                detail: Donation not found.
+                instance: /api/communities/comm_01HZY0K7M3QF8VN2J5RX9TB4CD/donations
+                retryable: false
+                next_actions: []
+                failure_domain: not_found
+      tags:
+        - donations
+      parameters:
+        - name: communityId
+          in: path
+          required: true
+          description: Target community (tenant).
+          schema:
+            type: string
+            pattern: ^comm_[0-9A-HJKMNP-TV-Z]{26}$
+        - name: donationId
+          in: path
+          required: true
+          description: Target donation.
+          schema:
+            type: string
+            pattern: ^dntn_[0-9A-HJKMNP-TV-Z]{26}$
+  /system/state:
+    get:
+      operationId: getSystemState
+      summary: Observable state of every model
+      description: Returns the current state of every model the service runs, with an as_of envelope (Commitment 7).
+      responses:
+        "200":
+          description: Current observable state.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/SystemState"
+      tags:
+        - system
+  /system/capabilities:
+    get:
+      operationId: getSystemCapabilities
+      summary: Operations the service exposes
+      description: Returns every operation in MCP-tool-shaped form (Commitment 7).
+      responses:
+        "200":
+          description: The capability list.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Capabilities"
+      tags:
+        - system
+components:
+  schemas:
+    AsOf:
+      type: object
+      properties:
+        snapshot_id:
+          type: string
+        lamport:
+          type: integer
+          minimum: 0
+          maximum: 9007199254740991
+        wall_clock:
+          type: string
+          format: date-time
+          pattern: ^(?:(?:\d\d[2468][048]|\d\d[13579][26]|\d\d0[48]|[02468][048]00|[13579][26]00)-02-29|\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\d|30)|(?:02)-(?:0[1-9]|1\d|2[0-8])))T(?:(?:[01]\d|2[0-3]):[0-5]\d(?::[0-5]\d(?:\.\d+)?)?(?:Z))$
+      required:
+        - snapshot_id
+        - lamport
+        - wall_clock
+      additionalProperties: false
+      description: "Read consistency envelope: {snapshot_id, lamport, wall_clock}."
+    Capabilities:
+      type: object
+      properties:
+        service:
+          type: string
+        capabilities:
+          type: array
+          items:
+            $ref: "#/components/schemas/Capability"
+        as_of:
+          $ref: "#/components/schemas/AsOf"
+      required:
+        - service
+        - capabilities
+        - as_of
+      additionalProperties: false
+      description: All operations the service exposes, MCP-tool-shaped.
+    Capability:
+      type: object
+      properties:
+        operation_id:
+          type: string
+        method:
+          type: string
+        path:
+          type: string
+        summary:
+          type: string
+        description:
+          type: string
+        mutating:
+          type: boolean
+        input_schema:
+          type: object
+          additionalProperties: {}
+      required:
+        - operation_id
+        - method
+        - path
+        - summary
+        - description
+        - mutating
+        - input_schema
+      additionalProperties: false
+      description: An MCP-tool-shaped description of one operation.
+    CommunityId:
+      type: string
+      pattern: ^comm_[0-9A-HJKMNP-TV-Z]{26}$
+      description: "Branded identifier: comm_<ULID>"
+    CreateDonationRequest:
+      type: object
+      properties:
+        donor_id:
+          $ref: "#/components/schemas/UserId"
+        amount_cents:
+          type: integer
+          minimum: 0
+          exclusiveMinimum: true
+          maximum: 9007199254740991
+        currency:
+          type: string
+          pattern: ^[A-Z]{3}$
+      required:
+        - donor_id
+        - amount_cents
+        - currency
+      additionalProperties: false
+      description: Body for createDonation.
+    Donation:
+      type: object
+      properties:
+        id:
+          $ref: "#/components/schemas/DonationId"
+        community_id:
+          $ref: "#/components/schemas/CommunityId"
+        donor_id:
+          $ref: "#/components/schemas/UserId"
+        amount_cents:
+          type: integer
+          minimum: 0
+          exclusiveMinimum: true
+          maximum: 9007199254740991
+        currency:
+          type: string
+          pattern: ^[A-Z]{3}$
+        status:
+          $ref: "#/components/schemas/DonationStatus"
+        created_at:
+          type: string
+          format: date-time
+          pattern: ^(?:(?:\d\d[2468][048]|\d\d[13579][26]|\d\d0[48]|[02468][048]00|[13579][26]00)-02-29|\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\d|30)|(?:02)-(?:0[1-9]|1\d|2[0-8])))T(?:(?:[01]\d|2[0-3]):[0-5]\d(?::[0-5]\d(?:\.\d+)?)?(?:Z))$
+        updated_at:
+          type: string
+          format: date-time
+          pattern: ^(?:(?:\d\d[2468][048]|\d\d[13579][26]|\d\d0[48]|[02468][048]00|[13579][26]00)-02-29|\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\d|30)|(?:02)-(?:0[1-9]|1\d|2[0-8])))T(?:(?:[01]\d|2[0-3]):[0-5]\d(?::[0-5]\d(?:\.\d+)?)?(?:Z))$
+      required:
+        - id
+        - community_id
+        - donor_id
+        - amount_cents
+        - currency
+        - status
+        - created_at
+        - updated_at
+      additionalProperties: false
+      description: A monetary donation within a community.
+    DonationId:
+      type: string
+      pattern: ^dntn_[0-9A-HJKMNP-TV-Z]{26}$
+      description: "Branded identifier: dntn_<ULID>"
+    DonationList:
+      type: object
+      properties:
+        community_id:
+          $ref: "#/components/schemas/CommunityId"
+        donations:
+          type: array
+          items:
+            $ref: "#/components/schemas/Donation"
+      required:
+        - community_id
+        - donations
+      additionalProperties: false
+      description: A page of a community’s donations.
+    DonationStatus:
+      type: string
+      enum:
+        - Pending
+        - Authorized
+        - Captured
+        - Failed
+        - Refunded
+      description: Lifecycle status of a donation.
+    FailureDomain:
+      type: string
+      enum:
+        - validation
+        - authentication
+        - authorization
+        - tenant_resolution
+        - rate_limit
+        - conflict
+        - not_found
+        - dependency_failure
+        - internal_error
+    NextAction:
+      type: object
+      properties:
+        verb:
+          type: string
+          enum:
+            - GET
+            - POST
+            - PUT
+            - PATCH
+            - DELETE
+        href:
+          type: string
+        description:
+          type: string
+      required:
+        - verb
+        - href
+        - description
+      additionalProperties: false
+    ProblemDetails:
+      type: object
+      properties:
+        type:
+          type: string
+          description: Absolute URI identifying the problem type.
+        title:
+          type: string
+        status:
+          type: integer
+          minimum: 100
+          maximum: 599
+        detail:
+          type: string
+        instance:
+          type: string
+        retryable:
+          type: boolean
+        next_actions:
+          type: array
+          items:
+            $ref: "#/components/schemas/NextAction"
+        failure_domain:
+          $ref: "#/components/schemas/FailureDomain"
+      required:
+        - type
+        - title
+        - status
+        - retryable
+        - next_actions
+        - failure_domain
+      additionalProperties: false
+      description: RFC 7807 Problem Details with QARoom agent extensions.
+    SystemState:
+      type: object
+      properties:
+        service:
+          type: string
+        models:
+          type: object
+          additionalProperties: {}
+        as_of:
+          $ref: "#/components/schemas/AsOf"
+      required:
+        - service
+        - models
+        - as_of
+      additionalProperties: false
+      description: Current observable state of every model the service runs.
+    UserId:
+      type: string
+      pattern: ^user_[0-9A-HJKMNP-TV-Z]{26}$
+      description: "Branded identifier: user_<ULID>"
+servers:
+  - url: http://localhost:8084
+    description: local docker-compose

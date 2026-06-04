@@ -1,0 +1,144 @@
+asyncapi: 3.0.0
+info:
+  title: QARoom gateway WebSocket push
+  version: 0.0.0
+  description: Server→client WebSocket envelopes the gateway pushes per community (Milestone 5).
+servers:
+  websocket:
+    host: localhost:8080
+    protocol: ws
+    description: Gateway WebSocket endpoint (/ws), ticket-authenticated.
+channels:
+  communityEvents:
+    address: qaroom.gateway.events.{community_id}.push
+    parameters:
+      community_id:
+        description: The community (tenant) id at the fixed third subject position.
+    messages:
+      WsEnvelope:
+        $ref: "#/components/messages/WsEnvelope"
+operations:
+  pushCommunityEvent:
+    action: send
+    channel:
+      $ref: "#/channels/communityEvents"
+    summary: A flag or donation change pushed to a connected client
+    description: Delivered over the authenticated WebSocket (GET /ws?community=<id>); also retrievable via GET /api/communities/{communityId}/events.
+    messages:
+      - $ref: "#/channels/communityEvents/messages/WsEnvelope"
+components:
+  messages:
+    WsEnvelope:
+      name: WsEnvelope
+      payload:
+        $ref: "#/components/schemas/WsEnvelope"
+  schemas:
+    CommunityId:
+      type: string
+      pattern: ^comm_[0-9A-HJKMNP-TV-Z]{26}$
+      description: "Branded identifier: comm_<ULID>"
+    DonationId:
+      type: string
+      pattern: ^dntn_[0-9A-HJKMNP-TV-Z]{26}$
+      description: "Branded identifier: dntn_<ULID>"
+    DonationStatus:
+      type: string
+      enum:
+        - Pending
+        - Authorized
+        - Captured
+        - Failed
+        - Refunded
+      description: Lifecycle status of a donation.
+    FlagKey:
+      type: string
+      pattern: ^[a-z][a-z0-9-]{1,63}$
+      description: A lowercase, hyphen-separated feature-flag key.
+    FlagState:
+      type: string
+      enum:
+        - Off
+        - Enabling
+        - Canary
+        - Enabled
+        - Disabling
+      description: Current state of a feature-flag rollout.
+    UserId:
+      type: string
+      pattern: ^user_[0-9A-HJKMNP-TV-Z]{26}$
+      description: "Branded identifier: user_<ULID>"
+    WsEnvelope:
+      oneOf:
+        - type: object
+          properties:
+            type:
+              type: string
+              enum:
+                - flag.state.changed
+            seq:
+              type: integer
+              minimum: 0
+              maximum: 9007199254740991
+            community_id:
+              $ref: "#/components/schemas/CommunityId"
+            occurred_at:
+              type: string
+              format: date-time
+              pattern: ^(?:(?:\d\d[2468][048]|\d\d[13579][26]|\d\d0[48]|[02468][048]00|[13579][26]00)-02-29|\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\d|30)|(?:02)-(?:0[1-9]|1\d|2[0-8])))T(?:(?:[01]\d|2[0-3]):[0-5]\d(?::[0-5]\d(?:\.\d+)?)?(?:Z))$
+            flag_key:
+              $ref: "#/components/schemas/FlagKey"
+            state:
+              $ref: "#/components/schemas/FlagState"
+            enabled:
+              type: boolean
+          required:
+            - type
+            - seq
+            - community_id
+            - occurred_at
+            - flag_key
+            - state
+            - enabled
+          additionalProperties: false
+        - type: object
+          properties:
+            type:
+              type: string
+              enum:
+                - donation.state.changed
+            seq:
+              type: integer
+              minimum: 0
+              maximum: 9007199254740991
+            community_id:
+              $ref: "#/components/schemas/CommunityId"
+            occurred_at:
+              type: string
+              format: date-time
+              pattern: ^(?:(?:\d\d[2468][048]|\d\d[13579][26]|\d\d0[48]|[02468][048]00|[13579][26]00)-02-29|\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\d|30)|(?:02)-(?:0[1-9]|1\d|2[0-8])))T(?:(?:[01]\d|2[0-3]):[0-5]\d(?::[0-5]\d(?:\.\d+)?)?(?:Z))$
+            donation_id:
+              $ref: "#/components/schemas/DonationId"
+            donor_id:
+              $ref: "#/components/schemas/UserId"
+            amount_cents:
+              type: integer
+              minimum: 0
+              exclusiveMinimum: true
+              maximum: 9007199254740991
+            currency:
+              type: string
+              pattern: ^[A-Z]{3}$
+            status:
+              $ref: "#/components/schemas/DonationStatus"
+          required:
+            - type
+            - seq
+            - community_id
+            - occurred_at
+            - donation_id
+            - donor_id
+            - amount_cents
+            - currency
+            - status
+          additionalProperties: false
+      description: A server→client WebSocket push frame.

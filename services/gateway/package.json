@@ -11,11 +11,15 @@
     "typecheck": "tsc -p tsconfig.json",
     "test": "vitest run",
     "dev": "tsx watch --import ./src/telemetry.ts src/server.ts",
-    "openapi:generate": "tsx src/openapi-build.ts"
+    "openapi:generate": "tsx src/openapi-build.ts",
+    "asyncapi:generate": "tsx src/asyncapi-build.ts"
   },
   "dependencies": {
+    "@fastify/websocket": "^11.0.0",
+    "@nats-io/jetstream": "3.4.0",
     "@qaroom/contracts": "workspace:*",
     "@qaroom/determinism": "workspace:*",
+    "@qaroom/messaging": "workspace:*",
     "@qaroom/otel": "workspace:*",
     "@qaroom/service-kit": "workspace:*",
     "fastify": "^5.2.0",
@@ -24,9 +28,11 @@
   "devDependencies": {
     "@pact-foundation/pact": "^13.0.0",
     "@qaroom/testing-utils": "workspace:*",
+    "@types/ws": "^8.5.0",
     "fast-check": "^3.23.0",
     "tsx": "^4.19.0",
     "typescript": "^5.7.0",
-    "vitest": "^3.0.0"
+    "vitest": "^3.0.0",
+    "ws": "^8.18.0"
   }
 }

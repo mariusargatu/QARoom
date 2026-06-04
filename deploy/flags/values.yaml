@@ -1,0 +1,15 @@
+image:
+  repository: qaroom/flags
+service:
+  port: 80
+  targetPort: 8083
+container:
+  port: 8083
+otel:
+  serviceName: flags
+postgres:
+  enabled: true
+  database: qaroom_flags
+extraEnv:
+  # Async messaging (Milestone 5): NATS JetStream — flags publishes flag.state.changed.
+  NATS_URL: nats://qaroom-nats.observability.svc.cluster.local:4222

@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { CommentId, CommunityId, DonationId, ID_PREFIXES, PostId, UserId } from './ids'
+import { CommentId, CommunityId, DonationId, ID_PREFIXES, PostId, TicketId, UserId } from './ids'
 
 const ULID = '01HZY0K7M3QF8VN2J5RX9TB4CD'
 
@@ -9,6 +9,7 @@ const cases = [
   { name: 'PostId', schema: PostId, prefix: ID_PREFIXES.PostId },
   { name: 'CommentId', schema: CommentId, prefix: ID_PREFIXES.CommentId },
   { name: 'DonationId', schema: DonationId, prefix: ID_PREFIXES.DonationId },
+  { name: 'TicketId', schema: TicketId, prefix: ID_PREFIXES.TicketId },
 ] as const
 
 describe('branded id parsers', () => {

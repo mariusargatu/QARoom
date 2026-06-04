@@ -10,7 +10,11 @@
     "./determinism": "./src/determinism/index.ts",
     "./setup": "./src/setup.ts",
     "./contract-crosscheck": "./src/contract-crosscheck/index.ts",
-    "./async-diff": "./src/async-diff/index.ts"
+    "./async-diff": "./src/async-diff/index.ts",
+    "./screenplay": "./src/screenplay/index.ts",
+    "./screenplay-ct": "./src/screenplay-ct/index.ts",
+    "./mbt": "./src/screenplay/mbt/index.ts",
+    "./testids": "./src/screenplay/testids.ts"
   },
   "scripts": {
     "build": "tsc -p tsconfig.json",
@@ -24,18 +28,32 @@
     "@electric-sql/pglite": "^0.2.0",
     "@qaroom/contracts": "workspace:*",
     "@qaroom/determinism": "workspace:*",
+    "@xstate/graph": "3.0.4",
     "ajv": "^8.17.0",
     "ajv-formats": "^3.0.1",
     "drizzle-orm": "^0.38.0",
     "fast-check": "^3.23.0",
     "pure-rand": "^6.1.0",
+    "xstate": "^5.19.0",
     "zod": "^4.0.0"
   },
   "peerDependencies": {
+    "@playwright/experimental-ct-react": "^1.60.0",
+    "@playwright/test": "^1.60.0",
     "fastify": "^5.0.0",
     "vitest": "^3.0.0"
   },
+  "peerDependenciesMeta": {
+    "@playwright/experimental-ct-react": {
+      "optional": true
+    },
+    "@playwright/test": {
+      "optional": true
+    }
+  },
   "devDependencies": {
+    "@playwright/experimental-ct-react": "1.60.0",
+    "@playwright/test": "1.60.0",
     "fastify": "^5.2.0",
     "typescript": "^5.7.0",
     "vitest": "^3.0.0"

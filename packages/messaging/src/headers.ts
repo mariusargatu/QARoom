@@ -1,5 +1,21 @@
+import type { MsgHdrs } from '@nats-io/nats-core'
 import { injectTraceContext } from '@qaroom/otel'
 import { HEADER } from './types'
+
+/**
+ * Flatten a received NATS message's `MsgHdrs` into a plain string record — the form
+ * `readEventHeaders`/`extractTraceContext` consume. Shared by `runConsumer` and any service
+ * that drives the JetStream consume loop directly (e.g. the gateway's WS feed).
+ */
+export function headersToRecord(headers: MsgHdrs | undefined): Record<string, string> {
+  const out: Record<string, string> = {}
+  if (!headers) return out
+  for (const key of headers.keys()) {
+    const value = headers.get(key)
+    if (value) out[key] = value
+  }
+  return out
+}
 
 /**
  * Build the NATS headers for an event: `Nats-Msg-Id`, `tenant.id`, `event-name`,

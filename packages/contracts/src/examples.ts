@@ -7,6 +7,9 @@ export const EXAMPLE_POST_ID = 'post_01HZY0K7M3QF8VN2J5RX9TB4CE'
 export const EXAMPLE_USER_ID = 'user_01HZY0K7M3QF8VN2J5RX9TB4CF'
 export const EXAMPLE_SESSION_ID = 'sess_01HZY0K7M3QF8VN2J5RX9TB4CG'
 export const EXAMPLE_KEY_ID = 'key_01HZY0K7M3QF8VN2J5RX9TB4CH'
+export const EXAMPLE_DONATION_ID = 'dntn_01HZY0K7M3QF8VN2J5RX9TB4CJ'
+export const EXAMPLE_TICKET_ID = 'tkt_01HZY0K7M3QF8VN2J5RX9TB4CK'
+export const EXAMPLE_FLAG_KEY = 'donations'
 export const EXAMPLE_HANDLE = 'ada'
 export const EXAMPLE_WHEN = '2026-05-28T12:00:00.000Z'
 
@@ -41,6 +44,34 @@ export const EXAMPLE_MEMBERSHIP = {
   community_id: EXAMPLE_COMMUNITY_ID,
   role: 'member',
   joined_at: EXAMPLE_WHEN,
+}
+
+/** Example read envelope, single-sourced for the Milestone-5 flag/event OpenAPI examples. */
+export const EXAMPLE_AS_OF = {
+  snapshot_id: 'snap_01HZY0K7M3QF8VN2J5RX9TB4CL',
+  lamport: 7,
+  wall_clock: EXAMPLE_WHEN,
+}
+
+/** Example resolved flag (the donations rollout sitting Enabled) for OpenAPI examples. */
+export const EXAMPLE_FLAG_RESOLUTION = {
+  community_id: EXAMPLE_COMMUNITY_ID,
+  flag_key: EXAMPLE_FLAG_KEY,
+  state: 'Enabled',
+  enabled: true,
+  as_of: EXAMPLE_AS_OF,
+}
+
+/** Example donation (a captured $25 gift) for OpenAPI examples + the donations pact. */
+export const EXAMPLE_DONATION = {
+  id: EXAMPLE_DONATION_ID,
+  community_id: EXAMPLE_COMMUNITY_ID,
+  donor_id: EXAMPLE_USER_ID,
+  amount_cents: 2500,
+  currency: 'USD',
+  status: 'Captured',
+  created_at: EXAMPLE_WHEN,
+  updated_at: EXAMPLE_WHEN,
 }
 
 /**

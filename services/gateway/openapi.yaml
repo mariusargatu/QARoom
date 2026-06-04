@@ -369,6 +369,65 @@ paths:
             example:
               voter_id: user_01HZY0K7M3QF8VN2J5RX9TB4CF
               value: 1
+  /api/communities/{communityId}/events:
+    get:
+      operationId: listEvents
+      summary: Poll community events (WebSocket fallback)
+      description: Returns the push envelopes for a community after the given seq cursor — the polling fallback for the WebSocket stream (Commitment 11). Every event delivered over WS is also returned here.
+      responses:
+        "200":
+          description: A page of push envelopes.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/EventPage"
+        "400":
+          description: The request failed validation at the gateway edge.
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ProblemDetails"
+              example:
+                type: https://qaroom.dev/errors/validation-failed
+                title: Request failed validation
+                status: 400
+                detail: Request failed validation.
+                instance: /api/posts/post_01HZY0K7M3QF8VN2J5RX9TB4CE
+                retryable: false
+                next_actions: []
+                failure_domain: validation
+        "429":
+          description: The per-principal rate limit was exceeded. Carries a Retry-After header.
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ProblemDetails"
+              example:
+                type: https://qaroom.dev/errors/rate-limited
+                title: Too many requests
+                status: 429
+                detail: Too many requests.
+                instance: /api/posts/post_01HZY0K7M3QF8VN2J5RX9TB4CE
+                retryable: true
+                next_actions: []
+                failure_domain: rate_limit
+      tags:
+        - events
+      parameters:
+        - name: communityId
+          in: path
+          required: true
+          description: Target community (tenant).
+          schema:
+            type: string
+            pattern: ^comm_[0-9A-HJKMNP-TV-Z]{26}$
+        - name: after
+          in: query
+          required: false
+          description: Return only envelopes with seq greater than this cursor.
+          schema:
+            type: integer
+            minimum: 0
   /system/state:
     get:
       operationId: getSystemState
@@ -530,6 +589,38 @@ components:
         - body
       additionalProperties: false
       description: Body for createPost.
+    DonationId:
+      type: string
+      pattern: ^dntn_[0-9A-HJKMNP-TV-Z]{26}$
+      description: "Branded identifier: dntn_<ULID>"
+    DonationStatus:
+      type: string
+      enum:
+        - Pending
+        - Authorized
+        - Captured
+        - Failed
+        - Refunded
+      description: Lifecycle status of a donation.
+    EventPage:
+      type: object
+      properties:
+        community_id:
+          $ref: "#/components/schemas/CommunityId"
+        events:
+          type: array
+          items:
+            $ref: "#/components/schemas/WsEnvelope"
+        cursor:
+          type: integer
+          minimum: 0
+          maximum: 9007199254740991
+      required:
+        - community_id
+        - events
+        - cursor
+      additionalProperties: false
+      description: A page of push envelopes from the polling fallback.
     FailureDomain:
       type: string
       enum:
@@ -559,6 +650,19 @@ components:
         - as_of
       additionalProperties: false
       description: A community feed page with a read envelope.
+    FlagKey:
+      type: string
+      pattern: ^[a-z][a-z0-9-]{1,63}$
+      description: A lowercase, hyphen-separated feature-flag key.
+    FlagState:
+      type: string
+      enum:
+        - Off
+        - Enabling
+        - Canary
+        - Enabled
+        - Disabling
+      description: Current state of a feature-flag rollout.
     NextAction:
       type: object
       properties:
@@ -711,6 +815,81 @@ components:
           enum:
             - -1
       description: "Vote direction: 1 (up) or -1 (down)."
+    WsEnvelope:
+      oneOf:
+        - type: object
+          properties:
+            type:
+              type: string
+              enum:
+                - flag.state.changed
+            seq:
+              type: integer
+              minimum: 0
+              maximum: 9007199254740991
+            community_id:
+              $ref: "#/components/schemas/CommunityId"
+            occurred_at:
+              type: string
+              format: date-time
+              pattern: ^(?:(?:\d\d[2468][048]|\d\d[13579][26]|\d\d0[48]|[02468][048]00|[13579][26]00)-02-29|\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\d|30)|(?:02)-(?:0[1-9]|1\d|2[0-8])))T(?:(?:[01]\d|2[0-3]):[0-5]\d(?::[0-5]\d(?:\.\d+)?)?(?:Z))$
+            flag_key:
+              $ref: "#/components/schemas/FlagKey"
+            state:
+              $ref: "#/components/schemas/FlagState"
+            enabled:
+              type: boolean
+          required:
+            - type
+            - seq
+            - community_id
+            - occurred_at
+            - flag_key
+            - state
+            - enabled
+          additionalProperties: false
+        - type: object
+          properties:
+            type:
+              type: string
+              enum:
+                - donation.state.changed
+            seq:
+              type: integer
+              minimum: 0
+              maximum: 9007199254740991
+            community_id:
+              $ref: "#/components/schemas/CommunityId"
+            occurred_at:
+              type: string
+              format: date-time
+              pattern: ^(?:(?:\d\d[2468][048]|\d\d[13579][26]|\d\d0[48]|[02468][048]00|[13579][26]00)-02-29|\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\d|30)|(?:02)-(?:0[1-9]|1\d|2[0-8])))T(?:(?:[01]\d|2[0-3]):[0-5]\d(?::[0-5]\d(?:\.\d+)?)?(?:Z))$
+            donation_id:
+              $ref: "#/components/schemas/DonationId"
+            donor_id:
+              $ref: "#/components/schemas/UserId"
+            amount_cents:
+              type: integer
+              minimum: 0
+              exclusiveMinimum: true
+              maximum: 9007199254740991
+            currency:
+              type: string
+              pattern: ^[A-Z]{3}$
+            status:
+              $ref: "#/components/schemas/DonationStatus"
+          required:
+            - type
+            - seq
+            - community_id
+            - occurred_at
+            - donation_id
+            - donor_id
+            - amount_cents
+            - currency
+            - status
+          additionalProperties: false
+      description: A server→client WebSocket push frame.
 servers:
   - url: http://localhost:8080
     description: local

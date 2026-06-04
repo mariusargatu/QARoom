@@ -145,6 +145,31 @@ export const OPERATIONS: readonly OasOperation[] = [
     ],
   },
   {
+    operationId: 'listEvents',
+    method: 'get',
+    path: '/api/communities/{communityId}/events',
+    summary: 'Poll community events (WebSocket fallback)',
+    description:
+      'Returns the push envelopes for a community after the given seq cursor — the polling fallback for the WebSocket stream (Commitment 11). Every event delivered over WS is also returned here.',
+    tags: ['events'],
+    mutating: false,
+    params: [
+      communityIdParam,
+      {
+        name: 'after',
+        in: 'query',
+        required: false,
+        description: 'Return only envelopes with seq greater than this cursor.',
+        schema: { type: 'integer', minimum: 0 },
+      },
+    ],
+    responses: [
+      { code: 200, description: 'A page of push envelopes.', bodyRef: 'EventPage' },
+      validation400,
+      rateLimited429,
+    ],
+  },
+  {
     operationId: 'getSystemState',
     method: 'get',
     path: '/system/state',

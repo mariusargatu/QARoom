@@ -1,8 +1,9 @@
 import { Jwks } from '@qaroom/contracts'
 import type { Clock, IdGenerator } from '@qaroom/determinism'
-import { eq, inArray, sql } from 'drizzle-orm'
+import { advisoryLock } from '@qaroom/messaging'
+import { eq, inArray } from 'drizzle-orm'
 import { exportJWK, generateKeyPair, type JWK } from 'jose'
-import type { IdentityDb } from './db/client'
+import type { IdentityDb, SqlExecutor } from './db/client'
 import { signingKeys } from './db/schema'
 
 export type KeyStatus = 'current' | 'previous' | 'retired'
@@ -115,8 +116,8 @@ export class KeyStore {
   }
 
   /** Serialize current-key mutations on a per-resource advisory lock (single-writer, Commitment 4). */
-  async #lockCurrent(tx: { execute(q: ReturnType<typeof sql>): Promise<unknown> }): Promise<void> {
-    await tx.execute(sql`SELECT pg_advisory_xact_lock(hashtextextended('signing_keys:current', 0))`)
+  async #lockCurrent(tx: SqlExecutor): Promise<void> {
+    await advisoryLock(tx, 'signing_keys:current')
   }
 
   /** The current signing key, minting one on first use if the store is empty. */

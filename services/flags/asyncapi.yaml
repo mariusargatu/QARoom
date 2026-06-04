@@ -1,0 +1,98 @@
+asyncapi: 3.0.0
+info:
+  title: QARoom flags-service events
+  version: 0.0.0
+  description: Events flags-service publishes to NATS JetStream (Milestone 5).
+servers:
+  nats:
+    host: nats://localhost:4222
+    protocol: nats
+    description: Local JetStream broker.
+channels:
+  flagStateChanged:
+    address: qaroom.flags.flag.{community_id}.changed
+    parameters:
+      community_id:
+        description: The community (tenant) id at the fixed third subject position.
+    messages:
+      FlagStateChangedEvent:
+        $ref: "#/components/messages/FlagStateChangedEvent"
+operations:
+  publishFlagStateChanged:
+    action: send
+    channel:
+      $ref: "#/channels/flagStateChanged"
+    summary: A flag rollout transitioned
+    description: Emitted after a rollout transition commits; the Nats-Msg-Id is the event id (evt_<ulid>).
+    messages:
+      - $ref: "#/channels/flagStateChanged/messages/FlagStateChangedEvent"
+components:
+  messages:
+    FlagStateChangedEvent:
+      name: FlagStateChangedEvent
+      payload:
+        $ref: "#/components/schemas/FlagStateChangedEvent"
+  schemas:
+    CommunityId:
+      type: string
+      pattern: ^comm_[0-9A-HJKMNP-TV-Z]{26}$
+      description: "Branded identifier: comm_<ULID>"
+    EventId:
+      type: string
+      pattern: ^evt_[0-9A-HJKMNP-TV-Z]{26}$
+      description: "Branded identifier: evt_<ULID>"
+    FlagKey:
+      type: string
+      pattern: ^[a-z][a-z0-9-]{1,63}$
+      description: A lowercase, hyphen-separated feature-flag key.
+    FlagState:
+      type: string
+      enum:
+        - Off
+        - Enabling
+        - Canary
+        - Enabled
+        - Disabling
+      description: Current state of a feature-flag rollout.
+    FlagStateChangedEvent:
+      type: object
+      properties:
+        event_id:
+          $ref: "#/components/schemas/EventId"
+        community_id:
+          $ref: "#/components/schemas/CommunityId"
+        flag_key:
+          $ref: "#/components/schemas/FlagKey"
+        from_state:
+          $ref: "#/components/schemas/FlagState"
+        to_state:
+          $ref: "#/components/schemas/FlagState"
+        rollout_event:
+          $ref: "#/components/schemas/RolloutEventName"
+        enabled:
+          type: boolean
+        occurred_at:
+          type: string
+          format: date-time
+          pattern: ^(?:(?:\d\d[2468][048]|\d\d[13579][26]|\d\d0[48]|[02468][048]00|[13579][26]00)-02-29|\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\d|30)|(?:02)-(?:0[1-9]|1\d|2[0-8])))T(?:(?:[01]\d|2[0-3]):[0-5]\d(?::[0-5]\d(?:\.\d+)?)?(?:Z))$
+      required:
+        - event_id
+        - community_id
+        - flag_key
+        - from_state
+        - to_state
+        - rollout_event
+        - enabled
+        - occurred_at
+      additionalProperties: false
+      description: Emitted when a flag rollout transitions.
+    RolloutEventName:
+      type: string
+      enum:
+        - EnableRequested
+        - CanaryConfirmed
+        - RolloutCompleted
+        - DisableRequested
+        - DisableCompleted
+        - RolloutAborted
+      description: A rollout state-machine event a client may request.

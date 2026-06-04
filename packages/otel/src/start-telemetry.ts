@@ -8,6 +8,7 @@ import { NodeSDK } from '@opentelemetry/sdk-node'
 import { BatchSpanProcessor } from '@opentelemetry/sdk-trace-base'
 import { ATTR_SERVICE_NAME } from '@opentelemetry/semantic-conventions'
 import { TenantSpanProcessor } from './tenant-span-processor'
+import { XStateTransitionSampler } from './xstate-sampler'
 
 export interface TelemetryHandle {
   shutdown(): Promise<void>
@@ -27,7 +28,9 @@ const NOOP: TelemetryHandle = { async shutdown() {} }
  * Start the OpenTelemetry NodeSDK for a service (Milestone 3). Must run from a `--import`
  * preload so http/fastify instrumentation patches before those modules are imported.
  * `TenantSpanProcessor` runs first (stamps `tenant.id` onStart); a `BatchSpanProcessor`
- * exports OTLP to the collector. No-op under test.
+ * exports OTLP to the collector. The `XStateTransitionSampler` forces every
+ * `xstate.transition` span to be sampled so reverse conformance never misses one
+ * (Milestone 5, ADR-0012). No-op under test.
  */
 export function startTelemetry(opts: StartTelemetryOptions): TelemetryHandle {
   const enabled = opts.enabled ?? process.env.NODE_ENV !== 'test'
@@ -36,6 +39,7 @@ export function startTelemetry(opts: StartTelemetryOptions): TelemetryHandle {
   const endpoint = opts.otlpEndpoint ?? process.env.OTEL_EXPORTER_OTLP_ENDPOINT
   const sdk = new NodeSDK({
     resource: resourceFromAttributes({ [ATTR_SERVICE_NAME]: opts.serviceName }),
+    sampler: new XStateTransitionSampler(),
     spanProcessors: [
       new TenantSpanProcessor(),
       new BatchSpanProcessor(

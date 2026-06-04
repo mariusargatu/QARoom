@@ -74,6 +74,33 @@ const EXAMPLE_ACCESS_TOKEN = {
   kid: EXAMPLE_KEY_ID,
 }
 
+// WebSocket-ticket auth (Milestone 5, ADR-0013).
+const ticketUnauthorized = problemResponse(
+  401,
+  'missing-bearer-token',
+  'Authentication failed',
+  'authentication',
+  { description: 'A valid Bearer access token is required.', instance: '/ws/tickets' },
+)
+const ticketInvalid = problemResponse(
+  401,
+  'ticket-invalid',
+  'Authentication failed',
+  'authentication',
+  {
+    description: 'The ticket is unknown, expired, or already redeemed.',
+    instance: '/ws/tickets/redeem',
+  },
+)
+const authHeaderParam = {
+  name: 'Authorization',
+  in: 'header' as const,
+  required: true,
+  description: 'Bearer access token (the JWT minted by createSession).',
+  schema: { type: 'string', pattern: '^Bearer .+$' },
+}
+const EXAMPLE_TICKET = { ticket: 'tkt_01HZY0K7M3QF8VN2J5RX9TB4CK', expires_in_seconds: 30 }
+
 export const OPERATIONS: readonly OasOperation[] = [
   {
     operationId: 'createUser',
@@ -220,6 +247,50 @@ export const OPERATIONS: readonly OasOperation[] = [
       },
       validation400,
       userNotFound,
+    ],
+  },
+  {
+    operationId: 'createWsTicket',
+    method: 'post',
+    path: '/ws/tickets',
+    summary: 'Mint a one-use WebSocket handshake ticket',
+    description:
+      'Issues a one-use, 30-second ticket bound to the authenticated principal. Present it in the WebSocket subprotocol (`ticket.<ticket>`). Deliberately not idempotent — each call mints a fresh ticket (ADR-0013).',
+    tags: ['ws'],
+    mutating: false,
+    params: [authHeaderParam],
+    responses: [
+      {
+        code: 201,
+        description: 'A freshly minted ticket.',
+        bodyRef: 'TicketResponse',
+        example: EXAMPLE_TICKET,
+      },
+      ticketUnauthorized,
+    ],
+  },
+  {
+    operationId: 'redeemWsTicket',
+    method: 'post',
+    path: '/ws/tickets/redeem',
+    summary: 'Redeem a WebSocket ticket (internal, gateway → identity)',
+    description:
+      'Consumes a ticket exactly once and returns the principal it authorizes. Called by the gateway before upgrading a WebSocket connection. An unknown, expired, or already-redeemed ticket is a 401.',
+    tags: ['ws'],
+    mutating: false,
+    requestBodyRef: 'RedeemTicketRequest',
+    requestExample: { ticket: 'tkt_01HZY0K7M3QF8VN2J5RX9TB4CK' },
+    responses: [
+      {
+        code: 200,
+        description: 'The principal the ticket authorizes.',
+        bodyRef: 'RedeemTicketResponse',
+        example: {
+          user_id: EXAMPLE_USER_ID,
+          memberships: [{ community_id: EXAMPLE_COMMUNITY_ID, role: 'member' }],
+        },
+      },
+      ticketInvalid,
     ],
   },
   {

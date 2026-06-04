@@ -16,6 +16,8 @@ import { registerCommunityRoutes } from './routes/communities'
 import { registerJwksRoute } from './routes/jwks'
 import { registerSessionRoutes } from './routes/sessions'
 import { registerUserRoutes } from './routes/users'
+import { registerWsTicketRoutes } from './routes/ws-tickets'
+import { TicketStore } from './ticket-store'
 
 export interface BuiltIdentity {
   app: FastifyInstance
@@ -37,6 +39,7 @@ export function buildIdentity(deps: IdentityDeps): BuiltIdentity {
     deps.clock,
     deps.tokenTtlSeconds ?? DEFAULT_TOKEN_TTL_SECONDS,
   )
+  const ticketStore = new TicketStore(deps.clock, deps.ids)
   const routeDeps: RouteDeps = {
     db: deps.db,
     clock: deps.clock,
@@ -45,6 +48,7 @@ export function buildIdentity(deps: IdentityDeps): BuiltIdentity {
     lamport,
     keyStore,
     issuer,
+    ticketStore,
   }
 
   const app = Fastify({ logger: false })
@@ -59,6 +63,7 @@ export function buildIdentity(deps: IdentityDeps): BuiltIdentity {
   registerUserRoutes(app, routeDeps)
   registerCommunityRoutes(app, routeDeps)
   registerSessionRoutes(app, routeDeps)
+  registerWsTicketRoutes(app, routeDeps)
   registerJwksRoute(app, routeDeps)
   registerSystemRoutes(app, {
     service: 'identity',

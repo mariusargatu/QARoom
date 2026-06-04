@@ -8,10 +8,10 @@ import {
   VoteCastEvent,
   voteCast,
 } from '@qaroom/contracts'
-import { outboxPublish } from '@qaroom/messaging'
+import { advisoryLock, outboxPublish } from '@qaroom/messaging'
 import { traced } from '@qaroom/otel'
 import { desc, eq, sql } from 'drizzle-orm'
-import type { ContentDb, SqlExecutor } from './db/client'
+import type { ContentDb } from './db/client'
 import { posts, votes } from './db/schema'
 import type { RepoDeps } from './deps'
 
@@ -31,14 +31,6 @@ export interface CreatePostInput {
   authorId: string
   title: string
   body: string
-}
-
-/**
- * Single-writer-per-resource (Commitment 4): serialize concurrent writers to the
- * same resource via a transaction-scoped Postgres advisory lock keyed on the id.
- */
-async function advisoryLock(ex: SqlExecutor, resourceId: string): Promise<void> {
-  await ex.execute(sql`SELECT pg_advisory_xact_lock(hashtextextended(${resourceId}, 0))`)
 }
 
 function rowToPost(r: typeof posts.$inferSelect): PostRecord {

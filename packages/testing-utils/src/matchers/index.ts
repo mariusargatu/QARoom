@@ -1,4 +1,7 @@
 export { expectCapabilitiesCover } from './capabilities'
 export { expectLamportAdvanced, expectLamportStable, lamportOf } from './lamport'
+export { expectWsEventMatchesPolling } from './polling'
 export type { RFC7807Expectation } from './rfc7807'
 export { expectProblemContentType, expectRFC7807 } from './rfc7807'
+export type { TransitionExpectation } from './state-machine'
+export { expectStateMachineAt, expectTransitionEmitted } from './state-machine'

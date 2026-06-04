@@ -1,0 +1,24 @@
+image:
+  repository: qaroom/web
+service:
+  port: 80
+  targetPort: 8085
+container:
+  port: 8085
+# Static SPA: no server OTel, no Postgres.
+otel:
+  enabled: false
+  serviceName: web
+postgres:
+  enabled: false
+# A static site has no /health or /ready; `vite preview` serves index.html at `/`.
+probes:
+  liveness:
+    path: /
+  readiness:
+    path: /
+extraEnv:
+  # NOTE: Vite inlines VITE_* at BUILD time, so this runtime value does not change an
+  # already-built bundle — set it as a build ARG for a real deploy. The app defaults to
+  # same-origin when unset. Kept here as documentation of the intended gateway URL.
+  VITE_API_BASE_URL: http://gateway.qaroom.svc.cluster.local:80

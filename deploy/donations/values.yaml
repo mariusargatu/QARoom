@@ -1,0 +1,17 @@
+image:
+  repository: qaroom/donations
+service:
+  port: 80
+  targetPort: 8084
+container:
+  port: 8084
+otel:
+  serviceName: donations
+postgres:
+  enabled: true
+  database: qaroom_donations
+extraEnv:
+  # NATS: publishes donation.state.changed, consumes flag.state.changed (gating cache).
+  NATS_URL: nats://qaroom-nats.observability.svc.cluster.local:4222
+  # The (Microcks-mocked) payment provider, served from payment-provider.openapi.yaml.
+  PAYMENT_PROVIDER_BASE_URL: http://qaroom-microcks.observability.svc.cluster.local:8080/rest/QARoom+Payment+Provider+%28mock%29/1.0.0

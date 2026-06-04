@@ -11,6 +11,7 @@
       "**",
       "!**/openapi.yaml",
       "!**/*.gen.ts",
+      "!**/*.css",
       "!**/migrations",
       "!**/dist",
       "!**/pacts",

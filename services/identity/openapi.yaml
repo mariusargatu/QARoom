@@ -409,6 +409,88 @@ paths:
               $ref: "#/components/schemas/CreateSessionRequest"
             example:
               user_id: user_01HZY0K7M3QF8VN2J5RX9TB4CF
+  /ws/tickets:
+    post:
+      operationId: createWsTicket
+      summary: Mint a one-use WebSocket handshake ticket
+      description: Issues a one-use, 30-second ticket bound to the authenticated principal. Present it in the WebSocket subprotocol (`ticket.<ticket>`). Deliberately not idempotent — each call mints a fresh ticket (ADR-0013).
+      responses:
+        "201":
+          description: A freshly minted ticket.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/TicketResponse"
+              example:
+                ticket: tkt_01HZY0K7M3QF8VN2J5RX9TB4CK
+                expires_in_seconds: 30
+        "401":
+          description: A valid Bearer access token is required.
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ProblemDetails"
+              example:
+                type: https://qaroom.dev/errors/missing-bearer-token
+                title: Authentication failed
+                status: 401
+                detail: Authentication failed.
+                instance: /ws/tickets
+                retryable: false
+                next_actions: []
+                failure_domain: authentication
+      tags:
+        - ws
+      parameters:
+        - name: Authorization
+          in: header
+          required: true
+          description: Bearer access token (the JWT minted by createSession).
+          schema:
+            type: string
+            pattern: ^Bearer .+$
+  /ws/tickets/redeem:
+    post:
+      operationId: redeemWsTicket
+      summary: Redeem a WebSocket ticket (internal, gateway → identity)
+      description: Consumes a ticket exactly once and returns the principal it authorizes. Called by the gateway before upgrading a WebSocket connection. An unknown, expired, or already-redeemed ticket is a 401.
+      responses:
+        "200":
+          description: The principal the ticket authorizes.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/RedeemTicketResponse"
+              example:
+                user_id: user_01HZY0K7M3QF8VN2J5RX9TB4CF
+                memberships:
+                  - community_id: comm_01HZY0K7M3QF8VN2J5RX9TB4CD
+                    role: member
+        "401":
+          description: The ticket is unknown, expired, or already redeemed.
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ProblemDetails"
+              example:
+                type: https://qaroom.dev/errors/ticket-invalid
+                title: Authentication failed
+                status: 401
+                detail: Authentication failed.
+                instance: /ws/tickets/redeem
+                retryable: false
+                next_actions: []
+                failure_domain: authentication
+      tags:
+        - ws
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/RedeemTicketRequest"
+            example:
+              ticket: tkt_01HZY0K7M3QF8VN2J5RX9TB4CK
   /jwks.json:
     get:
       operationId: getJwks
@@ -733,6 +815,18 @@ components:
         - joined_at
       additionalProperties: false
       description: A user↔community↔role grant.
+    MembershipClaim:
+      type: object
+      properties:
+        community_id:
+          $ref: "#/components/schemas/CommunityId"
+        role:
+          $ref: "#/components/schemas/Role"
+      required:
+        - community_id
+        - role
+      additionalProperties: false
+      description: A {community_id, role} pair in the access token.
     NextAction:
       type: object
       properties:
@@ -786,6 +880,29 @@ components:
         - failure_domain
       additionalProperties: false
       description: RFC 7807 Problem Details with QARoom agent extensions.
+    RedeemTicketRequest:
+      type: object
+      properties:
+        ticket:
+          $ref: "#/components/schemas/TicketId"
+      required:
+        - ticket
+      additionalProperties: false
+      description: Body for the internal ticket redeem call.
+    RedeemTicketResponse:
+      type: object
+      properties:
+        user_id:
+          $ref: "#/components/schemas/UserId"
+        memberships:
+          type: array
+          items:
+            $ref: "#/components/schemas/MembershipClaim"
+      required:
+        - user_id
+        - memberships
+      additionalProperties: false
+      description: The principal a redeemed ticket authorizes.
     Role:
       type: string
       enum:
@@ -813,6 +930,25 @@ components:
         - as_of
       additionalProperties: false
       description: Current observable state of every model the service runs.
+    TicketId:
+      type: string
+      pattern: ^tkt_[0-9A-HJKMNP-TV-Z]{26}$
+      description: "Branded identifier: tkt_<ULID>"
+    TicketResponse:
+      type: object
+      properties:
+        ticket:
+          $ref: "#/components/schemas/TicketId"
+        expires_in_seconds:
+          type: integer
+          minimum: 0
+          exclusiveMinimum: true
+          maximum: 9007199254740991
+      required:
+        - ticket
+        - expires_in_seconds
+      additionalProperties: false
+      description: A freshly minted WebSocket handshake ticket.
     User:
       type: object
       properties:

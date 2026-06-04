@@ -1,0 +1,37 @@
+# Tracetest assertion for the donation publish-side async flow (Milestone 5). Creating a
+# donation (once the donations flag is Enabled) must produce a coherent trace: the HTTP handler,
+# the DB write carrying tenant.id, and — because the relay restores the enqueue-time context —
+# a `nats.publish` PRODUCER span on the SAME trace to the donation subject.
+#
+# PRECONDITION: the `donations` flag must already be Enabled for the community AND
+# donations-service's flag cache must reflect it (the consumer has processed the
+# flag.state.changed event). Seed this in the test setup (advance the rollout to Enabled, let
+# the consumer catch up) before running — otherwise the donation is gated (409) and no
+# db/publish spans appear. Runs in the PR-full / merge lane. Unique Idempotency-Key per run.
+type: Test
+spec:
+  id: donation-create-publish
+  name: a donation create spans sync HTTP and async publish coherently
+  trigger:
+    type: http
+    httpRequest:
+      method: POST
+      url: http://donations.qaroom.svc.cluster.local/api/communities/comm_00000000000000000000000000/donations
+      headers:
+        - key: Content-Type
+          value: application/json
+        - key: Idempotency-Key
+          value: tt-${var:runId}
+      body: '{"donor_id":"user_00000000000000000000000000","amount_cents":2500,"currency":"USD"}'
+  specs:
+    - selector: span[name = "POST"]
+      assertions:
+        - attr:http.status_code = 201
+    - selector: span[name = "db.donations.create"]
+      assertions:
+        - attr:tenant.id = "comm_00000000000000000000000000"
+    - selector: span[name = "nats.publish"]
+      assertions:
+        - attr:messaging.system = "nats"
+        - attr:messaging.destination.name = "qaroom.donations.donation.comm_00000000000000000000000000.changed"
+        - attr:tenant.id = "comm_00000000000000000000000000"

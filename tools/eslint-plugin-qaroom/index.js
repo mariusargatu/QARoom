@@ -289,6 +289,127 @@ const noRawNatsSubject = {
   },
 }
 
+/**
+ * Milestone 5 / ADR-0005 frontend-testing discipline. These run on `.tsx` (the determinism
+ * rules deliberately do not — see eslint.config.js), so they carry no overlap.
+ */
+
+/**
+ * In a Playwright Component Test you cannot `mount()` a `composeStories()` result — the Node↔
+ * browser bundling split throws "Component cannot be mounted". You must mount the RAW component
+ * spread with `story.args` and use `composeStories` only to READ the args (ADR-0005). This rule
+ * flags `mount(<X .../>)` where `X` is a binding (or `map.Story` member) from `composeStories(...)`.
+ * @type {import('eslint').Rule.RuleModule}
+ */
+const noMountComposedStory = {
+  meta: {
+    type: 'problem',
+    docs: {
+      description:
+        'Disallow mounting a composeStories() result in Playwright CT; mount the raw component spread with story.args (ADR-0005).',
+    },
+    schema: [],
+    messages: {
+      composed:
+        'Cannot mount() a composeStories() result in Playwright CT ("Component cannot be mounted"). Mount the RAW component spread with `story.args`; use composeStories only to read args (ADR-0005).',
+    },
+  },
+  create(context) {
+    /** Local names bound to a single composed story (`const { Default } = composeStories(...)`). */
+    const composedStoryNames = new Set()
+    /** Local names bound to the whole composed map (`const composed = composeStories(...)`). */
+    const composedMapNames = new Set()
+
+    const isComposeStoriesCall = (init) =>
+      init?.type === 'CallExpression' &&
+      init.callee.type === 'Identifier' &&
+      init.callee.name === 'composeStories'
+
+    return {
+      VariableDeclarator(node) {
+        if (!isComposeStoriesCall(node.init)) return
+        if (node.id.type === 'ObjectPattern') {
+          for (const prop of node.id.properties) {
+            if (prop.type === 'Property' && prop.value.type === 'Identifier') {
+              composedStoryNames.add(prop.value.name)
+            }
+          }
+        } else if (node.id.type === 'Identifier') {
+          composedMapNames.add(node.id.name)
+        }
+      },
+      CallExpression(node) {
+        if (node.callee.type !== 'Identifier' || node.callee.name !== 'mount') return
+        const arg = node.arguments[0]
+        if (arg?.type !== 'JSXElement') return
+        const name = arg.openingElement.name
+        const isComposed =
+          (name.type === 'JSXIdentifier' && composedStoryNames.has(name.name)) ||
+          (name.type === 'JSXMemberExpression' &&
+            name.object.type === 'JSXIdentifier' &&
+            composedMapNames.has(name.object.name))
+        if (isComposed) {
+          context.report({ node: arg, messageId: 'composed' })
+        }
+      },
+    }
+  },
+}
+
+const ATOMIC_TIERS = ['atoms', 'molecules', 'organisms', 'templates', 'pages']
+
+/** The atomic tier a path belongs to (its index in ATOMIC_TIERS), or -1 if none. */
+function tierIndexOf(pathLike) {
+  const normalised = pathLike.replace(/\\/g, '/')
+  for (let i = 0; i < ATOMIC_TIERS.length; i++) {
+    if (normalised.includes(`/${ATOMIC_TIERS[i]}/`) || normalised.includes(`${ATOMIC_TIERS[i]}/`)) {
+      return i
+    }
+  }
+  return -1
+}
+
+/**
+ * Atomic-design dependency direction (ADR-0005): a component in tier T may import only from
+ * tiers below it. Flags an import whose source path names a higher tier than the file's tier.
+ * Files outside the tiers (hooks, pages-less utilities) are skipped.
+ * @type {import('eslint').Rule.RuleModule}
+ */
+const atomicImportDirection = {
+  meta: {
+    type: 'problem',
+    docs: {
+      description:
+        'Atomic-design tiers flow downward only: atoms ← molecules ← organisms ← templates ← pages (ADR-0005).',
+    },
+    schema: [],
+    messages: {
+      direction:
+        'Atomic-design violation: a {{from}} component must not import from the higher tier {{to}} (`{{source}}`). Tiers flow downward only (ADR-0005).',
+    },
+  },
+  create(context) {
+    const filename =
+      context.filename ?? (typeof context.getFilename === 'function' ? context.getFilename() : '')
+    const fileTier = tierIndexOf(filename)
+    if (fileTier < 0) return {}
+    return {
+      ImportDeclaration(node) {
+        const source = node.source.value
+        if (typeof source !== 'string') return
+        const importTier = tierIndexOf(source)
+        if (importTier > fileTier) {
+          context.report({
+            node,
+            messageId: 'direction',
+            data: { from: ATOMIC_TIERS[fileTier], to: ATOMIC_TIERS[importTier], source },
+          })
+        }
+      },
+    }
+  },
+}
+
 export default {
   meta: { name: 'eslint-plugin-qaroom', version: '0.0.0' },
   rules: {
@@ -299,5 +420,7 @@ export default {
     'no-snapshot': noSnapshot,
     'no-public-barrel': noPublicBarrel,
     'no-raw-nats-subject': noRawNatsSubject,
+    'no-mount-composed-story': noMountComposedStory,
+    'atomic-import-direction': atomicImportDirection,
   },
 }

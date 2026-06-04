@@ -1,0 +1,69 @@
+openapi: 3.0.3
+info:
+  title: QARoom Payment Provider (mock)
+  version: 1.0.0
+  description: >-
+    The external payment provider donations-service settles through. This spec is NOT generated
+    from Zod — it is the EXTERNAL contract, served as a mock by Microcks (Milestone 5). The
+    Pact consumer contract in tests/contracts/ verifies donations-service's expectations
+    against it. donations-service treats any non-2xx as a provider fault (502 dependency_failure).
+servers:
+  - url: http://localhost:8080/rest/payments/1.0
+    description: Microcks mock endpoint
+paths:
+  /charges:
+    post:
+      operationId: createCharge
+      summary: Charge a donation
+      parameters:
+        - name: Idempotency-Key
+          in: header
+          required: true
+          description: Makes the charge safely retryable at the provider.
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ChargeRequest'
+            examples:
+              captured:
+                value:
+                  amount_cents: 2500
+                  currency: USD
+      responses:
+        '200':
+          description: The charge outcome.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Charge'
+              examples:
+                captured:
+                  value:
+                    id: pay_01HZY0K7M3QF8VN2J5RX9TB4CM
+                    status: captured
+components:
+  schemas:
+    ChargeRequest:
+      type: object
+      additionalProperties: false
+      required: [amount_cents, currency]
+      properties:
+        amount_cents:
+          type: integer
+          minimum: 1
+        currency:
+          type: string
+          pattern: '^[A-Z]{3}$'
+    Charge:
+      type: object
+      required: [id, status]
+      properties:
+        id:
+          type: string
+        status:
+          type: string
+          enum: [captured, declined]

@@ -46,6 +46,16 @@ export type DonationId = z.infer<typeof DonationId>
 export const SessionId = brandedId('sess', 'SessionId')
 export type SessionId = z.infer<typeof SessionId>
 
+/**
+ * Short-lived WebSocket handshake ticket id (`tkt_<ulid>`, Milestone 5). Minted by
+ * identity-service on `POST /ws/tickets`, redeemed once by the gateway before the WS
+ * upgrade. Branded so a ticket reference cannot be confused with a session or any
+ * domain id. The ticket is a *reference*, not a JWT — its only authority is existence
+ * in the (≤30s, one-use) ticket store. See ADR-0013.
+ */
+export const TicketId = brandedId('tkt', 'TicketId')
+export type TicketId = z.infer<typeof TicketId>
+
 /** JWT signing-key id, used as the JOSE `kid` header (Milestone 2). */
 export const KeyId = brandedId('key', 'KeyId')
 export type KeyId = z.infer<typeof KeyId>
@@ -88,6 +98,7 @@ export const ID_PREFIXES = {
   CommentId: 'cmnt',
   DonationId: 'dntn',
   SessionId: 'sess',
+  TicketId: 'tkt',
   KeyId: 'key',
   EventId: 'evt',
 } as const

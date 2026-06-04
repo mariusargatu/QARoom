@@ -1,0 +1,26 @@
+# donations-service
+
+> QARoom donations-service: per-community donations, gated by the donations feature flag (Milestone 5).
+
+A donation is allowed only once the `donations` flag has rolled out to Enabled for the
+community; it is then settled through a (Microcks-mocked) payment provider. The
+machine-readable contract is `openapi.yaml` (OpenAPI 3.0, generated from Zod); published and
+consumed events are in `asyncapi.yaml`. Live capabilities at `GET /system/capabilities`,
+observable state at `GET /system/state`. Every error is RFC 7807 `application/problem+json`
+with `retryable`, `next_actions`, `failure_domain`.
+
+## Operations
+- POST /api/communities/{communityId}/donations                 — createDonation (mutating; Idempotency-Key required)
+- GET  /api/communities/{communityId}/donations/{donationId}    — getDonation
+- GET  /api/communities/{communityId}/donations                 — listDonations
+- GET  /system/state                                            — getSystemState
+- GET  /system/capabilities                                     — getSystemCapabilities
+
+## Events
+- send:    qaroom.donations.donation.{community_id}.changed — DonationStateChangedEvent
+- receive: qaroom.flags.flag.{community_id}.changed         — FlagStateChangedEvent (gating cache)
+
+## Docs
+- Contract: ./openapi.yaml · ./asyncapi.yaml · ./payment-provider.openapi.yaml (external mock)
+- Agent reference: ./AGENTS.md
+- Repo conventions: /AGENTS.md, /docs

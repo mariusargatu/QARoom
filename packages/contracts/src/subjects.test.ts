@@ -2,6 +2,8 @@ import { describe, expect, it } from 'vitest'
 import { COMM_GENERAL } from './ids'
 import {
   contentPostsForCommunity,
+  donationStateChanged,
+  flagStateChanged,
   parseSubject,
   postCreated,
   postsCreatedAnyCommunity,
@@ -21,6 +23,18 @@ describe('subject builders place the community id at the fixed fourth position',
 
   it('builds a tenant-scoped trailing-wildcard subscription for one community', () => {
     expect(contentPostsForCommunity(COMM_GENERAL)).toBe(`qaroom.content.posts.${COMM_GENERAL}.>`)
+  })
+
+  it('flagStateChanged encodes the community id as the fourth segment', () => {
+    const subject = flagStateChanged(COMM_GENERAL)
+    expect(subject.split('.')[3]).toBe(COMM_GENERAL)
+    expect(subject).toBe(`qaroom.flags.flag.${COMM_GENERAL}.changed`)
+  })
+
+  it('donationStateChanged encodes the community id as the fourth segment', () => {
+    const subject = donationStateChanged(COMM_GENERAL)
+    expect(subject.split('.')[3]).toBe(COMM_GENERAL)
+    expect(subject).toBe(`qaroom.donations.donation.${COMM_GENERAL}.changed`)
   })
 })
 

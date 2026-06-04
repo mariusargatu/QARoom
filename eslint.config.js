@@ -66,4 +66,29 @@ export default [
       'max-lines': ['error', { max: 500, skipBlankLines: true, skipComments: true }],
     },
   },
+  // Frontend (.tsx): atomic-design dependency direction (ADR-0005). The determinism rules
+  // deliberately do NOT run here — browser `.ts` files carry those; `.tsx` is JSX-only.
+  {
+    files: ['**/*.tsx'],
+    languageOptions: {
+      parser,
+      parserOptions: { ecmaVersion: 2023, sourceType: 'module', ecmaFeatures: { jsx: true } },
+    },
+    plugins: { qaroom },
+    rules: {
+      'qaroom/atomic-import-direction': 'error',
+    },
+  },
+  // Playwright Component Tests: forbid mounting a composeStories() result (ADR-0005).
+  {
+    files: ['**/*.ct.tsx'],
+    languageOptions: {
+      parser,
+      parserOptions: { ecmaVersion: 2023, sourceType: 'module', ecmaFeatures: { jsx: true } },
+    },
+    plugins: { qaroom },
+    rules: {
+      'qaroom/no-mount-composed-story': 'error',
+    },
+  },
 ]

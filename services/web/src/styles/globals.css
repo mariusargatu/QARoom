@@ -1,0 +1,57 @@
+@import "tailwindcss";
+
+/*
+ * Semantic design tokens (ADR-0005). Components style EXCLUSIVELY through these — never raw
+ * hex or palette literals — so a theme is a token remap, not a component rewrite. The Tailwind
+ * 4 CSS-first `@theme` block surfaces each token as a utility (`bg-surface`, `text-muted`,
+ * `border-border`, `text-primary`, …). Dark is the `:root` default; light flips the same
+ * tokens under `.light` (toggled by the thin ThemeProvider, which holds no styles).
+ */
+@theme {
+  --color-bg: var(--c-bg);
+  --color-surface: var(--c-surface);
+  --color-elevated: var(--c-elevated);
+  --color-border: var(--c-border);
+  --color-text: var(--c-text);
+  --color-muted: var(--c-muted);
+  --color-primary: var(--c-primary);
+  --color-primary-fg: var(--c-primary-fg);
+  --color-success: var(--c-success);
+  --color-danger: var(--c-danger);
+  --color-warning: var(--c-warning);
+}
+
+:root {
+  --c-bg: #0b0e14;
+  --c-surface: #151a23;
+  --c-elevated: #1c2330;
+  --c-border: #232b38;
+  --c-text: #e6edf3;
+  --c-muted: #8b97a7;
+  --c-primary: #5b8cff;
+  --c-primary-fg: #0b0e14;
+  --c-success: #3fb950;
+  --c-danger: #f85149;
+  --c-warning: #d29922;
+}
+
+.light {
+  --c-bg: #f6f8fa;
+  --c-surface: #ffffff;
+  --c-elevated: #ffffff;
+  --c-border: #d0d7de;
+  --c-text: #1f2328;
+  --c-muted: #59636e;
+  --c-primary: #2f6feb;
+  --c-primary-fg: #ffffff;
+  --c-success: #1a7f37;
+  --c-danger: #cf222e;
+  --c-warning: #9a6700;
+}
+
+body {
+  margin: 0;
+  background: var(--color-bg);
+  color: var(--color-text);
+  font-family: ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+}

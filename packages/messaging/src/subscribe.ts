@@ -1,9 +1,8 @@
 import type { Consumer, JetStreamClient, JsMsg } from '@nats-io/jetstream'
-import type { MsgHdrs } from '@nats-io/nats-core'
 import type { Clock } from '@qaroom/determinism'
 import { context, extractTraceContext, traced, withTenant } from '@qaroom/otel'
 import { alreadyProcessed, markProcessed } from './dedup'
-import { readEventHeaders } from './headers'
+import { headersToRecord, readEventHeaders } from './headers'
 import type { SqlExecutor, TxRunner } from './types'
 
 /** A consumer handler: applies an event's effects within the provided transaction. */
@@ -37,16 +36,6 @@ export async function processEvent(
     await markProcessed(tx, subscriptionName, event.eventId, clock.now())
     return { skipped: false }
   })
-}
-
-function headersToRecord(headers: MsgHdrs | undefined): Record<string, string> {
-  const out: Record<string, string> = {}
-  if (!headers) return out
-  for (const key of headers.keys()) {
-    const value = headers.get(key)
-    if (value) out[key] = value
-  }
-  return out
 }
 
 /**
