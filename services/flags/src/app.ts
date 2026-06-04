@@ -3,6 +3,7 @@ import { activeSpanSink, registerTenantContext, xstateTransitionSink } from '@qa
 import {
   registerHealthRoutes,
   registerProblemHandler,
+  registerSnapshotRoutes,
   registerSystemRoutes,
 } from '@qaroom/service-kit'
 import { sql } from 'drizzle-orm'
@@ -49,6 +50,12 @@ export function buildApp(deps: FlagsDeps): FastifyInstance {
       const flags = await countFlags(deps.db)
       return { flags: { count: flags } }
     },
+  })
+  registerSnapshotRoutes(app, {
+    service: 'flags',
+    clock: deps.clock,
+    lamport,
+    store: deps.snapshotStore,
   })
   return app
 }

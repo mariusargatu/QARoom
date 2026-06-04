@@ -28,3 +28,6 @@ docs/journey/
 *.log
 npm-debug.log*
 pnpm-debug.log*
+
+# Scenario-replay tarballs are regenerable from the committed scenario dirs (Milestone 7).
+scenarios/*.tar.gz

@@ -67,6 +67,15 @@ export class LamportGate {
   get value(): number {
     return this.#counter
   }
+
+  /**
+   * Restore the counter from a snapshot (Commitment 8). The counter is in-memory, so reproducing
+   * a captured scenario's `as_of.lamport` requires setting it back to the captured value before
+   * replay. Snapshot restore only — never on a live mutating path.
+   */
+  restore(counter: number): void {
+    this.#counter = counter
+  }
 }
 
 /** Build the observable-state envelope for a read (Commitment 7). */

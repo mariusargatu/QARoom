@@ -1,5 +1,6 @@
 import type { LamportGate, SpanAttributeSink } from '@qaroom/contracts'
 import type { Clock, IdGenerator, Randomness } from '@qaroom/determinism'
+import type { SnapshotStore } from '@qaroom/service-kit'
 import type { IdentityDb } from './db/client'
 import type { Issuer } from './jwt'
 import type { KeyMaterialSource, KeyStore, RotationConfig } from './keys'
@@ -17,6 +18,8 @@ export interface IdentityDeps {
   keyMaterial: KeyMaterialSource
   rotation?: RotationConfig
   tokenTtlSeconds?: number
+  /** Scenario-replay store (Commitment 8). When present, /system/snapshot is registered. */
+  snapshotStore?: SnapshotStore
 }
 
 /** What route handlers receive: every dependency resolved, including the gate, key store, and issuer. */

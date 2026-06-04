@@ -1,0 +1,1 @@
+export { CaptureForReplay } from './CaptureForReplay'

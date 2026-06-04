@@ -139,6 +139,13 @@ export {
   Jwks,
   MembershipClaim,
 } from './session'
+export type { SnapshotStore, SnapshotTables } from './snapshot'
+export {
+  ServiceSnapshot,
+  SNAPSHOT_SCHEMA_VERSION,
+  SnapshotBundleV1,
+  SnapshotManifestEntry,
+} from './snapshot'
 export type { ParsedSubject } from './subjects'
 export {
   contentPostsForCommunity,

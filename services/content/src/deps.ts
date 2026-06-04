@@ -1,5 +1,6 @@
 import type { LamportGate, SpanAttributeSink } from '@qaroom/contracts'
 import type { Clock, IdGenerator, Randomness } from '@qaroom/determinism'
+import type { SnapshotStore } from '@qaroom/service-kit'
 import type { ContentDb } from './db/client'
 
 /** What `buildApp` receives. `lamport` is optional; the app creates one if absent. */
@@ -11,6 +12,8 @@ export interface ContentDeps {
   lamport?: LamportGate
   /** Span-attribute sink for the LamportGate; defaults to the active-span bridge (Milestone 3). */
   sink?: SpanAttributeSink
+  /** Scenario-replay store (Commitment 8). When present, /system/snapshot is registered. */
+  snapshotStore?: SnapshotStore
 }
 
 /** What route handlers receive: every dependency resolved, including the gate. */

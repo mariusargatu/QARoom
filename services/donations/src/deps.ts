@@ -1,5 +1,6 @@
 import type { LamportGate, SpanAttributeSink } from '@qaroom/contracts'
 import type { Clock, IdGenerator, Randomness } from '@qaroom/determinism'
+import type { SnapshotStore } from '@qaroom/service-kit'
 import type { DonationsDb } from './db/client'
 import type { PaymentClient } from './payment-client'
 
@@ -12,6 +13,8 @@ export interface DonationsDeps {
   payment: PaymentClient
   lamport?: LamportGate
   sink?: SpanAttributeSink
+  /** Scenario-replay store (Commitment 8). When present, /system/snapshot is registered. */
+  snapshotStore?: SnapshotStore
 }
 
 /** What route handlers receive: every dependency resolved. */

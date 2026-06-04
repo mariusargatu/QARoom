@@ -10,7 +10,7 @@ import {
 } from '@qaroom/contracts'
 import { advisoryLock, outboxPublish } from '@qaroom/messaging'
 import { traced } from '@qaroom/otel'
-import { desc, eq, sql } from 'drizzle-orm'
+import { asc, desc, eq, sql } from 'drizzle-orm'
 import type { ContentDb } from './db/client'
 import { posts, votes } from './db/schema'
 import type { RepoDeps } from './deps'
@@ -106,11 +106,16 @@ export async function listFeed(
   communityId: string,
   limit = 50,
 ): Promise<PostRecord[]> {
+  // Deliberate-bug toggle for the Milestone-7 regression scenario: when set, the feed is sorted
+  // oldest-first instead of newest-first — a wrong-order bug whose reproduction depends on the
+  // captured posts' timestamps (not the replay clock). Read per call so a single test process can
+  // show the bug reproduce (toggle on), then the fix (toggle off) replay green. Off in normal use.
+  const feedOrderBug = process.env.CONTENT_BUG_FEED_REVERSED === '1'
   const rows = await db
     .select()
     .from(posts)
     .where(eq(posts.communityId, communityId))
-    .orderBy(desc(posts.createdAt))
+    .orderBy(feedOrderBug ? asc(posts.createdAt) : desc(posts.createdAt))
     .limit(limit)
   return rows.map(rowToPost)
 }

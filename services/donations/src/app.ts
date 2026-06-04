@@ -3,6 +3,7 @@ import { activeSpanSink, registerTenantContext } from '@qaroom/otel'
 import {
   registerHealthRoutes,
   registerProblemHandler,
+  registerSnapshotRoutes,
   registerSystemRoutes,
 } from '@qaroom/service-kit'
 import { sql } from 'drizzle-orm'
@@ -47,6 +48,12 @@ export function buildApp(deps: DonationsDeps): FastifyInstance {
       const donations = await countDonations(deps.db)
       return { donations: { count: donations } }
     },
+  })
+  registerSnapshotRoutes(app, {
+    service: 'donations',
+    clock: deps.clock,
+    lamport,
+    store: deps.snapshotStore,
   })
   return app
 }

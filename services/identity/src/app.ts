@@ -3,6 +3,7 @@ import { activeSpanSink, registerTenantContext } from '@qaroom/otel'
 import {
   registerHealthRoutes,
   registerProblemHandler,
+  registerSnapshotRoutes,
   registerSystemRoutes,
 } from '@qaroom/service-kit'
 import { sql } from 'drizzle-orm'
@@ -88,6 +89,12 @@ export function buildIdentity(deps: IdentityDeps): BuiltIdentity {
         },
       }
     },
+  })
+  registerSnapshotRoutes(app, {
+    service: 'identity',
+    clock: deps.clock,
+    lamport,
+    store: deps.snapshotStore,
   })
   return { app, keyStore, issuer }
 }

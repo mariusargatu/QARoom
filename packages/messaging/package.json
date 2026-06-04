@@ -22,6 +22,7 @@
     "@qaroom/determinism": "workspace:*",
     "@qaroom/otel": "workspace:*",
     "drizzle-orm": "^0.38.0",
+    "postgres": "^3.4.0",
     "zod": "^4.0.0"
   },
   "devDependencies": {

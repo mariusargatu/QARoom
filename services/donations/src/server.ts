@@ -1,5 +1,11 @@
-import { connectNats, createRelay, natsPublisher, QAROOM_STREAM } from '@qaroom/messaging'
-import { createProductionDeps, pgPoolMax, runServer } from '@qaroom/service-kit'
+import {
+  connectNats,
+  createRelay,
+  natsPublisher,
+  pgSnapshotStore,
+  QAROOM_STREAM,
+} from '@qaroom/messaging'
+import { intFromEnv, pgPoolMax, resolveBootDeps, runServer } from '@qaroom/service-kit'
 import { drizzle } from 'drizzle-orm/postgres-js'
 import postgres from 'postgres'
 import { buildApp } from './app'
@@ -13,24 +19,36 @@ const connectionString =
 const natsUrl = process.env.NATS_URL ?? 'nats://localhost:4222'
 const paymentBaseUrl =
   process.env.PAYMENT_PROVIDER_BASE_URL ?? 'http://localhost:8080/rest/payments/1.0'
-const port = Number(process.env.PORT ?? 8084)
+const port = intFromEnv('PORT', 8084)
 const RELAY_INTERVAL_MS = 1000
 
+// Replay reproduces committed state with no payment provider; live calls the real client.
+const replayPayment = {
+  charge: async () => ({ provider_ref: 'replay', status: 'declined' as const }),
+}
+
+// Snapshot-replay boot (Commitment 8): when replaying, the clock is pinned and the live-only wiring
+// (NATS relay + flags consumer + payment client) is skipped; captured state arrives via POST.
 runServer(
   async () => {
-    const deps = createProductionDeps()
-    const db = drizzle(postgres(connectionString, { max: pgPoolMax() }), { schema })
+    const { deps, replaying } = resolveBootDeps()
+    const sql = postgres(connectionString, { max: pgPoolMax() })
+    const db = drizzle(sql, { schema })
     await ensureSchema(db)
+    const snapshotStore = pgSnapshotStore(sql)
 
-    const nats = await connectNats(natsUrl)
-    // Outbox relay drains donation-state events to JetStream (Commitment 17).
-    createRelay({ db, publisher: natsPublisher(nats.js), clock: deps.clock }).start(
-      RELAY_INTERVAL_MS,
-    )
-    // Consume flags-service events to keep the local gating cache current.
-    await startDonationsConsumer(nats, QAROOM_STREAM, db, deps.clock)
+    if (!replaying) {
+      const nats = await connectNats(natsUrl)
+      // Outbox relay drains donation-state events to JetStream (Commitment 17).
+      createRelay({ db, publisher: natsPublisher(nats.js), clock: deps.clock }).start(
+        RELAY_INTERVAL_MS,
+      )
+      // Consume flags-service events to keep the local gating cache current.
+      await startDonationsConsumer(nats, QAROOM_STREAM, db, deps.clock)
+    }
 
-    return buildApp({ db, payment: createPaymentClient(paymentBaseUrl), ...deps })
+    const payment = replaying ? replayPayment : createPaymentClient(paymentBaseUrl)
+    return buildApp({ db, payment, snapshotStore, ...deps })
   },
   { port, name: 'donations-service' },
 )

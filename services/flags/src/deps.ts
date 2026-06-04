@@ -1,5 +1,6 @@
 import type { LamportGate, RolloutTransitionSink, SpanAttributeSink } from '@qaroom/contracts'
 import type { Clock, IdGenerator, Randomness } from '@qaroom/determinism'
+import type { SnapshotStore } from '@qaroom/service-kit'
 import type { FlagsDb } from './db/client'
 
 /** What `buildApp` receives. `lamport` and the sinks are optional; the app supplies defaults. */
@@ -16,6 +17,8 @@ export interface FlagsDeps {
    * span emitter; tests inject a recording sink to assert the transition directly.
    */
   transitionSink?: RolloutTransitionSink
+  /** Scenario-replay store (Commitment 8). When present, /system/snapshot is registered. */
+  snapshotStore?: SnapshotStore
 }
 
 /** What route handlers receive: every dependency resolved. */
