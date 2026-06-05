@@ -193,6 +193,64 @@ importers:
         specifier: ^3.0.0
         version: 3.2.4(@types/node@24.12.4)(jiti@2.7.0)(lightningcss@1.32.0)(msw@2.14.6(@types/node@24.12.4)(typescript@5.9.3))(tsx@4.22.3)(yaml@2.9.0)
 
+  packages/qaroom-mcp:
+    dependencies:
+      '@qaroom/content':
+        specifier: workspace:*
+        version: link:../../services/content
+      '@qaroom/contracts':
+        specifier: workspace:*
+        version: link:../contracts
+      '@qaroom/determinism':
+        specifier: workspace:*
+        version: link:../determinism
+      '@qaroom/gateway':
+        specifier: workspace:*
+        version: link:../../services/gateway
+      '@qaroom/service-kit':
+        specifier: workspace:*
+        version: link:../service-kit
+      '@typescript-eslint/parser':
+        specifier: ^8.21.0
+        version: 8.60.0(eslint@9.39.4(jiti@2.7.0))(typescript@5.9.3)
+      ajv:
+        specifier: ^8.17.0
+        version: 8.20.0
+      ajv-formats:
+        specifier: ^3.0.1
+        version: 3.0.1(ajv@8.20.0)
+      eslint:
+        specifier: ^9.18.0
+        version: 9.39.4(jiti@2.7.0)
+      eslint-plugin-qaroom:
+        specifier: workspace:*
+        version: link:../../tools/eslint-plugin-qaroom
+      fastify:
+        specifier: ^5.2.0
+        version: 5.8.5
+      zod:
+        specifier: ^4.0.0
+        version: 4.4.3
+    devDependencies:
+      '@qaroom/testing-utils':
+        specifier: workspace:*
+        version: link:../testing-utils
+      fast-check:
+        specifier: ^3.23.0
+        version: 3.23.2
+      tsx:
+        specifier: ^4.19.0
+        version: 4.22.3
+      typescript:
+        specifier: ^5.7.0
+        version: 5.9.3
+      vitest:
+        specifier: ^3.0.0
+        version: 3.2.4(@types/node@24.12.4)(jiti@2.7.0)(lightningcss@1.32.0)(msw@2.14.6(@types/node@24.12.4)(typescript@5.9.3))(tsx@4.22.3)(yaml@2.9.0)
+      yaml:
+        specifier: ^2.7.0
+        version: 2.9.0
+
   packages/service-kit:
     dependencies:
       '@qaroom/contracts':
@@ -586,6 +644,8 @@ importers:
       vitest:
         specifier: ^3.0.0
         version: 3.2.4(@types/node@24.12.4)(jiti@2.7.0)(lightningcss@1.32.0)(msw@2.14.6(@types/node@24.12.4)(typescript@5.9.3))(tsx@4.22.3)(yaml@2.9.0)
+
+  services/moderator-agent: {}
 
   services/web:
     dependencies:
@@ -8845,7 +8905,7 @@ snapshots:
       debug: 4.4.3
       minimatch: 10.2.5
       semver: 7.8.1
-      tinyglobby: 0.2.16
+      tinyglobby: 0.2.17
       ts-api-utils: 2.5.0(typescript@5.9.3)
       typescript: 5.9.3
     transitivePeerDependencies:
@@ -12111,7 +12171,7 @@ snapshots:
       picomatch: 4.0.4
       postcss: 8.5.15
       rollup: 4.60.4
-      tinyglobby: 0.2.16
+      tinyglobby: 0.2.17
     optionalDependencies:
       '@types/node': 24.12.4
       fsevents: 2.3.3
@@ -12170,7 +12230,7 @@ snapshots:
       std-env: 3.10.0
       tinybench: 2.9.0
       tinyexec: 0.3.2
-      tinyglobby: 0.2.16
+      tinyglobby: 0.2.17
       tinypool: 1.1.1
       tinyrainbow: 2.0.0
       vite: 7.3.3(@types/node@24.12.4)(jiti@2.7.0)(lightningcss@1.32.0)(tsx@4.22.3)(yaml@2.9.0)

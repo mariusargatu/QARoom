@@ -1,0 +1,40 @@
+{
+  "name": "@qaroom/qaroom-mcp",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "exports": {
+    ".": "./src/index.ts",
+    "./manifest": "./src/manifest/build-manifest.ts",
+    "./transport/http": "./src/transport/http.ts"
+  },
+  "scripts": {
+    "build": "tsc -p tsconfig.json",
+    "typecheck": "tsc -p tsconfig.json",
+    "test": "vitest run",
+    "dev": "tsx src/server.ts",
+    "mcp:generate": "tsx src/manifest/write-manifest.ts"
+  },
+  "dependencies": {
+    "@qaroom/content": "workspace:*",
+    "@qaroom/contracts": "workspace:*",
+    "@qaroom/determinism": "workspace:*",
+    "@qaroom/gateway": "workspace:*",
+    "@qaroom/service-kit": "workspace:*",
+    "@typescript-eslint/parser": "^8.21.0",
+    "ajv": "^8.17.0",
+    "ajv-formats": "^3.0.1",
+    "eslint": "^9.18.0",
+    "eslint-plugin-qaroom": "workspace:*",
+    "fastify": "^5.2.0",
+    "zod": "^4.0.0"
+  },
+  "devDependencies": {
+    "@qaroom/testing-utils": "workspace:*",
+    "fast-check": "^3.23.0",
+    "tsx": "^4.19.0",
+    "typescript": "^5.7.0",
+    "vitest": "^3.0.0",
+    "yaml": "^2.7.0"
+  }
+}

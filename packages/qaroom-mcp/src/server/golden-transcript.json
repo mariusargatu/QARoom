@@ -1,0 +1,163 @@
+[
+  {
+    "step": "listTools",
+    "tools": [
+      "content_getPost",
+      "content_listCommunityFeed",
+      "gateway_getDonation",
+      "gateway_getPost",
+      "gateway_listCommunityFeed",
+      "gateway_listDonations",
+      "gateway_listEvents",
+      "gateway_listFlags",
+      "gateway_resolveFlag",
+      "qaroom_conventionsCheck"
+    ]
+  },
+  {
+    "step": "callTool:content_getPost",
+    "outcome": {
+      "ok": true,
+      "tool": "content_getPost",
+      "request_id": "mcpreq_00000000010000000000000001",
+      "served_at": "2026-01-01T00:00:00.000Z",
+      "status": 200,
+      "content": {
+        "id": "post_fixture",
+        "community_id": "comm_fixture",
+        "title": "fixture",
+        "body": "fixture",
+        "score": 3,
+        "as_of": {
+          "snapshot_id": "snap_fixture",
+          "lamport": 7,
+          "wall_clock": "2026-01-01T00:00:00.000Z"
+        }
+      }
+    }
+  },
+  {
+    "step": "callTool:gateway_listCommunityFeed",
+    "outcome": {
+      "ok": true,
+      "tool": "gateway_listCommunityFeed",
+      "request_id": "mcpreq_00000000010000000000000002",
+      "served_at": "2026-01-01T00:00:00.000Z",
+      "status": 200,
+      "content": {
+        "community_id": "comm_fixture",
+        "posts": [],
+        "as_of": {
+          "snapshot_id": "snap_fixture",
+          "lamport": 7,
+          "wall_clock": "2026-01-01T00:00:00.000Z"
+        }
+      }
+    }
+  },
+  {
+    "step": "callTool:unknown",
+    "outcome": {
+      "ok": false,
+      "tool": "nope",
+      "request_id": "mcpreq_00000000010000000000000003",
+      "served_at": "2026-01-01T00:00:00.000Z",
+      "problem": {
+        "type": "https://qaroom.dev/errors/mcp-tool-not-found",
+        "title": "Unknown MCP tool",
+        "status": 404,
+        "detail": "No tool named \"nope\" is registered.",
+        "retryable": false,
+        "next_actions": [
+          {
+            "verb": "GET",
+            "href": "mcp://tools",
+            "description": "List the available tools."
+          }
+        ],
+        "failure_domain": "not_found"
+      }
+    }
+  },
+  {
+    "step": "callTool:conventions",
+    "outcome": {
+      "ok": true,
+      "tool": "qaroom_conventionsCheck",
+      "request_id": "mcpreq_00000000010000000000000004",
+      "served_at": "2026-01-01T00:00:00.000Z",
+      "status": 200,
+      "content": {
+        "ok": false,
+        "checked_rules": [
+          "no-new-date",
+          "no-unseeded-random",
+          "no-public-barrel",
+          "no-raw-nats-subject"
+        ],
+        "violations": [
+          {
+            "rule": "no-new-date",
+            "message": "Direct `new Date()` is a P0 determinism leak (Commitment 6). Read `clock.now()` from the injected Clock instead.",
+            "line": 1,
+            "column": 28
+          }
+        ]
+      }
+    }
+  },
+  {
+    "step": "readResource:gateway-state",
+    "outcome": {
+      "ok": true,
+      "uri": "qaroom://gateway/system/state",
+      "request_id": "mcpres_00000000010000000000000005",
+      "served_at": "2026-01-01T00:00:00.000Z",
+      "content": {
+        "service": "gateway",
+        "models": {
+          "rate_limiter": {
+            "capacity": 100
+          }
+        },
+        "as_of": {
+          "snapshot_id": "snap_fixture",
+          "lamport": 7,
+          "wall_clock": "2026-01-01T00:00:00.000Z"
+        }
+      }
+    }
+  },
+  {
+    "step": "readResource:test-results",
+    "outcome": {
+      "ok": true,
+      "uri": "qaroom://test-results/summary",
+      "request_id": "mcpres_00000000010000000000000006",
+      "served_at": "2026-01-01T00:00:00.000Z",
+      "content": {
+        "schema_version": 1,
+        "generated_at": "2026-01-01T00:00:00.000Z",
+        "commit": "test0000",
+        "totals": {
+          "passed": 42,
+          "failed": 0,
+          "skipped": 1
+        },
+        "runners": [
+          {
+            "name": "qaroom-mcp",
+            "passed": 42,
+            "failed": 0,
+            "skipped": 1,
+            "duration_ms": 1234,
+            "output": {
+              "gates": 4
+            },
+            "seeds": {}
+          }
+        ]
+      }
+    }
+  }
+]

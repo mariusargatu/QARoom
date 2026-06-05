@@ -1,0 +1,291 @@
+{
+  "protocol_version": "2025-11-25",
+  "server": {
+    "name": "qaroom-mcp",
+    "version": "0.1.0"
+  },
+  "tools": [
+    {
+      "name": "content_getPost",
+      "service": "content",
+      "operation_id": "getPost",
+      "method": "GET",
+      "path": "/api/posts/{postId}",
+      "mutating": false,
+      "title": "Get a single post",
+      "description": "Returns a post by id, including its current score.",
+      "input_schema": {
+        "type": "object",
+        "properties": {
+          "postId": {
+            "type": "string",
+            "pattern": "^post_[0-9A-HJKMNP-TV-Z]{26}$"
+          }
+        },
+        "required": [
+          "postId"
+        ],
+        "additionalProperties": false
+      }
+    },
+    {
+      "name": "content_listCommunityFeed",
+      "service": "content",
+      "operation_id": "listCommunityFeed",
+      "method": "GET",
+      "path": "/api/communities/{communityId}/feed",
+      "mutating": false,
+      "title": "List a community feed",
+      "description": "Returns the most recent posts in a community, newest first, with a read consistency envelope.",
+      "input_schema": {
+        "type": "object",
+        "properties": {
+          "communityId": {
+            "type": "string",
+            "pattern": "^comm_[0-9A-HJKMNP-TV-Z]{26}$"
+          }
+        },
+        "required": [
+          "communityId"
+        ],
+        "additionalProperties": false
+      }
+    },
+    {
+      "name": "gateway_getDonation",
+      "service": "gateway",
+      "operation_id": "getDonation",
+      "method": "GET",
+      "path": "/api/communities/{communityId}/donations/{donationId}",
+      "mutating": false,
+      "title": "Get a single donation (proxied)",
+      "description": "Returns a donation by id within a community, via donations-service.",
+      "input_schema": {
+        "type": "object",
+        "properties": {
+          "communityId": {
+            "type": "string",
+            "pattern": "^comm_[0-9A-HJKMNP-TV-Z]{26}$"
+          },
+          "donationId": {
+            "type": "string",
+            "pattern": "^dntn_[0-9A-HJKMNP-TV-Z]{26}$"
+          }
+        },
+        "required": [
+          "communityId",
+          "donationId"
+        ],
+        "additionalProperties": false
+      }
+    },
+    {
+      "name": "gateway_getPost",
+      "service": "gateway",
+      "operation_id": "getPost",
+      "method": "GET",
+      "path": "/api/posts/{postId}",
+      "mutating": false,
+      "title": "Get a single post (proxied)",
+      "description": "Returns a post by id via content-service.",
+      "input_schema": {
+        "type": "object",
+        "properties": {
+          "postId": {
+            "type": "string",
+            "pattern": "^post_[0-9A-HJKMNP-TV-Z]{26}$"
+          }
+        },
+        "required": [
+          "postId"
+        ],
+        "additionalProperties": false
+      }
+    },
+    {
+      "name": "gateway_listCommunityFeed",
+      "service": "gateway",
+      "operation_id": "listCommunityFeed",
+      "method": "GET",
+      "path": "/api/communities/{communityId}/feed",
+      "mutating": false,
+      "title": "List a community feed (proxied)",
+      "description": "Returns the most recent posts in a community, newest first, via content-service.",
+      "input_schema": {
+        "type": "object",
+        "properties": {
+          "communityId": {
+            "type": "string",
+            "pattern": "^comm_[0-9A-HJKMNP-TV-Z]{26}$"
+          }
+        },
+        "required": [
+          "communityId"
+        ],
+        "additionalProperties": false
+      }
+    },
+    {
+      "name": "gateway_listDonations",
+      "service": "gateway",
+      "operation_id": "listDonations",
+      "method": "GET",
+      "path": "/api/communities/{communityId}/donations",
+      "mutating": false,
+      "title": "List a community’s donations (proxied)",
+      "description": "Returns the most recent donations in a community, newest first, via donations-service.",
+      "input_schema": {
+        "type": "object",
+        "properties": {
+          "communityId": {
+            "type": "string",
+            "pattern": "^comm_[0-9A-HJKMNP-TV-Z]{26}$"
+          }
+        },
+        "required": [
+          "communityId"
+        ],
+        "additionalProperties": false
+      }
+    },
+    {
+      "name": "gateway_listEvents",
+      "service": "gateway",
+      "operation_id": "listEvents",
+      "method": "GET",
+      "path": "/api/communities/{communityId}/events",
+      "mutating": false,
+      "title": "Poll community events (WebSocket fallback)",
+      "description": "Returns the push envelopes for a community after the given seq cursor — the polling fallback for the WebSocket stream (Commitment 11). Every event delivered over WS is also returned here.",
+      "input_schema": {
+        "type": "object",
+        "properties": {
+          "communityId": {
+            "type": "string",
+            "pattern": "^comm_[0-9A-HJKMNP-TV-Z]{26}$"
+          },
+          "after": {
+            "type": "integer",
+            "minimum": 0
+          }
+        },
+        "required": [
+          "communityId"
+        ],
+        "additionalProperties": false
+      }
+    },
+    {
+      "name": "gateway_listFlags",
+      "service": "gateway",
+      "operation_id": "listFlags",
+      "method": "GET",
+      "path": "/api/communities/{communityId}/flags",
+      "mutating": false,
+      "title": "List all flags for a community (proxied)",
+      "description": "Returns every flag resolved for the community, with a read envelope, via flags-service.",
+      "input_schema": {
+        "type": "object",
+        "properties": {
+          "communityId": {
+            "type": "string",
+            "pattern": "^comm_[0-9A-HJKMNP-TV-Z]{26}$"
+          }
+        },
+        "required": [
+          "communityId"
+        ],
+        "additionalProperties": false
+      }
+    },
+    {
+      "name": "gateway_resolveFlag",
+      "service": "gateway",
+      "operation_id": "resolveFlag",
+      "method": "GET",
+      "path": "/api/communities/{communityId}/flags/{flagKey}",
+      "mutating": false,
+      "title": "Resolve a feature flag (proxied to flags-service)",
+      "description": "Returns the flag’s current rollout state and gating boolean, with a read envelope.",
+      "input_schema": {
+        "type": "object",
+        "properties": {
+          "communityId": {
+            "type": "string",
+            "pattern": "^comm_[0-9A-HJKMNP-TV-Z]{26}$"
+          },
+          "flagKey": {
+            "type": "string",
+            "pattern": "^[a-z][a-z0-9-]{1,63}$"
+          }
+        },
+        "required": [
+          "communityId",
+          "flagKey"
+        ],
+        "additionalProperties": false
+      }
+    },
+    {
+      "name": "qaroom_conventionsCheck",
+      "service": "qaroom",
+      "operation_id": "conventionsCheck",
+      "method": "POST",
+      "path": "/conventions/check",
+      "mutating": false,
+      "title": "Check a snippet against enforced conventions",
+      "description": "Runs eslint-plugin-qaroom over a snippet and returns a typed verdict — callable before writing code so an agent can self-check determinism/test-shape rules.",
+      "input_schema": {
+        "type": "object",
+        "properties": {
+          "code": {
+            "type": "string",
+            "maxLength": 100000,
+            "description": "The TypeScript source snippet to check (≤100k chars)."
+          },
+          "filename": {
+            "type": "string",
+            "description": "Path the snippet would live at; selects file-scoped conventions (e.g. *.test.ts)."
+          },
+          "rules": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            },
+            "description": "Optional subset of rule ids; omit to run the snippet-checkable default set."
+          }
+        },
+        "required": [
+          "code"
+        ],
+        "additionalProperties": false
+      }
+    }
+  ],
+  "resources": [
+    {
+      "uri": "qaroom://content/system/state",
+      "name": "content system state",
+      "description": "Observable state of content-service (post/vote counts) with an as_of envelope.",
+      "mime_type": "application/json"
+    },
+    {
+      "uri": "qaroom://gateway/system/state",
+      "name": "gateway system state",
+      "description": "Observable state of the gateway with an as_of envelope.",
+      "mime_type": "application/json"
+    },
+    {
+      "uri": "qaroom://gateway/system/limits",
+      "name": "gateway rate-limit usage",
+      "description": "The calling principal's current rate-limit usage and time to full refill.",
+      "mime_type": "application/json"
+    },
+    {
+      "uri": "qaroom://test-results/summary",
+      "name": "test-results summary",
+      "description": "The frozen test-results/summary.json envelope, validated against its schema.",
+      "mime_type": "application/json"
+    }
+  ]
+}

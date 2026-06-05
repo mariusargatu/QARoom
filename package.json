@@ -16,6 +16,8 @@
     "format": "biome format --write .",
     "openapi:generate": "turbo run openapi:generate",
     "openapi:verify": "tsx scripts/openapi-verify.ts",
+    "mcp:generate": "pnpm --filter @qaroom/qaroom-mcp mcp:generate",
+    "mcp:verify": "tsx scripts/mcp-verify.ts",
     "moderator:contracts": "tsx scripts/gen-moderator-contracts.ts",
     "asyncapi:generate": "turbo run asyncapi:generate",
     "asyncapi:verify": "tsx scripts/asyncapi-verify.ts",

@@ -9,7 +9,7 @@ import {
 import type { Clock } from '@qaroom/determinism'
 
 /** Build an MCP-tool-shaped JSON Schema for one operation's inputs. */
-function inputSchema(op: OasOperation): Record<string, unknown> {
+export function operationInputSchema(op: OasOperation): Record<string, unknown> {
   const properties: Record<string, unknown> = {}
   const required: string[] = []
   for (const p of op.params ?? []) {
@@ -37,7 +37,7 @@ export function buildCapabilities(
     summary: op.summary,
     description: op.description,
     mutating: op.mutating,
-    input_schema: inputSchema(op),
+    input_schema: operationInputSchema(op),
   }))
   return { service, capabilities, as_of: asOf(clock, lamport) }
 }

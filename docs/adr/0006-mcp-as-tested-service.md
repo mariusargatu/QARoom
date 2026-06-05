@@ -1,8 +1,22 @@
 # ADR 0006 — MCP server as a first-class tested service
 
-- **Status:** Proposed
-- **Date:** 2026-06-02
-- **Records:** the decision that, when QARoom builds an MCP server, it is a single **cross-service** server treated as a first-class *tested* QARoom service — realizing the "designed-for-later" MCP seam in `docs/02-architecture.md`. Informed by a May-2026 landscape scan. Does **not** modify any ADR-0001 commitment, and does **not** violate the "no MCP servers *per service* in v1" omission (this is one cross-service server, post-v1). Catalogued as a Milestone-10 candidate.
+- **Status:** Accepted — built in Milestone 10 (`packages/qaroom-mcp`), 2026-06-05.
+- **Date:** 2026-06-02 (proposed); 2026-06-05 (accepted, as built)
+- **Records:** the decision that, when QARoom builds an MCP server, it is a single **cross-service** server treated as a first-class *tested* QARoom service — realizing the "designed-for-later" MCP seam in `docs/02-architecture.md`. Informed by a May-2026 landscape scan. Does **not** modify any ADR-0001 commitment, and does **not** violate the "no MCP servers *per service* in v1" omission (this is one cross-service server, post-v1). Built as Milestone 10, movement 1.
+
+## As built (Milestone 10)
+
+`packages/qaroom-mcp` is a transport-agnostic `McpCore` (no database) over an injected `ServiceClient`, held to runtime determinism (`Clock`/`IdGenerator`). The read-first v1 surface shipped exactly as decided:
+
+- **Capabilities proxy** — the tool catalogue is generated from the `content` + `gateway` `OasOperation` registries via the shared `operationInputSchema()` (the same code behind `/system/capabilities`), namespaced `<service>_<operationId>`. Only non-mutating, non-`/system/*` operations become callable tools; mutating `callTool` stays deferred.
+- **RFC 7807 tool errors** — failures map to the closed `FailureDomain` enum via `makeProblem()`; upstream Problem Details pass through unchanged.
+- **Read resources** — each service's `/system/state`, the gateway's `/system/limits`, and the frozen `test-results/summary.json` (validated against `TestResultsSummary`).
+- **Conventions oracle** — embeds `eslint-plugin-qaroom` via the ESLint `Linter` API and returns a typed verdict, callable before writing code.
+- **Both transports** — in-memory (direct core calls) for unit/property/golden tests; a JSON-RPC 2.0 endpoint over Fastify for integration. The official MCP SDK was **not** pulled in — the wire protocol is hand-rolled over the existing Fastify dependency to avoid a network-dependent install; the core is SDK-swappable.
+
+The four gates are green: `mcp-manifest.json` drift gate + a typed breaking-change classifier (`pnpm mcp:verify`, mirroring `openapi-verify`), `problemDetailsArb` + `expectRFC7807` property tests, a byte-stable determinism-trio golden transcript, and property + metamorphic tool I/O cross-checked against both `/system/capabilities` and the published `openapi.yaml`. No `toMatchSnapshot` — every gate is a typed contract.
+
+**Post-review hardening (max-depth review).** The breaking-change classifier was found to under-cover and was extended to flag tool **path/method** changes, **removed input properties**, and resource **mime-type** changes (not just required-set / type / add-remove); each has a mutation + test case. The property arbitraries now also exercise **optional** fields, so the "ranges over each JSON Schema" claim holds. Correctness/convention fixes landed: the conventions oracle **bounds input size** (schema `maxLength` + a guard); `tools/call` / `resources/read` results now carry a spec-shaped **`content[]`/`contents[]`** block alongside the QARoom `structuredContent`; transport-level HTTP 400 is **RFC 7807**. Dialect honesty: the tool `input_schema`s are emitted Draft-7 (Zod `openapi-3.0` target), but use only keywords identical across Draft-7 and 2020-12, so a 2020-12 MCP client accepts them — the Context note's "emits that dialect" is true in effect, not literally 2020-12. The `/mcp` endpoint is unauthenticated **by design** (read-first) — protect at the network layer.
 
 ## Context
 

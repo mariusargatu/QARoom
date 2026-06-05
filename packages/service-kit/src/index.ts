@@ -1,5 +1,6 @@
 export type { SnapshotStore, SnapshotTables } from '@qaroom/contracts'
 export { buildServiceAsyncApiYaml } from './asyncapi'
+export { buildCapabilities, operationInputSchema } from './capabilities'
 export type { DbPoolOptions } from './db'
 export { pgPoolMax } from './db'
 export { intFromEnv } from './env'

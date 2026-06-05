@@ -10,6 +10,8 @@
     "includes": [
       "**",
       "!**/openapi.yaml",
+      "!**/mcp-manifest.json",
+      "!**/golden-transcript.json",
       "!**/*.gen.ts",
       "!**/*.css",
       "!**/migrations",

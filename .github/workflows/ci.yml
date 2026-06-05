@@ -37,6 +37,9 @@ jobs:
       - name: Verify AsyncAPI (Zod drift + classifier breaking-change gate)
         run: pnpm asyncapi:verify
 
+      - name: Verify MCP tool manifest (drift + breaking-change classifier)
+        run: pnpm mcp:verify
+
       - name: Upload test-results summary
         if: always()
         uses: actions/upload-artifact@v4
