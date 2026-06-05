@@ -432,7 +432,7 @@ jobs:
           cluster_name: qaroom
       - name: Build + load service images
         run: |
-          for svc in content identity gateway; do
+          for svc in content identity flags donations gateway; do
             docker build -f services/$svc/Dockerfile -t qaroom/$svc:latest .
             kind load docker-image qaroom/$svc:latest --name qaroom
           done
@@ -444,19 +444,26 @@ jobs:
           kubectl wait --for=condition=available deploy --all -n observability --timeout=300s
       - name: Install services
         run: |
-          for svc in content identity gateway; do
+          for svc in content identity flags donations gateway; do
             helm install $svc packages/helm-template -n qaroom \
               -f deploy/$svc/values.yaml --set image.pullPolicy=Never
           done
           kubectl wait --for=condition=ready pod --all -n qaroom --timeout=240s
       - name: Install the Tracetest CLI
         run: curl -L https://raw.githubusercontent.com/kubeshop/tracetest/main/install-cli.sh | sudo bash
-      - name: Assert the publish-side async trace
+      - name: Assert the full Tracetest suite (all 5 trace-based tests)
         run: |
           kubectl port-forward -n observability svc/qaroom-tracetest 11633:11633 &
           for i in $(seq 1 30); do curl -fs http://localhost:11633 >/dev/null && break || sleep 2; done
           tracetest configure --server-url http://localhost:11633
+          # Unique per-run id so the rollout/donation tests don't hit idempotent replay (their
+          # Idempotency-Key is `tt-${var:runId}`; a repeat would suppress the transition).
+          RUN_ID=$(date +%s)
           tracetest run test -f services/content/tests/tracetest/post-created-publish.yaml --wait-for-result
+          tracetest run test -f services/content/tests/tracetest/feed-read.yaml --wait-for-result
+          tracetest run test -f services/content/tests/tracetest/create-missing-idempotency-key.yaml --wait-for-result
+          tracetest run test -f services/flags/tests/tracetest/rollout-transition.yaml --vars runId="$RUN_ID" --wait-for-result
+          tracetest run test -f services/donations/tests/tracetest/donation-create-publish.yaml --vars runId="$RUN_ID" --wait-for-result
 
   # Nightly chaos tier (ADR-0014): bring the full stack up on KinD, install Chaos Mesh, and run
   # the TypeScript steady-state harness (tests/chaos). Gated to the schedule — chaos needs a live

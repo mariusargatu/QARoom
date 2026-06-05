@@ -91,6 +91,7 @@ k8s_yaml([
     'deploy/observability/tracetest.yaml',
     'deploy/observability/microcks.yaml',
     'deploy/observability/gc-dedup-cronjob.yaml',
+    'deploy/observability/tracetest-import.yaml',
 ])
 
 # Traefik Ingress — the whole platform at http://*.localhost, no port-forward (the cluster must be
@@ -124,6 +125,8 @@ k8s_resource('qaroom-prometheus', port_forwards='9090:9090', labels=['observabil
 # Async messaging + trace-based testing (Milestone 4).
 k8s_resource('qaroom-nats', port_forwards='4222:4222', labels=['observability'])
 k8s_resource('qaroom-tracetest', port_forwards='11633:11633', resource_deps=['qaroom-tracetest-postgres'], labels=['observability'])
+# Auto-import the Tracetest definitions into the server so they show in the UI (no manual apply).
+k8s_resource('qaroom-tracetest-import', resource_deps=['qaroom-tracetest'], labels=['observability'])
 
 # Service virtualization for the payment provider (Milestone 5).
 k8s_resource('qaroom-microcks', port_forwards='8888:8080', labels=['observability'])

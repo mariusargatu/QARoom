@@ -1,0 +1,222 @@
+# Auto-imports the Tracetest test definitions into the in-cluster server so they show up (and are
+# runnable) in the Tracetest UI on `pnpm dev` — the analogue of the Microcks import Job. The Job
+# waits for the server, installs the Tracetest CLI, and `apply`s each definition.
+#
+# SOURCE OF TRUTH is services/<svc>/tests/tracetest/*.yaml (also run directly in CI). The ConfigMap
+# below is a generated copy for in-cluster mounting — regenerate it with:
+#   kubectl create configmap qaroom-tracetest-tests -n observability \
+#     --from-file=<name>=services/<svc>/tests/tracetest/<file>.yaml ... --dry-run=client -o yaml
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: qaroom-tracetest-import
+  namespace: observability
+spec:
+  backoffLimit: 6
+  template:
+    spec:
+      restartPolicy: OnFailure
+      containers:
+        - name: import
+          image: alpine:3.20
+          command: ['/bin/sh', '-c']
+          args:
+            - >
+              apk add --no-cache curl bash >/dev/null;
+              until curl -sf http://qaroom-tracetest:11633 >/dev/null; do echo "waiting for tracetest..."; sleep 3; done;
+              curl -L https://raw.githubusercontent.com/kubeshop/tracetest/main/install-cli.sh | bash;
+              tracetest configure --server-url http://qaroom-tracetest:11633;
+              for f in /work/tests/*.yaml; do echo "applying $f"; tracetest apply test -f "$f"; done
+          volumeMounts:
+            - name: tests
+              mountPath: /work/tests
+      volumes:
+        - name: tests
+          configMap:
+            name: qaroom-tracetest-tests
+---
+apiVersion: v1
+data:
+  create-missing-idempotency-key.yaml: |
+    # Validation boundary: a mutation WITHOUT an Idempotency-Key is rejected at the edge (400,
+    # failure_domain validation, Commitment 4) before any work. The trace shows the HTTP span at
+    # 400. (Tracetest does not cleanly assert span ABSENCE, so the "no db/publish side-effect"
+    # half is covered by the dedup + idempotency property tests, not here.)
+    type: Test
+    spec:
+      id: create-missing-idempotency-key
+      name: a mutation without an Idempotency-Key is rejected with 400
+      trigger:
+        type: http
+        httpRequest:
+          method: POST
+          url: http://content.qaroom.svc.cluster.local/api/communities/comm_00000000000000000000000000/posts
+          headers:
+            - key: Content-Type
+              value: application/json
+          body: '{"author_id":"user_00000000000000000000000000","title":"no key","body":"x"}'
+      specs:
+        - selector: span[name = "POST"]
+          assertions:
+            - attr:http.status_code = 400
+  donation-create-publish.yaml: |
+    # Tracetest assertion for the donation publish-side async flow (Milestone 5). Creating a
+    # donation (once the donations flag is Enabled) must produce a coherent trace: the HTTP handler,
+    # the DB write carrying tenant.id, and — because the relay restores the enqueue-time context —
+    # a `nats.publish` PRODUCER span on the SAME trace to the donation subject.
+    #
+    # PRECONDITION: the `donations` flag must already be Enabled for the community AND
+    # donations-service's flag cache must reflect it (the consumer has processed the
+    # flag.state.changed event). Seed this in the test setup (advance the rollout to Enabled, let
+    # the consumer catch up) before running — otherwise the donation is gated (409) and no
+    # db/publish spans appear. Runs in the PR-full / merge lane. Unique Idempotency-Key per run.
+    type: Test
+    spec:
+      id: donation-create-publish
+      name: a donation create spans sync HTTP and async publish coherently
+      trigger:
+        type: http
+        httpRequest:
+          method: POST
+          url: http://donations.qaroom.svc.cluster.local/api/communities/comm_00000000000000000000000000/donations
+          headers:
+            - key: Content-Type
+              value: application/json
+            - key: Idempotency-Key
+              value: tt-${var:runId}
+          body: '{"donor_id":"user_00000000000000000000000000","amount_cents":2500,"currency":"USD"}'
+      specs:
+        - selector: span[name = "POST"]
+          assertions:
+            - attr:http.status_code = 201
+        - selector: span[name = "db.donations.create"]
+          assertions:
+            - attr:tenant.id = "comm_00000000000000000000000000"
+        - selector: span[name = "nats.publish"]
+          assertions:
+            - attr:messaging.system = "nats"
+            - attr:messaging.destination.name = "qaroom.donations.donation.comm_00000000000000000000000000.changed"
+            - attr:tenant.id = "comm_00000000000000000000000000"
+  feed-read.yaml: |
+    # Read path: listing a community feed returns 200. Reads do not emit events — the trace is
+    # the HTTP span alone (the repository read is not span-wrapped), so this asserts the sync
+    # read result with no async tail. Self-contained: the general community is seeded on boot.
+    type: Test
+    spec:
+      id: content-feed-read
+      name: community feed read returns 200 (no async tail)
+      trigger:
+        type: http
+        httpRequest:
+          method: GET
+          url: http://content.qaroom.svc.cluster.local/api/communities/comm_00000000000000000000000000/feed
+      specs:
+        - selector: span[name = "GET"]
+          assertions:
+            - attr:http.status_code = 200
+            - attr:http.target contains "/feed"
+  post-created-publish.yaml: |
+    # Tracetest assertion for the Milestone-4 publish-side async flow (ADR-0010). Creating a
+    # post must produce a coherent trace that spans sync HTTP and async messaging: the HTTP
+    # handler, the DB write (carrying tenant.id), the outbox insert, and — because the relay
+    # restores the enqueue-time trace context — a `nats.publish` PRODUCER span on the SAME trace
+    # with the correct subject. The cross-service CONSUMER-side assertion ("an unexpected
+    # downstream call") lands in Milestone 5 with flags-service, the first real consumer.
+    #
+    # Runs in the merge / PR-full lane only (Tracetest infra does not fit the <10min PR-fast
+    # budget). The relay drains every ~1s, so the publish span is asynchronous — the polling
+    # profile waits for it on the originating trace.
+    #
+    # Triggers content directly (the publish originates there; the gateway POST-proxy is not
+    # required to exercise the outbox→relay path). The `Idempotency-Key` is a RUN VARIABLE
+    # (`${var:runId}`) and MUST be unique per run — a repeated key hits idempotent replay, which
+    # skips createPost entirely (no db/outbox/publish spans). Run with e.g.
+    # `tracetest run test -f <this> --vars runId=$(date +%s)`.
+    type: Test
+    spec:
+      id: post-created-publish
+      name: post.created spans sync HTTP and async publish coherently
+      trigger:
+        type: http
+        httpRequest:
+          method: POST
+          url: http://content.qaroom.svc.cluster.local/api/communities/comm_00000000000000000000000000/posts
+          headers:
+            - key: Content-Type
+              value: application/json
+            - key: Idempotency-Key
+              value: tt-${var:runId}
+          body: '{"author_id":"user_00000000000000000000000000","title":"traced","body":"via tracetest"}'
+      specs:
+        # Sync result: the create returns 201 on the HTTP span.
+        - selector: span[name = "POST"]
+          assertions:
+            - attr:http.status_code = 201
+        # The DB write carries the community tenant.id (Commitment 9) — not the `system` sentinel.
+        - selector: span[name = "db.posts.create"]
+          assertions:
+            - attr:tenant.id = "comm_00000000000000000000000000"
+        # The relay published to JetStream on the SAME trace, to the exact subject, AND the
+        # community tenant.id propagated through the async hop (the relay re-enters the scope).
+        - selector: span[name = "nats.publish"]
+          assertions:
+            - attr:messaging.system = "nats"
+            - attr:messaging.destination.name = "qaroom.content.posts.comm_00000000000000000000000000.created"
+            - attr:tenant.id = "comm_00000000000000000000000000"
+  rollout-transition.yaml: |
+    # Tracetest reverse-conformance assertion (Milestone 5, ADR-0012). Advancing a rollout must
+    # produce an `xstate.transition` span whose (from, to, event) is a LEGAL edge of the model
+    # graph — the system can never enter a state the XState model cannot reach. This is the
+    # exit-criterion demo: introduce an OFF-MODEL transition in flags-service (emit a `to` state
+    # unreachable from `from` via this event) and the `xstate.to` assertion below fails, catching
+    # the divergence from observed spans (the spans are the truth, not the endpoint).
+    #
+    # `xstate.transition` spans are always-sampled (XStateTransitionSampler, @qaroom/otel), so a
+    # head-sampling decision can never drop the span this assertion depends on.
+    #
+    # Runs in the PR-full / merge lane (Tracetest infra does not fit the <10min PR-fast budget).
+    # The relay drains every ~1s, so the publish span is asynchronous — the polling profile waits
+    # for it on the originating trace. The `Idempotency-Key` MUST be unique per run (a repeat hits
+    # idempotent replay → no transition). Run e.g.
+    # `tracetest run test -f <this> --vars runId=$(date +%s)`.
+    type: Test
+    spec:
+      id: rollout-transition-conformance
+      name: a rollout advance emits an on-model xstate.transition span + flag-changed publish
+      trigger:
+        type: http
+        httpRequest:
+          method: POST
+          url: http://flags.qaroom.svc.cluster.local/api/communities/comm_00000000000000000000000000/flags/donations/rollout
+          headers:
+            - key: Content-Type
+              value: application/json
+            - key: Idempotency-Key
+              value: tt-${var:runId}
+          body: '{"event":"EnableRequested"}'
+      specs:
+        # Sync result: the advance returns 200.
+        - selector: span[name = "POST"]
+          assertions:
+            - attr:http.status_code = 200
+        # The DB write carries the community tenant.id (Commitment 9).
+        - selector: span[name = "db.flags.advance"]
+          assertions:
+            - attr:tenant.id = "comm_00000000000000000000000000"
+        # REVERSE CONFORMANCE: the emitted transition is a legal model edge (Off --EnableRequested--> Enabling).
+        - selector: span[name = "xstate.transition"]
+          assertions:
+            - attr:xstate.machine = "rollout"
+            - attr:xstate.from = "Off"
+            - attr:xstate.to = "Enabling"
+            - attr:xstate.event = "EnableRequested"
+        # The relay published flag.state.changed on the SAME trace, to the exact subject, tenant-scoped.
+        - selector: span[name = "nats.publish"]
+          assertions:
+            - attr:messaging.system = "nats"
+            - attr:messaging.destination.name = "qaroom.flags.flag.comm_00000000000000000000000000.changed"
+            - attr:tenant.id = "comm_00000000000000000000000000"
+kind: ConfigMap
+metadata:
+  name: qaroom-tracetest-tests
+  namespace: observability
