@@ -16,6 +16,7 @@
     "format": "biome format --write .",
     "openapi:generate": "turbo run openapi:generate",
     "openapi:verify": "tsx scripts/openapi-verify.ts",
+    "moderator:contracts": "tsx scripts/gen-moderator-contracts.ts",
     "asyncapi:generate": "turbo run asyncapi:generate",
     "asyncapi:verify": "tsx scripts/asyncapi-verify.ts",
     "pact:verify": "tsx scripts/pact-verify.ts",
@@ -41,7 +42,10 @@
     "stryker:critical": "tsx scripts/stryker-critical.ts",
     "stryker:results": "tsx scripts/stryker-results.ts",
     "evomaster": "tsx scripts/evomaster-run.ts",
-    "evomaster:results": "tsx scripts/evomaster-results.ts"
+    "evomaster:results": "tsx scripts/evomaster-results.ts",
+    "moderator:results": "tsx scripts/moderator-results.ts",
+    "promptfoo:results": "tsx scripts/promptfoo-results.ts",
+    "golden:results": "tsx scripts/golden-results.ts"
   },
   "pnpm": {
     "onlyBuiltDependencies": [

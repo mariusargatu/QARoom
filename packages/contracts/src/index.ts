@@ -34,6 +34,13 @@ export {
   FlagStateChangedEvent,
 } from './events/flag-state-changed'
 export {
+  MODERATION_DECISION_RECORDED_EVENT,
+  MODERATION_DECISION_RECORDED_VERSION,
+  ModerationDecisionRecordedEvent,
+  ModerationVerdict,
+  moderationDecisionRecordedJsonSchema,
+} from './events/moderation-decision-recorded'
+export {
   POST_CREATED_EVENT,
   POST_CREATED_VERSION,
   PostCreatedEvent,
@@ -80,6 +87,7 @@ export {
   ID_PREFIXES,
   IdempotencyKey,
   KeyId,
+  ModerationDecisionId,
   PostId,
   SessionId,
   TicketId,
@@ -160,6 +168,8 @@ export {
   flagStateChanged,
   flagsForCommunity,
   GATEWAY_EVENTS_ADDRESS,
+  MODERATION_DECISION_RECORDED_ADDRESS,
+  moderationDecisionRecorded,
   POST_CREATED_ADDRESS,
   parseSubject,
   postCreated,

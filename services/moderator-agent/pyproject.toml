@@ -1,0 +1,80 @@
+[project]
+name = "qaroom-moderator-agent"
+version = "0.0.0"
+description = "QARoom moderator-agent — an LLM community moderator on rails (Milestone 9)"
+requires-python = ">=3.13,<3.14"
+dependencies = [
+    "fastapi>=0.115",
+    "uvicorn[standard]>=0.34",
+    "pydantic>=2.10",
+    "pydantic-settings>=2.7",
+    "langgraph>=0.2.60",
+    "langgraph-checkpoint-postgres>=2.0",
+    "langchain>=1.0",
+    "langchain-openai>=1.0",
+    "openai>=1.60",
+    "nats-py>=2.9",
+    "psycopg[binary,pool]>=3.2",
+    "pgvector>=0.3.6",
+    "opentelemetry-sdk>=1.29",
+    "opentelemetry-exporter-otlp-proto-http>=1.29",
+    "opentelemetry-instrumentation-fastapi>=0.50b0",
+    "opentelemetry-semantic-conventions>=0.50b0",
+    "python-ulid>=3.0",
+    "pyyaml>=6.0",
+    "jsonschema>=4.23",
+    "httpx>=0.28",
+]
+
+[dependency-groups]
+dev = [
+    "pytest>=8.3",
+    "pytest-asyncio>=0.25",
+    "ruff>=0.9",
+    "pyright>=1.1.390",
+]
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/moderator_agent"]
+
+[tool.ruff]
+line-length = 100
+target-version = "py313"
+src = ["src", "tests"]
+# Generated artifacts are exempt, mirroring the TS biome/eslint ignore list (conventions §code).
+extend-exclude = ["contracts", "openapi.yaml", "asyncapi.yaml"]
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "UP", "B", "ASYNC", "RUF"]
+# `ruff format` owns code line width (line-length above); E501 only fires on prose in
+# comments/docstrings the formatter won't reflow, so it is noise here — same posture as the TS
+# biome setup (formats, does not lint comment length).
+# UP040: we keep `TypeAlias` (not the PEP 695 `type` keyword) for the branded-id / Annotated aliases —
+# it is the form pydantic v2 reliably resolves Annotated metadata through.
+ignore = ["E501", "UP040"]
+
+[tool.ruff.lint.per-file-ignores]
+# Tests read fixture files with pathlib inside async test functions — harmless there.
+"tests/**" = ["ASYNC240"]
+
+[tool.pyright]
+include = ["src", "tests"]
+pythonVersion = "3.13"
+typeCheckingMode = "standard"
+venvPath = "."
+venv = ".venv"
+# LangGraph state is a progressively-populated TypedDict (a node sets `verdict`, a later node reads
+# it). The graph guarantees ordering; pyright cannot, so this access pattern is intentional.
+reportTypedDictNotRequiredAccess = "none"
+
+[tool.pytest.ini_options]
+asyncio_mode = "auto"
+testpaths = ["tests"]
+markers = [
+    "integration: requires a live Postgres (skipped unless QAROOM_TEST_DATABASE_URL is set)",
+    "llm: hits the real OpenAI API (skipped unless OPENAI_API_KEY is set)",
+]

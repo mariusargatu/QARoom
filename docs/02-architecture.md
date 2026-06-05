@@ -7,7 +7,7 @@ This document records the locked architectural commitments and gives a one-page-
 These are immutable for the lifetime of v1. Changes require an ADR superseding the foundational one.
 
 1. **Microservices on Kubernetes.** k3d for local development with Tilt for the inner loop; KinD in CI for ephemeral environments. Not Docker Compose; not a monolith.
-2. **TypeScript end-to-end for core services.** Fastify for HTTP servers, Drizzle for database access, Zod for schema authority. Python is permitted for LLM-adjacent services (currently only the future Milestone 9 moderator).
+2. **TypeScript end-to-end for core services.** Fastify for HTTP servers, Drizzle for database access, Zod for schema authority. Python is permitted for LLM-adjacent services — the Milestone 9 `moderator-agent` (`uv`/FastAPI/LangGraph) is the only one (ADR-0018).
 3. **Schema-first contracts with triangulation, sync *and* async.** Zod schemas are the source of truth. OpenAPI YAML is generated from Zod and committed; `oasdiff` gates every PR for breaking changes. AsyncAPI YAML is also generated from Zod and committed; `@asyncapi/diff` (or custom thin diff) gates async breaking changes. Pact files (REST + message) are an independent second source of truth authored by consumers. Frozen `*.vN.yaml` (OAS) and `events/<name>.v{N}.ts` (event schemas) are the third source at release boundaries. No artifact is silently regenerated; every change to a contract is reviewable as a human-readable diff.
 4. **Sync REST + async messaging hybrid.** REST for queries and external-facing endpoints; NATS JetStream for cross-service state-change events. `Idempotency-Key` header on all HTTP mutations; replays served from per-service `idempotency_responses` table. Single-writer-per-resource enforced by Postgres advisory locks (`pg_advisory_xact_lock` keyed on resource ID) + row-level `SELECT … FOR UPDATE`. Async dedup discipline in Commitment 17.
 5. **All stateful flows are modeled as graphs.** XState v5 for TypeScript flows; LangGraph for Python flows (future). The model lives in `packages/contracts`, is authored by hand, is the contract that production code and tests both consult. State names are PascalCase and human-readable.
@@ -35,7 +35,7 @@ QARoom matures to five core services plus a future sixth, with a small set of su
 | `content-service` | Posts, comments, votes; score aggregation; feed assembly | Property-based testing of voting invariants and tenant isolation; load testing |
 | `flags-service` | Feature flag definitions; per-community flag resolution; donation rollout state machine | Model-based testing (XState); chaos engineering of cache invalidation |
 | `donations-service` | Donation transactions; integration with the mocked payment provider | Schema validation (strict, untrusted external boundary); chaos engineering (external dependency failure) |
-| `moderator-agent` *(Milestone 9, Python/LangGraph)* | Community moderation agent that learns from engagement | LLM evaluation (Promptfoo); state-machine conformance for the agent's workflow |
+| `moderator-agent` *(Milestone 9, Python/LangGraph)* | Subscribes to `post.created`; judges posts against per-community rules; records a moderation decision (proposes, does not enforce) and emits it | LLM evaluation (Promptfoo) + metamorphic paraphrase-invariance; LangGraph reverse-conformance; structured-output contract |
 
 Supporting infrastructure deployed alongside:
 
@@ -113,6 +113,7 @@ Service boundaries are not architectural noise; they are where bugs live and whe
 | **Observability boundary** | What a trace shows vs what the system did | Tracetest assertions against OpenTelemetry traces |
 | **WebSocket boundary** | Server push of notifications / live feed updates | AsyncAPI schema + Microcks-async mock + Playwright WS assertions + parity test vs polling endpoint |
 | **Identity issuance boundary** | identity-service signs JWT consumed by gateway | JWT property tests (issuance, kid lookup, expiry, rotation, revocation); JWKS contract test |
+| **AI / model boundary** | post content → LLM moderation verdict | Golden-set evaluation (Promptfoo) + metamorphic paraphrase-invariance; structured-output validation as a contract; LangGraph reverse-conformance (ADR-0017) |
 
 These are the nine boundary types every service in QARoom must respect. They are the contract between architecture and testing.
 

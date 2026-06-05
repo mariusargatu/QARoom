@@ -16,7 +16,9 @@
       "!**/dist",
       "!**/pacts",
       "!**/.pnpm-store",
-      "!**/evomaster-generated"
+      "!**/evomaster-generated",
+      "!services/moderator-agent/contracts",
+      "!services/moderator-agent/evals"
     ]
   },
   "formatter": {

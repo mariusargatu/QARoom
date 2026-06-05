@@ -42,6 +42,46 @@ docker_build(
 )
 k8s_yaml(helm('packages/helm-template', name='web', namespace='qaroom', values=['deploy/web/values.yaml']))
 
+# moderator-agent (Milestone 9): the one Python service — uv + uvicorn, not tsx. Self-contained
+# image (no pnpm workspace). live_update syncs src/rules and restarts the uvicorn process.
+docker_build_with_restart(
+    'qaroom/moderator-agent',
+    '.',
+    dockerfile='services/moderator-agent/Dockerfile',
+    entrypoint=['uv', 'run', '--no-dev', 'python', '-m', 'moderator_agent.server'],
+    live_update=[
+        sync('services/moderator-agent/src', '/app/src'),
+        sync('services/moderator-agent/rules', '/app/rules'),
+    ],
+    only=['services/moderator-agent'],
+)
+# The moderator needs an OpenAI key to classify (lazy — it boots without one, but every review
+# fails until it is set). Read it from the shell env, falling back to services/moderator-agent/.env
+# (gitignored), and inject it via Helm so `pnpm dev` wires it automatically — no `kubectl set env`
+# to remember. Dev-only plaintext posture, like postgres.password (ADR-0009). With no key, /health,
+# /ready and the NATS consumer still come up; only classification fails (a warning is printed).
+def _moderator_openai_key():
+    key = os.getenv('OPENAI_API_KEY', '')
+    env_file = 'services/moderator-agent/.env'
+    if not key and os.path.exists(env_file):
+        for line in str(read_file(env_file)).splitlines():
+            stripped = line.strip()
+            if stripped.startswith('OPENAI_API_KEY=') and not stripped.startswith('#'):
+                key = stripped.split('=', 1)[1].strip()
+    return key
+
+_moderator_key = _moderator_openai_key()
+if not _moderator_key:
+    warn('moderator-agent: no OPENAI_API_KEY in env or services/moderator-agent/.env — ' +
+         '/health & the NATS consumer come up, but classification fails until a key is provided.')
+k8s_yaml(helm(
+    'packages/helm-template',
+    name='moderator-agent',
+    namespace='qaroom',
+    values=['deploy/moderator-agent/values.yaml'],
+    set=(['extraEnv.OPENAI_API_KEY=' + _moderator_key] if _moderator_key else []),
+))
+
 k8s_yaml([
     'deploy/observability/otel-collector.yaml',
     'deploy/observability/jaeger.yaml',
@@ -53,6 +93,11 @@ k8s_yaml([
     'deploy/observability/gc-dedup-cronjob.yaml',
 ])
 
+# Traefik Ingress — the whole platform at http://*.localhost, no port-forward (the cluster must be
+# created with Traefik + 80/443 mapped; see scripts/bootstrap-k3d.sh). The per-resource port_forwards
+# below stay as a fallback for when Traefik/ingress is unavailable.
+k8s_yaml('deploy/ingress.yaml')
+
 # Services: Postgres first. flags/donations also wait on NATS; donations on Microcks (payment
 # mock); the gateway is last (it proxies content/donations/flags, redeems WS tickets at
 # identity, and reads NATS).
@@ -62,6 +107,8 @@ k8s_resource('flags', resource_deps=['flags-pg', 'qaroom-nats'], labels=['servic
 k8s_resource('donations', resource_deps=['donations-pg', 'qaroom-nats', 'qaroom-microcks'], labels=['services'])
 k8s_resource('gateway', port_forwards='8080:8080', resource_deps=['content', 'identity', 'donations', 'flags', 'qaroom-nats'], labels=['services'])
 k8s_resource('web', port_forwards='8085:8085', resource_deps=['gateway'], labels=['services'])
+# Python moderator: its own pgvector Postgres + NATS (it subscribes to post.created).
+k8s_resource('moderator-agent', port_forwards='8086:8086', resource_deps=['moderator-agent-pg', 'qaroom-nats'], labels=['services'])
 
 # Observability UIs. The collector exports traces to BOTH Jaeger and Tracetest, so it must
 # start AFTER both — otherwise its gRPC client to Tracetest resolves no endpoint ("no
@@ -81,4 +128,4 @@ k8s_resource('qaroom-tracetest', port_forwards='11633:11633', resource_deps=['qa
 # Service virtualization for the payment provider (Milestone 5).
 k8s_resource('qaroom-microcks', port_forwards='8888:8080', labels=['observability'])
 
-print("QARoom on k3d — web :8085 · gateway :8080 · Jaeger :16686 · Grafana :3000 · Prometheus :9090 · NATS :4222 · Tracetest :11633 · Microcks :8888")
+print("QARoom on k3d — web :8085 · gateway :8080 · moderator :8086 · Jaeger :16686 · Grafana :3000 · Prometheus :9090 · NATS :4222 · Tracetest :11633 · Microcks :8888")

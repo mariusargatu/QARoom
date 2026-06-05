@@ -268,6 +268,83 @@ jobs:
             test-results/summary.json
           if-no-files-found: warn
 
+  # Python moderator-agent (Milestone 9): ruff + pyright + pytest. A pgvector Postgres service
+  # exercises the Postgres/pgvector stores (the integration tests skip without it); the in-memory
+  # fakes cover the workflow/API deterministically. Folds a `moderator` runner into summary.json.
+  moderator:
+    runs-on: ubuntu-latest
+    services:
+      moderator-pg:
+        image: pgvector/pgvector:pg18
+        env:
+          POSTGRES_USER: qaroom
+          POSTGRES_PASSWORD: qaroom
+          POSTGRES_DB: qaroom_moderator
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U qaroom" --health-interval 5s --health-timeout 5s --health-retries 10
+    steps:
+      - uses: actions/checkout@v4
+      - uses: ./.github/actions/setup-workspace
+      - uses: astral-sh/setup-uv@v5
+        with:
+          version: "0.8.15"
+      - name: Lint (ruff)
+        working-directory: services/moderator-agent
+        run: uv run ruff check . && uv run ruff format --check .
+      - name: Typecheck (pyright)
+        working-directory: services/moderator-agent
+        run: uv run pyright
+      - name: Test (pytest — in-memory fakes + pgvector integration)
+        working-directory: services/moderator-agent
+        env:
+          QAROOM_TEST_DATABASE_URL: postgresql://qaroom:qaroom@localhost:5432/qaroom_moderator
+        run: uv run pytest -q
+      - name: Fold moderator runner into summary.json
+        if: always()
+        run: pnpm moderator:results || true
+      - name: Upload moderator summary
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: moderator-summary
+          path: test-results/summary.json
+          if-no-files-found: warn
+
+  # LLM evals (ADR-0017). The pre-flight cost guard runs always; the Promptfoo golden-set eval hits
+  # real OpenAI and runs only on push/schedule AND only when the OPENAI_API_KEY secret is present
+  # (decision: roadmap-literal real-OpenAI evals). The metamorphic deliberate-bug demo lives in the
+  # pytest `llm` test, run the same way.
+  moderator-evals:
+    if: github.event_name == 'push' || github.event_name == 'schedule'
+    runs-on: ubuntu-latest
+    env:
+      OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: ./.github/actions/setup-workspace
+      - uses: astral-sh/setup-uv@v5
+        with:
+          version: "0.8.15"
+      - name: Pre-flight cost guard (estimate vs MODERATOR_EVAL_BUDGET_TOKENS)
+        working-directory: services/moderator-agent
+        run: uv run python -m moderator_agent.eval_cost_guard
+      - name: Promptfoo golden-set eval (real OpenAI)
+        if: env.OPENAI_API_KEY != ''
+        working-directory: services/moderator-agent
+        run: npx -y promptfoo@latest eval -c evals/promptfooconfig.yaml -o evals/promptfoo-output.json --no-cache
+      - name: Metamorphic paraphrase-invariance test (real OpenAI)
+        if: env.OPENAI_API_KEY != ''
+        working-directory: services/moderator-agent
+        run: uv run pytest -q -m llm
+      - name: Fold promptfoo runner into summary.json
+        if: env.OPENAI_API_KEY != ''
+        run: pnpm promptfoo:results
+      - name: Note when the eval is skipped
+        if: env.OPENAI_API_KEY == ''
+        run: echo "OPENAI_API_KEY not set — golden-set + metamorphic evals skipped (cost guard still ran)."
+
   # Cheap per-PR gate: the shared Helm chart + observability manifests lint and validate
   # against the Kubernetes schemas (kubeconform) — catches malformed manifests in seconds.
   chart:
@@ -283,7 +360,7 @@ jobs:
             | sudo tar -xz -C /usr/local/bin kubeconform
       - name: Lint + validate chart releases
         run: |
-          for svc in content identity gateway; do
+          for svc in content identity gateway moderator-agent; do
             helm lint packages/helm-template -f deploy/$svc/values.yaml
             helm template $svc packages/helm-template -f deploy/$svc/values.yaml \
               | kubeconform -strict -summary -ignore-missing-schemas

@@ -1,0 +1,110 @@
+# Traefik Ingress for the local k3d cluster — exposes the whole platform at http://*.localhost with
+# no port-forward. Requires the cluster to be created with Traefik enabled + host ports 80/443 mapped
+# to the serverlb (see scripts/bootstrap-k3d.sh). `*.localhost` loops back to 127.0.0.1 in every
+# browser (RFC 6761), so no /etc/hosts edits are needed. Applied by the Tiltfile on `pnpm dev`.
+#
+# The web app fetches its API same-origin (VITE_API_BASE_URL unset → `/api/*` and `/ws` on its own
+# host), so web + gateway MUST share one host: qaroom.localhost serves the web at `/`, and routes
+# `/api` and `/ws` to the gateway (which itself serves `/api/*` and the ticket-authed `/ws`). Traefik
+# matches the longer path prefixes first, so `/api` and `/ws` win over `/`.
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: qaroom-app
+  namespace: qaroom
+spec:
+  ingressClassName: traefik
+  rules:
+    - host: qaroom.localhost
+      http:
+        paths:
+          - path: /api
+            pathType: Prefix
+            backend:
+              service:
+                name: gateway
+                port:
+                  number: 80
+          - path: /ws
+            pathType: Prefix
+            backend:
+              service:
+                name: gateway
+                port:
+                  number: 80
+          - path: /
+            pathType: Prefix
+            backend:
+              service:
+                name: web
+                port:
+                  number: 80
+    - host: moderator.localhost
+      http:
+        paths:
+          - path: /
+            pathType: Prefix
+            backend:
+              service:
+                name: moderator-agent
+                port:
+                  number: 80
+---
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: qaroom-observability
+  namespace: observability
+spec:
+  ingressClassName: traefik
+  rules:
+    - host: grafana.localhost
+      http:
+        paths:
+          - path: /
+            pathType: Prefix
+            backend:
+              service:
+                name: qaroom-grafana
+                port:
+                  number: 3000
+    - host: jaeger.localhost
+      http:
+        paths:
+          - path: /
+            pathType: Prefix
+            backend:
+              service:
+                name: qaroom-jaeger
+                port:
+                  number: 16686
+    - host: prometheus.localhost
+      http:
+        paths:
+          - path: /
+            pathType: Prefix
+            backend:
+              service:
+                name: qaroom-prometheus
+                port:
+                  number: 9090
+    - host: tracetest.localhost
+      http:
+        paths:
+          - path: /
+            pathType: Prefix
+            backend:
+              service:
+                name: qaroom-tracetest
+                port:
+                  number: 11633
+    - host: microcks.localhost
+      http:
+        paths:
+          - path: /
+            pathType: Prefix
+            backend:
+              service:
+                name: qaroom-microcks
+                port:
+                  number: 8080

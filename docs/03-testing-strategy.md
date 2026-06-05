@@ -61,7 +61,7 @@ The risk this strategy is most exposed to is **technique-overlap confusion** —
 | **Load** | k6 | Performance characteristics under realistic load; SLO violations | Functional bugs | Merge-to-main; nightly |
 | **Mutation** | Stryker | Tests that pass even when the code is broken | Code that is broken in ways the tests don't cover at all | Weekly; on critical-module changes |
 | **Scenario replay** | Custom `qaroom-replay` CLI | Bugs that intermittently surface; bugs that require specific state to reproduce | Bugs that need in-flight state we don't capture | Manual; triggered from failure artifacts |
-| **LLM evaluation** *(Milestone 9)* | Promptfoo + LangGraph state-machine conformance | Agent behavior drift; agent guardrail violations; agent state-machine fidelity | Non-LLM behaviors | Milestone 9 introduces this |
+| **LLM evaluation** *(Milestone 9)* | Promptfoo golden set + metamorphic paraphrase-invariance + LangGraph reverse-conformance | Agent behavior drift; phrasing-sensitivity regressions a golden eval misses; off-model transitions; structured-output contract breaks | Non-LLM behaviors; bit-exact model output | Cost-guarded; push/schedule, key-gated (ADR-0017) |
 
 Each layer has a *responsibility* and an *explicit non-responsibility*. Without the non-responsibilities, layers overlap, costs balloon, and bugs fall through gaps.
 

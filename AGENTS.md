@@ -1,6 +1,6 @@
 # AGENTS.md
 
-You are working on **QARoom**, a multi-tenant social platform built to demonstrate testing-driven architecture. This file is your quick reference. Read it first, then read the docs in `docs/` in numbered order. Per-package conventions live in each package's own `AGENTS.md` (loaded as you navigate there) — keep this root file lean. *Reviewed through Milestone 8.*
+You are working on **QARoom**, a multi-tenant social platform built to demonstrate testing-driven architecture. This file is your quick reference. Read it first, then read the docs in `docs/` in numbered order. Per-package conventions live in each package's own `AGENTS.md` (loaded as you navigate there) — keep this root file lean. *Reviewed through Milestone 9.*
 
 ## Commands
 
@@ -31,6 +31,9 @@ pnpm test-results:verify
 # bring up the local cluster (Milestone 3 onwards)
 pnpm dev          # tilt up against k3d
 pnpm dev:down     # tilt down + k3d cluster delete
+# Exposed via Traefik Ingress at http://*.localhost (no port-forward): qaroom.localhost (web + /api
+# + /ws), moderator.localhost, {grafana,jaeger,prometheus,tracetest,microcks}.localhost. The cluster
+# must be (re)created with Traefik + 80/443 mapped — bootstrap-k3d.sh does this; recreate to apply.
 
 # scoped scenario replay (Milestone 7 onwards)
 pnpm replay:capture <scenario-name>
@@ -57,7 +60,7 @@ Reach for a repo-map or code graph only if cross-service scale ever makes agenti
 
 ## Repository layout
 
-- `services/` — one directory per microservice (`content`, `gateway`, `identity`, `flags`, `donations`, and the React/Vite `web` frontend as of Milestone 5). Each backend has its own `AGENTS.md`, `openapi.yaml`, `src/`, and `Dockerfile`; `web` adds an atomic-design component library (see `services/web/docs/atomic-structure.md`). (The per-service `chart/` sketch was superseded in Milestone 3 by the shared `packages/helm-template/` + `deploy/<service>/values.yaml`.)
+- `services/` — one directory per microservice (`content`, `gateway`, `identity`, `flags`, `donations`, and the React/Vite `web` frontend as of Milestone 5; the Python `moderator-agent` as of Milestone 9). Each backend has its own `AGENTS.md`, `openapi.yaml`, `src/`, and `Dockerfile`; `web` adds an atomic-design component library (see `services/web/docs/atomic-structure.md`). `moderator-agent` is the one Python service — `uv`/FastAPI/LangGraph, not pnpm/tsx (ADR-0018). (The per-service `chart/` sketch was superseded in Milestone 3 by the shared `packages/helm-template/` + `deploy/<service>/values.yaml`.)
 - `packages/` — shared code: `contracts/` (Zod, OpenAPI, XState — hand-authored machines in `contracts/src/machines/`, invoke-free + context-free), `otel/` (OpenTelemetry SDK, `tenant.id` span processor, propagation primitives — Milestone 3; M4's `messaging/` will build the NATS layer on it), `service-kit/`, `testing-utils/` (fixtures, generators, harness, `contract-crosscheck/`), `helm-template/` (the shared `qaroom-service` chart).
 - `deploy/` — per-service Helm values (`<service>/values.yaml`) and `observability/` manifests (OTel Collector, Jaeger, Prometheus, Grafana). `Tiltfile` at the repo root drives the local cluster.
 - `docs/` — architecture, strategy, roadmap, conventions, ADRs. Read in numbered order.
@@ -129,7 +132,7 @@ QARoom is built across 10 milestones. The current milestone determines what serv
 | 6 | Chaos Mesh, Litmus, chaos experiments (chaos manifests captured into snapshot for replay), failure-modes.md | Scenario replay, agent |
 | 7 | qaroom-replay CLI, /system/snapshot endpoints with versioned bundle manifest, regression catalog | Agent |
 | 8 | k6 vs SLOs, Stryker mutation (docs/03 §11 modules), EvoMaster v6 black-box (M0 spike passed), Storybook 10 + Vitest 4 + Playwright CT + unified coverage, ADR-0016 | Agent |
-| 9 | moderator-agent (Python, LangGraph), Promptfoo (OpenAI provider), metamorphic tests | — |
+| 9 | moderator-agent (Python `uv`/FastAPI/LangGraph + pgvector), structured outputs (Pydantic↔Zod cross-language gate), Promptfoo golden-set evals (OpenAI), metamorphic paraphrase-invariance + deliberate prompt-bug demo, LangGraph reverse-conformance (xstate.transition spans), per-run cost guard, ADR-0017, ADR-0018 | — |
 
 Always check the current milestone before introducing infrastructure that doesn't yet exist. The roadmap in `docs/04-roadmap.md` has full exit criteria per milestone.
 

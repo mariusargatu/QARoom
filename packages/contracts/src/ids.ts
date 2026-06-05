@@ -69,6 +69,15 @@ export const EventId = brandedId('evt', 'EventId')
 export type EventId = z.infer<typeof EventId>
 
 /**
+ * Moderation decision identifier (`mdec_<ulid>`, Milestone 9). Minted by the moderator-agent's
+ * `IdGenerator` when it records a verdict for a post. Branded so a decision reference cannot be
+ * confused with the post it judges or the event that carries it. It appears in the
+ * `moderation.decision.recorded` event, so it is part of the cross-service contract.
+ */
+export const ModerationDecisionId = brandedId('mdec', 'ModerationDecisionId')
+export type ModerationDecisionId = z.infer<typeof ModerationDecisionId>
+
+/**
  * The well-known default community ("general"), seeded by the Milestone 2 migration
  * and the backfill target for Milestone 0 posts. It is a RESERVED branded id, not the
  * literal `comm_general` — that string is not 26 Crockford chars, so it cannot satisfy
@@ -101,4 +110,5 @@ export const ID_PREFIXES = {
   TicketId: 'tkt',
   KeyId: 'key',
   EventId: 'evt',
+  ModerationDecisionId: 'mdec',
 } as const

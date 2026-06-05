@@ -1,0 +1,25 @@
+image:
+  repository: qaroom/moderator-agent
+service:
+  port: 80
+  targetPort: 8086
+container:
+  port: 8086
+otel:
+  serviceName: moderator-agent
+postgres:
+  enabled: true
+  # pgvector image — the moderator's knowledge base needs the `vector` type + `CREATE EXTENSION`.
+  image: pgvector/pgvector:pg18
+  database: qaroom_moderator
+extraEnv:
+  # NATS: subscribes to qaroom.content.posts.*.created, publishes moderation.decision.recorded.
+  NATS_URL: nats://qaroom-nats.observability.svc.cluster.local:4222
+  # The pinned OpenAI model (ADR-0018). The API key is injected at deploy time (helm --set
+  # extraEnv.OPENAI_API_KEY=… or a Secret); empty boots fine — /health and /ready need no LLM call,
+  # the key is only used when classifying a post. Dev-only plaintext posture, like postgres.password (ADR-0009).
+  OPENAI_API_KEY: ""
+  # LangChain provider-prefixed id (ADR-0017/0018). Reasoning model — effort set in config default.
+  MODERATOR_MODEL: openai:gpt-5.5-2026-04-23
+  # Production moderation flows through NATS; the dev-only POST /review trigger is disabled here.
+  MODERATOR_ENABLE_MANUAL_REVIEW: "false"

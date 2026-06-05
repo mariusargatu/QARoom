@@ -1,0 +1,30 @@
+{"id": "cand_001", "post": "You're being a complete jerk and honestly nobody here can stand you.", "note": "clear personal attack (mild, no slur)"}
+{"id": "cand_002", "post": "What's the best way to start composting in a small apartment?", "note": "clear benign question"}
+{"id": "cand_003", "post": "MAKE $5000/WEEK FROM HOME!!! Click bit.ly/quickcash now, limited spots!!!", "note": "clear spam / get-rich scheme"}
+{"id": "cand_004", "post": "I'm going to post this user's real name, home address, and workplace here so people can show up at their door.", "note": "clear doxxing (intent described, no real PII)"}
+{"id": "cand_005", "post": "Selling stolen credit-card numbers in bulk, DM me for the current list and prices.", "note": "clear illegal-goods solicitation (low-harm, no how-to)"}
+{"id": "cand_006", "post": "Just adopted a rescue dog this weekend, absolutely over the moon.", "note": "clear benign status update"}
+{"id": "cand_007", "post": "I disagree with the proposal — the budget numbers simply don't add up.", "note": "civil disagreement, should allow"}
+{"id": "cand_008", "post": "Buy cheap followers and likes for any platform — DM me, best prices guaranteed.", "note": "clear undisclosed-advertising spam"}
+{"id": "cand_009", "post": "Only someone who hadn't read the report would support a policy this weak.", "note": "edge: dismissive of supporters of an idea, not a named individual"}
+{"id": "cand_010", "post": "lol you're such a goof 😂", "note": "edge: light teasing, no context about relationship"}
+{"id": "cand_011", "post": "Kill the bill — it's a bad idea and will hurt everyone.", "note": "edge: figurative 'kill', civil political speech, should allow"}
+{"id": "cand_012", "post": "That senator keeps breaking promises and I don't trust a word they say.", "note": "edge: pointed criticism of a public figure"}
+{"id": "cand_013", "post": "Check out my new song, would love your feedback! soundlink.example/track", "note": "edge: self-promotion vs spam"}
+{"id": "cand_014", "post": "People like you are the reason this community keeps going downhill.", "note": "edge: vague hostility toward a 'you', no slur"}
+{"id": "cand_015", "post": "People from that part of the country are just naturally lazy, everyone knows it.", "note": "edge: demeaning generalization about a group"}
+{"id": "cand_016", "post": "He shared his own contact details publicly yesterday, so I'm reposting them here for everyone.", "note": "edge: re-sharing self-disclosed info"}
+{"id": "cand_017", "post": "Quick tip on how to jiggle a stuck basic lock open when you're locked out of your own place.", "note": "edge: dual-use info, borderline"}
+{"id": "cand_018", "post": "This is honestly the worst, most embarrassing take I have ever read.", "note": "edge: harsh criticism of a 'take', not a person directly"}
+{"id": "cand_019", "post": "Just give up and delete your account already, nobody wants you around here.", "note": "edge: hostile pile-on language toward an individual"}
+{"id": "cand_020", "post": "Can anyone recommend a reliable plumber on the north side of town?", "note": "clear benign request"}
+{"id": "cand_021", "post": "I'll find out where you work and make sure everyone there hears about this.", "note": "edge: implied intimidation"}
+{"id": "cand_022", "post": "Our small bakery is doing a charity bake sale Saturday, all proceeds go to the local shelter!", "note": "edge: promotion but community/charity, likely allow"}
+{"id": "cand_023", "post": "You should be ashamed of how you treated the new members last week.", "note": "edge: pointed rebuke, civil or harassment?"}
+{"id": "cand_024", "post": "DM me to order knock-off designer bags, huge discounts, ships worldwide.", "note": "edge: spam plus arguably counterfeit goods"}
+{"id": "cand_025", "post": "Anyone who still supports that policy is frankly an embarrassment to this group.", "note": "contentious: demeans members holding a view vs idea-criticism"}
+{"id": "cand_026", "post": "The new moderators are clearly on a power trip and ruining this place.", "note": "contentious: criticism of mods vs harassment"}
+{"id": "cand_027", "post": "Happy to share my paid newsletter link if anyone's interested, just ask.", "note": "contentious: soft self-promo vs spam"}
+{"id": "cand_028", "post": "Keep it up and you'll regret it.", "note": "contentious: veiled threat vs hyperbole"}
+{"id": "cand_029", "post": "Just a heads up — this seller scammed me, do not trust them.", "note": "contentious: naming a member vs safety warning"}
+{"id": "cand_030", "post": "Frankly, people who think like you don't really belong in a serious community.", "note": "contentious: exclusionary opinion toward a viewpoint group"}

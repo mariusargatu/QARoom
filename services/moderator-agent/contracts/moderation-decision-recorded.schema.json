@@ -1,0 +1,104 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "type": "object",
+  "properties": {
+    "event_id": {
+      "$ref": "#/$defs/EventId"
+    },
+    "decision_id": {
+      "$ref": "#/$defs/ModerationDecisionId"
+    },
+    "post_id": {
+      "$ref": "#/$defs/PostId"
+    },
+    "community_id": {
+      "$ref": "#/$defs/CommunityId"
+    },
+    "author_id": {
+      "$ref": "#/$defs/UserId"
+    },
+    "verdict": {
+      "$ref": "#/$defs/ModerationVerdict"
+    },
+    "rule_id": {
+      "anyOf": [
+        {
+          "type": "string",
+          "maxLength": 100
+        },
+        {
+          "type": "null"
+        }
+      ]
+    },
+    "reason": {
+      "type": "string",
+      "maxLength": 2000,
+      "pattern": "^[^\\x00]*$"
+    },
+    "confidence": {
+      "type": "number",
+      "minimum": 0,
+      "maximum": 1
+    },
+    "model": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 100
+    },
+    "occurred_at": {
+      "type": "string",
+      "format": "date-time",
+      "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))T(?:(?:[01]\\d|2[0-3]):[0-5]\\d(?::[0-5]\\d(?:\\.\\d+)?)?(?:Z))$"
+    }
+  },
+  "required": [
+    "event_id",
+    "decision_id",
+    "post_id",
+    "community_id",
+    "author_id",
+    "verdict",
+    "rule_id",
+    "reason",
+    "confidence",
+    "model",
+    "occurred_at"
+  ],
+  "additionalProperties": false,
+  "description": "Emitted when the moderator-agent records a decision for a post.",
+  "$defs": {
+    "EventId": {
+      "type": "string",
+      "pattern": "^evt_[0-9A-HJKMNP-TV-Z]{26}$",
+      "description": "Branded identifier: evt_<ULID>"
+    },
+    "ModerationDecisionId": {
+      "type": "string",
+      "pattern": "^mdec_[0-9A-HJKMNP-TV-Z]{26}$",
+      "description": "Branded identifier: mdec_<ULID>"
+    },
+    "PostId": {
+      "type": "string",
+      "pattern": "^post_[0-9A-HJKMNP-TV-Z]{26}$",
+      "description": "Branded identifier: post_<ULID>"
+    },
+    "CommunityId": {
+      "type": "string",
+      "pattern": "^comm_[0-9A-HJKMNP-TV-Z]{26}$",
+      "description": "Branded identifier: comm_<ULID>"
+    },
+    "UserId": {
+      "type": "string",
+      "pattern": "^user_[0-9A-HJKMNP-TV-Z]{26}$",
+      "description": "Branded identifier: user_<ULID>"
+    },
+    "ModerationVerdict": {
+      "type": "string",
+      "enum": [
+        "allow",
+        "flag"
+      ]
+    }
+  }
+}

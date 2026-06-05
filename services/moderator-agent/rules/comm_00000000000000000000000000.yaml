@@ -1,0 +1,24 @@
+# Moderation rules for the "general" community (COMM_GENERAL).
+# Seeded into the moderator's own Postgres on boot and injected into the LLM prompt at decision
+# time (ADR-0018). The LLM judges MEANING, not literal wording — paraphrases of a violation are
+# flagged the same way (the metamorphic invariant, ADR-0017).
+- rule_id: no-harassment
+  severity: high
+  text: >-
+    No harassment or personal attacks. Do not demean, insult, threaten, or target an individual
+    or group, including via slurs, name-calling, or coordinated pile-ons.
+- rule_id: no-spam
+  severity: medium
+  text: >-
+    No spam or undisclosed advertising. Do not post repetitive promotional content, referral
+    links, or bulk solicitations unrelated to the discussion.
+- rule_id: no-doxxing
+  severity: high
+  text: >-
+    No sharing of private personal information (real names, addresses, phone numbers, workplaces)
+    about anyone without their consent.
+- rule_id: no-illegal
+  severity: high
+  text: >-
+    No content that facilitates clearly illegal activity, such as instructions for making weapons
+    or acquiring controlled substances.

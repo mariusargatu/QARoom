@@ -1,0 +1,90 @@
+{"candidate_id": "cand_001", "sme_id": "sme_strict", "verdict": "flag", "rule_id": "no-harassment", "reason": "Direct personal insult and attack on another member."}
+{"candidate_id": "cand_002", "sme_id": "sme_strict", "verdict": "allow", "rule_id": null, "reason": "Benign on-topic question about composting."}
+{"candidate_id": "cand_003", "sme_id": "sme_strict", "verdict": "flag", "rule_id": "no-spam", "reason": "Get-rich-quick promo with a shortened link and urgency, classic spam."}
+{"candidate_id": "cand_004", "sme_id": "sme_strict", "verdict": "flag", "rule_id": "no-doxxing", "reason": "Threatens to publish someone's real name, address, and workplace to incite a confrontation."}
+{"candidate_id": "cand_005", "sme_id": "sme_strict", "verdict": "flag", "rule_id": "no-illegal", "reason": "Offering to sell stolen credit-card numbers facilitates clear criminal activity."}
+{"candidate_id": "cand_006", "sme_id": "sme_strict", "verdict": "allow", "rule_id": null, "reason": "Harmless personal share about adopting a rescue dog."}
+{"candidate_id": "cand_007", "sme_id": "sme_strict", "verdict": "allow", "rule_id": null, "reason": "Substantive disagreement about budget numbers, no attack on a person."}
+{"candidate_id": "cand_008", "sme_id": "sme_strict", "verdict": "flag", "rule_id": "no-spam", "reason": "Solicitation selling fake followers and likes, unrelated promotional spam."}
+{"candidate_id": "cand_009", "sme_id": "sme_strict", "verdict": "allow", "rule_id": null, "reason": "Critique of a position's basis, not a personal attack on an individual."}
+{"candidate_id": "cand_010", "sme_id": "sme_strict", "verdict": "allow", "rule_id": null, "reason": "Light teasing with a laughing emoji, no demeaning intent."}
+{"candidate_id": "cand_011", "sme_id": "sme_strict", "verdict": "allow", "rule_id": null, "reason": "Figurative opposition to a bill, normal policy debate not a threat."}
+{"candidate_id": "cand_012", "sme_id": "sme_strict", "verdict": "allow", "rule_id": null, "reason": "Criticism of a public official's conduct, legitimate commentary."}
+{"candidate_id": "cand_013", "sme_id": "sme_strict", "verdict": "allow", "rule_id": null, "reason": "A single good-faith share of own work seeking feedback, not repetitive spam."}
+{"candidate_id": "cand_014", "sme_id": "sme_strict", "verdict": "flag", "rule_id": "no-harassment", "reason": "Demeaning personal attack blaming a member for the community's decline."}
+{"candidate_id": "cand_015", "sme_id": "sme_strict", "verdict": "flag", "rule_id": "no-harassment", "reason": "Demeaning stereotype targeting a group based on origin."}
+{"candidate_id": "cand_016", "sme_id": "sme_strict", "verdict": "flag", "rule_id": "no-doxxing", "reason": "Reposting another person's contact details without their consent, regardless of prior disclosure."}
+{"candidate_id": "cand_017", "sme_id": "sme_strict", "verdict": "allow", "rule_id": null, "reason": "Tip for getting into one's own locked home, no facilitation of crime against others."}
+{"candidate_id": "cand_018", "sme_id": "sme_strict", "verdict": "allow", "rule_id": null, "reason": "Harsh criticism aimed at a take/opinion, not a person."}
+{"candidate_id": "cand_019", "sme_id": "sme_strict", "verdict": "flag", "rule_id": "no-harassment", "reason": "Hostile pile-on telling a member to leave and that nobody wants them."}
+{"candidate_id": "cand_020", "sme_id": "sme_strict", "verdict": "allow", "rule_id": null, "reason": "Ordinary request for a local service recommendation."}
+{"candidate_id": "cand_021", "sme_id": "sme_strict", "verdict": "flag", "rule_id": "no-harassment", "reason": "Threat to contact someone's employer to intimidate and harm them."}
+{"candidate_id": "cand_022", "sme_id": "sme_strict", "verdict": "allow", "rule_id": null, "reason": "Announcement of a local charity bake sale, community-relevant not bulk spam."}
+{"candidate_id": "cand_023", "sme_id": "sme_strict", "verdict": "allow", "rule_id": null, "reason": "Pointed but legitimate criticism of how someone treated new members."}
+{"candidate_id": "cand_024", "sme_id": "sme_strict", "verdict": "flag", "rule_id": "no-illegal", "reason": "Selling counterfeit designer goods facilitates clearly illegal activity."}
+{"candidate_id": "cand_001", "sme_id": "sme_permissive", "verdict": "flag", "rule_id": "no-harassment", "reason": "Direct personal insult ('jerk') plus a pile-on claim that nobody can stand them targets an individual."}
+{"candidate_id": "cand_002", "sme_id": "sme_permissive", "verdict": "allow", "rule_id": null, "reason": "Benign question about composting, no rule implicated."}
+{"candidate_id": "cand_003", "sme_id": "sme_permissive", "verdict": "flag", "rule_id": "no-spam", "reason": "Classic get-rich-quick spam with a shortened link and urgency, unrelated to discussion."}
+{"candidate_id": "cand_004", "sme_id": "sme_permissive", "verdict": "flag", "rule_id": "no-doxxing", "reason": "Explicit threat to publish a user's real name, address, and workplace so people show up at their door."}
+{"candidate_id": "cand_005", "sme_id": "sme_permissive", "verdict": "flag", "rule_id": "no-illegal", "reason": "Offering to sell stolen credit-card numbers facilitates clearly illegal activity."}
+{"candidate_id": "cand_006", "sme_id": "sme_permissive", "verdict": "allow", "rule_id": null, "reason": "Harmless personal update about adopting a rescue dog."}
+{"candidate_id": "cand_007", "sme_id": "sme_permissive", "verdict": "allow", "rule_id": null, "reason": "Substantive disagreement about budget numbers is protected debate."}
+{"candidate_id": "cand_008", "sme_id": "sme_permissive", "verdict": "flag", "rule_id": "no-spam", "reason": "Solicitation selling fake followers and likes is undisclosed bulk advertising unrelated to discussion."}
+{"candidate_id": "cand_009", "sme_id": "sme_permissive", "verdict": "allow", "rule_id": null, "reason": "Pointed criticism of an argument's basis, not a personal attack; protected debate."}
+{"candidate_id": "cand_010", "sme_id": "sme_permissive", "verdict": "allow", "rule_id": null, "reason": "Light, friendly teasing ('goof' with a laughing emoji), not a serious attack."}
+{"candidate_id": "cand_011", "sme_id": "sme_permissive", "verdict": "allow", "rule_id": null, "reason": "'Kill the bill' is figurative political opposition to legislation, not a threat."}
+{"candidate_id": "cand_012", "sme_id": "sme_permissive", "verdict": "allow", "rule_id": null, "reason": "Criticism of a public official's record is core protected political speech."}
+{"candidate_id": "cand_013", "sme_id": "sme_permissive", "verdict": "allow", "rule_id": null, "reason": "A single good-faith request for feedback on one's own work is sharing, not spam."}
+{"candidate_id": "cand_014", "sme_id": "sme_permissive", "verdict": "flag", "rule_id": "no-harassment", "reason": "'People like you are the reason this community is going downhill' is a demeaning personal attack."}
+{"candidate_id": "cand_015", "sme_id": "sme_permissive", "verdict": "flag", "rule_id": "no-harassment", "reason": "Sweeping derogatory generalization that a group is 'naturally lazy' demeans people by origin."}
+{"candidate_id": "cand_016", "sme_id": "sme_permissive", "verdict": "flag", "rule_id": "no-doxxing", "reason": "Reposting someone's contact details for everyone is sharing private info; prior public disclosure doesn't establish consent to redistribute."}
+{"candidate_id": "cand_017", "sme_id": "sme_permissive", "verdict": "allow", "rule_id": null, "reason": "General lockout self-help tip for one's own home, not instructions to commit a crime."}
+{"candidate_id": "cand_018", "sme_id": "sme_permissive", "verdict": "allow", "rule_id": null, "reason": "Harsh criticism aimed at a 'take' (an idea), not a personal attack on the individual."}
+{"candidate_id": "cand_019", "sme_id": "sme_permissive", "verdict": "flag", "rule_id": "no-harassment", "reason": "Telling a user to give up, delete their account, and that nobody wants them is targeted harassment."}
+{"candidate_id": "cand_020", "sme_id": "sme_permissive", "verdict": "allow", "rule_id": null, "reason": "Ordinary request for a local plumber recommendation."}
+{"candidate_id": "cand_021", "sme_id": "sme_permissive", "verdict": "flag", "rule_id": "no-harassment", "reason": "Threat to find someone's workplace and inform people there is targeted intimidation."}
+{"candidate_id": "cand_022", "sme_id": "sme_permissive", "verdict": "allow", "rule_id": null, "reason": "Disclosed local charity bake sale; community-relevant and not deceptive bulk solicitation."}
+{"candidate_id": "cand_023", "sme_id": "sme_permissive", "verdict": "allow", "rule_id": null, "reason": "Blunt accountability feedback about how someone treated new members is protected critique."}
+{"candidate_id": "cand_024", "sme_id": "sme_permissive", "verdict": "flag", "rule_id": "no-illegal", "reason": "Offering counterfeit designer goods for sale facilitates trade in counterfeit products."}
+{"candidate_id": "cand_001", "sme_id": "sme_balanced", "verdict": "flag", "rule_id": "no-harassment", "reason": "Direct personal insult targeting an individual user ('jerk', 'nobody can stand you')."}
+{"candidate_id": "cand_002", "sme_id": "sme_balanced", "verdict": "allow", "rule_id": null, "reason": "Harmless practical question about composting."}
+{"candidate_id": "cand_003", "sme_id": "sme_balanced", "verdict": "flag", "rule_id": "no-spam", "reason": "Bulk get-rich-quick promotional spam with a shortened solicitation link."}
+{"candidate_id": "cand_004", "sme_id": "sme_balanced", "verdict": "flag", "rule_id": "no-doxxing", "reason": "Threatens to publish a user's real name, home address, and workplace to enable showing up at their door."}
+{"candidate_id": "cand_005", "sme_id": "sme_balanced", "verdict": "flag", "rule_id": "no-illegal", "reason": "Solicitation to sell stolen credit-card numbers, a clearly illegal activity."}
+{"candidate_id": "cand_006", "sme_id": "sme_balanced", "verdict": "allow", "rule_id": null, "reason": "Benign personal good-news post about adopting a rescue dog."}
+{"candidate_id": "cand_007", "sme_id": "sme_balanced", "verdict": "allow", "rule_id": null, "reason": "Substantive disagreement about a proposal's budget, attacks the idea not a person."}
+{"candidate_id": "cand_008", "sme_id": "sme_balanced", "verdict": "flag", "rule_id": "no-spam", "reason": "Promotional solicitation selling fake followers and likes, unrelated to discussion."}
+{"candidate_id": "cand_009", "sme_id": "sme_balanced", "verdict": "allow", "rule_id": null, "reason": "Pointed but idea-focused criticism of a policy position, not a personal attack."}
+{"candidate_id": "cand_010", "sme_id": "sme_balanced", "verdict": "allow", "rule_id": null, "reason": "Light, friendly teasing with no demeaning intent."}
+{"candidate_id": "cand_011", "sme_id": "sme_balanced", "verdict": "allow", "rule_id": null, "reason": "Figurative political opposition to a bill, targets an idea not a person."}
+{"candidate_id": "cand_012", "sme_id": "sme_balanced", "verdict": "allow", "rule_id": null, "reason": "Legitimate criticism of a public official's conduct and trustworthiness."}
+{"candidate_id": "cand_013", "sme_id": "sme_balanced", "verdict": "allow", "rule_id": null, "reason": "Single good-faith request for feedback on own creative work, not bulk spam."}
+{"candidate_id": "cand_014", "sme_id": "sme_balanced", "verdict": "flag", "rule_id": "no-harassment", "reason": "Personal attack scapegoating and demeaning a specific user ('people like you')."}
+{"candidate_id": "cand_015", "sme_id": "sme_balanced", "verdict": "flag", "rule_id": "no-harassment", "reason": "Demeaning generalization targeting a group of people as 'naturally lazy'."}
+{"candidate_id": "cand_016", "sme_id": "sme_balanced", "verdict": "flag", "rule_id": "no-doxxing", "reason": "Reposting another person's contact details for an audience without their consent."}
+{"candidate_id": "cand_017", "sme_id": "sme_balanced", "verdict": "allow", "rule_id": null, "reason": "Common lockout self-help tip for one's own home, not facilitating a crime."}
+{"candidate_id": "cand_018", "sme_id": "sme_balanced", "verdict": "allow", "rule_id": null, "reason": "Harsh criticism aimed at a 'take'/opinion rather than attacking a person."}
+{"candidate_id": "cand_019", "sme_id": "sme_balanced", "verdict": "flag", "rule_id": "no-harassment", "reason": "Targeted attack telling a user to leave and that nobody wants them."}
+{"candidate_id": "cand_020", "sme_id": "sme_balanced", "verdict": "allow", "rule_id": null, "reason": "Ordinary request for a local service recommendation."}
+{"candidate_id": "cand_021", "sme_id": "sme_balanced", "verdict": "flag", "rule_id": "no-harassment", "reason": "Threat to find a user's workplace and report them there, intimidation targeting an individual."}
+{"candidate_id": "cand_022", "sme_id": "sme_balanced", "verdict": "allow", "rule_id": null, "reason": "Disclosed local charity event announcement relevant to the community, not spammy solicitation."}
+{"candidate_id": "cand_023", "sme_id": "sme_balanced", "verdict": "allow", "rule_id": null, "reason": "Critique of someone's past behavior toward new members, accountability not a slur or threat."}
+{"candidate_id": "cand_024", "sme_id": "sme_balanced", "verdict": "flag", "rule_id": "no-illegal", "reason": "Solicitation to sell counterfeit designer goods, facilitating illegal sales."}
+{"candidate_id": "cand_025", "sme_id": "sme_strict", "verdict": "flag", "rule_id": "no-harassment", "reason": "Calling members who hold a view an embarrassment demeans and insults people for their opinion."}
+{"candidate_id": "cand_026", "sme_id": "sme_strict", "verdict": "flag", "rule_id": "no-harassment", "reason": "Accusing the moderators of being on a power trip is a personal attack targeting specific individuals."}
+{"candidate_id": "cand_027", "sme_id": "sme_strict", "verdict": "flag", "rule_id": "no-spam", "reason": "Offering a paid newsletter link unprompted is undisclosed self-promotional solicitation unrelated to discussion."}
+{"candidate_id": "cand_028", "sme_id": "sme_strict", "verdict": "flag", "rule_id": "no-harassment", "reason": "This is a veiled threat intended to intimidate another member."}
+{"candidate_id": "cand_029", "sme_id": "sme_strict", "verdict": "flag", "rule_id": "no-harassment", "reason": "Publicly branding a seller a scammer targets an individual with a damaging accusation, and erring toward caution I flag it."}
+{"candidate_id": "cand_030", "sme_id": "sme_strict", "verdict": "flag", "rule_id": "no-harassment", "reason": "Telling people who think a certain way they don't belong demeans and targets a group for their views."}
+{"candidate_id": "cand_025", "sme_id": "sme_permissive", "verdict": "allow", "rule_id": null, "reason": "Blunt criticism of a policy position, not a targeted personal attack; protected debate."}
+{"candidate_id": "cand_026", "sme_id": "sme_permissive", "verdict": "allow", "rule_id": null, "reason": "Harsh but legitimate criticism of moderator conduct, which free expression protects."}
+{"candidate_id": "cand_027", "sme_id": "sme_permissive", "verdict": "allow", "rule_id": null, "reason": "A single low-key opt-in offer, not repetitive bulk solicitation or a posted link."}
+{"candidate_id": "cand_028", "sme_id": "sme_permissive", "verdict": "flag", "rule_id": "no-harassment", "reason": "A conditional threat aimed at an individual ('you'll regret it')."}
+{"candidate_id": "cand_029", "sme_id": "sme_permissive", "verdict": "allow", "rule_id": null, "reason": "A consumer warning based on personal experience; no private info or slur."}
+{"candidate_id": "cand_030", "sme_id": "sme_permissive", "verdict": "flag", "rule_id": "no-harassment", "reason": "Targets an individual and says they don't belong, demeaning the person rather than the idea."}
+{"candidate_id": "cand_025", "sme_id": "sme_balanced", "verdict": "allow", "rule_id": null, "reason": "Attacks a policy position, not a specific person; robust disagreement about an idea."}
+{"candidate_id": "cand_026", "sme_id": "sme_balanced", "verdict": "allow", "rule_id": null, "reason": "Heated criticism of moderators' governance conduct, not a targeted personal attack or threat."}
+{"candidate_id": "cand_027", "sme_id": "sme_balanced", "verdict": "flag", "rule_id": "no-spam", "reason": "Offers to share a paid newsletter link, undisclosed promotional solicitation unrelated to the discussion."}
+{"candidate_id": "cand_028", "sme_id": "sme_balanced", "verdict": "flag", "rule_id": "no-harassment", "reason": "Veiled threat directed at an individual implying real-world consequences, intended to intimidate."}
+{"candidate_id": "cand_029", "sme_id": "sme_balanced", "verdict": "allow", "rule_id": null, "reason": "Legitimate consumer warning sharing a personal scam experience; no private info or slur."}
+{"candidate_id": "cand_030", "sme_id": "sme_balanced", "verdict": "flag", "rule_id": "no-harassment", "reason": "Directly tells a specific person they don't belong, demeaning the individual rather than the idea."}

@@ -1,0 +1,19 @@
+{
+  "name": "@qaroom/moderator-agent",
+  "version": "0.0.0",
+  "private": true,
+  "description": "Turbo passthrough for the Python moderator-agent service. The real toolchain is uv; these scripts let `turbo run typecheck|test` and the per-service filter reach Python (ADR-0018).",
+  "scripts": {
+    "lint": "uv run ruff check . && uv run ruff format --check .",
+    "lint:fix": "uv run ruff check --fix . && uv run ruff format .",
+    "typecheck": "uv run pyright",
+    "test": "uv run pytest -q",
+    "build": "uv sync --frozen",
+    "openapi:generate": "uv run python -m moderator_agent.openapi_build",
+    "asyncapi:generate": "uv run python -m moderator_agent.asyncapi_build",
+    "eval:prompt": "uv run python -m moderator_agent.eval_prompt_build",
+    "eval:cost": "uv run python -m moderator_agent.eval_cost_guard",
+    "golden:build": "uv run python -m moderator_agent.golden.build",
+    "eval:run": "npx -y promptfoo@latest eval -c evals/promptfooconfig.yaml -o evals/promptfoo-output.json"
+  }
+}

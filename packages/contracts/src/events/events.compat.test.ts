@@ -3,6 +3,8 @@ import { DonationStateChangedEvent } from './donation-state-changed'
 import { DonationStateChangedEventV1 } from './donation-state-changed.v1'
 import { FlagStateChangedEvent } from './flag-state-changed'
 import { FlagStateChangedEventV1 } from './flag-state-changed.v1'
+import { ModerationDecisionRecordedEvent } from './moderation-decision-recorded'
+import { ModerationDecisionRecordedEventV1 } from './moderation-decision-recorded.v1'
 import { PostCreatedEvent } from './post-created'
 import { PostCreatedEventV1 } from './post-created.v1'
 import { VoteCastEvent } from './vote-cast'
@@ -51,6 +53,20 @@ const currentDonationStateChanged = DonationStateChangedEvent.parse({
   occurred_at: '2026-06-03T00:00:00.000Z',
 })
 
+const currentModerationDecisionRecorded = ModerationDecisionRecordedEvent.parse({
+  event_id: 'evt_00000000000000000000000004',
+  decision_id: 'mdec_00000000000000000000000000',
+  post_id: 'post_00000000000000000000000000',
+  community_id: 'comm_00000000000000000000000000',
+  author_id: 'user_00000000000000000000000000',
+  verdict: 'flag',
+  rule_id: 'no-harassment',
+  reason: 'targets an individual with a slur',
+  confidence: 0.93,
+  model: 'openai:gpt-5.5-2026-04-23',
+  occurred_at: '2026-06-03T00:00:00.000Z',
+})
+
 describe('a frozen v1 consumer still parses the current producer output', () => {
   it('parses a current PostCreatedEvent under the frozen v1 schema', () => {
     expect(() => PostCreatedEventV1.parse(currentPostCreated)).not.toThrow()
@@ -66,5 +82,11 @@ describe('a frozen v1 consumer still parses the current producer output', () => 
 
   it('parses a current DonationStateChangedEvent under the frozen v1 schema', () => {
     expect(() => DonationStateChangedEventV1.parse(currentDonationStateChanged)).not.toThrow()
+  })
+
+  it('parses a current ModerationDecisionRecordedEvent under the frozen v1 schema', () => {
+    expect(() =>
+      ModerationDecisionRecordedEventV1.parse(currentModerationDecisionRecorded),
+    ).not.toThrow()
   })
 })

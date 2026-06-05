@@ -1,0 +1,46 @@
+{
+  "additionalProperties": false,
+  "description": "The structured output the LLM MUST return (OpenAI structured outputs / ``response_format``).",
+  "properties": {
+    "verdict": {
+      "enum": [
+        "allow",
+        "flag"
+      ],
+      "title": "Verdict",
+      "type": "string"
+    },
+    "rule_id": {
+      "anyOf": [
+        {
+          "maxLength": 100,
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Rule Id"
+    },
+    "reason": {
+      "maxLength": 2000,
+      "pattern": "^[^\\x00]*$",
+      "title": "Reason",
+      "type": "string"
+    },
+    "confidence": {
+      "maximum": 1,
+      "minimum": 0,
+      "title": "Confidence",
+      "type": "number"
+    }
+  },
+  "required": [
+    "verdict",
+    "reason",
+    "confidence"
+  ],
+  "title": "LlmVerdict",
+  "type": "object"
+}

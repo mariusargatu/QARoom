@@ -18,6 +18,7 @@ const ROOT = 'qaroom'
 const CONTENT = 'content'
 const FLAGS = 'flags'
 const DONATIONS = 'donations'
+const MODERATOR = 'moderator'
 
 /** `qaroom.content.posts.<community_id>.created` — emitted when a post is created. */
 export function postCreated(communityId: CommunityId): string {
@@ -37,6 +38,15 @@ export function flagStateChanged(communityId: CommunityId): string {
 /** `qaroom.donations.donation.<community_id>.changed` — emitted when a donation's status changes (Milestone 5). */
 export function donationStateChanged(communityId: CommunityId): string {
   return `${ROOT}.${DONATIONS}.donation.${communityId}.changed`
+}
+
+/**
+ * `qaroom.moderator.decision.<community_id>.recorded` — emitted when the moderator-agent records
+ * a decision for a post (Milestone 9). The agent owns its decisions and proposes; it never
+ * mutates content- or flags-service. A downstream review queue / notifier consumes this.
+ */
+export function moderationDecisionRecorded(communityId: CommunityId): string {
+  return `${ROOT}.${MODERATOR}.decision.${communityId}.recorded`
 }
 
 /** Tenant-scoped subscription: every flags event for one community (the gateway WS/poll feed). */
@@ -91,6 +101,7 @@ export const POST_CREATED_ADDRESS = `${ROOT}.${CONTENT}.posts.{community_id}.cre
 export const VOTE_CAST_ADDRESS = `${ROOT}.${CONTENT}.votes.{community_id}.cast`
 export const FLAG_STATE_CHANGED_ADDRESS = `${ROOT}.${FLAGS}.flag.{community_id}.changed`
 export const DONATION_STATE_CHANGED_ADDRESS = `${ROOT}.${DONATIONS}.donation.{community_id}.changed`
+export const MODERATION_DECISION_RECORDED_ADDRESS = `${ROOT}.${MODERATOR}.decision.{community_id}.recorded`
 
 export interface ParsedSubject {
   service: string

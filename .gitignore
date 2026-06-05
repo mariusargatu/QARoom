@@ -47,3 +47,14 @@ reports/mutation/
 **/evomaster-generated/
 .evomaster/
 em.yaml
+
+# Python moderator-agent (Milestone 9). The uv lockfile IS committed (reproducible builds);
+# the venv and caches are not.
+.venv/
+**/__pycache__/
+*.pyc
+.pytest_cache/
+.ruff_cache/
+.pyright/
+# Promptfoo eval output is a disposable artifact folded into summary.json by promptfoo-results.ts.
+services/moderator-agent/evals/promptfoo-output.json

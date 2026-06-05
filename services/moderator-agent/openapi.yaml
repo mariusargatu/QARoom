@@ -1,0 +1,403 @@
+openapi: 3.1.0
+info:
+  title: moderator-agent
+  summary: QARoom LLM community moderator (Milestone 9). Proposes; does not enforce.
+  version: 0.0.0
+paths:
+  /health:
+    get:
+      summary: Health
+      operationId: health_health_get
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                additionalProperties:
+                  type: string
+                type: object
+                title: Response Health Health Get
+  /ready:
+    get:
+      summary: Ready
+      operationId: ready_ready_get
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema: {}
+  /system/state:
+    get:
+      summary: System State
+      operationId: system_state_system_state_get
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SystemStateModel'
+  /system/capabilities:
+    get:
+      summary: System Capabilities
+      operationId: system_capabilities_system_capabilities_get
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CapabilitiesModel'
+  /api/communities/{communityId}/moderation-decisions:
+    get:
+      summary: List Decisions
+      operationId: list_decisions_api_communities__communityId__moderation_decisions_get
+      parameters:
+      - name: communityId
+        in: path
+        required: true
+        schema:
+          type: string
+          title: Communityid
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ModerationDecisionList'
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
+  /api/communities/{communityId}/moderation-decisions/{decisionId}:
+    get:
+      summary: Get Decision
+      operationId: get_decision_api_communities__communityId__moderation_decisions__decisionId__get
+      parameters:
+      - name: communityId
+        in: path
+        required: true
+        schema:
+          type: string
+          title: Communityid
+      - name: decisionId
+        in: path
+        required: true
+        schema:
+          type: string
+          title: Decisionid
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema: {}
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
+  /api/communities/{communityId}/posts/{postId}/review:
+    post:
+      summary: Review Post
+      operationId: review_post_api_communities__communityId__posts__postId__review_post
+      parameters:
+      - name: communityId
+        in: path
+        required: true
+        schema:
+          type: string
+          title: Communityid
+      - name: postId
+        in: path
+        required: true
+        schema:
+          type: string
+          title: Postid
+      - name: Idempotency-Key
+        in: header
+        required: false
+        schema:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Idempotency-Key
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ReviewRequest'
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema: {}
+          links:
+            GetDecision:
+              operationId: getModerationDecision
+              parameters:
+                communityId: $request.path.communityId
+                decisionId: $response.body#/decision_id
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
+components:
+  schemas:
+    AsOfModel:
+      properties:
+        snapshot_id:
+          type: string
+          title: Snapshot Id
+        lamport:
+          type: integer
+          title: Lamport
+        wall_clock:
+          type: string
+          title: Wall Clock
+      type: object
+      required:
+      - snapshot_id
+      - lamport
+      - wall_clock
+      title: AsOfModel
+    CapabilitiesModel:
+      properties:
+        service:
+          type: string
+          title: Service
+        capabilities:
+          items:
+            $ref: '#/components/schemas/CapabilityModel'
+          type: array
+          title: Capabilities
+        as_of:
+          $ref: '#/components/schemas/AsOfModel'
+      type: object
+      required:
+      - service
+      - capabilities
+      - as_of
+      title: CapabilitiesModel
+    CapabilityModel:
+      properties:
+        operation_id:
+          type: string
+          title: Operation Id
+        method:
+          type: string
+          title: Method
+        path:
+          type: string
+          title: Path
+        summary:
+          type: string
+          title: Summary
+        description:
+          type: string
+          title: Description
+        mutating:
+          type: boolean
+          title: Mutating
+        input_schema:
+          additionalProperties: true
+          type: object
+          title: Input Schema
+      type: object
+      required:
+      - operation_id
+      - method
+      - path
+      - summary
+      - description
+      - mutating
+      - input_schema
+      title: CapabilityModel
+    HTTPValidationError:
+      properties:
+        detail:
+          items:
+            $ref: '#/components/schemas/ValidationError'
+          type: array
+          title: Detail
+      type: object
+      title: HTTPValidationError
+    ModerationDecision:
+      properties:
+        decision_id:
+          type: string
+          pattern: ^mdec_[0-9A-HJKMNP-TV-Z]{26}$
+          title: Decision Id
+        event_id:
+          type: string
+          pattern: ^evt_[0-9A-HJKMNP-TV-Z]{26}$
+          title: Event Id
+        post_id:
+          type: string
+          pattern: ^post_[0-9A-HJKMNP-TV-Z]{26}$
+          title: Post Id
+        community_id:
+          type: string
+          pattern: ^comm_[0-9A-HJKMNP-TV-Z]{26}$
+          title: Community Id
+        author_id:
+          type: string
+          pattern: ^user_[0-9A-HJKMNP-TV-Z]{26}$
+          title: Author Id
+        verdict:
+          type: string
+          enum:
+          - allow
+          - flag
+          title: Verdict
+        rule_id:
+          anyOf:
+          - type: string
+            maxLength: 100
+          - type: 'null'
+          title: Rule Id
+        reason:
+          type: string
+          maxLength: 2000
+          pattern: ^[^\x00]*$
+          title: Reason
+        confidence:
+          type: number
+          maximum: 1.0
+          minimum: 0.0
+          title: Confidence
+        model:
+          type: string
+          maxLength: 100
+          minLength: 1
+          title: Model
+        created_at:
+          type: string
+          pattern: ^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(?:\.\d+)?Z$
+          title: Created At
+      additionalProperties: false
+      type: object
+      required:
+      - decision_id
+      - event_id
+      - post_id
+      - community_id
+      - author_id
+      - verdict
+      - rule_id
+      - reason
+      - confidence
+      - model
+      - created_at
+      title: ModerationDecision
+      description: "The agent's own decision record \u2014 its store + REST API surface\
+        \ (ADR-0018)."
+    ModerationDecisionList:
+      properties:
+        decisions:
+          items:
+            $ref: '#/components/schemas/ModerationDecision'
+          type: array
+          title: Decisions
+        as_of:
+          $ref: '#/components/schemas/AsOfModel'
+      type: object
+      required:
+      - decisions
+      - as_of
+      title: ModerationDecisionList
+    ReviewRequest:
+      properties:
+        event_id:
+          type: string
+          pattern: ^evt_[0-9A-HJKMNP-TV-Z]{26}$
+          title: Event Id
+        post_id:
+          type: string
+          pattern: ^post_[0-9A-HJKMNP-TV-Z]{26}$
+          title: Post Id
+        author_id:
+          type: string
+          pattern: ^user_[0-9A-HJKMNP-TV-Z]{26}$
+          title: Author Id
+        title:
+          type: string
+          maxLength: 300
+          minLength: 1
+          pattern: ^[^\x00]*$
+          title: Title
+        body:
+          type: string
+          maxLength: 40000
+          pattern: ^[^\x00]*$
+          title: Body
+        created_at:
+          type: string
+          pattern: ^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(?:\.\d+)?Z$
+          title: Created At
+      additionalProperties: false
+      type: object
+      required:
+      - event_id
+      - post_id
+      - author_id
+      - title
+      - body
+      - created_at
+      title: ReviewRequest
+      description: "Body for the manual/demo/test review trigger (``POST \u2026/review``).\
+        \ Post fields come inline so a\ncaller can drive a review without content-service\
+        \ (the NATS path is the production one)."
+    SystemStateModel:
+      properties:
+        service:
+          type: string
+          title: Service
+        models:
+          additionalProperties: true
+          type: object
+          title: Models
+        as_of:
+          $ref: '#/components/schemas/AsOfModel'
+      type: object
+      required:
+      - service
+      - models
+      - as_of
+      title: SystemStateModel
+    ValidationError:
+      properties:
+        loc:
+          items:
+            anyOf:
+            - type: string
+            - type: integer
+          type: array
+          title: Location
+        msg:
+          type: string
+          title: Message
+        type:
+          type: string
+          title: Error Type
+        input:
+          title: Input
+        ctx:
+          type: object
+          title: Context
+      type: object
+      required:
+      - loc
+      - msg
+      - type
+      title: ValidationError
