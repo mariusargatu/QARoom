@@ -1,0 +1,42 @@
+# Experiment 08 — LitmusChaos HTTPChaos: the external webhook receiver returns 500 (so the
+# webhooks delivery worker must retry on its backoff and converge, not stall or drop).
+#
+# Litmus, not Chaos Mesh: HTTP-layer faults on k3d's flannel CNI are unreliable under Chaos Mesh
+# (ADR-0014), so the receiver fault uses Litmus's proxy-injection model against the dev sink.
+#
+# Hypothesis (docs/failure-modes.md#08-http-receiver-500-webhooks): under a receiver returning 500s,
+# every due delivery is retried on the documented exponential backoff and either eventually succeeds
+# (once the receiver heals) or terminates in DeadLettered after WEBHOOKS max attempts — never lost,
+# never double-applied beyond at-least-once, and the consumer/CRUD path stays responsive (delivery is
+# off the request and consume paths). The deterministic retry contract + the durable delivery ledger
+# are the mitigation.
+#
+# Deliberate-bug demo (docs/failure-modes.md#08): CHAOS_WEBHOOK_DROP_ON_FAIL=1 on webhooks-service →
+# a failed delivery is marked Delivered and never retried → under a down receiver deliveries stop
+# converging (the at-least-once property goes red). Restore → green.
+#
+# Setup: `pnpm chaos:install:litmus` (operator) + the pod-http-status-code ChaosExperiment CR and
+# litmus-admin RBAC in `qaroom`. Nightly tier. Replayable (Commitment 6).
+apiVersion: litmuschaos.io/v1alpha1
+kind: ChaosEngine
+metadata:
+  name: http-receiver-500
+  namespace: qaroom
+spec:
+  appinfo:
+    appns: qaroom
+    applabel: 'app=webhook-receiver'
+    appkind: deployment
+  engineState: active
+  chaosServiceAccount: litmus-admin
+  experiments:
+    - name: pod-http-status-code
+      spec:
+        components:
+          env:
+            - name: TARGET_SERVICE_PORT
+              value: '8080'
+            - name: STATUS_CODE
+              value: '500'
+            - name: TOTAL_CHAOS_DURATION
+              value: '120'

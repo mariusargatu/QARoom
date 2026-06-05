@@ -6,10 +6,13 @@
       "content_listCommunityFeed",
       "gateway_getDonation",
       "gateway_getPost",
+      "gateway_getWebhook",
       "gateway_listCommunityFeed",
       "gateway_listDonations",
       "gateway_listEvents",
       "gateway_listFlags",
+      "gateway_listWebhookDeliveries",
+      "gateway_listWebhooks",
       "gateway_resolveFlag",
       "qaroom_conventionsCheck"
     ]

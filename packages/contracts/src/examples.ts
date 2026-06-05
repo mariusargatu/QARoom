@@ -9,6 +9,9 @@ export const EXAMPLE_SESSION_ID = 'sess_01HZY0K7M3QF8VN2J5RX9TB4CG'
 export const EXAMPLE_KEY_ID = 'key_01HZY0K7M3QF8VN2J5RX9TB4CH'
 export const EXAMPLE_DONATION_ID = 'dntn_01HZY0K7M3QF8VN2J5RX9TB4CJ'
 export const EXAMPLE_TICKET_ID = 'tkt_01HZY0K7M3QF8VN2J5RX9TB4CK'
+export const EXAMPLE_WEBHOOK_SUBSCRIPTION_ID = 'whsub_01HZY0K7M3QF8VN2J5RX9TB4CM'
+export const EXAMPLE_WEBHOOK_DELIVERY_ID = 'whdel_01HZY0K7M3QF8VN2J5RX9TB4CN'
+export const EXAMPLE_WEBHOOK_URL = 'https://hooks.example.com/qaroom'
 export const EXAMPLE_FLAG_KEY = 'donations'
 export const EXAMPLE_HANDLE = 'ada'
 export const EXAMPLE_WHEN = '2026-05-28T12:00:00.000Z'
@@ -70,6 +73,32 @@ export const EXAMPLE_DONATION = {
   amount_cents: 2500,
   currency: 'USD',
   status: 'Captured',
+  created_at: EXAMPLE_WHEN,
+  updated_at: EXAMPLE_WHEN,
+}
+
+/** Example webhook subscription (an Active https endpoint) for OpenAPI examples + the pact. */
+export const EXAMPLE_WEBHOOK_SUBSCRIPTION = {
+  id: EXAMPLE_WEBHOOK_SUBSCRIPTION_ID,
+  community_id: EXAMPLE_COMMUNITY_ID,
+  url: EXAMPLE_WEBHOOK_URL,
+  event_types: ['post.created', 'donation.state.changed'],
+  status: 'Active',
+  created_at: EXAMPLE_WHEN,
+  updated_at: EXAMPLE_WHEN,
+}
+
+/** Example webhook delivery (a delivered post.created) for OpenAPI examples. */
+export const EXAMPLE_WEBHOOK_DELIVERY = {
+  id: EXAMPLE_WEBHOOK_DELIVERY_ID,
+  subscription_id: EXAMPLE_WEBHOOK_SUBSCRIPTION_ID,
+  community_id: EXAMPLE_COMMUNITY_ID,
+  event_id: 'evt_01HZY0K7M3QF8VN2J5RX9TB4CP',
+  event_type: 'post.created',
+  status: 'Delivered',
+  attempt: 1,
+  next_attempt_at: null,
+  last_status_code: 200,
   created_at: EXAMPLE_WHEN,
   updated_at: EXAMPLE_WHEN,
 }

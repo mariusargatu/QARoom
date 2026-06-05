@@ -22,6 +22,7 @@ function propArb(schema: unknown): fc.Arbitrary<unknown> {
   if (node.pattern?.startsWith('^post_')) return brandedArb('post')
   if (node.pattern?.startsWith('^comm_')) return brandedArb('comm')
   if (node.pattern?.startsWith('^dntn_')) return brandedArb('dntn')
+  if (node.pattern?.startsWith('^whsub_')) return brandedArb('whsub')
   if (node.pattern === '^[a-z][a-z0-9-]{1,63}$') {
     return fc.constantFrom('donations', 'new-feature', 'beta-mode')
   }

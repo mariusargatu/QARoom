@@ -16,6 +16,7 @@ import { registerProxyRoutes } from './proxy-routes'
 import { registerRateLimit } from './rate-limit'
 import { RateLimiter } from './rate-limiter'
 import { registerLimitsRoute } from './system'
+import { registerWebhooksRoutes } from './webhooks-routes'
 import { registerWsUpgrade } from './ws-upgrade'
 
 /**
@@ -47,6 +48,7 @@ export function buildGatewayApp(deps: GatewayDeps): FastifyInstance {
   registerProxyRoutes(app, routeDeps)
   if (deps.donations) registerDonationsRoutes(app, routeDeps, deps.donations)
   if (deps.flags) registerFlagsRoutes(app, routeDeps, deps.flags)
+  if (deps.webhooks) registerWebhooksRoutes(app, routeDeps, deps.webhooks)
   registerEventsRoute(app, routeDeps)
   registerWsUpgrade(app, routeDeps)
   registerSystemRoutes(app, {

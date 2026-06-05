@@ -1,6 +1,6 @@
 # AGENTS.md
 
-You are working on **QARoom**, a multi-tenant social platform built to demonstrate testing-driven architecture. This file is your quick reference. Read it first, then read the docs in `docs/` in numbered order. Per-package conventions live in each package's own `AGENTS.md` (loaded as you navigate there) — keep this root file lean. *Reviewed through Milestone 10.*
+You are working on **QARoom**, a multi-tenant social platform built to demonstrate testing-driven architecture. This file is your quick reference. Read it first, then read the docs in `docs/` in numbered order. Per-package conventions live in each package's own `AGENTS.md` (loaded as you navigate there) — keep this root file lean. *Reviewed through Milestone 11.*
 
 ## Commands
 
@@ -64,7 +64,7 @@ Reach for a repo-map or code graph only if cross-service scale ever makes agenti
 
 ## Repository layout
 
-- `services/` — one directory per microservice (`content`, `gateway`, `identity`, `flags`, `donations`, and the React/Vite `web` frontend as of Milestone 5; the Python `moderator-agent` as of Milestone 9). Each backend has its own `AGENTS.md`, `openapi.yaml`, `src/`, and `Dockerfile`; `web` adds an atomic-design component library (see `services/web/docs/atomic-structure.md`). `moderator-agent` is the one Python service — `uv`/FastAPI/LangGraph, not pnpm/tsx (ADR-0018). (The per-service `chart/` sketch was superseded in Milestone 3 by the shared `packages/helm-template/` + `deploy/<service>/values.yaml`.)
+- `services/` — one directory per microservice (`content`, `gateway`, `identity`, `flags`, `donations`, and the React/Vite `web` frontend as of Milestone 5; the Python `moderator-agent` as of Milestone 9; `webhooks` as of Milestone 11). Each backend has its own `AGENTS.md`, `openapi.yaml`, `src/`, and `Dockerfile`; `web` adds an atomic-design component library (see `services/web/docs/atomic-structure.md`). `moderator-agent` is the one Python service — `uv`/FastAPI/LangGraph, not pnpm/tsx (ADR-0018). (The per-service `chart/` sketch was superseded in Milestone 3 by the shared `packages/helm-template/` + `deploy/<service>/values.yaml`.)
 - `packages/` — shared code: `contracts/` (Zod, OpenAPI, XState — hand-authored machines in `contracts/src/machines/`, invoke-free + context-free), `otel/` (OpenTelemetry SDK, `tenant.id` span processor, propagation primitives — Milestone 3; M4's `messaging/` will build the NATS layer on it), `service-kit/`, `testing-utils/` (fixtures, generators, harness, `contract-crosscheck/`), `helm-template/` (the shared `qaroom-service` chart), and `qaroom-mcp/` (the cross-service MCP server as a first-class tested service — Milestone 10, ADR-0006; read-first tool surface generated from the operation registries, four typed gates).
 - `deploy/` — per-service Helm values (`<service>/values.yaml`) and `observability/` manifests (OTel Collector, Jaeger, Prometheus, Grafana). `Tiltfile` at the repo root drives the local cluster.
 - `docs/` — architecture, strategy, roadmap, conventions, ADRs. Read in numbered order.
@@ -123,7 +123,7 @@ QARoom is a *deliberately* multi-state system. When you need to find the truth a
 
 ## Milestone awareness
 
-QARoom is built across 10 milestones. The current milestone determines what services and capabilities exist.
+QARoom is built across 11 milestones. The current milestone determines what services and capabilities exist.
 
 | Milestone | New | What's not yet built |
 |---|---|---|
@@ -138,6 +138,7 @@ QARoom is built across 10 milestones. The current milestone determines what serv
 | 8 | k6 vs SLOs, Stryker mutation (docs/03 §11 modules), EvoMaster v6 black-box (M0 spike passed), Storybook 10 + Vitest 4 + Playwright CT + unified coverage, ADR-0016 | Agent |
 | 9 | moderator-agent (Python `uv`/FastAPI/LangGraph + pgvector), structured outputs (Pydantic↔Zod cross-language gate), Promptfoo golden-set evals (OpenAI), metamorphic paraphrase-invariance + deliberate prompt-bug demo, LangGraph reverse-conformance (xstate.transition spans), per-run cost guard, ADR-0017, ADR-0018 | — |
 | 10 | `packages/qaroom-mcp` — the cross-service MCP server as a first-class tested service (ADR-0006). Read-first tool surface (capabilities proxy + RFC 7807 tool errors + read resources + conventions oracle), both transports (in-memory + JSON-RPC/Fastify), four typed gates (manifest drift + breaking-change classifier, RFC 7807 property tests, determinism-trio golden transcript, property + metamorphic tool I/O cross-checked vs `/system/capabilities` + `openapi.yaml`). Movement 2 (agentic-CI demonstration) documented in `docs/agentic-ci-demo.md`. Mutating `callTool` deferred to a second pass. | — |
+| 11 | `services/webhooks` — outbound delivery edge (ADR-0019): pure consumer of all five NATS channels, subscription CRUD (gateway-proxied), durable delivery ledger + relay-shaped worker, hand-authored webhook-delivery XState machine + reverse-conformance + MBT, deterministic capped-jittered retry contract, HMAC-SHA256 signing (timestamp bound in), SSRF guard, at-least-once + receiver dedup. Six env-toggled deliberate-bug demos. | — |
 
 Always check the current milestone before introducing infrastructure that doesn't yet exist. The roadmap in `docs/04-roadmap.md` has full exit criteria per milestone.
 

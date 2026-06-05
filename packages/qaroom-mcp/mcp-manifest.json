@@ -103,6 +103,34 @@
       }
     },
     {
+      "name": "gateway_getWebhook",
+      "service": "gateway",
+      "operation_id": "getWebhook",
+      "method": "GET",
+      "path": "/api/communities/{communityId}/webhook-subscriptions/{subscriptionId}",
+      "mutating": false,
+      "title": "Get a single webhook subscription (proxied)",
+      "description": "Returns a subscription by id within a community (the secret is never returned).",
+      "input_schema": {
+        "type": "object",
+        "properties": {
+          "communityId": {
+            "type": "string",
+            "pattern": "^comm_[0-9A-HJKMNP-TV-Z]{26}$"
+          },
+          "subscriptionId": {
+            "type": "string",
+            "pattern": "^whsub_[0-9A-HJKMNP-TV-Z]{26}$"
+          }
+        },
+        "required": [
+          "communityId",
+          "subscriptionId"
+        ],
+        "additionalProperties": false
+      }
+    },
+    {
       "name": "gateway_listCommunityFeed",
       "service": "gateway",
       "operation_id": "listCommunityFeed",
@@ -184,6 +212,57 @@
       "mutating": false,
       "title": "List all flags for a community (proxied)",
       "description": "Returns every flag resolved for the community, with a read envelope, via flags-service.",
+      "input_schema": {
+        "type": "object",
+        "properties": {
+          "communityId": {
+            "type": "string",
+            "pattern": "^comm_[0-9A-HJKMNP-TV-Z]{26}$"
+          }
+        },
+        "required": [
+          "communityId"
+        ],
+        "additionalProperties": false
+      }
+    },
+    {
+      "name": "gateway_listWebhookDeliveries",
+      "service": "gateway",
+      "operation_id": "listWebhookDeliveries",
+      "method": "GET",
+      "path": "/api/communities/{communityId}/webhook-subscriptions/{subscriptionId}/deliveries",
+      "mutating": false,
+      "title": "List a subscription’s deliveries (proxied)",
+      "description": "Returns the delivery ledger for a subscription — the observable retry contract.",
+      "input_schema": {
+        "type": "object",
+        "properties": {
+          "communityId": {
+            "type": "string",
+            "pattern": "^comm_[0-9A-HJKMNP-TV-Z]{26}$"
+          },
+          "subscriptionId": {
+            "type": "string",
+            "pattern": "^whsub_[0-9A-HJKMNP-TV-Z]{26}$"
+          }
+        },
+        "required": [
+          "communityId",
+          "subscriptionId"
+        ],
+        "additionalProperties": false
+      }
+    },
+    {
+      "name": "gateway_listWebhooks",
+      "service": "gateway",
+      "operation_id": "listWebhooks",
+      "method": "GET",
+      "path": "/api/communities/{communityId}/webhook-subscriptions",
+      "mutating": false,
+      "title": "List a community’s webhook subscriptions (proxied)",
+      "description": "Returns every webhook subscription in a community, via webhooks-service.",
       "input_schema": {
         "type": "object",
         "properties": {

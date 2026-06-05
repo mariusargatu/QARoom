@@ -1,0 +1,99 @@
+import { WEBHOOK_RETRY_POLICY } from '@qaroom/contracts'
+import { rowsOf } from '@qaroom/messaging'
+import { sql } from 'drizzle-orm'
+import fc from 'fast-check'
+import { afterEach, describe, expect, it } from 'vitest'
+import type { SendResult } from '../src/sender'
+import {
+  drainToQuiescence,
+  enqueueDelivery,
+  makeWorker,
+  type RecordingSender,
+  scriptedSender,
+  seedSubscription,
+  setupWebhooksTest,
+} from '../tests/harness'
+
+const FAIL: SendResult = { kind: 'http_error', status: 500 }
+const OK: SendResult = { kind: 'success', status: 200 }
+
+async function deliveryStatus(ctx: Awaited<ReturnType<typeof setupWebhooksTest>>): Promise<string> {
+  const rows = rowsOf<{ status: string }>(
+    await ctx.db.execute(sql`SELECT status FROM webhook_deliveries LIMIT 1`),
+  )
+  return rows[0]?.status ?? 'missing'
+}
+
+/**
+ * The at-least-once delivery guarantee. Over generated receiver-failure sequences, every event
+ * reaches a terminal state (Delivered or DeadLettered) — never silently lost — and the final
+ * status is consistent with what the receiver actually returned.
+ */
+describe('at-least-once delivery guarantee', () => {
+  it('every delivery reaches a terminal state and Delivered implies the receiver returned 2xx', async () => {
+    await fc.assert(
+      fc.asyncProperty(fc.integer({ min: 0, max: 12 }), async (failuresBeforeSuccess) => {
+        const ctx = await setupWebhooksTest()
+        const sub = await seedSubscription(ctx)
+        await enqueueDelivery(ctx, { subscriptionId: sub.id })
+        const sender: RecordingSender = scriptedSender([
+          ...Array.from({ length: failuresBeforeSuccess }, () => FAIL),
+          OK,
+        ])
+        const worker = makeWorker(ctx, sender)
+        await drainToQuiescence(ctx, worker)
+
+        const status = await deliveryStatus(ctx)
+        const calls = sender.calls.length
+        await ctx.close()
+
+        // A delivery is never stuck mid-flight.
+        expect(['Delivered', 'DeadLettered']).toContain(status)
+        // Within budget → delivered after exactly K+1 POSTs; else dead-lettered after max_attempts.
+        const withinBudget = failuresBeforeSuccess < WEBHOOK_RETRY_POLICY.max_attempts
+        expect(status).toBe(withinBudget ? 'Delivered' : 'DeadLettered')
+        expect(calls).toBe(
+          withinBudget ? failuresBeforeSuccess + 1 : WEBHOOK_RETRY_POLICY.max_attempts,
+        )
+      }),
+      { numRuns: 25 },
+    )
+  })
+
+  it('a receiver that recovers after a transient outage still gets delivered', async () => {
+    const ctx = await setupWebhooksTest()
+    const sub = await seedSubscription(ctx)
+    await enqueueDelivery(ctx, { subscriptionId: sub.id })
+    const sender = scriptedSender([{ kind: 'timeout' }, { kind: 'network_error' }, OK])
+    const worker = makeWorker(ctx, sender)
+    await drainToQuiescence(ctx, worker)
+    expect(await deliveryStatus(ctx)).toBe('Delivered')
+    expect(sender.calls.length).toBe(3)
+    await ctx.close()
+  })
+})
+
+// Deliberate-bug demo: CHAOS_WEBHOOK_DROP_ON_FAIL marks a FAILED send as Delivered, silently
+// dropping the event. The guarantee then breaks: the delivery is "Delivered" after a single
+// failing POST, never actually reaching the receiver.
+describe('CHAOS_WEBHOOK_DROP_ON_FAIL deliberate-bug demo', () => {
+  afterEach(() => {
+    delete process.env.CHAOS_WEBHOOK_DROP_ON_FAIL
+  })
+
+  it('drops a failed delivery instead of retrying (the at-least-once guarantee is violated)', async () => {
+    process.env.CHAOS_WEBHOOK_DROP_ON_FAIL = '1'
+    const ctx = await setupWebhooksTest()
+    const sub = await seedSubscription(ctx)
+    await enqueueDelivery(ctx, { subscriptionId: sub.id })
+    // The receiver would succeed on the 2nd attempt — but the bug never retries.
+    const sender = scriptedSender([FAIL, OK])
+    const worker = makeWorker(ctx, sender)
+    await drainToQuiescence(ctx, worker)
+
+    // Marked Delivered after a single FAILING POST — the event never reached the receiver.
+    expect(await deliveryStatus(ctx)).toBe('Delivered')
+    expect(sender.calls.length).toBe(1)
+    await ctx.close()
+  })
+})

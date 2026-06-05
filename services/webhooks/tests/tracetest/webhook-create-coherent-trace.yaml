@@ -1,0 +1,31 @@
+# Tracetest assertion for the webhooks sync surface (Milestone 11). Registering a subscription must
+# produce a coherent trace: the HTTP handler returns 201 and the DB write carries tenant.id.
+#
+# The DELIVERY side — the `xstate.transition` spans the worker emits as a delivery moves through
+# Pending → Delivering → Delivered/DeadLettered — is verified by reverse-conformance against the
+# hand-authored machine in `services/webhooks/tests/reverse-conformance.spec.ts` (every PR, no
+# cluster). A live trace-poll Tracetest of the worker-driven async flow is a documented follow-up:
+# the transitions are async (after a source event), so they do not appear on this CRUD trigger's
+# trace. See ADR-0019 and ADR-0012.
+type: Test
+spec:
+  id: webhook-create-coherent-trace
+  name: registering a webhook spans sync HTTP and the DB write coherently
+  trigger:
+    type: http
+    httpRequest:
+      method: POST
+      url: http://webhooks.qaroom.svc.cluster.local/api/communities/comm_00000000000000000000000000/webhook-subscriptions
+      headers:
+        - key: Content-Type
+          value: application/json
+        - key: Idempotency-Key
+          value: tt-${var:runId}
+      body: '{"url":"https://hooks.example.com/qaroom","event_types":["post.created"]}'
+  specs:
+    - selector: span[name = "POST"]
+      assertions:
+        - attr:http.status_code = 201
+    - selector: span[name = "db.webhooks.createSubscription"]
+      assertions:
+        - attr:tenant.id = "comm_00000000000000000000000000"

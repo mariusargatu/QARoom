@@ -17,6 +17,7 @@ services = [
     ('gateway', 8080),
     ('flags', 8083),
     ('donations', 8084),
+    ('webhooks', 8087),
 ]
 
 for name, port in services:
@@ -92,6 +93,7 @@ k8s_yaml([
     'deploy/observability/microcks.yaml',
     'deploy/observability/gc-dedup-cronjob.yaml',
     'deploy/observability/tracetest-import.yaml',
+    'deploy/observability/webhook-receiver.yaml',
 ])
 
 # Traefik Ingress — the whole platform at http://*.localhost, no port-forward (the cluster must be
@@ -106,7 +108,10 @@ k8s_resource('content', resource_deps=['content-pg', 'qaroom-nats'], labels=['se
 k8s_resource('identity', resource_deps=['identity-pg'], labels=['services'])
 k8s_resource('flags', resource_deps=['flags-pg', 'qaroom-nats'], labels=['services'])
 k8s_resource('donations', resource_deps=['donations-pg', 'qaroom-nats', 'qaroom-microcks'], labels=['services'])
-k8s_resource('gateway', port_forwards='8080:8080', resource_deps=['content', 'identity', 'donations', 'flags', 'qaroom-nats'], labels=['services'])
+# webhooks (Milestone 11): consumes all five event channels, delivers to external subscribers.
+# Its delivery target in dev is the in-cluster echo receiver. port_forward 8087 (8085 is web).
+k8s_resource('webhooks', port_forwards='8087:8087', resource_deps=['webhooks-pg', 'qaroom-nats'], labels=['services'])
+k8s_resource('gateway', port_forwards='8080:8080', resource_deps=['content', 'identity', 'donations', 'flags', 'webhooks', 'qaroom-nats'], labels=['services'])
 k8s_resource('web', port_forwards='8085:8085', resource_deps=['gateway'], labels=['services'])
 # Python moderator: its own pgvector Postgres + NATS (it subscribes to post.created).
 k8s_resource('moderator-agent', port_forwards='8086:8086', resource_deps=['moderator-agent-pg', 'qaroom-nats'], labels=['services'])
@@ -131,4 +136,7 @@ k8s_resource('qaroom-tracetest-import', resource_deps=['qaroom-tracetest'], labe
 # Service virtualization for the payment provider (Milestone 5).
 k8s_resource('qaroom-microcks', port_forwards='8888:8080', labels=['observability'])
 
-print("QARoom on k3d — web :8085 · gateway :8080 · moderator :8086 · Jaeger :16686 · Grafana :3000 · Prometheus :9090 · NATS :4222 · Tracetest :11633 · Microcks :8888")
+# Dev webhook sink (Milestone 11): the echo endpoint webhooks-service delivers to.
+k8s_resource('webhook-receiver', labels=['observability'])
+
+print("QARoom on k3d — web :8085 · gateway :8080 · webhooks :8087 · moderator :8086 · Jaeger :16686 · Grafana :3000 · Prometheus :9090 · NATS :4222 · Tracetest :11633 · Microcks :8888")

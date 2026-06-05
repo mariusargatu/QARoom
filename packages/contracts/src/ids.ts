@@ -78,6 +78,22 @@ export const ModerationDecisionId = brandedId('mdec', 'ModerationDecisionId')
 export type ModerationDecisionId = z.infer<typeof ModerationDecisionId>
 
 /**
+ * Webhook subscription identifier (`whsub_<ulid>`, Milestone 11). Minted by webhooks-service
+ * when a community registers an outbound endpoint. Branded so a subscription reference cannot
+ * be confused with the deliveries it spawns or the community that owns it.
+ */
+export const WebhookSubscriptionId = brandedId('whsub', 'WebhookSubscriptionId')
+export type WebhookSubscriptionId = z.infer<typeof WebhookSubscriptionId>
+
+/**
+ * Webhook delivery identifier (`whdel_<ulid>`, Milestone 11). One per (subscription × source
+ * event). Stable across retries, so it doubles as the `X-QARoom-Delivery-Id` header a receiver
+ * dedupes on — the at-least-once → exactly-once-effects key for the outbound HTTP boundary.
+ */
+export const WebhookDeliveryId = brandedId('whdel', 'WebhookDeliveryId')
+export type WebhookDeliveryId = z.infer<typeof WebhookDeliveryId>
+
+/**
  * The well-known default community ("general"), seeded by the Milestone 2 migration
  * and the backfill target for Milestone 0 posts. It is a RESERVED branded id, not the
  * literal `comm_general` — that string is not 26 Crockford chars, so it cannot satisfy
@@ -111,4 +127,6 @@ export const ID_PREFIXES = {
   KeyId: 'key',
   EventId: 'evt',
   ModerationDecisionId: 'mdec',
+  WebhookSubscriptionId: 'whsub',
+  WebhookDeliveryId: 'whdel',
 } as const

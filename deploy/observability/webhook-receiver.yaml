@@ -1,0 +1,40 @@
+# Dev/CI webhook sink (Milestone 11). An echo server the webhooks-service can deliver to when a
+# subscription points at http(s)://webhook-receiver.qaroom.svc.cluster.local. It logs each request
+# (headers incl. X-QARoom-Signature, body) so a delivery can be eyeballed end-to-end. Not part of
+# the product — it stands in for an external subscriber's endpoint during local development.
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: webhook-receiver
+  namespace: qaroom
+  labels: { app: webhook-receiver }
+spec:
+  replicas: 1
+  selector:
+    matchLabels: { app: webhook-receiver }
+  template:
+    metadata:
+      labels: { app: webhook-receiver }
+    spec:
+      containers:
+        - name: echo
+          image: mendhak/http-https-echo:35
+          env:
+            - { name: HTTP_PORT, value: "8080" }
+          ports:
+            - containerPort: 8080
+          readinessProbe:
+            httpGet: { path: /, port: 8080 }
+            initialDelaySeconds: 2
+            periodSeconds: 5
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: webhook-receiver
+  namespace: qaroom
+spec:
+  selector: { app: webhook-receiver }
+  ports:
+    - port: 80
+      targetPort: 8080

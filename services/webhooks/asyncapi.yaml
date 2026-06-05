@@ -1,0 +1,367 @@
+asyncapi: 3.0.0
+info:
+  title: QARoom webhooks-service events
+  version: 0.0.0
+  description: Events webhooks-service consumes from NATS JetStream to deliver to subscribers (Milestone 11).
+servers:
+  nats:
+    host: nats://localhost:4222
+    protocol: nats
+    description: Local JetStream broker.
+channels:
+  postCreated:
+    address: qaroom.content.posts.{community_id}.created
+    parameters:
+      community_id:
+        description: The community (tenant) id at the fixed third subject position.
+    messages:
+      PostCreatedEvent:
+        $ref: "#/components/messages/PostCreatedEvent"
+  voteCast:
+    address: qaroom.content.votes.{community_id}.cast
+    parameters:
+      community_id:
+        description: The community (tenant) id at the fixed third subject position.
+    messages:
+      VoteCastEvent:
+        $ref: "#/components/messages/VoteCastEvent"
+  flagStateChanged:
+    address: qaroom.flags.flag.{community_id}.changed
+    parameters:
+      community_id:
+        description: The community (tenant) id at the fixed third subject position.
+    messages:
+      FlagStateChangedEvent:
+        $ref: "#/components/messages/FlagStateChangedEvent"
+  donationStateChanged:
+    address: qaroom.donations.donation.{community_id}.changed
+    parameters:
+      community_id:
+        description: The community (tenant) id at the fixed third subject position.
+    messages:
+      DonationStateChangedEvent:
+        $ref: "#/components/messages/DonationStateChangedEvent"
+  moderationDecisionRecorded:
+    address: qaroom.moderator.decision.{community_id}.recorded
+    parameters:
+      community_id:
+        description: The community (tenant) id at the fixed third subject position.
+    messages:
+      ModerationDecisionRecordedEvent:
+        $ref: "#/components/messages/ModerationDecisionRecordedEvent"
+operations:
+  consumePostCreated:
+    action: receive
+    channel:
+      $ref: "#/channels/postCreated"
+    summary: A post was created (fanned out to subscribers)
+    description: Consumed and delivered to subscriptions that include post.created.
+    messages:
+      - $ref: "#/channels/postCreated/messages/PostCreatedEvent"
+  consumeVoteCast:
+    action: receive
+    channel:
+      $ref: "#/channels/voteCast"
+    summary: A vote was cast (fanned out to subscribers)
+    description: Consumed and delivered to subscriptions that include vote.cast.
+    messages:
+      - $ref: "#/channels/voteCast/messages/VoteCastEvent"
+  consumeFlagStateChanged:
+    action: receive
+    channel:
+      $ref: "#/channels/flagStateChanged"
+    summary: A flag rollout transitioned (fanned out to subscribers)
+    description: Consumed and delivered to subscriptions that include flag.state.changed.
+    messages:
+      - $ref: "#/channels/flagStateChanged/messages/FlagStateChangedEvent"
+  consumeDonationStateChanged:
+    action: receive
+    channel:
+      $ref: "#/channels/donationStateChanged"
+    summary: A donation status changed (fanned out to subscribers)
+    description: Consumed and delivered to subscriptions that include donation.state.changed.
+    messages:
+      - $ref: "#/channels/donationStateChanged/messages/DonationStateChangedEvent"
+  consumeModerationDecisionRecorded:
+    action: receive
+    channel:
+      $ref: "#/channels/moderationDecisionRecorded"
+    summary: A moderation decision was recorded (fanned out to subscribers)
+    description: Consumed and delivered to subscriptions that include moderation.decision.recorded.
+    messages:
+      - $ref: "#/channels/moderationDecisionRecorded/messages/ModerationDecisionRecordedEvent"
+components:
+  messages:
+    PostCreatedEvent:
+      name: PostCreatedEvent
+      payload:
+        $ref: "#/components/schemas/PostCreatedEvent"
+    VoteCastEvent:
+      name: VoteCastEvent
+      payload:
+        $ref: "#/components/schemas/VoteCastEvent"
+    FlagStateChangedEvent:
+      name: FlagStateChangedEvent
+      payload:
+        $ref: "#/components/schemas/FlagStateChangedEvent"
+    DonationStateChangedEvent:
+      name: DonationStateChangedEvent
+      payload:
+        $ref: "#/components/schemas/DonationStateChangedEvent"
+    ModerationDecisionRecordedEvent:
+      name: ModerationDecisionRecordedEvent
+      payload:
+        $ref: "#/components/schemas/ModerationDecisionRecordedEvent"
+  schemas:
+    CommunityId:
+      type: string
+      pattern: ^comm_[0-9A-HJKMNP-TV-Z]{26}$
+      description: "Branded identifier: comm_<ULID>"
+    DonationId:
+      type: string
+      pattern: ^dntn_[0-9A-HJKMNP-TV-Z]{26}$
+      description: "Branded identifier: dntn_<ULID>"
+    DonationStateChangedEvent:
+      type: object
+      properties:
+        event_id:
+          $ref: "#/components/schemas/EventId"
+        community_id:
+          $ref: "#/components/schemas/CommunityId"
+        donation_id:
+          $ref: "#/components/schemas/DonationId"
+        donor_id:
+          $ref: "#/components/schemas/UserId"
+        amount_cents:
+          type: integer
+          minimum: 0
+          exclusiveMinimum: true
+          maximum: 9007199254740991
+        currency:
+          type: string
+          pattern: ^[A-Z]{3}$
+        status:
+          $ref: "#/components/schemas/DonationStatus"
+        occurred_at:
+          type: string
+          format: date-time
+          pattern: ^(?:(?:\d\d[2468][048]|\d\d[13579][26]|\d\d0[48]|[02468][048]00|[13579][26]00)-02-29|\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\d|30)|(?:02)-(?:0[1-9]|1\d|2[0-8])))T(?:(?:[01]\d|2[0-3]):[0-5]\d(?::[0-5]\d(?:\.\d+)?)?(?:Z))$
+      required:
+        - event_id
+        - community_id
+        - donation_id
+        - donor_id
+        - amount_cents
+        - currency
+        - status
+        - occurred_at
+      additionalProperties: false
+      description: Emitted when a donation's status changes.
+    DonationStatus:
+      type: string
+      enum:
+        - Pending
+        - Authorized
+        - Captured
+        - Failed
+        - Refunded
+      description: Lifecycle status of a donation.
+    EventId:
+      type: string
+      pattern: ^evt_[0-9A-HJKMNP-TV-Z]{26}$
+      description: "Branded identifier: evt_<ULID>"
+    FlagKey:
+      type: string
+      pattern: ^[a-z][a-z0-9-]{1,63}$
+      description: A lowercase, hyphen-separated feature-flag key.
+    FlagState:
+      type: string
+      enum:
+        - Off
+        - Enabling
+        - Canary
+        - Enabled
+        - Disabling
+      description: Current state of a feature-flag rollout.
+    FlagStateChangedEvent:
+      type: object
+      properties:
+        event_id:
+          $ref: "#/components/schemas/EventId"
+        community_id:
+          $ref: "#/components/schemas/CommunityId"
+        flag_key:
+          $ref: "#/components/schemas/FlagKey"
+        from_state:
+          $ref: "#/components/schemas/FlagState"
+        to_state:
+          $ref: "#/components/schemas/FlagState"
+        rollout_event:
+          $ref: "#/components/schemas/RolloutEventName"
+        enabled:
+          type: boolean
+        occurred_at:
+          type: string
+          format: date-time
+          pattern: ^(?:(?:\d\d[2468][048]|\d\d[13579][26]|\d\d0[48]|[02468][048]00|[13579][26]00)-02-29|\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\d|30)|(?:02)-(?:0[1-9]|1\d|2[0-8])))T(?:(?:[01]\d|2[0-3]):[0-5]\d(?::[0-5]\d(?:\.\d+)?)?(?:Z))$
+      required:
+        - event_id
+        - community_id
+        - flag_key
+        - from_state
+        - to_state
+        - rollout_event
+        - enabled
+        - occurred_at
+      additionalProperties: false
+      description: Emitted when a flag rollout transitions.
+    ModerationDecisionId:
+      type: string
+      pattern: ^mdec_[0-9A-HJKMNP-TV-Z]{26}$
+      description: "Branded identifier: mdec_<ULID>"
+    ModerationDecisionRecordedEvent:
+      type: object
+      properties:
+        event_id:
+          $ref: "#/components/schemas/EventId"
+        decision_id:
+          $ref: "#/components/schemas/ModerationDecisionId"
+        post_id:
+          $ref: "#/components/schemas/PostId"
+        community_id:
+          $ref: "#/components/schemas/CommunityId"
+        author_id:
+          $ref: "#/components/schemas/UserId"
+        verdict:
+          $ref: "#/components/schemas/ModerationVerdict"
+        rule_id:
+          nullable: true
+          type: string
+          maxLength: 100
+        reason:
+          type: string
+          maxLength: 2000
+          pattern: ^[^\x00]*$
+        confidence:
+          type: number
+          minimum: 0
+          maximum: 1
+        model:
+          type: string
+          minLength: 1
+          maxLength: 100
+        occurred_at:
+          type: string
+          format: date-time
+          pattern: ^(?:(?:\d\d[2468][048]|\d\d[13579][26]|\d\d0[48]|[02468][048]00|[13579][26]00)-02-29|\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\d|30)|(?:02)-(?:0[1-9]|1\d|2[0-8])))T(?:(?:[01]\d|2[0-3]):[0-5]\d(?::[0-5]\d(?:\.\d+)?)?(?:Z))$
+      required:
+        - event_id
+        - decision_id
+        - post_id
+        - community_id
+        - author_id
+        - verdict
+        - rule_id
+        - reason
+        - confidence
+        - model
+        - occurred_at
+      additionalProperties: false
+      description: Emitted when the moderator-agent records a decision for a post.
+    ModerationVerdict:
+      type: string
+      enum:
+        - allow
+        - flag
+    PostCreatedEvent:
+      type: object
+      properties:
+        event_id:
+          $ref: "#/components/schemas/EventId"
+        post_id:
+          $ref: "#/components/schemas/PostId"
+        community_id:
+          $ref: "#/components/schemas/CommunityId"
+        author_id:
+          $ref: "#/components/schemas/UserId"
+        title:
+          type: string
+          minLength: 1
+          maxLength: 300
+          pattern: ^[^\x00]*$
+        body:
+          type: string
+          maxLength: 40000
+          pattern: ^[^\x00]*$
+        created_at:
+          type: string
+          format: date-time
+          pattern: ^(?:(?:\d\d[2468][048]|\d\d[13579][26]|\d\d0[48]|[02468][048]00|[13579][26]00)-02-29|\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\d|30)|(?:02)-(?:0[1-9]|1\d|2[0-8])))T(?:(?:[01]\d|2[0-3]):[0-5]\d(?::[0-5]\d(?:\.\d+)?)?(?:Z))$
+      required:
+        - event_id
+        - post_id
+        - community_id
+        - author_id
+        - title
+        - body
+        - created_at
+      additionalProperties: false
+      description: Emitted when a post is created.
+    PostId:
+      type: string
+      pattern: ^post_[0-9A-HJKMNP-TV-Z]{26}$
+      description: "Branded identifier: post_<ULID>"
+    RolloutEventName:
+      type: string
+      enum:
+        - EnableRequested
+        - CanaryConfirmed
+        - RolloutCompleted
+        - DisableRequested
+        - DisableCompleted
+        - RolloutAborted
+      description: A rollout state-machine event a client may request.
+    UserId:
+      type: string
+      pattern: ^user_[0-9A-HJKMNP-TV-Z]{26}$
+      description: "Branded identifier: user_<ULID>"
+    VoteCastEvent:
+      type: object
+      properties:
+        event_id:
+          $ref: "#/components/schemas/EventId"
+        post_id:
+          $ref: "#/components/schemas/PostId"
+        community_id:
+          $ref: "#/components/schemas/CommunityId"
+        voter_id:
+          $ref: "#/components/schemas/UserId"
+        value:
+          $ref: "#/components/schemas/VoteValue"
+        score:
+          type: integer
+          minimum: -9007199254740991
+          maximum: 9007199254740991
+        cast_at:
+          type: string
+          format: date-time
+          pattern: ^(?:(?:\d\d[2468][048]|\d\d[13579][26]|\d\d0[48]|[02468][048]00|[13579][26]00)-02-29|\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\d|30)|(?:02)-(?:0[1-9]|1\d|2[0-8])))T(?:(?:[01]\d|2[0-3]):[0-5]\d(?::[0-5]\d(?:\.\d+)?)?(?:Z))$
+      required:
+        - event_id
+        - post_id
+        - community_id
+        - voter_id
+        - value
+        - score
+        - cast_at
+      additionalProperties: false
+      description: Emitted when a vote is cast on a post.
+    VoteValue:
+      anyOf:
+        - type: number
+          enum:
+            - 1
+        - type: number
+          enum:
+            - -1
+      description: "Vote direction: 1 (up) or -1 (down)."

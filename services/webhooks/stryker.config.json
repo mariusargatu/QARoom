@@ -1,0 +1,17 @@
+{
+  "$schema": "./node_modules/@stryker-mutator/core/schema/stryker-schema.json",
+  "governance_comment": "Critical-modules list is GOVERNED in docs/03-testing-strategy.md §11 — adding a module is an ADR, removing requires a retrospective.",
+  "packageManager": "pnpm",
+  "testRunner": "vitest",
+  "plugins": ["@stryker-mutator/vitest-runner"],
+  "vitest": { "configFile": "vitest.stryker.config.ts" },
+  "mutate": ["src/worker.ts"],
+  "ignoreStatic": true,
+  "inPlace": true,
+  "tempDirName": ".stryker-tmp",
+  "timeoutMS": 30000,
+  "reporters": ["json", "clear-text"],
+  "break_comment": "worker.ts drives the deterministic retry/backoff + delivery state machine — the logic mutation testing defends. The fan-out consumer + NATS wiring are covered only by Testcontainers specs (excluded from the fast Stryker suite), so those mutants are NoCoverage here.",
+  "jsonReporter": { "fileName": "../../test-results/stryker-webhooks.json" },
+  "thresholds": { "high": 80, "low": 50, "break": 60 }
+}

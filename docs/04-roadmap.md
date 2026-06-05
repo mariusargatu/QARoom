@@ -412,45 +412,109 @@ Milestones are sized to be demonstrable, not to a fixed schedule. A milestone is
 Milestones beyond 9 are deliberately uncommitted. Candidate follow-ups, in rough order of interest:
 
 - **Milestone 10: The tested MCP server, and the agentic CI/CD demonstration.** Two movements. (1) A single **cross-service MCP server** (`packages/qaroom-mcp`) realizing the `/system/capabilities` seam as a *first-class tested service* — tool manifest drift-gated by the same Zod→OpenAPI→`oasdiff` pipeline as the services, RFC 7807 tool errors, determinism-trio golden transcripts, and property/metamorphic tool I/O. Read-first surface (capabilities proxy, state/limits/test-results resources, conventions oracle); mutating tools a second pass. The four gates and rejected alternatives are recorded in [ADR-0006](adr/0006-mcp-as-tested-service.md). (2) 10 parallel Claude Code subagents working on goals, each in its own ephemeral namespace, consuming that tested tool surface and the frozen `test-results/summary.json` schema as substrate. The server core depends only on Milestone-1 surfaces, so it *could* be pulled forward — but on dev-velocity grounds it does not yet earn its place (ADR-0006), which is why it sits here.
-- **Milestone 11: Webhooks** with their unique testing problems (delivery guarantees, retry contracts).
-- **Milestone 12: Continuous testing in production** using the feature flag system as the canary substrate.
-- **Milestone 13: Visual regression and accessibility testing** for the frontend.
-- **Milestone 14: Deterministic simulation testing (tier 1+2, in-house).** Complete the determinism story with a `ModelClient` seam (a 4th injected dependency) plus a build-your-own seeded in-process simulator that explores async message interleavings to *discover* the dedup / single-writer / tenant-isolation bugs Milestone 7 can only *replay* — and DST the Milestone 9 agent harness (scripted model, injected faults). Tier-3 (the Antithesis hypervisor) is documented as the ceiling, not built. Expanded as a candidate spec below; hard-depends on the Milestone 4 messaging transport being injectable.
+- **Milestone 11: Webhooks** with their unique testing problems (delivery guarantees, retry contracts). **Built** — full spec below; [ADR-0019](adr/0019-webhooks-as-a-tested-delivery-edge.md).
+- **Milestone 12: Moderator v2 — retrieval-grounded RAG + the eval / red-team stack.** Re-scope the Milestone 9 moderator from a prompt-baked classifier into a genuine retrieval-grounded agent (policy corpus, citation-bearing verdict, precedent consistency, abstain/escalate) and realign LLM testing: **DeepEval** (RAG + agentic + custom metrics), **DeepTeam** (OWASP red-team), **Promptfoo dropped** (OpenAI-acquired, March 2026). RAGAS demonstrated via DeepEval's wrapper, not adopted as a separate framework. Expanded as a candidate spec below; [ADR-0020](adr/0020-moderator-rag-and-eval-stack.md).
+- **Milestone 13: Continuous testing in production** — feature flags as the canary substrate. **Deferred** — parked, not currently planned.
+- **Milestone 14: Visual regression and accessibility testing** — for the frontend. **Deferred** — parked, not currently planned.
 
-These are future series, not deferred milestones. The v1 commitment ends with Milestone 9.
+These are future series. The v1 commitment ends with Milestone 9.
 
 ---
 
-## Milestone 14 (candidate) — Deterministic simulation testing
+## Milestone 11 — Webhooks
 
-Post-v1, uncommitted, additive. The scope is recorded here because the decision has been made to build **tier 1 + tier 2 in-house** (and to *skip* tier 3, the proprietary hypervisor) for demonstration value. No superseding ADR is required: ADR-0001 pre-rejected only *full* Antithesis-style DST; the scoped tiers are exactly the "principles without the multi-year investment" it left open. Tier reference: tier 1 = determinism injection; tier 2 = a framework-level simulator you build; tier 3 = a deterministic hypervisor (Antithesis) you buy.
+Post-v1, additive. The architecture left a "designed-for-later" seam for webhooks
+(docs/02-architecture.md); this milestone realizes it. No superseding ADR for ADR-0001 is needed —
+webhooks consume the existing event seam and add no new commitment ([ADR-0019](adr/0019-webhooks-as-a-tested-delivery-edge.md)).
 
-**Goal.** Move from *reproducing known* bugs (Milestone 7 scoped replay) to *discovering unknown* ones by exploring interleavings — on a TypeScript microservice stack *and* an LLM agent harness. The ecosystem (madsim/Rust, VOPR/Zig, FoundationDB/C++) has no JS/TS entry; building the scoped version is the demonstration.
+**Goal.** Build the outbound-delivery edge — QARoom's five domain events delivered to external
+subscribers — and demonstrate the testing techniques unique to delivery systems: **at-least-once
+delivery guarantees** and the **retry/backoff contract**, the two problems the roadmap named.
 
 **Scope (built).**
-- **Tier 1 — complete the determinism set.** A 4th injected dependency, `ModelClient` (`packages/model`), quarantines the LLM behind an interface: production wires OpenAI; tests wire a **Replay** double (recorded cassette, keyed by the existing `stableStringify`/`bodyHash`) or a **Scripted** double (seeded oracle). Every call is a GenAI OTel span carrying `tenant.id`; failures map to RFC 7807 `dependency_failure`. A `no-raw-model-client` lint rule bans the raw SDK at call sites, mirroring `no-new-date`. Lands with the Milestone 9 moderator.
-- **Tier 2 — the scoped simulator** (`packages/dst-sim`). A seeded single-threaded scheduler runs N in-process service instances against a **simulated NATS transport** (seeded delivery order + drop / reorder / duplicate / partition), swapped in through the Milestone 4 messaging transport interface. One shared `FakeClock` is advanced by the scheduler, compressing time. A seed-driven fault injector perturbs ordering and failures; an invariant checker runs after each step and, on violation, emits the seed plus a minimal scenario.
-- **Discover→replay loop.** A failing seed is captured into the Milestone 7 regression catalog and runs on every PR.
-- **Agent harness target.** The Milestone 9 LangGraph moderator runs under the simulator with a `ScriptedModelClient` and injected tool/event faults.
+- `services/webhooks` (TypeScript, service-kit, port 8087): a pure consumer of all five NATS channels
+  that delivers to external https endpoints. Publishes nothing (recursion guard).
+- Subscription CRUD (tenant-scoped, **gateway-proxied** per ADR-0019): create (write-once HMAC
+  secret), list, get, delete, pause/resume, and a read-only **delivery ledger** that makes the retry
+  contract observable.
+- Delivery engine: a durable fan-out consumer writing one `webhook_deliveries` row per
+  (subscription × event), and a relay-shaped worker that signs, POSTs, and retries on the
+  deterministic backoff or dead-letters.
+- A hand-authored **webhook-delivery XState machine** (Pending → Delivering → Delivered | Retrying →
+  DeadLettered) with reverse-conformance, MBT, and the runner-emitted `xstate.transition` spans.
+- A deterministic, capped, full-jittered **retry contract** (`nextBackoff`), HMAC-SHA256 signing with
+  the timestamp bound in (replay defense), and an **SSRF guard** on delivery URLs.
+- An in-cluster echo **webhook-receiver** as the dev/CI delivery sink.
 
 **Testing techniques introduced.**
-- Framework-level deterministic simulation testing (tier 2), built in-house — no vendor.
-- Model-as-injected-dependency: record/replay cassettes + scripted oracle.
-- Interleaving exploration of the async invariants (Commitments 17, 4, 9) under fault injection.
-- Harness DST for an LLM agent: "eval the model, DST the harness."
+- Delivery-guarantee property testing: every event reaches a terminal state, never silently lost;
+  Delivered implies the receiver returned 2xx (a flaky receiver double + FakeClock, no sleeping).
+- Retry-contract property testing: an exponential, capped, seed-determined schedule, asserted as a
+  pure function.
+- Receiver-idempotency testing: at-least-once → exactly-once-effects via a stable delivery id.
+- HMAC signature + replay-window property testing.
+- SSRF-guard property testing (every private/loopback/link-local target rejected).
+- A message-pact for the **outbound payload** (QARoom as *provider*, the receiver as *consumer*),
+  cross-checked against the five event schemas; reverse-conformance of the delivery machine; chaos of
+  a flaky receiver.
 
 **Exit criteria.**
-- The simulator runs ≥1000 seeded worlds; a deliberately planted dedup/ordering bug is found and its seed reproduces it identically; fixing the bug turns the same seed green.
-- A discovered seed is committed to the Milestone 7 regression catalog and runs on every PR.
-- Time compression demonstrated: ≥ a target span of simulated hours collapses into seconds.
-- Each of tenant isolation (Commitment 9), single-writer (Commitment 4), and dedup (Commitment 17) has an interleaving-explored property under fault injection — not just example-sampled.
-- The moderator harness is proven, with the model scripted, to terminate within a step bound, never infinite-loop, and stay idempotent under retry.
-- ADR: "Scoped DST for TypeScript microservices and an LLM agent harness — tier 1+2 in-house, where tier 3 starts, and why we stopped there."
+- The delivery machine and the retry contract are observable (`/system/state`, `.../deliveries`).
+- A deliberately linear/uncapped backoff fails the retry-contract property; restoring the
+  capped-exponential schedule turns it green.
+- A drop-on-failure worker fails the at-least-once property; the correct worker delivers a K-times
+  flaky receiver in K+1 POSTs.
+- A non-stable delivery id breaks receiver dedup; a stable id makes the effect exactly-once.
+- A body-only signature replays across timestamps; binding the timestamp in closes it.
+- An off-model delivery transition is caught by reverse-conformance though the endpoint looks healthy.
+- A down/slow receiver chaos experiment shows deliveries retry on the documented backoff and converge
+  on recovery (failure-modes §08); removing the retry mitigation breaks convergence.
+- The new service's OpenAPI / AsyncAPI / MCP-manifest drift gates are green; ADR-0019 committed.
 
-**Blog post angle.** *"Deterministic simulation testing for a TypeScript agent stack: the ecosystem says it can't be done in JS, so we built the scoped version — DST the harness, eval the model."*
+**Blog post angle.** *"At-least-once is a promise to someone else's server: testing webhook delivery
+guarantees and the retry contract."*
 
-**Dependencies.** Hard prereq: the Milestone 4 `@qaroom/messaging` transport must be **injectable** (real JetStream ↔ seeded in-memory), or tier 2 becomes a retrofit. Reuses the Milestone 0 determinism trio + `FakeClock`, the Milestone 5 XState / Milestone 9 LangGraph models, and the Milestone 7 catalog.
+**Risk and mitigation.** Risk: scope creep into a full delivery platform (dead-letter UI, secret
+rotation, per-subscriber limits). Mitigation: v1 is one delivery path + the retry contract + HMAC +
+SSRF guard; the rest is future. Risk: the arbitrary-outbound-URL SSRF surface. Mitigation: the
+injectable guard rejecting private targets, with DNS-rebinding hardening documented as a follow-up.
 
-**Risk and mitigation.** Risk: a correct deterministic scheduler in Node is genuinely hard — the event loop is nondeterministic, which is *why* the ecosystem skipped JS. Mitigation: scope to the message layer only; run services as in-process state machines fed by the seeded transport; do **not** attempt to make V8/libuv deterministic. Minimum deliverable is one invariant, one planted bug, one reproduced seed. Tier 3 (Antithesis) stays a one-paragraph "here's the ceiling" comparison, not a build.
+**Dependencies.** Reuses the Milestone 4 messaging consumer + `processed_events` dedup, the
+Milestone 5 XState / reverse-conformance discipline, and the Milestone 1 Schemathesis/Pact surfaces.
+
+---
+
+## Milestone 12 (candidate) — Moderator v2: retrieval-grounded RAG + the eval / red-team stack
+
+Post-v1, uncommitted. Re-scopes the Milestone 9 moderator from a prompt-baked classifier into a genuine retrieval-grounded RAG agent, and realigns the LLM-testing stack. Recorded in [ADR-0020](adr/0020-moderator-rag-and-eval-stack.md); supersedes ADR-0017's tool choices and extends ADR-0018. Does **not** modify any ADR-0001 commitment.
+
+**Goal.** Make retrieval *load-bearing* so retrieval quality and agentic behaviour become first-class testable surfaces — then demonstrate RAG, RAG-evaluation, agentic-evaluation, and LLM red-teaming as distinct techniques. Honest framing: a demonstration re-scope, not product necessity; the functional upgrades are genuine improvements, so the tools follow the requirements rather than the reverse.
+
+**Scope (built).**
+- **Retrieval-grounded moderator (FR1–FR6).** Per-community policy corpus (rules + escalation guidelines + prior decisions) embedded in `pgvector`; retrieve-then-reason; citation-bearing verdict (`cited_rules[]`, `precedents[]`, `rationale`); precedent consistency (or an explicit `departs_from_precedent` flag); abstain/escalate on low retrieval confidence or conflicting rules; observable LangGraph trajectory. The structured-output contract extends with `disposition ∈ {approve, remove, escalate_to_human}`.
+- **DeepEval — single CI eval harness.** Native RAG metrics (faithfulness, contextual precision / recall / relevancy), agentic metrics (task completion, tool correctness, trajectory), and custom G-Eval metrics (precedent-consistency, calibration). Pytest-native, vendor-neutral judge. RAGAS is *not* adopted separately — its metrics are demonstrated via DeepEval's `RAGASMetric` wrapper in one named eval.
+- **DeepTeam — red-team.** `model_callback` wraps the moderator; OWASP LLM Top 10; headline target is **prompt-injection-in-post-body** (untrusted content flowing to the LLM). PyRIT optional nightly for multi-turn depth.
+- **Promptfoo dropped** — OpenAI acquired it (March 2026), realizing the conflict ADR-0017 flagged. `summary.json`: the `promptfoo` runner is replaced by `deepeval` + `deepteam` runners (frozen envelope untouched).
+- Metamorphic paraphrase-invariance and LangGraph reverse-conformance are retained (ADR-0017).
+
+**Testing techniques introduced.**
+- RAG as a tested retrieval-grounded pipeline.
+- RAG evaluation (faithfulness, context precision/recall) via DeepEval.
+- Agentic evaluation (task completion, tool correctness, trajectory).
+- LLM red-teaming (OWASP LLM Top 10) via DeepTeam.
+
+**Exit criteria.**
+- A planted hallucinated-policy regression is caught by the faithfulness metric and *missed* by a non-grounded eval — demonstrating why grounding matters.
+- Retrieval precision/recall is gated in CI; a corpus-retrieval regression fails the gate.
+- The abstain path fires on a low-confidence / conflicting-rules case (calibration metric green).
+- A prompt-injection-in-post-body attack is caught by DeepTeam; removing the input-guard mitigation breaks it.
+- `deepeval` + `deepteam` runners land in `summary.json` with no schema change, key-gated + cost-guarded.
+- ADR-0020 committed.
+
+**Blog post angle.** *"Eval the model, red-team the agent: testing a retrieval-grounded moderator with DeepEval + DeepTeam — and why RAGAS didn't earn a separate seat."*
+
+**Dependencies.** Extends the Milestone 9 moderator (LangGraph / pgvector / OpenAI), the metamorphic + reverse-conformance discipline (ADR-0017), and the `summary.json` runner-fold mechanism (Commitment 14).
+
+**Risk and mitigation.** Risk: the re-scope balloons into a full moderation platform (appeals UI, dead-letter, per-rule analytics). Mitigation: v1 is one corpus + retrieve-then-reason + citation schema + abstain path; the rest is future. Risk: a larger eval surface costs more tokens per CI run. Mitigation: the existing cost-guard + key-gate (ADR-0017). Risk: DeepTeam's CI-maturity caveat. Mitigation: pair PyRIT for depth and use DeepTeam's GitHub-Actions integration.
 
 ---

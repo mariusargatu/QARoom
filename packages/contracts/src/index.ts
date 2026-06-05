@@ -51,6 +51,10 @@ export {
   VoteCastEvent,
 } from './events/vote-cast'
 export {
+  WEBHOOK_DELIVERED_VERSION,
+  WebhookDeliveryEnvelope,
+} from './events/webhook-delivered'
+export {
   EXAMPLE_AS_OF,
   EXAMPLE_COMMUNITY,
   EXAMPLE_COMMUNITY_ID,
@@ -68,6 +72,11 @@ export {
   EXAMPLE_TICKET_ID,
   EXAMPLE_USER,
   EXAMPLE_USER_ID,
+  EXAMPLE_WEBHOOK_DELIVERY,
+  EXAMPLE_WEBHOOK_DELIVERY_ID,
+  EXAMPLE_WEBHOOK_SUBSCRIPTION,
+  EXAMPLE_WEBHOOK_SUBSCRIPTION_ID,
+  EXAMPLE_WEBHOOK_URL,
   EXAMPLE_WHEN,
 } from './examples'
 export {
@@ -92,6 +101,8 @@ export {
   SessionId,
   TicketId,
   UserId,
+  WebhookDeliveryId,
+  WebhookSubscriptionId,
 } from './ids'
 export type { LamportTick, SpanAttributeSink } from './lamport'
 export { AsOf, asOf, LamportGate } from './lamport'
@@ -127,6 +138,23 @@ export type {
   RolloutTransitionSink,
 } from './machines/rollout.runner'
 export { applyRolloutEvent } from './machines/rollout.runner'
+export type {
+  WebhookDeliveryContext,
+  WebhookDeliveryEvent,
+  WebhookDeliveryMachine,
+  WebhookDeliveryStateName,
+} from './machines/webhook-delivery.machine'
+export {
+  isWebhookDeliveryTerminal,
+  webhookDeliveryMachine,
+} from './machines/webhook-delivery.machine'
+export type {
+  ApplyWebhookDeliveryOptions,
+  WebhookDeliveryApplyResult,
+  WebhookDeliveryTransitionRecord,
+  WebhookDeliveryTransitionSink,
+} from './machines/webhook-delivery.runner'
+export { applyWebhookDeliveryEvent } from './machines/webhook-delivery.runner'
 export type { OasInfo, OasOperation, OasParam, OasResponse, OasServer } from './openapi/builder'
 export { buildOpenApiDocument, schemaRef, stringifyOpenApi } from './openapi/builder'
 export type { ProblemResponseOptions } from './openapi/params'
@@ -169,13 +197,16 @@ export {
   flagsForCommunity,
   GATEWAY_EVENTS_ADDRESS,
   MODERATION_DECISION_RECORDED_ADDRESS,
+  MODERATION_FEED_SUBJECT,
   moderationDecisionRecorded,
   POST_CREATED_ADDRESS,
+  POSTS_FEED_SUBJECT,
   parseSubject,
   postCreated,
   postsCreatedAnyCommunity,
   QAROOM_STREAM_SUBJECTS,
   VOTE_CAST_ADDRESS,
+  VOTES_FEED_SUBJECT,
   voteCast,
 } from './subjects'
 export { Capabilities, Capability, SystemState } from './system'
@@ -183,4 +214,30 @@ export { RunnerResult, SCHEMA_VERSION, TestResultsSummary } from './test-results
 export { RedeemTicketRequest, RedeemTicketResponse, TicketResponse } from './ticket'
 export { CreateUserRequest, User } from './user'
 export { CastVoteRequest, CastVoteResponse, VoteValue } from './vote'
+export {
+  CreateWebhookRequest,
+  isPublicHttpsUrl,
+  WebhookDelivery,
+  WebhookDeliveryList,
+  WebhookDeliveryStatus,
+  WebhookEventType,
+  WebhookSubscription,
+  WebhookSubscriptionList,
+  WebhookSubscriptionStatus,
+  WebhookSubscriptionWithSecret,
+  WebhookUrl,
+} from './webhook'
+export type { WebhookRetryPolicy } from './webhook-retry'
+export { backoffCeilingMs, nextBackoff, WEBHOOK_RETRY_POLICY } from './webhook-retry'
+export {
+  generateWebhookSecret,
+  signWebhook,
+  verifyWebhook,
+  WEBHOOK_DELIVERY_ID_HEADER,
+  WEBHOOK_EVENT_ID_HEADER,
+  WEBHOOK_SIGNATURE_HEADER,
+  WEBHOOK_SIGNATURE_SCHEME,
+  WEBHOOK_TIMESTAMP_HEADER,
+  webhookSigningInput,
+} from './webhook-signing'
 export { EventPage, WsEnvelope } from './ws'

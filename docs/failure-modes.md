@@ -159,3 +159,26 @@ RFC 7807 problem of the right `failure_domain`, within a bounded budget — neve
 - **Status:** verified live, gated behind `CHAOS_TIMECHAOS=1` (privileged chaos-daemon; on a
   pre-M6 cluster also the `allowed-unsafe-sysctls` kubelet arg). Running it leaves donations
   degraded — `kubectl rollout restart deploy/donations` to recover. Nightly tier.
+
+## 08 — external webhook receiver returns 500 / is down (Litmus HTTPChaos)
+<a id="08-http-receiver-500-webhooks"></a>
+
+- **Trigger:** LitmusChaos HTTP fault on the dev `webhook-receiver`, returning `500` (Milestone 11).
+- **Steady-state property:** under a failing receiver, every due delivery is retried on the
+  documented exponential, capped, jittered backoff and either eventually succeeds (once the receiver
+  heals) or terminates in `DeadLettered` after the max attempts — never silently lost, never
+  double-applied beyond at-least-once (the receiver dedupes on the stable `X-QARoom-Delivery-Id`).
+  The consumer and the CRUD API stay responsive throughout: delivery is off both the request and the
+  consume paths.
+- **Mitigation:** the durable delivery ledger (the work queue) + the deterministic retry contract
+  (`nextBackoff`, capped at the policy max) + a bounded attempt budget that dead-letters rather than
+  retrying forever. Delivery runs in the background worker, never inline.
+- **Deliberate-bug demo:** `CHAOS_WEBHOOK_DROP_ON_FAIL=1` — a failed delivery is marked `Delivered`
+  and never retried. Under a down receiver, deliveries stop converging and events are lost → the
+  at-least-once property goes red. Restore → green. (Related toggles: `CHAOS_WEBHOOK_NO_CAP` breaks
+  the retry-contract property; `CHAOS_WEBHOOK_ILLEGAL_TRANSITION` is caught by reverse-conformance.)
+- **Status:** property proven in-process — `services/webhooks/src/delivery-guarantee.property.test.ts`
+  drives the real worker against a failing `WebhookSender` double while advancing the `FakeClock`
+  through the backoff, asserting every delivery reaches a terminal state and a K-times-flaky receiver
+  is delivered in K+1 POSTs. Live Litmus injection (`08-http-receiver-500-webhooks.yaml`) is
+  nightly-pending its setup (same ChaosCenter dependency as experiment 06).

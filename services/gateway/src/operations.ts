@@ -14,6 +14,7 @@ import {
   postIdParam,
   problemResponse,
 } from '@qaroom/contracts'
+import { WEBHOOK_OPERATIONS } from './webhooks-operations'
 
 /**
  * Gateway operation registry. The gateway fronts content-service, so it mirrors
@@ -381,6 +382,7 @@ export const OPERATIONS: readonly OasOperation[] = [
       rateLimited429,
     ],
   },
+  ...WEBHOOK_OPERATIONS,
   {
     operationId: 'getSystemState',
     method: 'get',

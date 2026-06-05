@@ -63,6 +63,8 @@ jobs:
         run: pnpm pact:verify --provider donations
       - name: Pact provider verification (flags)
         run: pnpm pact:verify --provider flags
+      - name: Pact provider verification (webhooks)
+        run: pnpm pact:verify --provider webhooks
 
   # Trust-boundary fuzzing: bring up content + gateway, then fuzz the gateway's OpenAPI
   # with Schemathesis (containerized — no Python in the monorepo).
@@ -100,6 +102,24 @@ jobs:
           for i in $(seq 1 30); do curl -fs http://localhost:8082/system/state && break || sleep 1; done
       - name: Schemathesis gate (identity)
         run: bash scripts/schemathesis-gate.sh services/identity http://host.docker.internal:8082
+
+  # Trust-boundary fuzzing for webhooks (Milestone 11): the subscription CRUD is a real input
+  # boundary (SSRF-guarded URLs, branded params, strict bodies, OAS links for the stateful phase).
+  # webhooks-service boots HTTP-only (NATS fail-soft), so only Postgres is needed.
+  fuzz-webhooks:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: ./.github/actions/setup-workspace
+      - name: Start webhooks Postgres
+        run: docker compose -f services/webhooks/docker-compose.yaml up -d --wait
+      - name: Start webhooks-service
+        run: |
+          DATABASE_URL=postgres://qaroom:qaroom@localhost:5436/qaroom_webhooks PORT=8087 \
+            pnpm --filter @qaroom/webhooks exec tsx src/server.ts &
+          for i in $(seq 1 30); do curl -fs http://localhost:8087/system/state && break || sleep 1; done
+      - name: Schemathesis gate (webhooks)
+        run: bash scripts/schemathesis-gate.sh services/webhooks http://host.docker.internal:8087
 
   # Load testing vs SLOs (Milestone 8, merge-to-main lane — exceeds the PR-fast budget, docs/03 §8).
   # Brings up content-service (mirroring `fuzz`), runs the k6 write-heavy + read-heavy scripts against
@@ -363,7 +383,7 @@ jobs:
             | sudo tar -xz -C /usr/local/bin kubeconform
       - name: Lint + validate chart releases
         run: |
-          for svc in content identity gateway moderator-agent; do
+          for svc in content identity gateway moderator-agent webhooks; do
             helm lint packages/helm-template -f deploy/$svc/values.yaml
             helm template $svc packages/helm-template -f deploy/$svc/values.yaml \
               | kubeconform -strict -summary -ignore-missing-schemas

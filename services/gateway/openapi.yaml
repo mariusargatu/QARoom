@@ -1005,6 +1005,595 @@ paths:
           schema:
             type: integer
             minimum: 0
+  /api/communities/{communityId}/webhook-subscriptions:
+    post:
+      operationId: createWebhook
+      summary: Register a webhook subscription (proxied to webhooks-service)
+      description: Validates at the edge, forwards to webhooks-service. Returns the write-once signing secret. Idempotent on Idempotency-Key.
+      responses:
+        "201":
+          description: The created subscription, including the write-once secret.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/WebhookSubscriptionWithSecret"
+              example:
+                id: whsub_01HZY0K7M3QF8VN2J5RX9TB4CM
+                community_id: comm_01HZY0K7M3QF8VN2J5RX9TB4CD
+                url: https://hooks.example.com/qaroom
+                event_types:
+                  - post.created
+                  - donation.state.changed
+                status: Active
+                created_at: 2026-05-28T12:00:00.000Z
+                updated_at: 2026-05-28T12:00:00.000Z
+                secret: whsec_…
+          links:
+            GetWebhook:
+              operationId: getWebhook
+              parameters:
+                communityId: $response.body#/community_id
+                subscriptionId: $response.body#/id
+              description: Fetch the affected subscription.
+        "400":
+          description: The request failed validation at the gateway edge.
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ProblemDetails"
+              example:
+                type: https://qaroom.dev/errors/validation-failed
+                title: Request failed validation
+                status: 400
+                detail: Request failed validation.
+                instance: /api/posts/post_01HZY0K7M3QF8VN2J5RX9TB4CE
+                retryable: false
+                next_actions: []
+                failure_domain: validation
+        "409":
+          description: This Idempotency-Key was already used for a request with a different body.
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ProblemDetails"
+              example:
+                type: https://qaroom.dev/errors/idempotency-key-conflict
+                title: Idempotency-Key reused with a different body
+                status: 409
+                detail: Idempotency-Key reused with a different body.
+                instance: /api/posts/post_01HZY0K7M3QF8VN2J5RX9TB4CE
+                retryable: false
+                next_actions: []
+                failure_domain: conflict
+        "422":
+          description: The delivery URL must be https and must not target a private/loopback host.
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ProblemDetails"
+              example:
+                type: https://qaroom.dev/errors/webhook-url-invalid
+                title: Webhook URL is not a public https endpoint
+                status: 422
+                detail: Webhook URL is not a public https endpoint.
+                instance: /api/posts/post_01HZY0K7M3QF8VN2J5RX9TB4CE
+                retryable: false
+                next_actions: []
+                failure_domain: validation
+        "502":
+          description: webhooks-service is unreachable, timed out, or the gateway circuit breaker is open.
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ProblemDetails"
+              example:
+                type: https://qaroom.dev/errors/webhooks-unreachable
+                title: Upstream webhooks-service unavailable
+                status: 502
+                detail: Upstream webhooks-service unavailable.
+                instance: /api/posts/post_01HZY0K7M3QF8VN2J5RX9TB4CE
+                retryable: true
+                next_actions: []
+                failure_domain: dependency_failure
+      tags:
+        - webhooks
+      parameters:
+        - name: communityId
+          in: path
+          required: true
+          description: Target community (tenant).
+          schema:
+            type: string
+            pattern: ^comm_[0-9A-HJKMNP-TV-Z]{26}$
+        - name: Idempotency-Key
+          in: header
+          required: true
+          description: Client-supplied key making this mutation safely retryable (Commitment 4).
+          schema:
+            type: string
+            minLength: 1
+            maxLength: 255
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CreateWebhookRequest"
+            example:
+              url: https://hooks.example.com/qaroom
+              event_types:
+                - post.created
+    get:
+      operationId: listWebhooks
+      summary: List a community’s webhook subscriptions (proxied)
+      description: Returns every webhook subscription in a community, via webhooks-service.
+      responses:
+        "200":
+          description: The community’s subscriptions.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/WebhookSubscriptionList"
+              example:
+                community_id: comm_01HZY0K7M3QF8VN2J5RX9TB4CD
+                webhooks:
+                  - id: whsub_01HZY0K7M3QF8VN2J5RX9TB4CM
+                    community_id: comm_01HZY0K7M3QF8VN2J5RX9TB4CD
+                    url: https://hooks.example.com/qaroom
+                    event_types:
+                      - post.created
+                      - donation.state.changed
+                    status: Active
+                    created_at: 2026-05-28T12:00:00.000Z
+                    updated_at: 2026-05-28T12:00:00.000Z
+        "400":
+          description: The request failed validation at the gateway edge.
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ProblemDetails"
+              example:
+                type: https://qaroom.dev/errors/validation-failed
+                title: Request failed validation
+                status: 400
+                detail: Request failed validation.
+                instance: /api/posts/post_01HZY0K7M3QF8VN2J5RX9TB4CE
+                retryable: false
+                next_actions: []
+                failure_domain: validation
+        "502":
+          description: webhooks-service is unreachable, timed out, or the gateway circuit breaker is open.
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ProblemDetails"
+              example:
+                type: https://qaroom.dev/errors/webhooks-unreachable
+                title: Upstream webhooks-service unavailable
+                status: 502
+                detail: Upstream webhooks-service unavailable.
+                instance: /api/posts/post_01HZY0K7M3QF8VN2J5RX9TB4CE
+                retryable: true
+                next_actions: []
+                failure_domain: dependency_failure
+      tags:
+        - webhooks
+      parameters:
+        - name: communityId
+          in: path
+          required: true
+          description: Target community (tenant).
+          schema:
+            type: string
+            pattern: ^comm_[0-9A-HJKMNP-TV-Z]{26}$
+  /api/communities/{communityId}/webhook-subscriptions/{subscriptionId}:
+    get:
+      operationId: getWebhook
+      summary: Get a single webhook subscription (proxied)
+      description: Returns a subscription by id within a community (the secret is never returned).
+      responses:
+        "200":
+          description: The subscription.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/WebhookSubscription"
+              example:
+                id: whsub_01HZY0K7M3QF8VN2J5RX9TB4CM
+                community_id: comm_01HZY0K7M3QF8VN2J5RX9TB4CD
+                url: https://hooks.example.com/qaroom
+                event_types:
+                  - post.created
+                  - donation.state.changed
+                status: Active
+                created_at: 2026-05-28T12:00:00.000Z
+                updated_at: 2026-05-28T12:00:00.000Z
+        "404":
+          description: No subscription with that id exists in this community.
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ProblemDetails"
+              example:
+                type: https://qaroom.dev/errors/webhook-not-found
+                title: Webhook subscription not found
+                status: 404
+                detail: Webhook subscription not found.
+                instance: /api/posts/post_01HZY0K7M3QF8VN2J5RX9TB4CE
+                retryable: false
+                next_actions: []
+                failure_domain: not_found
+        "502":
+          description: webhooks-service is unreachable, timed out, or the gateway circuit breaker is open.
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ProblemDetails"
+              example:
+                type: https://qaroom.dev/errors/webhooks-unreachable
+                title: Upstream webhooks-service unavailable
+                status: 502
+                detail: Upstream webhooks-service unavailable.
+                instance: /api/posts/post_01HZY0K7M3QF8VN2J5RX9TB4CE
+                retryable: true
+                next_actions: []
+                failure_domain: dependency_failure
+      tags:
+        - webhooks
+      parameters:
+        - name: communityId
+          in: path
+          required: true
+          description: Target community (tenant).
+          schema:
+            type: string
+            pattern: ^comm_[0-9A-HJKMNP-TV-Z]{26}$
+        - name: subscriptionId
+          in: path
+          required: true
+          description: Target subscription.
+          schema:
+            type: string
+            pattern: ^whsub_[0-9A-HJKMNP-TV-Z]{26}$
+    delete:
+      operationId: deleteWebhook
+      summary: Delete a webhook subscription (proxied)
+      description: Removes a subscription. Idempotent on Idempotency-Key.
+      responses:
+        "204":
+          description: The subscription was deleted.
+          links:
+            ListWebhooks:
+              operationId: listWebhooks
+              parameters:
+                communityId: $request.path.communityId
+              description: List the remaining subscriptions.
+        "404":
+          description: No subscription with that id exists in this community.
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ProblemDetails"
+              example:
+                type: https://qaroom.dev/errors/webhook-not-found
+                title: Webhook subscription not found
+                status: 404
+                detail: Webhook subscription not found.
+                instance: /api/posts/post_01HZY0K7M3QF8VN2J5RX9TB4CE
+                retryable: false
+                next_actions: []
+                failure_domain: not_found
+        "502":
+          description: webhooks-service is unreachable, timed out, or the gateway circuit breaker is open.
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ProblemDetails"
+              example:
+                type: https://qaroom.dev/errors/webhooks-unreachable
+                title: Upstream webhooks-service unavailable
+                status: 502
+                detail: Upstream webhooks-service unavailable.
+                instance: /api/posts/post_01HZY0K7M3QF8VN2J5RX9TB4CE
+                retryable: true
+                next_actions: []
+                failure_domain: dependency_failure
+      tags:
+        - webhooks
+      parameters:
+        - name: communityId
+          in: path
+          required: true
+          description: Target community (tenant).
+          schema:
+            type: string
+            pattern: ^comm_[0-9A-HJKMNP-TV-Z]{26}$
+        - name: subscriptionId
+          in: path
+          required: true
+          description: Target subscription.
+          schema:
+            type: string
+            pattern: ^whsub_[0-9A-HJKMNP-TV-Z]{26}$
+        - name: Idempotency-Key
+          in: header
+          required: true
+          description: Client-supplied key making this mutation safely retryable (Commitment 4).
+          schema:
+            type: string
+            minLength: 1
+            maxLength: 255
+  /api/communities/{communityId}/webhook-subscriptions/{subscriptionId}/pause:
+    post:
+      operationId: pauseWebhook
+      summary: Pause a webhook subscription (proxied)
+      description: Pauses an Active subscription. Idempotent on Idempotency-Key.
+      responses:
+        "200":
+          description: The paused subscription.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/WebhookSubscription"
+              example:
+                id: whsub_01HZY0K7M3QF8VN2J5RX9TB4CM
+                community_id: comm_01HZY0K7M3QF8VN2J5RX9TB4CD
+                url: https://hooks.example.com/qaroom
+                event_types:
+                  - post.created
+                  - donation.state.changed
+                status: Paused
+                created_at: 2026-05-28T12:00:00.000Z
+                updated_at: 2026-05-28T12:00:00.000Z
+          links:
+            GetWebhook:
+              operationId: getWebhook
+              parameters:
+                communityId: $response.body#/community_id
+                subscriptionId: $response.body#/id
+              description: Fetch the affected subscription.
+        "404":
+          description: No subscription with that id exists in this community.
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ProblemDetails"
+              example:
+                type: https://qaroom.dev/errors/webhook-not-found
+                title: Webhook subscription not found
+                status: 404
+                detail: Webhook subscription not found.
+                instance: /api/posts/post_01HZY0K7M3QF8VN2J5RX9TB4CE
+                retryable: false
+                next_actions: []
+                failure_domain: not_found
+        "409":
+          description: The subscription cannot move to the requested status from its current status.
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ProblemDetails"
+              example:
+                type: https://qaroom.dev/errors/webhook-illegal-transition
+                title: Illegal subscription status transition
+                status: 409
+                detail: Illegal subscription status transition.
+                instance: /api/posts/post_01HZY0K7M3QF8VN2J5RX9TB4CE
+                retryable: false
+                next_actions: []
+                failure_domain: conflict
+        "502":
+          description: webhooks-service is unreachable, timed out, or the gateway circuit breaker is open.
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ProblemDetails"
+              example:
+                type: https://qaroom.dev/errors/webhooks-unreachable
+                title: Upstream webhooks-service unavailable
+                status: 502
+                detail: Upstream webhooks-service unavailable.
+                instance: /api/posts/post_01HZY0K7M3QF8VN2J5RX9TB4CE
+                retryable: true
+                next_actions: []
+                failure_domain: dependency_failure
+      tags:
+        - webhooks
+      parameters:
+        - name: communityId
+          in: path
+          required: true
+          description: Target community (tenant).
+          schema:
+            type: string
+            pattern: ^comm_[0-9A-HJKMNP-TV-Z]{26}$
+        - name: subscriptionId
+          in: path
+          required: true
+          description: Target subscription.
+          schema:
+            type: string
+            pattern: ^whsub_[0-9A-HJKMNP-TV-Z]{26}$
+        - name: Idempotency-Key
+          in: header
+          required: true
+          description: Client-supplied key making this mutation safely retryable (Commitment 4).
+          schema:
+            type: string
+            minLength: 1
+            maxLength: 255
+  /api/communities/{communityId}/webhook-subscriptions/{subscriptionId}/resume:
+    post:
+      operationId: resumeWebhook
+      summary: Resume a webhook subscription (proxied)
+      description: Resumes a Paused subscription. Idempotent on Idempotency-Key.
+      responses:
+        "200":
+          description: The resumed subscription.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/WebhookSubscription"
+              example:
+                id: whsub_01HZY0K7M3QF8VN2J5RX9TB4CM
+                community_id: comm_01HZY0K7M3QF8VN2J5RX9TB4CD
+                url: https://hooks.example.com/qaroom
+                event_types:
+                  - post.created
+                  - donation.state.changed
+                status: Active
+                created_at: 2026-05-28T12:00:00.000Z
+                updated_at: 2026-05-28T12:00:00.000Z
+          links:
+            GetWebhook:
+              operationId: getWebhook
+              parameters:
+                communityId: $response.body#/community_id
+                subscriptionId: $response.body#/id
+              description: Fetch the affected subscription.
+        "404":
+          description: No subscription with that id exists in this community.
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ProblemDetails"
+              example:
+                type: https://qaroom.dev/errors/webhook-not-found
+                title: Webhook subscription not found
+                status: 404
+                detail: Webhook subscription not found.
+                instance: /api/posts/post_01HZY0K7M3QF8VN2J5RX9TB4CE
+                retryable: false
+                next_actions: []
+                failure_domain: not_found
+        "409":
+          description: The subscription cannot move to the requested status from its current status.
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ProblemDetails"
+              example:
+                type: https://qaroom.dev/errors/webhook-illegal-transition
+                title: Illegal subscription status transition
+                status: 409
+                detail: Illegal subscription status transition.
+                instance: /api/posts/post_01HZY0K7M3QF8VN2J5RX9TB4CE
+                retryable: false
+                next_actions: []
+                failure_domain: conflict
+        "502":
+          description: webhooks-service is unreachable, timed out, or the gateway circuit breaker is open.
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ProblemDetails"
+              example:
+                type: https://qaroom.dev/errors/webhooks-unreachable
+                title: Upstream webhooks-service unavailable
+                status: 502
+                detail: Upstream webhooks-service unavailable.
+                instance: /api/posts/post_01HZY0K7M3QF8VN2J5RX9TB4CE
+                retryable: true
+                next_actions: []
+                failure_domain: dependency_failure
+      tags:
+        - webhooks
+      parameters:
+        - name: communityId
+          in: path
+          required: true
+          description: Target community (tenant).
+          schema:
+            type: string
+            pattern: ^comm_[0-9A-HJKMNP-TV-Z]{26}$
+        - name: subscriptionId
+          in: path
+          required: true
+          description: Target subscription.
+          schema:
+            type: string
+            pattern: ^whsub_[0-9A-HJKMNP-TV-Z]{26}$
+        - name: Idempotency-Key
+          in: header
+          required: true
+          description: Client-supplied key making this mutation safely retryable (Commitment 4).
+          schema:
+            type: string
+            minLength: 1
+            maxLength: 255
+  /api/communities/{communityId}/webhook-subscriptions/{subscriptionId}/deliveries:
+    get:
+      operationId: listWebhookDeliveries
+      summary: List a subscription’s deliveries (proxied)
+      description: Returns the delivery ledger for a subscription — the observable retry contract.
+      responses:
+        "200":
+          description: A page of deliveries.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/WebhookDeliveryList"
+              example:
+                subscription_id: whsub_01HZY0K7M3QF8VN2J5RX9TB4CM
+                deliveries:
+                  - id: whdel_01HZY0K7M3QF8VN2J5RX9TB4CN
+                    subscription_id: whsub_01HZY0K7M3QF8VN2J5RX9TB4CM
+                    community_id: comm_01HZY0K7M3QF8VN2J5RX9TB4CD
+                    event_id: evt_01HZY0K7M3QF8VN2J5RX9TB4CP
+                    event_type: post.created
+                    status: Delivered
+                    attempt: 1
+                    next_attempt_at: null
+                    last_status_code: 200
+                    created_at: 2026-05-28T12:00:00.000Z
+                    updated_at: 2026-05-28T12:00:00.000Z
+        "404":
+          description: No subscription with that id exists in this community.
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ProblemDetails"
+              example:
+                type: https://qaroom.dev/errors/webhook-not-found
+                title: Webhook subscription not found
+                status: 404
+                detail: Webhook subscription not found.
+                instance: /api/posts/post_01HZY0K7M3QF8VN2J5RX9TB4CE
+                retryable: false
+                next_actions: []
+                failure_domain: not_found
+        "502":
+          description: webhooks-service is unreachable, timed out, or the gateway circuit breaker is open.
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ProblemDetails"
+              example:
+                type: https://qaroom.dev/errors/webhooks-unreachable
+                title: Upstream webhooks-service unavailable
+                status: 502
+                detail: Upstream webhooks-service unavailable.
+                instance: /api/posts/post_01HZY0K7M3QF8VN2J5RX9TB4CE
+                retryable: true
+                next_actions: []
+                failure_domain: dependency_failure
+      tags:
+        - webhooks
+      parameters:
+        - name: communityId
+          in: path
+          required: true
+          description: Target community (tenant).
+          schema:
+            type: string
+            pattern: ^comm_[0-9A-HJKMNP-TV-Z]{26}$
+        - name: subscriptionId
+          in: path
+          required: true
+          description: Target subscription.
+          schema:
+            type: string
+            pattern: ^whsub_[0-9A-HJKMNP-TV-Z]{26}$
   /system/state:
     get:
       operationId: getSystemState
@@ -1194,6 +1783,21 @@ components:
         - body
       additionalProperties: false
       description: Body for createPost.
+    CreateWebhookRequest:
+      type: object
+      properties:
+        url:
+          $ref: "#/components/schemas/WebhookUrl"
+        event_types:
+          minItems: 1
+          type: array
+          items:
+            $ref: "#/components/schemas/WebhookEventType"
+      required:
+        - url
+        - event_types
+      additionalProperties: false
+      description: Body for createWebhook.
     Donation:
       type: object
       properties:
@@ -1259,6 +1863,10 @@ components:
         - Failed
         - Refunded
       description: Lifecycle status of a donation.
+    EventId:
+      type: string
+      pattern: ^evt_[0-9A-HJKMNP-TV-Z]{26}$
+      description: "Branded identifier: evt_<ULID>"
     EventPage:
       type: object
       properties:
@@ -1520,6 +2128,194 @@ components:
           enum:
             - -1
       description: "Vote direction: 1 (up) or -1 (down)."
+    WebhookDelivery:
+      type: object
+      properties:
+        id:
+          $ref: "#/components/schemas/WebhookDeliveryId"
+        subscription_id:
+          $ref: "#/components/schemas/WebhookSubscriptionId"
+        community_id:
+          $ref: "#/components/schemas/CommunityId"
+        event_id:
+          $ref: "#/components/schemas/EventId"
+        event_type:
+          $ref: "#/components/schemas/WebhookEventType"
+        status:
+          $ref: "#/components/schemas/WebhookDeliveryStatus"
+        attempt:
+          type: integer
+          minimum: 0
+          maximum: 9007199254740991
+        next_attempt_at:
+          nullable: true
+          type: string
+          format: date-time
+          pattern: ^(?:(?:\d\d[2468][048]|\d\d[13579][26]|\d\d0[48]|[02468][048]00|[13579][26]00)-02-29|\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\d|30)|(?:02)-(?:0[1-9]|1\d|2[0-8])))T(?:(?:[01]\d|2[0-3]):[0-5]\d(?::[0-5]\d(?:\.\d+)?)?(?:Z))$
+        last_status_code:
+          nullable: true
+          type: integer
+          minimum: -9007199254740991
+          maximum: 9007199254740991
+        created_at:
+          type: string
+          format: date-time
+          pattern: ^(?:(?:\d\d[2468][048]|\d\d[13579][26]|\d\d0[48]|[02468][048]00|[13579][26]00)-02-29|\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\d|30)|(?:02)-(?:0[1-9]|1\d|2[0-8])))T(?:(?:[01]\d|2[0-3]):[0-5]\d(?::[0-5]\d(?:\.\d+)?)?(?:Z))$
+        updated_at:
+          type: string
+          format: date-time
+          pattern: ^(?:(?:\d\d[2468][048]|\d\d[13579][26]|\d\d0[48]|[02468][048]00|[13579][26]00)-02-29|\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\d|30)|(?:02)-(?:0[1-9]|1\d|2[0-8])))T(?:(?:[01]\d|2[0-3]):[0-5]\d(?::[0-5]\d(?:\.\d+)?)?(?:Z))$
+      required:
+        - id
+        - subscription_id
+        - community_id
+        - event_id
+        - event_type
+        - status
+        - attempt
+        - next_attempt_at
+        - last_status_code
+        - created_at
+        - updated_at
+      additionalProperties: false
+      description: One outbound delivery of an event to a subscription.
+    WebhookDeliveryId:
+      type: string
+      pattern: ^whdel_[0-9A-HJKMNP-TV-Z]{26}$
+      description: "Branded identifier: whdel_<ULID>"
+    WebhookDeliveryList:
+      type: object
+      properties:
+        subscription_id:
+          $ref: "#/components/schemas/WebhookSubscriptionId"
+        deliveries:
+          type: array
+          items:
+            $ref: "#/components/schemas/WebhookDelivery"
+      required:
+        - subscription_id
+        - deliveries
+      additionalProperties: false
+      description: A page of a subscription’s deliveries.
+    WebhookDeliveryStatus:
+      type: string
+      enum:
+        - Pending
+        - Delivering
+        - Delivered
+        - Retrying
+        - DeadLettered
+      description: Lifecycle status of a single webhook delivery.
+    WebhookEventType:
+      type: string
+      enum:
+        - post.created
+        - vote.cast
+        - flag.state.changed
+        - donation.state.changed
+        - moderation.decision.recorded
+      description: A QARoom domain event a webhook can subscribe to.
+    WebhookSubscription:
+      type: object
+      properties:
+        id:
+          $ref: "#/components/schemas/WebhookSubscriptionId"
+        community_id:
+          $ref: "#/components/schemas/CommunityId"
+        url:
+          $ref: "#/components/schemas/WebhookUrl"
+        event_types:
+          minItems: 1
+          type: array
+          items:
+            $ref: "#/components/schemas/WebhookEventType"
+        status:
+          $ref: "#/components/schemas/WebhookSubscriptionStatus"
+        created_at:
+          type: string
+          format: date-time
+          pattern: ^(?:(?:\d\d[2468][048]|\d\d[13579][26]|\d\d0[48]|[02468][048]00|[13579][26]00)-02-29|\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\d|30)|(?:02)-(?:0[1-9]|1\d|2[0-8])))T(?:(?:[01]\d|2[0-3]):[0-5]\d(?::[0-5]\d(?:\.\d+)?)?(?:Z))$
+        updated_at:
+          type: string
+          format: date-time
+          pattern: ^(?:(?:\d\d[2468][048]|\d\d[13579][26]|\d\d0[48]|[02468][048]00|[13579][26]00)-02-29|\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\d|30)|(?:02)-(?:0[1-9]|1\d|2[0-8])))T(?:(?:[01]\d|2[0-3]):[0-5]\d(?::[0-5]\d(?:\.\d+)?)?(?:Z))$
+      required:
+        - id
+        - community_id
+        - url
+        - event_types
+        - status
+        - created_at
+        - updated_at
+      additionalProperties: false
+      description: An outbound webhook subscription within a community.
+    WebhookSubscriptionId:
+      type: string
+      pattern: ^whsub_[0-9A-HJKMNP-TV-Z]{26}$
+      description: "Branded identifier: whsub_<ULID>"
+    WebhookSubscriptionList:
+      type: object
+      properties:
+        community_id:
+          $ref: "#/components/schemas/CommunityId"
+        webhooks:
+          type: array
+          items:
+            $ref: "#/components/schemas/WebhookSubscription"
+      required:
+        - community_id
+        - webhooks
+      additionalProperties: false
+      description: A community’s webhook subscriptions.
+    WebhookSubscriptionStatus:
+      type: string
+      enum:
+        - Active
+        - Paused
+        - Disabled
+      description: Lifecycle status of a webhook subscription.
+    WebhookSubscriptionWithSecret:
+      type: object
+      properties:
+        id:
+          $ref: "#/components/schemas/WebhookSubscriptionId"
+        community_id:
+          $ref: "#/components/schemas/CommunityId"
+        url:
+          $ref: "#/components/schemas/WebhookUrl"
+        event_types:
+          minItems: 1
+          type: array
+          items:
+            $ref: "#/components/schemas/WebhookEventType"
+        status:
+          $ref: "#/components/schemas/WebhookSubscriptionStatus"
+        created_at:
+          type: string
+          format: date-time
+          pattern: ^(?:(?:\d\d[2468][048]|\d\d[13579][26]|\d\d0[48]|[02468][048]00|[13579][26]00)-02-29|\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\d|30)|(?:02)-(?:0[1-9]|1\d|2[0-8])))T(?:(?:[01]\d|2[0-3]):[0-5]\d(?::[0-5]\d(?:\.\d+)?)?(?:Z))$
+        updated_at:
+          type: string
+          format: date-time
+          pattern: ^(?:(?:\d\d[2468][048]|\d\d[13579][26]|\d\d0[48]|[02468][048]00|[13579][26]00)-02-29|\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\d|30)|(?:02)-(?:0[1-9]|1\d|2[0-8])))T(?:(?:[01]\d|2[0-3]):[0-5]\d(?::[0-5]\d(?:\.\d+)?)?(?:Z))$
+        secret:
+          type: string
+          minLength: 1
+      required:
+        - id
+        - community_id
+        - url
+        - event_types
+        - status
+        - created_at
+        - updated_at
+        - secret
+      additionalProperties: false
+      description: A newly created subscription, including the write-once signing secret.
+    WebhookUrl:
+      type: string
+      format: uri
+      description: A public HTTPS delivery target (SSRF-guarded).
     WsEnvelope:
       oneOf:
         - type: object

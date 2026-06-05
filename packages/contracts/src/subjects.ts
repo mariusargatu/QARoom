@@ -86,6 +86,16 @@ export const FLAGS_FEED_SUBJECT = `${ROOT}.${FLAGS}.flag.>`
 export const DONATIONS_FEED_SUBJECT = `${ROOT}.${DONATIONS}.donation.>`
 
 /**
+ * The remaining entity-level feed subjects (Milestone 11). The webhooks-service fans out ALL
+ * five domain events to external subscribers, so it filters at the entity level across every
+ * community — these complete the set alongside `FLAGS_FEED_SUBJECT`/`DONATIONS_FEED_SUBJECT`.
+ * Authored here only (the `qaroom/no-raw-nats-subject` rule).
+ */
+export const POSTS_FEED_SUBJECT = `${ROOT}.${CONTENT}.posts.>`
+export const VOTES_FEED_SUBJECT = `${ROOT}.${CONTENT}.votes.>`
+export const MODERATION_FEED_SUBJECT = `${ROOT}.${MODERATOR}.decision.>`
+
+/**
  * AsyncAPI address for the gateway's server→client WebSocket push (Milestone 5). Not a NATS
  * subject the broker routes — it documents the WS channel — but it follows the same grammar so
  * the AsyncAPI generator places `community_id` at the fixed third position.

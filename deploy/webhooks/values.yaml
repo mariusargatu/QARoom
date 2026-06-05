@@ -1,0 +1,17 @@
+image:
+  repository: qaroom/webhooks
+service:
+  port: 80
+  targetPort: 8087
+container:
+  port: 8087
+otel:
+  serviceName: webhooks
+postgres:
+  enabled: true
+  database: qaroom_webhooks
+extraEnv:
+  # NATS: consumes all five QARoom event channels; publishes nothing (ADR-0019).
+  NATS_URL: nats://qaroom-nats.observability.svc.cluster.local:4222
+  # SSRF posture + retry-contract knobs.
+  WEBHOOKS_DELIVERY_TIMEOUT_MS: "5000"

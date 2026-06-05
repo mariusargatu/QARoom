@@ -26,7 +26,7 @@ These are immutable for the lifetime of v1. Changes require an ADR superseding t
 
 ## Service inventory at maturity
 
-QARoom matures to five core services plus a future sixth, with a small set of supporting infrastructure. Each service's boundary exists because it teaches a specific testing technique.
+QARoom matures to a set of core services plus supporting infrastructure. Each service's boundary exists because it teaches a specific testing technique.
 
 | Service | Responsibility | Primary testing technique demonstrated |
 |---|---|---|
@@ -36,6 +36,7 @@ QARoom matures to five core services plus a future sixth, with a small set of su
 | `flags-service` | Feature flag definitions; per-community flag resolution; donation rollout state machine | Model-based testing (XState); chaos engineering of cache invalidation |
 | `donations-service` | Donation transactions; integration with the mocked payment provider | Schema validation (strict, untrusted external boundary); chaos engineering (external dependency failure) |
 | `moderator-agent` *(Milestone 9, Python/LangGraph)* | Subscribes to `post.created`; judges posts against per-community rules; records a moderation decision (proposes, does not enforce) and emits it | LLM evaluation (Promptfoo) + metamorphic paraphrase-invariance; LangGraph reverse-conformance; structured-output contract |
+| `webhooks-service` *(Milestone 11)* | Consumes all five event channels; delivers them to external subscribers (at-least-once, deterministic retry/backoff, HMAC signing, SSRF guard); subscription CRUD gateway-proxied | Delivery-guarantee + retry-contract property testing; XState reverse-conformance of the delivery lifecycle; HMAC/SSRF property tests; chaos of a flaky receiver |
 
 Supporting infrastructure deployed alongside:
 
@@ -114,8 +115,9 @@ Service boundaries are not architectural noise; they are where bugs live and whe
 | **WebSocket boundary** | Server push of notifications / live feed updates | AsyncAPI schema + Microcks-async mock + Playwright WS assertions + parity test vs polling endpoint |
 | **Identity issuance boundary** | identity-service signs JWT consumed by gateway | JWT property tests (issuance, kid lookup, expiry, rotation, revocation); JWKS contract test |
 | **AI / model boundary** | post content → LLM moderation verdict | Golden-set evaluation (Promptfoo) + metamorphic paraphrase-invariance; structured-output validation as a contract; LangGraph reverse-conformance (ADR-0017) |
+| **Outbound delivery boundary** *(Milestone 11)* | webhooks-service → external subscriber URL | Delivery-guarantee property tests (at-least-once + receiver dedup); deterministic retry-contract tests; HMAC signing + SSRF property tests; chaos of a flaky receiver (ADR-0019) |
 
-These are the nine boundary types every service in QARoom must respect. They are the contract between architecture and testing.
+These boundary types are the contract between architecture and testing — every service must respect the ones it touches.
 
 ## Technology choices
 
@@ -149,7 +151,6 @@ These omissions are part of the architectural contract:
 - **No real OAuth or federated identity.** JWT issued by identity-service is sufficient.
 - **No real payments.** The payment provider is mocked via Microcks.
 - **No internationalization.** English only.
-- **No webhooks** as a v1 capability. Designed-for-later.
 - **No production-grade security testing** (SAST/DAST/dependency scanning). Mentioned in conventions; not enforced as a milestone.
 - **No accessibility testing** as a milestone. UI is functional, not accessibility-certified.
 - **No visual regression testing** in v1. Could be added in Milestone 5 as a sidebar.
@@ -165,7 +166,7 @@ These are the seams left deliberately in place for future work:
 - **Agentic community moderator** — NATS event stream already exposes everything an agent needs; LangGraph slot reserved.
 - **Per-agent ephemeral environments** — `scripts/spin-up-ephemeral.sh` provisions namespaces; agents get one each when needed.
 - **Agentic CI/CD demonstration** — `test-results/summary.json` schema is frozen; future agents consume the artifact.
-- **Webhooks** — NATS event topics map naturally to outbound webhook subscriptions; the abstraction exists.
+- **Webhooks** — *realized in Milestone 11* (ADR-0019): `webhooks-service` consumes the five NATS event topics and delivers them to external subscribers (at-least-once, deterministic retry/backoff, HMAC signing, SSRF guard). The seam paid off — it consumes the existing event bus and adds no new commitment.
 - **Continuous testing in production** — feature flag system, observability stack, and rollout state machine are the substrate.
 
 The architecture is sized exactly for v1, but every seam needed for likely v2/v3 work is in place. This is the discipline that the testing lens demands and that the agent-hospitability research validated.
