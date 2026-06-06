@@ -1,4 +1,4 @@
-import type { Migration } from '@qaroom/contracts'
+import { composeMigrations, type Migration } from '@qaroom/contracts'
 import { sql } from 'drizzle-orm'
 import type { SqlExecutor } from './types'
 
@@ -81,3 +81,11 @@ export const MESSAGING_MIGRATIONS: readonly Migration<SqlExecutor>[] = [
   processedEventsMigration,
   idempotencyResponsesMigration,
 ]
+
+/**
+ * The full messaging substrate (outbox + processed_events + idempotency_responses) composed into
+ * one migration, so the standard adopter applies it with `messagingMigration.up(db)` after its
+ * domain DDL — no per-service `composeMigrations([...])` copy. Pure consumers that skip the outbox
+ * (identity, webhooks) compose the fragments they need directly instead.
+ */
+export const messagingMigration = composeMigrations(MESSAGING_MIGRATIONS)

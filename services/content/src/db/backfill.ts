@@ -13,16 +13,11 @@ import { posts } from './schema'
  * so `down` restores them exactly. The forward step is idempotent — once a row is the
  * general community it matches the branded pattern and is never touched again.
  */
-export { COMM_GENERAL }
-
 /**
- * Representative legacy placeholders this backfill catches. NOT used directly in SQL —
- * the single sentinel test is "does not parse as a branded CommunityId", expressed as the
- * regex below — but each of these fails that regex, so they are all normalized.
+ * The branded-CommunityId pattern as a SQL regex — the independent second source vs
+ * `CommunityId.parse()`. Any value that fails it (legacy placeholders such as '', 'default',
+ * 'general', 'legacy') is normalized to the reserved general community.
  */
-export const LEGACY_SENTINELS = ['', 'default', 'general', 'legacy'] as const
-
-/** The branded-CommunityId pattern as a SQL regex — the independent second source vs CommunityId.parse(). */
 const COMM_PATTERN = '^comm_[0-9A-HJKMNP-TV-Z]{26}$'
 
 export const backfillCommGeneral: Migration<ContentDb> = {

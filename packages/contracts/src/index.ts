@@ -107,6 +107,13 @@ export {
 export type { LamportTick, SpanAttributeSink } from './lamport'
 export { AsOf, asOf, LamportGate } from './lamport'
 export { SystemLimits } from './limits'
+export type {
+  ApplyEventOptions,
+  ApplyEventResult,
+  TransitionRecord,
+  TransitionSink,
+} from './machines/apply-event'
+export { applyMachineEvent, NOOP_TRANSITION_SINK } from './machines/apply-event'
 export type { Migration } from './machines/migration'
 export { composeMigrations } from './machines/migration'
 export type {

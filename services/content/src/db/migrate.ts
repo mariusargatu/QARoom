@@ -1,22 +1,6 @@
-import { composeMigrations } from '@qaroom/contracts'
-import {
-  idempotencyResponsesMigration,
-  outboxMigration,
-  processedEventsMigration,
-} from '@qaroom/messaging/migrations'
+import { messagingMigration } from '@qaroom/messaging/migrations'
 import { sql } from 'drizzle-orm'
 import type { SqlExecutor } from './client'
-
-/**
- * Shared substrate tables, applied from the `@qaroom/messaging` fragments so every service
- * provisions the SAME shape: the transactional outbox, the consumer dedup table, and the
- * Idempotency-Key replay store (Commitments 4 + 17) — no per-service copies of the DDL.
- */
-const messagingTables = composeMigrations([
-  outboxMigration,
-  processedEventsMigration,
-  idempotencyResponsesMigration,
-])
 
 /**
  * Milestone 0 schema is applied programmatically (idempotent DDL) so the test
@@ -24,7 +8,7 @@ const messagingTables = composeMigrations([
  * it on boot. drizzle-kit-generated migration files land when deployment shape
  * matters (Milestone 3).
  */
-export const MIGRATION_STATEMENTS: readonly string[] = [
+const MIGRATION_STATEMENTS: readonly string[] = [
   `CREATE TABLE IF NOT EXISTS posts (
     id text PRIMARY KEY,
     community_id text NOT NULL,
@@ -49,5 +33,5 @@ export async function ensureSchema(db: SqlExecutor): Promise<void> {
   for (const stmt of MIGRATION_STATEMENTS) {
     await db.execute(sql.raw(stmt))
   }
-  await messagingTables.up(db)
+  await messagingMigration.up(db)
 }

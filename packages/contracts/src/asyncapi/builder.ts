@@ -1,17 +1,17 @@
-import { stringify } from 'yaml'
-import { z } from 'zod'
+import {
+  type JsonSchema,
+  reachableSchemas,
+  SCHEMA_REF_PREFIX,
+  stringifyDoc,
+} from '../registry-schema'
 
 /**
  * Generic AsyncAPI 3.0 document assembler. Message payload schemas are sourced from Zod's
- * global registry (every `.meta({ id })` schema), mirroring `openapi/builder.ts` so the one
- * source of truth feeds BOTH contract documents (Commitment 3). The registry-walk helpers
- * below intentionally mirror the OpenAPI builder's rather than share a module: the OAS gate
- * is byte-sensitive (a committed YAML round-trip), so the async path is kept independent so
- * a change here cannot perturb it.
+ * global registry (every `.meta({ id })` schema) via the shared `registry-schema` helpers, so
+ * the one source of truth feeds BOTH contract documents (Commitment 3). Those helpers are pure
+ * (output is a function of the registry + root ids), so the byte-sensitive OAS/Async round-trip
+ * gates are unaffected by the sharing.
  */
-
-type JsonSchema = Record<string, unknown>
-const SCHEMA_REF_PREFIX = '#/components/schemas/'
 
 export interface AsyncInfo {
   title: string
@@ -39,54 +39,6 @@ export interface AsyncChannel {
   messageName: string
   summary: string
   description: string
-}
-
-function emitRegistrySchemas(): Record<string, JsonSchema> {
-  const emitted = z.toJSONSchema(z.globalRegistry, {
-    target: 'openapi-3.0',
-    uri: (id: string) => `${SCHEMA_REF_PREFIX}${id}`,
-  }) as { schemas: Record<string, JsonSchema> }
-  const schemas: Record<string, JsonSchema> = {}
-  for (const [id, schema] of Object.entries(emitted.schemas)) {
-    const copy: JsonSchema = { ...schema }
-    delete copy.$id
-    schemas[id] = copy
-  }
-  return schemas
-}
-
-/** Walk a schema and collect every component-schema id it `$ref`s. */
-function findRefs(node: unknown, ids: string[] = []): string[] {
-  if (Array.isArray(node)) {
-    for (const item of node) findRefs(item, ids)
-  } else if (node && typeof node === 'object') {
-    for (const [key, value] of Object.entries(node)) {
-      if (key === '$ref' && typeof value === 'string' && value.startsWith(SCHEMA_REF_PREFIX)) {
-        ids.push(value.slice(SCHEMA_REF_PREFIX.length))
-      } else findRefs(value, ids)
-    }
-  }
-  return ids
-}
-
-/** Emit only the schemas reachable from `rootIds` (their transitive `$ref` closure), sorted. */
-function reachableSchemas(rootIds: readonly string[]): Record<string, JsonSchema> {
-  const all = emitRegistrySchemas()
-  const queue = [...rootIds]
-  const reachable = new Set<string>()
-  while (queue.length > 0) {
-    const id = queue.shift()
-    if (id === undefined || reachable.has(id)) continue
-    reachable.add(id)
-    const schema = all[id]
-    if (schema) queue.push(...findRefs(schema))
-  }
-  const schemas: Record<string, JsonSchema> = {}
-  for (const id of [...reachable].sort()) {
-    const schema = all[id]
-    if (schema) schemas[id] = schema
-  }
-  return schemas
 }
 
 /**
@@ -156,5 +108,5 @@ export function buildAsyncApiDocument(
 
 /** Deterministic YAML serialization of an AsyncAPI document (stable key order, no anchors). */
 export function stringifyAsyncApi(doc: JsonSchema): string {
-  return stringify(doc, { sortMapEntries: false, lineWidth: 0, aliasDuplicateObjects: false })
+  return stringifyDoc(doc)
 }

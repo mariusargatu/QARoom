@@ -1,7 +1,4 @@
-import { writeFileSync } from 'node:fs'
-import { resolve } from 'node:path'
+import { writeDoc } from '@qaroom/service-kit'
 import { gatewayOpenApiYaml } from './openapi-document'
 
-const outPath = resolve(import.meta.dirname, '..', 'openapi.yaml')
-writeFileSync(outPath, gatewayOpenApiYaml())
-process.stdout.write(`wrote ${outPath}\n`)
+writeDoc(import.meta.dirname, 'openapi', gatewayOpenApiYaml)

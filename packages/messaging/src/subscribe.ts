@@ -1,4 +1,4 @@
-import type { Consumer, JetStreamClient, JsMsg } from '@nats-io/jetstream'
+import type { Consumer, JetStreamClient } from '@nats-io/jetstream'
 import type { Clock } from '@qaroom/determinism'
 import { context, extractTraceContext, traced, withTenant } from '@qaroom/otel'
 import { alreadyProcessed, markProcessed } from './dedup'
@@ -85,6 +85,3 @@ export async function runConsumer(opts: {
     await loop
   }
 }
-
-// Re-export so callers can type a raw message if they bypass `runConsumer`.
-export type { JsMsg }

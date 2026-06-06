@@ -1,33 +1,10 @@
 import type { Clock } from '@qaroom/determinism'
 import { createActor } from 'xstate'
+import { NOOP_TRANSITION_SINK, type TransitionRecord, type TransitionSink } from './apply-event'
 import { type MigrationEvent, type MigrationState, migrationMachine } from './migration.machine'
 
-/**
- * One recorded transition. `at` is stamped via the injected `clock.now()` — NEVER
- * `new Date()` (Commitment 6). This is the substrate a Milestone-5 instrumentation
- * wrapper turns into an `xstate.transition` span.
- */
-export interface MigrationTransitionRecord {
-  from: MigrationState
-  to: MigrationState
-  event: MigrationEvent['type']
-  at: string
-}
-
-/**
- * No-op seam for emitting each transition as a span attribute set. OTel is a
- * Milestone-3 dependency and the `xstate.transition` span is Milestone-5; until then
- * a no-op keeps the seam without pulling the SDK. Mirrors LamportGate's SpanAttributeSink.
- */
-export interface MigrationTransitionSink {
-  record(transition: MigrationTransitionRecord): void
-}
-
-const NOOP_TRANSITION_SINK: MigrationTransitionSink = {
-  record() {
-    /* no-op until Milestone 5 wires the xstate.transition span */
-  },
-}
+export type MigrationTransitionRecord = TransitionRecord<MigrationState, MigrationEvent['type']>
+export type MigrationTransitionSink = TransitionSink<MigrationState, MigrationEvent['type']>
 
 /** The async effects the runner drives the machine with. */
 export interface MigrationSteps<Tx> {

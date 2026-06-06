@@ -1,14 +1,12 @@
-import { stringify } from 'yaml'
-import { z } from 'zod'
+import { type JsonSchema, reachableSchemas, stringifyDoc } from '../registry-schema'
 
 /**
  * Generic OpenAPI 3.0 document assembler. Schemas are sourced from Zod's global
- * registry (every `.meta({ id })` schema), so `components.schemas` is generated
- * from the single source of truth (Commitment 3). Operations are supplied by the
- * service that owns them. This builder contains NO content-service knowledge.
+ * registry (every `.meta({ id })` schema) via the shared `registry-schema` helpers, so
+ * `components.schemas` is generated from the single source of truth (Commitment 3).
+ * Operations are supplied by the service that owns them. This builder contains NO
+ * content-service knowledge.
  */
-
-type JsonSchema = Record<string, unknown>
 
 export interface OasParam {
   name: string
@@ -59,21 +57,6 @@ export function schemaRef(id: string): JsonSchema {
   return { $ref: `#/components/schemas/${id}` }
 }
 
-function emitRegistrySchemas(): Record<string, JsonSchema> {
-  const emitted = z.toJSONSchema(z.globalRegistry, {
-    target: 'openapi-3.0',
-    uri: (id: string) => `#/components/schemas/${id}`,
-  }) as { schemas: Record<string, JsonSchema> }
-
-  const schemas: Record<string, JsonSchema> = {}
-  for (const [id, schema] of Object.entries(emitted.schemas)) {
-    const copy: JsonSchema = { ...schema }
-    delete copy.$id
-    schemas[id] = copy
-  }
-  return schemas
-}
-
 function buildResponses(op: OasOperation): Record<string, JsonSchema> {
   const responses: Record<string, JsonSchema> = {}
   for (const r of op.responses) {
@@ -115,53 +98,21 @@ function buildOperation(op: OasOperation): JsonSchema {
   return operation
 }
 
-const SCHEMA_REF_PREFIX = '#/components/schemas/'
-
-/** Walk a schema and collect every component-schema id it `$ref`s (the transitive closure's edges). */
-function findRefs(node: unknown, ids: string[] = []): string[] {
-  if (Array.isArray(node)) {
-    for (const item of node) findRefs(item, ids)
-  } else if (node && typeof node === 'object') {
-    for (const [key, value] of Object.entries(node)) {
-      if (key === '$ref' && typeof value === 'string' && value.startsWith(SCHEMA_REF_PREFIX)) {
-        ids.push(value.slice(SCHEMA_REF_PREFIX.length))
-      } else findRefs(value, ids)
-    }
-  }
-  return ids
-}
-
 /**
- * Emit only the component schemas reachable from `operations` (the request/response
- * body refs and their transitive `$ref` closure), sorted for deterministic output.
- * This keeps each service's document self-contained — a schema another service
- * registers in the shared global registry does not leak into this one's OAS.
+ * The component-schema roots an OpenAPI document needs: each operation's request body and
+ * every response body ref. The shared `reachableSchemas` walks their transitive `$ref` closure,
+ * keeping each service's document self-contained — a schema another service registers in the
+ * shared global registry does not leak into this one's OAS.
  */
-function reachableSchemas(operations: readonly OasOperation[]): Record<string, JsonSchema> {
-  const all = emitRegistrySchemas()
-  const queue: string[] = []
+function operationRoots(operations: readonly OasOperation[]): string[] {
+  const roots: string[] = []
   for (const op of operations) {
-    if (op.requestBodyRef) queue.push(op.requestBodyRef)
+    if (op.requestBodyRef) roots.push(op.requestBodyRef)
     for (const r of op.responses) {
-      if (r.bodyRef) queue.push(r.bodyRef)
+      if (r.bodyRef) roots.push(r.bodyRef)
     }
   }
-
-  const reachable = new Set<string>()
-  while (queue.length > 0) {
-    const id = queue.shift()
-    if (id === undefined || reachable.has(id)) continue
-    reachable.add(id)
-    const schema = all[id]
-    if (schema) queue.push(...findRefs(schema))
-  }
-
-  const schemas: Record<string, JsonSchema> = {}
-  for (const id of [...reachable].sort()) {
-    const schema = all[id]
-    if (schema) schemas[id] = schema
-  }
-  return schemas
+  return roots
 }
 
 export function buildOpenApiDocument(
@@ -184,7 +135,7 @@ export function buildOpenApiDocument(
       ...(info.description ? { description: info.description } : {}),
     },
     paths,
-    components: { schemas: reachableSchemas(operations) },
+    components: { schemas: reachableSchemas(operationRoots(operations)) },
   }
   if (servers.length > 0) doc.servers = servers
   return doc
@@ -192,5 +143,5 @@ export function buildOpenApiDocument(
 
 /** Deterministic YAML serialization of an OpenAPI document (stable key order, no anchors). */
 export function stringifyOpenApi(doc: JsonSchema): string {
-  return stringify(doc, { sortMapEntries: false, lineWidth: 0, aliasDuplicateObjects: false })
+  return stringifyDoc(doc)
 }

@@ -8,7 +8,7 @@ import type { PaymentClient } from '../src/payment-client'
 import { DONATIONS_FLAG, setFlagEnabled } from '../src/repository'
 
 /** Payment-provider doubles for tests (the production client hits the Microcks mock). */
-export const alwaysCaptures = (): PaymentClient => ({
+const alwaysCaptures = (): PaymentClient => ({
   charge: async () => ({ provider_ref: 'pay_test', status: 'captured' }),
 })
 export const alwaysDeclines = (): PaymentClient => ({

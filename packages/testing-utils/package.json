@@ -5,6 +5,7 @@
   "type": "module",
   "exports": {
     "./harness": "./src/harness/index.ts",
+    "./contracts": "./src/contracts/index.ts",
     "./generators": "./src/generators/index.ts",
     "./matchers": "./src/matchers/index.ts",
     "./determinism": "./src/determinism/index.ts",
@@ -39,23 +40,38 @@
     "zod": "^4.0.0"
   },
   "peerDependencies": {
+    "@pact-foundation/pact": "^13.0.0",
     "@playwright/experimental-ct-react": "^1.60.0",
     "@playwright/test": "^1.60.0",
+    "@testcontainers/postgresql": "^10.0.0",
     "fastify": "^5.0.0",
+    "postgres": "^3.4.0",
     "vitest": "^3.0.0 || ^4.0.0"
   },
   "peerDependenciesMeta": {
+    "@pact-foundation/pact": {
+      "optional": true
+    },
     "@playwright/experimental-ct-react": {
       "optional": true
     },
     "@playwright/test": {
       "optional": true
+    },
+    "@testcontainers/postgresql": {
+      "optional": true
+    },
+    "postgres": {
+      "optional": true
     }
   },
   "devDependencies": {
+    "@pact-foundation/pact": "^13.0.0",
     "@playwright/experimental-ct-react": "1.60.0",
     "@playwright/test": "1.60.0",
+    "@testcontainers/postgresql": "^10.0.0",
     "fastify": "^5.2.0",
+    "postgres": "^3.4.0",
     "typescript": "^5.7.0",
     "vitest": "^3.0.0"
   }

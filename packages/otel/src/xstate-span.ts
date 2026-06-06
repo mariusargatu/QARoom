@@ -1,23 +1,16 @@
 import { trace } from '@opentelemetry/api'
+import type { TransitionRecord } from '@qaroom/contracts'
 
 const tracer = trace.getTracer('@qaroom/otel')
 
 /** The span name reverse-conformance keys on (Milestone 5, ADR-0012). */
 export const XSTATE_TRANSITION_SPAN = 'xstate.transition'
 
-/** The structural shape shared by RolloutTransitionRecord and MigrationTransitionRecord. */
-export interface TransitionRecordLike {
-  from: string
-  to: string
-  event: string
-  at: string
-}
-
 /**
  * Build a transition sink that emits one `xstate.transition` span per recorded transition.
- * The returned object is structurally compatible with both `RolloutTransitionSink` and
- * `MigrationTransitionSink` (@qaroom/contracts) — identical `record()` shape — so a service
- * can pass it straight to `applyRolloutEvent`/`runMigration`.
+ * The returned object satisfies the generic `TransitionSink` (@qaroom/contracts) — identical
+ * `record()` shape — so a service can pass it straight to `applyRolloutEvent`/`runMigration`/
+ * `applyWebhookDeliveryEvent`.
  *
  * The span carries `xstate.{machine,from,to,event}` so Tracetest reverse-conformance can
  * check each observed transition against the model graph (ADR-0012). It is created as a
@@ -25,7 +18,7 @@ export interface TransitionRecordLike {
  * transition it caused. Paired with `XStateTransitionSampler` (start-telemetry) so a
  * head-sampling decision can never drop it. With the SDK off (tests) the tracer is a no-op.
  */
-export function xstateTransitionSink(machine: string): { record(t: TransitionRecordLike): void } {
+export function xstateTransitionSink(machine: string): { record(t: TransitionRecord): void } {
   return {
     record(t) {
       const span = tracer.startSpan(XSTATE_TRANSITION_SPAN)

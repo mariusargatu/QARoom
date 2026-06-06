@@ -1,7 +1,4 @@
-import { writeFileSync } from 'node:fs'
-import { resolve } from 'node:path'
+import { writeDoc } from '@qaroom/service-kit'
 import { gatewayAsyncApiYaml } from './asyncapi-document'
 
-const outPath = resolve(import.meta.dirname, '..', 'asyncapi.yaml')
-writeFileSync(outPath, gatewayAsyncApiYaml())
-process.stdout.write(`wrote ${outPath}\n`)
+writeDoc(import.meta.dirname, 'asyncapi', gatewayAsyncApiYaml)

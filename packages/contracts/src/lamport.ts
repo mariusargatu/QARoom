@@ -23,8 +23,8 @@ export interface LamportTick {
 }
 
 /**
- * Minimal sink for emitting the lamport value as a span attribute. OTel is a
- * Milestone-3 dependency; until then a no-op keeps the seam without pulling the SDK.
+ * Minimal sink for emitting the lamport value as a span attribute. The default is a no-op so
+ * `@qaroom/contracts` stays free of the OTel SDK; services inject the real OTel-backed sink.
  */
 export interface SpanAttributeSink {
   setAttribute(key: string, value: number | string): void
@@ -32,7 +32,7 @@ export interface SpanAttributeSink {
 
 const NOOP_SINK: SpanAttributeSink = {
   setAttribute() {
-    /* no-op until Milestone 3 wires OpenTelemetry */
+    /* default no-op; a service injects an OTel-backed sink to emit the span attribute */
   },
 }
 
