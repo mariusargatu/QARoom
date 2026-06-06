@@ -18,6 +18,12 @@ def test_python_builders_match_the_typescript_golden() -> None:
         subjects.MODERATION_DECISION_RECORDED_ADDRESS
         == golden["moderation_decision_recorded_address"]
     )
+    # The event-version header must match the TS source of truth (R1 — otherwise a 1→2 bump on one
+    # side only would pass every other gate silently). The golden carries it from the Zod constant.
+    assert (
+        subjects.MODERATION_DECISION_RECORDED_VERSION
+        == golden["moderation_decision_recorded_version"]
+    )
 
 
 def test_parse_subject_recovers_the_tenant_at_position_three() -> None:

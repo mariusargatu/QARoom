@@ -1,8 +1,9 @@
 import { mkdirSync, writeFileSync } from 'node:fs'
-import { dirname, resolve } from 'node:path'
+import { resolve } from 'node:path'
 import {
   CommunityId,
   MODERATION_DECISION_RECORDED_ADDRESS,
+  MODERATION_DECISION_RECORDED_VERSION,
   moderationDecisionRecorded,
   moderationDecisionRecordedJsonSchema,
   postCreated,
@@ -34,6 +35,9 @@ const subjects = {
   posts_created_any_community: postsCreatedAnyCommunity(),
   moderation_decision_recorded: moderationDecisionRecorded(SAMPLE),
   moderation_decision_recorded_address: MODERATION_DECISION_RECORDED_ADDRESS,
+  // Pinned here so the Python event-version header (`subjects.py`) can be cross-checked against the
+  // TS source of truth — otherwise a 1→2 bump on one side only would pass every gate silently (R1).
+  moderation_decision_recorded_version: MODERATION_DECISION_RECORDED_VERSION,
 }
 const subjectsOut = resolve(outDir, 'subjects.golden.json')
 writeFileSync(subjectsOut, `${JSON.stringify(subjects, null, 2)}\n`)

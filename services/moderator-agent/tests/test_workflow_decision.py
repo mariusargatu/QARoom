@@ -7,23 +7,51 @@ from moderator_agent.problem import ProblemError
 from moderator_agent.schemas import LlmVerdict
 
 
-async def test_a_benign_post_is_allowed_and_recorded() -> None:
+async def test_a_benign_post_is_approved_and_recorded() -> None:
     publisher = RecordingPublisher()
     workflow, decisions, _ = make_workflow(publisher=publisher)
     decision = await workflow.run(make_event())
     assert decision is not None
-    assert decision.verdict == "allow"
+    assert decision.disposition == "approve"
     assert workflow.last_state == "Recorded"
     assert await decisions.count() == 1
     assert len(publisher.published) == 1
 
 
-async def test_a_rule_violating_post_is_flagged_with_the_rule_id() -> None:
+async def test_a_rule_violating_post_is_removed_and_cites_the_grounded_rule() -> None:
     workflow, _, _ = make_workflow()
     decision = await workflow.run(make_event(body="you are an idiot and nobody wants you here"))
     assert decision is not None
-    assert decision.verdict == "flag"
-    assert decision.rule_id == "no-harassment"
+    assert decision.disposition == "remove"
+    # The cited rule survived self-check grounding because it was in the retrieved corpus (FR3).
+    assert decision.cited_rules == ["no-harassment"]
+
+
+class _LowConfidenceLlm:
+    """A draft the agent is unsure of — self-check must escalate rather than guess (FR5)."""
+
+    model = "unsure-1"
+
+    def classify(self, *, system_prompt: str, post_text: str) -> LlmVerdict:
+        return LlmVerdict(
+            disposition="remove",
+            cited_rules=["no-harassment"],
+            rationale="might violate harassment, but unsure",
+            confidence=0.2,
+        )
+
+
+async def test_a_low_confidence_draft_escalates_to_human_and_is_still_recorded() -> None:
+    # An escalation is DATA on the Recorded terminal, not a dead-end: it is persisted and published
+    # like any decision, with disposition=escalate_to_human (ADR-0020, the abstain path).
+    publisher = RecordingPublisher()
+    workflow, decisions, _ = make_workflow(llm=_LowConfidenceLlm(), publisher=publisher)
+    decision = await workflow.run(make_event(body="some borderline content"))
+    assert decision is not None
+    assert decision.disposition == "escalate_to_human"
+    assert workflow.last_state == "Recorded"
+    assert await decisions.count() == 1
+    assert len(publisher.published) == 1
 
 
 async def test_a_duplicate_event_id_is_idempotent() -> None:

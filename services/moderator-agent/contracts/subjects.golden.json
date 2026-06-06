@@ -2,5 +2,6 @@
   "post_created": "qaroom.content.posts.comm_00000000000000000000000000.created",
   "posts_created_any_community": "qaroom.content.posts.*.created",
   "moderation_decision_recorded": "qaroom.moderator.decision.comm_00000000000000000000000000.recorded",
-  "moderation_decision_recorded_address": "qaroom.moderator.decision.{community_id}.recorded"
+  "moderation_decision_recorded_address": "qaroom.moderator.decision.{community_id}.recorded",
+  "moderation_decision_recorded_version": 2
 }

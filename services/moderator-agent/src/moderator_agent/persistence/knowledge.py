@@ -12,14 +12,12 @@ from psycopg_pool import AsyncConnectionPool
 
 from ..ports import KnowledgeStore
 from ..schemas import CommunityRule, ModerationDecision
-
-
-def _vector_literal(embedding: list[float]) -> str:
-    return "[" + ",".join(repr(float(x)) for x in embedding) + "]"
+from .vectors import vector_literal
 
 
 def _summary(decision: ModerationDecision) -> str:
-    return f"{decision.verdict} ({decision.rule_id}): {decision.reason}"
+    rules = ", ".join(decision.cited_rules) if decision.cited_rules else "no rule"
+    return f"{decision.disposition} ({rules}): {decision.rationale}"
 
 
 class PgKnowledgeStore(KnowledgeStore):
@@ -39,14 +37,16 @@ class PgKnowledgeStore(KnowledgeStore):
     async def similar(
         self, community_id: str, embedding: list[float], *, limit: int = 3
     ) -> list[str]:
-        if not embedding:
+        # A missing/all-zero embedding has no meaningful ranking (cosine `<=>` on zero is NaN) — return
+        # no precedent rather than a degenerate ordering.
+        if not embedding or not any(embedding):
             return []
         async with self._pool.connection() as conn, conn.cursor(row_factory=dict_row) as cur:
             await cur.execute(
                 "SELECT summary FROM post_embeddings "
                 "WHERE community_id = %s AND embedding IS NOT NULL "
-                "ORDER BY embedding <=> %s::vector LIMIT %s",
-                (community_id, _vector_literal(embedding), limit),
+                "ORDER BY embedding <=> %s::vector, post_id LIMIT %s",
+                (community_id, vector_literal(embedding), limit),
             )
             rows = await cur.fetchall()
             return [str(row["summary"]) for row in rows]
@@ -61,7 +61,7 @@ class PgKnowledgeStore(KnowledgeStore):
         embedding: list[float],
         decision: ModerationDecision,
     ) -> None:
-        vec = _vector_literal(embedding) if embedding else None
+        vec = vector_literal(embedding) if embedding else None
         async with self._pool.connection() as conn:
             await conn.execute(
                 "INSERT INTO post_embeddings "

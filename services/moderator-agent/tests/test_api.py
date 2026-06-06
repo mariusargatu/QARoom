@@ -22,6 +22,7 @@ def test_system_state_carries_models_and_as_of() -> None:
     body = make_app_client().get("/system/state").json()
     assert body["service"] == "moderator-agent"
     assert "moderation_decisions" in body["models"]
+    assert "policy_corpus" in body["models"]  # retrieval is load-bearing (FR1, ADR-0020)
     assert "workflow" in body["models"]
     assert set(body["as_of"]) == {"snapshot_id", "lamport", "wall_clock"}
 
@@ -42,7 +43,7 @@ def test_capabilities_match_operations_and_real_routes() -> None:
     assert declared == routes
 
 
-def test_review_flags_a_violation_then_lists_and_fetches_it() -> None:
+def test_review_removes_a_violation_then_lists_and_fetches_it() -> None:
     client = make_app_client()
     body = {
         "event_id": EVENT,
@@ -59,7 +60,7 @@ def test_review_flags_a_violation_then_lists_and_fetches_it() -> None:
     )
     assert review.status_code == 200
     decision = review.json()
-    assert decision["verdict"] == "flag"
+    assert decision["disposition"] == "remove"
 
     listed = client.get(f"/api/communities/{COMMUNITY}/moderation-decisions").json()
     assert any(d["decision_id"] == decision["decision_id"] for d in listed["decisions"])

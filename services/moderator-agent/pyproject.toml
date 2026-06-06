@@ -33,6 +33,17 @@ dev = [
     "ruff>=0.9",
     "pyright>=1.1.390",
 ]
+# The eval / red-team stack (ADR-0020). DELIBERATELY a separate, NOT-installed-by-default group: it is
+# heavy (DeepEval + DeepTeam + PyRIT pull large dependency trees) and key-gated — the default
+# `uv run pytest` skips these tests via `importorskip` even when the group is absent. The eval CI job
+# installs this group (`uv sync --group eval`) and runs them against the pinned model with a key.
+# Apache-2.0 (DeepEval, DeepTeam) + MIT (PyRIT); vendor-neutral, replacing the OpenAI-acquired
+# Promptfoo (ADR-0020). Floors only — the eval job resolves the latest stable at run time.
+eval = [
+    "deepeval>=2.0",
+    "deepteam>=0.1",
+    "pyrit>=0.8",
+]
 
 [build-system]
 requires = ["hatchling"]
@@ -77,4 +88,7 @@ testpaths = ["tests"]
 markers = [
     "integration: requires a live Postgres (skipped unless QAROOM_TEST_DATABASE_URL is set)",
     "llm: hits the real OpenAI API (skipped unless OPENAI_API_KEY is set)",
+    "deepeval: RAG/agentic/G-Eval metrics (needs the `eval` group + OPENAI_API_KEY; ADR-0020)",
+    "deepteam: OWASP LLM red-team (needs the `eval` group + OPENAI_API_KEY; ADR-0020)",
+    "pyrit: multi-turn red-team, nightly (needs the `eval` group + OPENAI_API_KEY; ADR-0020)",
 ]

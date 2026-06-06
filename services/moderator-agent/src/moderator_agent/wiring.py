@@ -29,6 +29,7 @@ from .determinism import (
 )
 from .lamport import LamportGate
 from .llm import LangChainEmbedder, LangChainLlmClient, RuleKeywordLlm, ZeroEmbedder
+from .persistence.corpus import PgPolicyCorpusStore
 from .persistence.db import open_pool
 from .persistence.decisions import PgDecisionStore
 from .persistence.idempotency import PgIdempotencyStore
@@ -37,9 +38,10 @@ from .persistence.memory import (
     InMemoryDecisionStore,
     InMemoryIdempotencyStore,
     InMemoryKnowledgeStore,
+    InMemoryPolicyCorpusStore,
 )
 from .persistence.migrate import ensure_schema
-from .persistence.rules_seed import seed_rules
+from .persistence.rules_seed import seed_corpus, seed_rules
 from .publisher import NatsEventPublisher
 from .workflow.graph import ModerationWorkflow
 
@@ -66,11 +68,18 @@ async def build_runtime(settings: Settings) -> Runtime:
     clock, ids, _ = _trio(settings)
     lamport = LamportGate(ids)
 
+    embedder = LangChainEmbedder(settings)
+
     pool = await open_pool(settings.database_url)
     await ensure_schema(pool)
     await seed_rules(pool, RULES_DIR)
+    # Embed + seed the policy corpus the agent retrieves over (FR1). Best-effort: a boot without an
+    # embedding key still serves /health, /ready; the corpus fills once the key is present.
+    with contextlib.suppress(Exception):
+        await seed_corpus(pool, RULES_DIR, embedder)
     decisions = PgDecisionStore(pool)
     knowledge = PgKnowledgeStore(pool)
+    corpus = PgPolicyCorpusStore(pool)
     idempotency = PgIdempotencyStore(pool)
 
     stack = contextlib.AsyncExitStack()
@@ -83,8 +92,9 @@ async def build_runtime(settings: Settings) -> Runtime:
 
     workflow = ModerationWorkflow(
         llm=LangChainLlmClient(settings),
-        embedder=LangChainEmbedder(settings),
+        embedder=embedder,
         knowledge=knowledge,
+        corpus=corpus,
         decisions=decisions,
         clock=clock,
         ids=ids,
@@ -106,6 +116,7 @@ async def build_runtime(settings: Settings) -> Runtime:
         workflow=workflow,
         decisions=decisions,
         knowledge=knowledge,
+        corpus=corpus,
         idempotency=idempotency,
         clock=clock,
         lamport=lamport,
@@ -149,10 +160,12 @@ def build_schema_app() -> FastAPI:
     lamport = LamportGate(ids)
     decisions = InMemoryDecisionStore()
     knowledge = InMemoryKnowledgeStore()
+    corpus = InMemoryPolicyCorpusStore()
     workflow = ModerationWorkflow(
         llm=RuleKeywordLlm(),
         embedder=ZeroEmbedder(),
         knowledge=knowledge,
+        corpus=corpus,
         decisions=decisions,
         clock=clock,
         ids=ids,
@@ -164,6 +177,7 @@ def build_schema_app() -> FastAPI:
             workflow=workflow,
             decisions=decisions,
             knowledge=knowledge,
+            corpus=corpus,
             idempotency=InMemoryIdempotencyStore(),
             clock=clock,
             lamport=lamport,

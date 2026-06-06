@@ -24,9 +24,11 @@ def _event(**overrides: object) -> ModerationDecisionRecordedEvent:
         "post_id": f"post_{_B}",
         "community_id": f"comm_{_B}",
         "author_id": f"user_{_B}",
-        "verdict": "flag",
-        "rule_id": "no-harassment",
-        "reason": "targets an individual with a slur",
+        "disposition": "remove",
+        "cited_rules": ["no-harassment"],
+        "precedents": ["remove (no-harassment): a prior slur removal"],
+        "departs_from_precedent": False,
+        "rationale": "targets an individual with a slur, matching the cited no-harassment rule",
         "confidence": 0.91,
         "model": "openai:gpt-5.5-2026-04-23",
         "occurred_at": "2026-06-04T00:00:00.000Z",
@@ -39,8 +41,13 @@ def test_pydantic_event_validates_against_the_zod_json_schema() -> None:
     jsonschema.validate(_event().model_dump(mode="json"), _SCHEMA)
 
 
-def test_allow_with_null_rule_id_validates() -> None:
-    event = _event(verdict="allow", rule_id=None)
+def test_approve_with_empty_citations_validates() -> None:
+    event = _event(disposition="approve", cited_rules=[], precedents=[], rationale="no rule matched")
+    jsonschema.validate(event.model_dump(mode="json"), _SCHEMA)
+
+
+def test_escalate_disposition_validates() -> None:
+    event = _event(disposition="escalate_to_human", cited_rules=[], rationale="ambiguous — escalated")
     jsonschema.validate(event.model_dump(mode="json"), _SCHEMA)
 
 
@@ -52,11 +59,14 @@ def test_pydantic_and_zod_describe_the_same_field_set() -> None:
     "overrides",
     [
         {"model": ""},  # min_length 1
-        {"reason": "x" * 2001},  # max_length 2000
-        {"reason": "bad\x00text"},  # NUL guard
-        {"verdict": "reject"},  # not in the enum
+        {"rationale": "x" * 4001},  # max_length 4000
+        {"rationale": "bad\x00text"},  # NUL guard
+        {"disposition": "banish"},  # not in the enum
         {"confidence": 1.5},  # out of [0, 1]
-        {"rule_id": "x" * 101},  # max_length 100
+        {"cited_rules": ["x" * 101]},  # element max_length 100
+        {"cited_rules": [f"r{n}" for n in range(17)]},  # array max 16
+        {"precedents": ["x" * 2001]},  # element max_length 2000
+        {"precedents": ["bad\x00text"]},  # element NUL guard
         {"occurred_at": "2026-06-04T00:00:00"},  # missing the Z suffix
         {"occurred_at": "not-a-datetime"},
     ],

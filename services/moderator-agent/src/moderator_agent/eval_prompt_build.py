@@ -1,9 +1,10 @@
-"""Generate the Promptfoo prompt + verdict schema from the SAME builders the service uses.
+"""Generate the eval prompt + verdict schema from the SAME builders the service uses.
 
-The golden-set eval must exercise the real moderation prompt, not a copy. So the system message is
-``build_system_prompt`` over the general community's committed rules, and the response schema is the
-Pydantic ``LlmVerdict``. A pytest drift gate asserts the committed eval artifacts match this output,
-so the eval can never silently diverge from the running agent (ADR-0017).
+The eval (DeepEval as of M12, ADR-0020) must exercise the real moderation prompt, not a copy. So the
+system message is ``build_system_prompt`` over the general community's committed POLICY CORPUS (the
+retrieve-then-reason context), and the response schema is the Pydantic ``LlmVerdict`` (now
+citation-bearing + disposition). A pytest drift gate asserts the committed eval artifacts match this
+output, so the eval can never silently diverge from the running agent (ADR-0017).
 
 Run: ``pnpm --filter @qaroom/moderator-agent eval:prompt``.
 """
@@ -13,7 +14,7 @@ from __future__ import annotations
 import json
 from pathlib import Path
 
-from .persistence.rules_seed import load_rules_dir
+from .persistence.rules_seed import load_corpus_dir
 from .schemas import LlmVerdict
 from .workflow.prompts import build_system_prompt
 
@@ -29,8 +30,8 @@ _JSON_NOTE = "Respond ONLY with a single JSON object matching the structured ver
 
 
 def render_prompt() -> str:
-    rules = load_rules_dir(_ROOT / "rules").get(_GENERAL, [])
-    system = build_system_prompt(rules, [], prompt_bug=False) + "\n\n" + _JSON_NOTE
+    entries = load_corpus_dir(_ROOT / "rules").get(_GENERAL, [])
+    system = build_system_prompt(entries, [], prompt_bug=False) + "\n\n" + _JSON_NOTE
     messages = [
         {"role": "system", "content": system},
         {"role": "user", "content": "{{post}}"},

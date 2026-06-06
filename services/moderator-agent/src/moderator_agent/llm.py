@@ -220,13 +220,20 @@ class RuleKeywordLlm:
         for rule_id, phrases in self._triggers.items():
             if any(phrase in text for phrase in phrases):
                 return LlmVerdict(
-                    verdict="flag",
-                    rule_id=rule_id,
-                    reason=f"matched rule {rule_id}",
+                    disposition="remove",
+                    cited_rules=[rule_id],
+                    precedents=[],
+                    departs_from_precedent=False,
+                    rationale=f"matched rule {rule_id}",
                     confidence=0.9,
                 )
         return LlmVerdict(
-            verdict="allow", rule_id=None, reason="no community rule matched", confidence=0.8
+            disposition="approve",
+            cited_rules=[],
+            precedents=[],
+            departs_from_precedent=False,
+            rationale="no community rule matched",
+            confidence=0.8,
         )
 
 

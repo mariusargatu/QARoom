@@ -1,6 +1,6 @@
 # AGENTS.md
 
-You are working on **QARoom**, a multi-tenant social platform built to demonstrate testing-driven architecture. This file is your quick reference. Read it first, then read the docs in `docs/` in numbered order. Per-package conventions live in each package's own `AGENTS.md` (loaded as you navigate there) — keep this root file lean. *Reviewed through Milestone 11.*
+You are working on **QARoom**, a multi-tenant social platform built to demonstrate testing-driven architecture. This file is your quick reference. Read it first, then read the docs in `docs/` in numbered order. Per-package conventions live in each package's own `AGENTS.md` (loaded as you navigate there) — keep this root file lean. *Reviewed through Milestone 12.*
 
 ## Commands
 
@@ -123,7 +123,7 @@ QARoom is a *deliberately* multi-state system. When you need to find the truth a
 
 ## Milestone awareness
 
-QARoom is built across 11 milestones. The current milestone determines what services and capabilities exist.
+QARoom is built across 12 milestones. The current milestone determines what services and capabilities exist.
 
 | Milestone | New | What's not yet built |
 |---|---|---|
@@ -139,6 +139,7 @@ QARoom is built across 11 milestones. The current milestone determines what serv
 | 9 | moderator-agent (Python `uv`/FastAPI/LangGraph + pgvector), structured outputs (Pydantic↔Zod cross-language gate), Promptfoo golden-set evals (OpenAI), metamorphic paraphrase-invariance + deliberate prompt-bug demo, LangGraph reverse-conformance (xstate.transition spans), per-run cost guard, ADR-0017, ADR-0018 | — |
 | 10 | `packages/qaroom-mcp` — the cross-service MCP server as a first-class tested service (ADR-0006). Read-first tool surface (capabilities proxy + RFC 7807 tool errors + read resources + conventions oracle), both transports (in-memory + JSON-RPC/Fastify), four typed gates (manifest drift + breaking-change classifier, RFC 7807 property tests, determinism-trio golden transcript, property + metamorphic tool I/O cross-checked vs `/system/capabilities` + `openapi.yaml`). Movement 2 (agentic-CI demonstration) documented in `docs/agentic-ci-demo.md`. Mutating `callTool` deferred to a second pass. | — |
 | 11 | `services/webhooks` — outbound delivery edge (ADR-0019): pure consumer of all five NATS channels, subscription CRUD (gateway-proxied), durable delivery ledger + relay-shaped worker, hand-authored webhook-delivery XState machine + reverse-conformance + MBT, deterministic capped-jittered retry contract, HMAC-SHA256 signing (timestamp bound in), SSRF guard, at-least-once + receiver dedup. Six env-toggled deliberate-bug demos. | — |
+| 12 | moderator v2 — retrieval-grounded RAG agent (ADR-0020): per-community policy corpus in pgvector, 5-node trajectory (retrieve→gather_precedent→draft→self_check→record), citation-bearing `disposition ∈ {approve,remove,escalate_to_human}` (`cited_rules`/`precedents`/`departs_from_precedent`/`rationale`) + abstain/escalate path, prompt-injection input guard (`guard.py`, failure-modes). DeepEval (RAG + agentic + G-Eval) / DeepTeam (OWASP LLM Top 10) / PyRIT eval+red-team stack, key-gated; **Promptfoo dropped**. Breaking event v2 (verdict→disposition). | — |
 
 Always check the current milestone before introducing infrastructure that doesn't yet exist. The roadmap in `docs/04-roadmap.md` has full exit criteria per milestone.
 

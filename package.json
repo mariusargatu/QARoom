@@ -46,7 +46,9 @@
     "evomaster": "tsx scripts/evomaster-run.ts",
     "evomaster:results": "tsx scripts/evomaster-results.ts",
     "moderator:results": "tsx scripts/moderator-results.ts",
-    "promptfoo:results": "tsx scripts/promptfoo-results.ts",
+    "deepeval:results": "tsx scripts/deepeval-results.ts",
+    "deepteam:results": "tsx scripts/deepteam-results.ts",
+    "pyrit:results": "tsx scripts/pyrit-results.ts",
     "golden:results": "tsx scripts/golden-results.ts"
   },
   "pnpm": {

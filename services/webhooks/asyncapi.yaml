@@ -232,15 +232,26 @@ components:
           $ref: "#/components/schemas/CommunityId"
         author_id:
           $ref: "#/components/schemas/UserId"
-        verdict:
-          $ref: "#/components/schemas/ModerationVerdict"
-        rule_id:
-          nullable: true
+        disposition:
+          $ref: "#/components/schemas/ModerationDisposition"
+        cited_rules:
+          maxItems: 16
+          type: array
+          items:
+            type: string
+            maxLength: 100
+        precedents:
+          maxItems: 16
+          type: array
+          items:
+            type: string
+            maxLength: 2000
+            pattern: ^[^\x00]*$
+        departs_from_precedent:
+          type: boolean
+        rationale:
           type: string
-          maxLength: 100
-        reason:
-          type: string
-          maxLength: 2000
+          maxLength: 4000
           pattern: ^[^\x00]*$
         confidence:
           type: number
@@ -260,19 +271,22 @@ components:
         - post_id
         - community_id
         - author_id
-        - verdict
-        - rule_id
-        - reason
+        - disposition
+        - cited_rules
+        - precedents
+        - departs_from_precedent
+        - rationale
         - confidence
         - model
         - occurred_at
       additionalProperties: false
-      description: Emitted when the moderator-agent records a decision for a post.
-    ModerationVerdict:
+      description: Emitted when the moderator-agent records a grounded decision for a post.
+    ModerationDisposition:
       type: string
       enum:
-        - allow
-        - flag
+        - approve
+        - remove
+        - escalate_to_human
     PostCreatedEvent:
       type: object
       properties:

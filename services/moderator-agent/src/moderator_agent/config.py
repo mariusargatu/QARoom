@@ -39,9 +39,24 @@ class Settings(BaseSettings):
     # (must match the `vector(N)` column in persistence/migrate.py).
     moderator_embedding_dim: int = 1536
 
-    # Deliberate-bug toggle (mirrors the TS CONTENT_BUG_* convention). When on, the prompt becomes
-    # sensitive to one specific phrasing — the metamorphic test catches it; the golden eval misses it.
+    # Retrieve-then-reason (FR2, ADR-0020): how many policy-corpus entries the draft node reasons over.
+    moderator_retrieval_limit: int = 5
+    # Abstain/escalate threshold (FR5): a draft below this confidence escalates to a human instead of
+    # auto-acting. The self-check node also escalates a `remove` that, after grounding, cites no rule.
+    moderator_abstain_confidence: float = 0.5
+
+    # Deliberate-bug toggles (mirror the TS CONTENT_BUG_* / M11 convention; surfaced via
+    # /system/capabilities). Each defeats one M12 guarantee so a test can prove the guarantee has teeth:
+    #   prompt_bug          — model keys on literal wording (metamorphic catches; golden misses).
+    #   disable_input_guard — untrusted post body is NOT delimited → prompt-injection lands (DeepTeam).
+    #   ungrounded          — self-check skips citation grounding → hallucinated policy survives
+    #                         (DeepEval faithfulness catches it; a non-grounded eval would not).
+    #   disable_abstain     — self-check never escalates → a low-confidence/conflicting case is guessed
+    #                         (the calibration/abstain check catches it).
     moderator_prompt_bug: bool = False
+    moderator_disable_input_guard: bool = False
+    moderator_ungrounded: bool = False
+    moderator_disable_abstain: bool = False
 
     # NATS consumer.
     nats_stream: str = "qaroom"
@@ -51,7 +66,7 @@ class Settings(BaseSettings):
     # Default on (dev/tests); the prod Helm values set this false so the endpoint refuses (ADR-0018).
     moderator_enable_manual_review: bool = True
 
-    # Cost guard (Promptfoo pre-flight; CI fails if the estimate exceeds this).
+    # Cost guard (DeepEval/DeepTeam pre-flight; CI fails if the estimate exceeds this).
     moderator_eval_budget_tokens: int = 200_000
 
     # Observability.

@@ -1,21 +1,20 @@
-"""The LangGraph runner over the moderation model (Milestone 9, ADR-0017/0018).
+"""The LangGraph runner over the moderation model (Milestone 9; re-scoped to RAG in M12, ADR-0020).
 
-A real ``StateGraph`` — ``retrieve → classify → record`` with a failure edge to ``END`` — so the
-workflow IS the graph the README renders and the conformance test walks. Each node records its
-transition into the run state AND emits an ``xstate.transition`` span (``telemetry.emit_transition_span``)
-with the same attributes the XState services emit, so the Tracetest reverse-conformance assertion
-(ADR-0012) works unchanged. Transitions are appended to a fresh list each step (no mutation), and the
-model in ``model.py`` is the sole authority on which transitions are legal.
+A real ``StateGraph`` — ``retrieve → gather_precedent → draft → self_check → record`` with a failure
+edge to ``END`` — so the workflow IS the graph the README renders and the conformance test walks. The
+trajectory is retrieval-grounded (FR2/FR6): ``retrieve`` fetches top-k policy from the corpus,
+``gather_precedent`` similar past decisions, ``draft`` is the single LLM call (a citation-bearing
+disposition), ``self_check`` is PURE validation (grounding + precedent + abstain — see ``selfcheck``),
+and ``record`` persists + publishes. Each node records its transition into the run state AND emits an
+``xstate.transition`` span (``telemetry.emit_transition_span``) with the same attributes the XState
+services emit, so the Tracetest reverse-conformance assertion (ADR-0012) works unchanged. ``_advance``
+asserts the emitted transition is legal per ``model.py`` and that it leaves the live state — so an
+off-model emission fails fast at the node, not only in the one conformance test that walks that path.
 
-Idempotency (Commitment 17) is the decision store's job, not the checkpointer's. ``run`` always
-supplies the full initial input, so a re-delivery (including a post-crash redelivery) re-invokes the
-graph from the start — a second classify — rather than resuming (LangGraph only resumes a thread when
-invoked with ``None``, which ``run`` never does). The guarantee: ``record`` returns ``is_new=False``
-on a duplicate ``event_id``, the originally-stored decision (and id) is returned, and the republish
-carries a stable, decision-derived Msg-Id — so the duplicate is observably a no-op downstream
-(ADR-0018). The checkpointer (``thread_id = event_id``) is wired for LangGraph-native run durability
-and trace continuity; it does NOT suppress a re-delivery, and the suite pins that the store dedups
-identically with or without it.
+Idempotency (Commitment 17) is the decision store's job, not the checkpointer's (unchanged from M9):
+``run`` always supplies the full initial input, so a re-delivery re-invokes the graph from the start;
+``record`` returns ``is_new=False`` on a duplicate ``event_id`` and the republish carries a stable,
+decision-derived Msg-Id, so the duplicate is observably a no-op downstream (ADR-0018).
 """
 
 from __future__ import annotations
@@ -28,14 +27,15 @@ from langgraph.graph import END, START, StateGraph
 from .. import telemetry
 from ..config import Settings
 from ..determinism import Clock, IdGenerator
+from ..guard import guard_post_text
 from ..lamport import LamportGate
 from ..llm import Embedder, LlmClient
-from ..ports import DecisionStore, EventPublisher, KnowledgeStore
+from ..ports import DecisionStore, EventPublisher, KnowledgeStore, PolicyCorpusStore
 from ..problem import ProblemError
 from ..schemas import (
-    CommunityRule,
     LlmVerdict,
     ModerationDecision,
+    PolicyEntry,
     PostCreatedEvent,
     iso_z,
 )
@@ -45,14 +45,17 @@ from ..subjects import (
     moderation_decision_recorded,
 )
 from . import model as M
+from . import selfcheck
 from .prompts import build_system_prompt
 
 
 class WorkflowState(TypedDict, total=False):
     event: dict
-    rules: list[dict]
+    policy: list[dict]
     precedents: list[str]
     embedding: list[float]
+    # `verdict` carries the drafted LlmVerdict out of `draft`, then the self-checked one out of
+    # `self_check` — one key, since the raw draft is never read after self-check validates it.
     verdict: dict | None
     decision: dict | None
     state: str
@@ -67,6 +70,7 @@ class ModerationWorkflow:
         llm: LlmClient,
         embedder: Embedder,
         knowledge: KnowledgeStore,
+        corpus: PolicyCorpusStore,
         decisions: DecisionStore,
         clock: Clock,
         ids: IdGenerator,
@@ -79,6 +83,7 @@ class ModerationWorkflow:
         self._llm = llm
         self._embedder = embedder
         self._knowledge = knowledge
+        self._corpus = corpus
         self._decisions = decisions
         self._clock = clock
         self._ids = ids
@@ -96,13 +101,21 @@ class ModerationWorkflow:
     def _build(self, checkpointer: Any) -> Any:
         graph: StateGraph = StateGraph(WorkflowState)
         graph.add_node("retrieve", self._retrieve)
-        graph.add_node("classify", self._classify)
+        graph.add_node("gather_precedent", self._gather_precedent)
+        graph.add_node("draft", self._draft)
+        graph.add_node("self_check", self._self_check)
         graph.add_node("record", self._record)
         graph.add_edge(START, "retrieve")
         graph.add_conditional_edges(
-            "retrieve", self._route, {"continue": "classify", "failed": END}
+            "retrieve", self._route, {"continue": "gather_precedent", "failed": END}
         )
-        graph.add_conditional_edges("classify", self._route, {"continue": "record", "failed": END})
+        graph.add_conditional_edges(
+            "gather_precedent", self._route, {"continue": "draft", "failed": END}
+        )
+        graph.add_conditional_edges("draft", self._route, {"continue": "self_check", "failed": END})
+        graph.add_conditional_edges(
+            "self_check", self._route, {"continue": "record", "failed": END}
+        )
         graph.add_edge("record", END)
         return graph.compile(checkpointer=checkpointer)
 
@@ -113,6 +126,13 @@ class ModerationWorkflow:
     def _advance(
         self, state: WorkflowState, updates: dict, *, frm: str, event: str, to: str
     ) -> dict:
+        # Fail fast on an off-model emission (a copy-paste of the wrong event, or a node whose `frm`
+        # has drifted from the live state) — the model in model.py is the sole authority (ADR-0012).
+        if not M.is_legal(frm, event, to):
+            raise RuntimeError(f"off-model transition: ({frm!r}, {event!r}, {to!r}) not in model")
+        current = state.get("state", M.INITIAL_STATE)
+        if current != frm:
+            raise RuntimeError(f"transition from {frm!r} but live state is {current!r}")
         at = iso_z(self._clock.now())
         transition = {"from": frm, "to": to, "event": event, "at": at}
         telemetry.emit_transition_span(machine=M.MACHINE, frm=frm, to=to, event=event, at=at)
@@ -130,43 +150,84 @@ class ModerationWorkflow:
         return f"Title: {event.title}\n\nBody: {body}"
 
     async def _retrieve(self, state: WorkflowState) -> dict:
+        """Embed the post and retrieve the top-k policy entries (FR2). Failure → Failed@Received."""
         event = PostCreatedEvent.model_validate(state["event"])
         try:
-            rules = await self._knowledge.rules_for(event.community_id)
             embedding = await asyncio.to_thread(self._embedder.embed, self._post_text(event))
-            precedents = await self._knowledge.similar(event.community_id, embedding)
+            policy = await self._corpus.retrieve(
+                event.community_id, embedding, limit=self._settings.moderator_retrieval_limit
+            )
         except ProblemError:
             return self._fail(state, frm="Received")
         return self._advance(
             state,
-            {
-                "rules": [r.model_dump() for r in rules],
-                "precedents": precedents,
-                "embedding": embedding,
-            },
+            {"policy": [e.model_dump() for e in policy], "embedding": embedding},
             frm="Received",
             event="ReviewRequested",
             to="Retrieved",
         )
 
-    async def _classify(self, state: WorkflowState) -> dict:
+    async def _gather_precedent(self, state: WorkflowState) -> dict:
+        """Gather similar past decisions as precedent (FR4). Failure → Failed@Retrieved."""
         event = PostCreatedEvent.model_validate(state["event"])
-        rules = [CommunityRule.model_validate(r) for r in state.get("rules", [])]
-        prompt = build_system_prompt(
-            rules, state.get("precedents", []), prompt_bug=self._settings.moderator_prompt_bug
-        )
         try:
-            verdict = await asyncio.to_thread(
-                self._llm.classify, system_prompt=prompt, post_text=self._post_text(event)
+            precedents = await self._knowledge.similar(
+                event.community_id, state.get("embedding", [])
             )
         except ProblemError:
             return self._fail(state, frm="Retrieved")
         return self._advance(
             state,
-            {"verdict": verdict.model_dump()},
+            {"precedents": precedents},
             frm="Retrieved",
-            event="ContextRetrieved",
-            to="Classified",
+            event="PolicyRetrieved",
+            to="PrecedentGathered",
+        )
+
+    async def _draft(self, state: WorkflowState) -> dict:
+        """The single LLM call: draft a citation-bearing disposition from the retrieved context
+        (FR3). The untrusted post body is fenced by the injection guard. Failure → Failed@PrecedentGathered."""
+        event = PostCreatedEvent.model_validate(state["event"])
+        entries = [PolicyEntry.model_validate(e) for e in state.get("policy", [])]
+        prompt = build_system_prompt(
+            entries, state.get("precedents", []), prompt_bug=self._settings.moderator_prompt_bug
+        )
+        guarded = guard_post_text(
+            self._post_text(event), disabled=self._settings.moderator_disable_input_guard
+        )
+        try:
+            draft = await asyncio.to_thread(
+                self._llm.classify, system_prompt=prompt, post_text=guarded
+            )
+        except ProblemError:
+            return self._fail(state, frm="PrecedentGathered")
+        return self._advance(
+            state,
+            {"verdict": draft.model_dump()},
+            frm="PrecedentGathered",
+            event="PrecedentCollected",
+            to="Drafted",
+        )
+
+    async def _self_check(self, state: WorkflowState) -> dict:
+        """PURE validation: ground the draft's citations, flag precedent departure, abstain on low
+        confidence / ungrounded removal (FR3/FR4/FR5). No I/O, so no failure edge — see model.py."""
+        draft = LlmVerdict.model_validate(state["verdict"])
+        retrieved_ids = [e["entry_id"] for e in state.get("policy", [])]
+        verdict = selfcheck.self_check(
+            draft,
+            retrieved_ids,
+            state.get("precedents", []),
+            abstain_confidence=self._settings.moderator_abstain_confidence,
+            ungrounded=self._settings.moderator_ungrounded,
+            disable_abstain=self._settings.moderator_disable_abstain,
+        )
+        return self._advance(
+            state,
+            {"verdict": verdict.model_dump()},
+            frm="Drafted",
+            event="DraftProduced",
+            to="SelfChecked",
         )
 
     async def _record(self, state: WorkflowState) -> dict:
@@ -178,9 +239,11 @@ class ModerationWorkflow:
             post_id=event.post_id,
             community_id=event.community_id,
             author_id=event.author_id,
-            verdict=verdict.verdict,
-            rule_id=verdict.rule_id,
-            reason=verdict.reason,
+            disposition=verdict.disposition,
+            cited_rules=verdict.cited_rules,
+            precedents=verdict.precedents,
+            departs_from_precedent=verdict.departs_from_precedent,
+            rationale=verdict.rationale,
             confidence=verdict.confidence,
             model=self._llm.model,
             created_at=iso_z(self._clock.now()),
@@ -215,19 +278,18 @@ class ModerationWorkflow:
                     )
                 decision = existing
         except ProblemError:
-            return self._fail(state, frm="Classified")
+            return self._fail(state, frm="SelfChecked")
         # Publish on EVERY delivery, OUTSIDE the dedup guard and the ProblemError catch. The Msg-Id is
         # derived from the decision id, so a republish (the safety net when no checkpoint suppressed a
         # duplicate) is dropped downstream by JetStream's duplicate_window + the consumer's dedup. A
         # publish failure is NOT a ProblemError: it propagates → the consumer naks → redelivery
-        # re-attempts the publish. This is the outbox-free at-least-once guarantee (ADR-0018) — without
-        # it, a publish failure on first delivery would leave a decision persisted but never published.
+        # re-attempts the publish. This is the outbox-free at-least-once guarantee (ADR-0018).
         await self._publish(decision)
         return self._advance(
             state,
             {"decision": decision.model_dump()},
-            frm="Classified",
-            event="VerdictProduced",
+            frm="SelfChecked",
+            event="SelfCheckPassed",
             to="Recorded",
         )
 

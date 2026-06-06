@@ -37,7 +37,7 @@ export {
   MODERATION_DECISION_RECORDED_EVENT,
   MODERATION_DECISION_RECORDED_VERSION,
   ModerationDecisionRecordedEvent,
-  ModerationVerdict,
+  ModerationDisposition,
   moderationDecisionRecordedJsonSchema,
 } from './events/moderation-decision-recorded'
 export {

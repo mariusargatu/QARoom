@@ -6,7 +6,29 @@ from __future__ import annotations
 from dataclasses import dataclass
 from typing import Protocol, runtime_checkable
 
-from .schemas import CommunityRule, ModerationDecision
+from .schemas import CommunityRule, ModerationDecision, PolicyEntry
+
+
+@runtime_checkable
+class PolicyCorpusStore(Protocol):
+    """The retrieval surface over a community's versioned policy corpus (FR1/FR2, ADR-0020). Retrieval
+    is load-bearing: the draft node reasons over what ``retrieve`` returns, not over a prompt-baked
+    rule list — so retrieval precision/recall become testable (DeepEval, ADR-0020)."""
+
+    async def retrieve(
+        self, community_id: str, embedding: list[float], *, limit: int = 5
+    ) -> list[PolicyEntry]:
+        """Top-``limit`` policy entries (rule/guideline) nearest the post embedding. A missing/empty
+        embedding short-circuits to the community's entries in a stable order (no degenerate ranking)."""
+        ...
+
+    async def corpus_for(self, community_id: str) -> list[PolicyEntry]:
+        """Every entry for a community — used by tests/evals to know the full retrievable set."""
+        ...
+
+    async def count_entries(self) -> int:
+        """Total corpus entries across communities — surfaced on ``/system/state`` (FR1)."""
+        ...
 
 
 @runtime_checkable

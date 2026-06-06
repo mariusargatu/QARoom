@@ -7,21 +7,23 @@ from moderator_agent.metamorphic import GOLDEN_CASES, check_paraphrase_invarianc
 from moderator_agent.schemas import LlmVerdict
 
 
-def _allow() -> LlmVerdict:
-    return LlmVerdict(verdict="allow", reason="ok", confidence=0.8, rule_id=None)
+def _approve() -> LlmVerdict:
+    return LlmVerdict(disposition="approve", rationale="ok", confidence=0.8)
 
 
-def _flag() -> LlmVerdict:
-    return LlmVerdict(verdict="flag", reason="violation", confidence=0.9, rule_id="r")
+def _remove() -> LlmVerdict:
+    return LlmVerdict(disposition="remove", cited_rules=["r"], rationale="violation", confidence=0.9)
 
 
 def test_the_checker_catches_a_phrasing_sensitive_classifier() -> None:
     """A classifier that only recognises the canonical wording (the deliberate prompt-bug shape)
     breaks paraphrase invariance — and the metamorphic checker must catch it."""
-    flagged_literals = {case.canonical for case in GOLDEN_CASES if case.expected_verdict == "flag"}
+    removed_literals = {
+        case.canonical for case in GOLDEN_CASES if case.expected_disposition == "remove"
+    }
 
     def literal_only(text: str) -> LlmVerdict:
-        return _flag() if text in flagged_literals else _allow()
+        return _remove() if text in removed_literals else _approve()
 
     violations = check_paraphrase_invariance(literal_only, GOLDEN_CASES)
     assert violations
@@ -29,7 +31,7 @@ def test_the_checker_catches_a_phrasing_sensitive_classifier() -> None:
 
 
 def test_the_checker_passes_a_semantic_classifier() -> None:
-    """A classifier that judges meaning gives one verdict per family — no invariance violations."""
+    """A classifier that judges meaning gives one disposition per family — no invariance violations."""
     stems = [
         "idiot",
         "worthless",
@@ -44,7 +46,7 @@ def test_the_checker_passes_a_semantic_classifier() -> None:
 
     def semantic(text: str) -> LlmVerdict:
         lowered = text.lower()
-        return _flag() if any(stem in lowered for stem in stems) else _allow()
+        return _remove() if any(stem in lowered for stem in stems) else _approve()
 
     assert check_paraphrase_invariance(semantic, GOLDEN_CASES) == []
 
@@ -59,15 +61,15 @@ def test_the_real_model_is_paraphrase_invariant() -> None:
     MODERATOR_PROMPT_BUG=1 this fails (the deliberate-bug demo); with the honest prompt it passes."""
     from moderator_agent.config import Settings
     from moderator_agent.llm import LangChainLlmClient
-    from moderator_agent.persistence.rules_seed import load_rules_dir
+    from moderator_agent.persistence.rules_seed import load_corpus_dir
     from moderator_agent.workflow.prompts import build_system_prompt
 
     settings = Settings()
     llm = LangChainLlmClient(settings)
-    rules = load_rules_dir(Path(__file__).resolve().parents[1] / "rules").get(
+    entries = load_corpus_dir(Path(__file__).resolve().parents[1] / "rules").get(
         "comm_" + "0" * 26, []
     )
-    prompt = build_system_prompt(rules, [], prompt_bug=settings.moderator_prompt_bug)
+    prompt = build_system_prompt(entries, [], prompt_bug=settings.moderator_prompt_bug)
 
     def classify(text: str) -> LlmVerdict:
         return llm.classify(system_prompt=prompt, post_text=text)

@@ -1,7 +1,8 @@
 # ADR 0020 — Moderator as a retrieval-grounded agent; the eval + red-team stack
 
-- **Status:** Proposed
+- **Status:** Accepted
 - **Date:** 2026-06-05
+- **Implemented:** Milestone 12
 - **Supersedes:** ADR-0017's *tool choices* (Promptfoo → DeepEval for evaluation; adds a red-team tool) and **extends** ADR-0018 (the moderator becomes a genuine retrieval-grounded RAG agent, not a prompt-baked classifier). Does **not** modify any ADR-0001 commitment. Slotted as **Milestone 12** on the roadmap (a v2 re-scope of the Milestone-9 moderator), replacing the dropped Deterministic-Simulation-Testing candidate.
 - **Records:** the decision to upgrade the moderator's functional requirements so retrieval is *load-bearing*, and to align the testing stack accordingly — RAG-quality + agentic evaluation via **DeepEval**, adversarial testing via **DeepTeam**, with **Promptfoo dropped**.
 

@@ -14,7 +14,7 @@ from ..determinism import Clock
 from ..idempotency import body_hash
 from ..ids import is_branded
 from ..lamport import LamportGate, as_of
-from ..ports import DecisionStore, IdempotencyStore, KnowledgeStore
+from ..ports import DecisionStore, IdempotencyStore, KnowledgeStore, PolicyCorpusStore
 from ..problem import NextAction, ProblemError, register_problem_handlers
 from ..schemas import (
     AsOfModel,
@@ -40,6 +40,7 @@ class AppDeps:
     workflow: ModerationWorkflow
     decisions: DecisionStore
     knowledge: KnowledgeStore
+    corpus: PolicyCorpusStore
     idempotency: IdempotencyStore
     clock: Clock
     lamport: LamportGate
@@ -100,6 +101,9 @@ def build_app(deps: AppDeps) -> FastAPI:
             models={
                 "moderation_decisions": {"count": await deps.decisions.count()},
                 "post_embeddings": {"count": await deps.knowledge.count_embeddings()},
+                # The retrievable policy corpus (FR1, ADR-0020) — retrieval is load-bearing, so its
+                # size is part of the agent's observable state alongside decisions + embeddings.
+                "policy_corpus": {"count": await deps.corpus.count_entries()},
                 "workflow": {"state": deps.workflow.last_state},
             },
             as_of=_as_of_model(deps),

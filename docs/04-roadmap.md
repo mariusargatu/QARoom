@@ -413,7 +413,7 @@ Milestones beyond 9 are deliberately uncommitted. Candidate follow-ups, in rough
 
 - **Milestone 10: The tested MCP server, and the agentic CI/CD demonstration.** Two movements. (1) A single **cross-service MCP server** (`packages/qaroom-mcp`) realizing the `/system/capabilities` seam as a *first-class tested service* — tool manifest drift-gated by the same Zod→OpenAPI→`oasdiff` pipeline as the services, RFC 7807 tool errors, determinism-trio golden transcripts, and property/metamorphic tool I/O. Read-first surface (capabilities proxy, state/limits/test-results resources, conventions oracle); mutating tools a second pass. The four gates and rejected alternatives are recorded in [ADR-0006](adr/0006-mcp-as-tested-service.md). (2) 10 parallel Claude Code subagents working on goals, each in its own ephemeral namespace, consuming that tested tool surface and the frozen `test-results/summary.json` schema as substrate. The server core depends only on Milestone-1 surfaces, so it *could* be pulled forward — but on dev-velocity grounds it does not yet earn its place (ADR-0006), which is why it sits here.
 - **Milestone 11: Webhooks** with their unique testing problems (delivery guarantees, retry contracts). **Built** — full spec below; [ADR-0019](adr/0019-webhooks-as-a-tested-delivery-edge.md).
-- **Milestone 12: Moderator v2 — retrieval-grounded RAG + the eval / red-team stack.** Re-scope the Milestone 9 moderator from a prompt-baked classifier into a genuine retrieval-grounded agent (policy corpus, citation-bearing verdict, precedent consistency, abstain/escalate) and realign LLM testing: **DeepEval** (RAG + agentic + custom metrics), **DeepTeam** (OWASP red-team), **Promptfoo dropped** (OpenAI-acquired, March 2026). RAGAS demonstrated via DeepEval's wrapper, not adopted as a separate framework. Expanded as a candidate spec below; [ADR-0020](adr/0020-moderator-rag-and-eval-stack.md).
+- **Milestone 12: Moderator v2 — retrieval-grounded RAG + the eval / red-team stack.** Re-scope the Milestone 9 moderator from a prompt-baked classifier into a genuine retrieval-grounded agent (policy corpus, citation-bearing verdict, precedent consistency, abstain/escalate) and realign LLM testing: **DeepEval** (RAG + agentic + custom metrics), **DeepTeam** (OWASP red-team), **Promptfoo dropped** (OpenAI-acquired, March 2026). RAGAS demonstrated via DeepEval's wrapper, not adopted as a separate framework. **Built** — full spec below; [ADR-0020](adr/0020-moderator-rag-and-eval-stack.md).
 - **Milestone 13: Continuous testing in production** — feature flags as the canary substrate. **Deferred** — parked, not currently planned.
 - **Milestone 14: Visual regression and accessibility testing** — for the frontend. **Deferred** — parked, not currently planned.
 
@@ -484,9 +484,9 @@ Milestone 5 XState / reverse-conformance discipline, and the Milestone 1 Schemat
 
 ---
 
-## Milestone 12 (candidate) — Moderator v2: retrieval-grounded RAG + the eval / red-team stack
+## Milestone 12 — Moderator v2: retrieval-grounded RAG + the eval / red-team stack
 
-Post-v1, uncommitted. Re-scopes the Milestone 9 moderator from a prompt-baked classifier into a genuine retrieval-grounded RAG agent, and realigns the LLM-testing stack. Recorded in [ADR-0020](adr/0020-moderator-rag-and-eval-stack.md); supersedes ADR-0017's tool choices and extends ADR-0018. Does **not** modify any ADR-0001 commitment.
+Post-v1, built. Re-scopes the Milestone 9 moderator from a prompt-baked classifier into a genuine retrieval-grounded RAG agent, and realigns the LLM-testing stack. Recorded in [ADR-0020](adr/0020-moderator-rag-and-eval-stack.md) (Accepted); supersedes ADR-0017's tool choices and extends ADR-0018. Does **not** modify any ADR-0001 commitment.
 
 **Goal.** Make retrieval *load-bearing* so retrieval quality and agentic behaviour become first-class testable surfaces — then demonstrate RAG, RAG-evaluation, agentic-evaluation, and LLM red-teaming as distinct techniques. Honest framing: a demonstration re-scope, not product necessity; the functional upgrades are genuine improvements, so the tools follow the requirements rather than the reverse.
 
@@ -503,7 +503,7 @@ Post-v1, uncommitted. Re-scopes the Milestone 9 moderator from a prompt-baked cl
 - Agentic evaluation (task completion, tool correctness, trajectory).
 - LLM red-teaming (OWASP LLM Top 10) via DeepTeam.
 
-**Exit criteria.**
+**Exit criteria (met).**
 - A planted hallucinated-policy regression is caught by the faithfulness metric and *missed* by a non-grounded eval — demonstrating why grounding matters.
 - Retrieval precision/recall is gated in CI; a corpus-retrieval regression fails the gate.
 - The abstain path fires on a low-confidence / conflicting-rules case (calibration metric green).

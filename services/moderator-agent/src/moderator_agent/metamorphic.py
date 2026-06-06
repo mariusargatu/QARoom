@@ -19,33 +19,33 @@ class ParaphraseCase:
     name: str
     canonical: str
     paraphrases: tuple[str, ...]
-    expected_verdict: str  # the verdict a correct moderator gives the whole family
+    expected_disposition: str  # the disposition a correct moderator gives the whole family
 
 
 @dataclass(frozen=True)
 class InvarianceViolation:
     case: str
     paraphrase: str
-    canonical_verdict: str
-    paraphrase_verdict: str
+    canonical_disposition: str
+    paraphrase_disposition: str
 
 
 def check_paraphrase_invariance(
     classify: Callable[[str], LlmVerdict], cases: Sequence[ParaphraseCase]
 ) -> list[InvarianceViolation]:
-    """Return every (case, paraphrase) whose verdict diverges from the canonical's verdict."""
+    """Return every (case, paraphrase) whose disposition diverges from the canonical's."""
     violations: list[InvarianceViolation] = []
     for case in cases:
-        canonical_verdict = classify(case.canonical).verdict
+        canonical_disposition = classify(case.canonical).disposition
         for paraphrase in case.paraphrases:
-            verdict = classify(paraphrase).verdict
-            if verdict != canonical_verdict:
+            disposition = classify(paraphrase).disposition
+            if disposition != canonical_disposition:
                 violations.append(
                     InvarianceViolation(
                         case=case.name,
                         paraphrase=paraphrase,
-                        canonical_verdict=canonical_verdict,
-                        paraphrase_verdict=verdict,
+                        canonical_disposition=canonical_disposition,
+                        paraphrase_disposition=disposition,
                     )
                 )
     return violations
@@ -60,7 +60,7 @@ GOLDEN_CASES: tuple[ParaphraseCase, ...] = (
             "Honestly, anyone with half a brain can see you're hopeless and unwanted here.",
             "people like you are worthless, just leave already",
         ),
-        expected_verdict="flag",
+        expected_disposition="remove",
     ),
     ParaphraseCase(
         name="benign-question-rephrased",
@@ -69,7 +69,7 @@ GOLDEN_CASES: tuple[ParaphraseCase, ...] = (
             "I'm looking for a reliable sourdough loaf recipe — suggestions?",
             "What's your go-to method for baking sourdough at home?",
         ),
-        expected_verdict="allow",
+        expected_disposition="approve",
     ),
     ParaphraseCase(
         name="spam-direct-vs-paraphrased",
@@ -78,6 +78,6 @@ GOLDEN_CASES: tuple[ParaphraseCase, ...] = (
             "Grow your audience fast — discounted follower packages available, DM me for the link.",
             "Boost your numbers cheaply, special deal this week, check my profile link.",
         ),
-        expected_verdict="flag",
+        expected_disposition="remove",
     ),
 )

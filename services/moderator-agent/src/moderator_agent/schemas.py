@@ -22,10 +22,19 @@ _NO_NUL = r"^[^\x00]*$"
 
 Title: TypeAlias = Annotated[str, StringConstraints(min_length=1, max_length=300, pattern=_NO_NUL)]
 Body: TypeAlias = Annotated[str, StringConstraints(max_length=40_000, pattern=_NO_NUL)]
-Reason: TypeAlias = Annotated[str, StringConstraints(max_length=2_000, pattern=_NO_NUL)]
+# The grounded explanation, traceable to the cited rules + precedents (FR3, ADR-0020). Replaces v1's
+# shorter `reason`; wider (4000) because a citation-bearing rationale references rules and precedent.
+Rationale: TypeAlias = Annotated[str, StringConstraints(max_length=4_000, pattern=_NO_NUL)]
+# A prior-decision summary consulted as precedent. Echoes stored content → keep the NUL guard.
+Precedent: TypeAlias = Annotated[str, StringConstraints(max_length=2_000, pattern=_NO_NUL)]
 ModelName: TypeAlias = Annotated[str, StringConstraints(min_length=1, max_length=100)]
 RuleId: TypeAlias = Annotated[str, StringConstraints(max_length=100)]
-Verdict: TypeAlias = Literal["allow", "flag"]
+# The agent's disposition (Milestone 12, ADR-0020). Replaces v1's two-valued `verdict ∈ {allow, flag}`:
+# a grounded agent that ABSTAINS on low retrieval confidence / conflicting rules needs a third state.
+Disposition: TypeAlias = Literal["approve", "remove", "escalate_to_human"]
+# Citation arrays, bounded on BOTH sides (mirrors the Zod `.max(16)`); element caps via the aliases.
+CitedRules: TypeAlias = Annotated[list[RuleId], Field(max_length=16)]
+Precedents: TypeAlias = Annotated[list[Precedent], Field(max_length=16)]
 Severity: TypeAlias = Literal["low", "medium", "high"]
 # ISO-8601 UTC with a `Z` suffix — the shape `iso_z` emits and a subset of the Zod
 # `z.iso.datetime()` / JSON-Schema `date-time` pattern. Pydantic rejects a malformed timestamp at
@@ -58,13 +67,20 @@ class PostCreatedEvent(BaseModel):
 
 
 class LlmVerdict(BaseModel):
-    """The structured output the LLM MUST return (OpenAI structured outputs / ``response_format``)."""
+    """The structured output the LLM MUST return (OpenAI structured outputs / ``response_format``).
+
+    Citation-bearing (ADR-0020): the model draws ``disposition`` + ``rationale`` from the RETRIEVED
+    policy context and names the ``cited_rules`` / ``precedents`` it relied on. The citation arrays
+    default empty so a clean ``approve`` (or a minimal test double) need not enumerate them; the
+    self-check node validates them against what was actually retrieved before recording."""
 
     model_config = ConfigDict(extra="forbid")
 
-    verdict: Verdict
-    rule_id: RuleId | None = None
-    reason: Reason
+    disposition: Disposition
+    cited_rules: CitedRules = Field(default_factory=list)
+    precedents: Precedents = Field(default_factory=list)
+    departs_from_precedent: bool = False
+    rationale: Rationale
     confidence: float = Field(ge=0, le=1)
 
 
@@ -78,16 +94,18 @@ class ModerationDecisionRecordedEvent(BaseModel):
     post_id: PostId
     community_id: CommunityId
     author_id: UserId
-    verdict: Verdict
-    rule_id: RuleId | None
-    reason: Reason
+    disposition: Disposition
+    cited_rules: CitedRules
+    precedents: Precedents
+    departs_from_precedent: bool
+    rationale: Rationale
     confidence: float = Field(ge=0, le=1)
     model: ModelName
     occurred_at: IsoZ
 
 
 class ModerationDecision(BaseModel):
-    """The agent's own decision record — its store + REST API surface (ADR-0018)."""
+    """The agent's own decision record — its store + REST API surface (ADR-0018, ADR-0020)."""
 
     model_config = _PRODUCED
 
@@ -96,9 +114,11 @@ class ModerationDecision(BaseModel):
     post_id: PostId
     community_id: CommunityId
     author_id: UserId
-    verdict: Verdict
-    rule_id: RuleId | None
-    reason: Reason
+    disposition: Disposition
+    cited_rules: CitedRules
+    precedents: Precedents
+    departs_from_precedent: bool
+    rationale: Rationale
     confidence: float = Field(ge=0, le=1)
     model: ModelName
     created_at: IsoZ
@@ -110,9 +130,11 @@ class ModerationDecision(BaseModel):
             post_id=self.post_id,
             community_id=self.community_id,
             author_id=self.author_id,
-            verdict=self.verdict,
-            rule_id=self.rule_id,
-            reason=self.reason,
+            disposition=self.disposition,
+            cited_rules=self.cited_rules,
+            precedents=self.precedents,
+            departs_from_precedent=self.departs_from_precedent,
+            rationale=self.rationale,
             confidence=self.confidence,
             model=self.model,
             occurred_at=self.created_at,
@@ -125,6 +147,21 @@ class CommunityRule(BaseModel):
     rule_id: RuleId
     text: Annotated[str, StringConstraints(min_length=1, max_length=4_000)]
     severity: Severity
+
+
+# The kinds of entry the policy corpus holds (FR1, ADR-0020). `rule` and `guideline` are retrieved
+# and reasoned over per post; `precedent` is reserved for prior-decision entries seeded into the corpus.
+PolicyEntryType: TypeAlias = Literal["rule", "guideline", "precedent"]
+
+
+class PolicyEntry(BaseModel):
+    """One retrievable entry in a community's policy corpus — a rule, an escalation guideline, or a
+    precedent. The unit retrieval ranks and the draft node reasons over (retrieve-then-reason, FR2)."""
+
+    entry_id: RuleId
+    entry_type: PolicyEntryType
+    text: Annotated[str, StringConstraints(min_length=1, max_length=4_000)]
+    severity: Severity | None = None
 
 
 class AsOfModel(BaseModel):

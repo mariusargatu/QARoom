@@ -1,24 +1,42 @@
-# Moderation rules for the "general" community (COMM_GENERAL).
-# Seeded into the moderator's own Postgres on boot and injected into the LLM prompt at decision
-# time (ADR-0018). The LLM judges MEANING, not literal wording — paraphrases of a violation are
-# flagged the same way (the metamorphic invariant, ADR-0017).
-- rule_id: no-harassment
-  severity: high
-  text: >-
-    No harassment or personal attacks. Do not demean, insult, threaten, or target an individual
-    or group, including via slurs, name-calling, or coordinated pile-ons.
-- rule_id: no-spam
-  severity: medium
-  text: >-
-    No spam or undisclosed advertising. Do not post repetitive promotional content, referral
-    links, or bulk solicitations unrelated to the discussion.
-- rule_id: no-doxxing
-  severity: high
-  text: >-
-    No sharing of private personal information (real names, addresses, phone numbers, workplaces)
-    about anyone without their consent.
-- rule_id: no-illegal
-  severity: high
-  text: >-
-    No content that facilitates clearly illegal activity, such as instructions for making weapons
-    or acquiring controlled substances.
+# Moderation policy for the "general" community (COMM_GENERAL).
+#
+# As of Milestone 12 (ADR-0020) this file is the seed for the per-community POLICY CORPUS: `rules` and
+# `escalation_guidelines` are embedded into the moderator's pgvector `policy_corpus` on boot and
+# RETRIEVED per post (retrieve-then-reason — the verdict is derived from retrieved context, not from a
+# prompt-baked rule list). `rules` are also seeded into `community_rules` (the authored rule list).
+# The LLM judges MEANING, not literal wording — paraphrases of a violation are treated identically
+# (the metamorphic invariant, ADR-0017).
+rules:
+  - rule_id: no-harassment
+    severity: high
+    text: >-
+      No harassment or personal attacks. Do not demean, insult, threaten, or target an individual
+      or group, including via slurs, name-calling, or coordinated pile-ons.
+  - rule_id: no-spam
+    severity: medium
+    text: >-
+      No spam or undisclosed advertising. Do not post repetitive promotional content, referral
+      links, or bulk solicitations unrelated to the discussion.
+  - rule_id: no-doxxing
+    severity: high
+    text: >-
+      No sharing of private personal information (real names, addresses, phone numbers, workplaces)
+      about anyone without their consent.
+  - rule_id: no-illegal
+    severity: high
+    text: >-
+      No content that facilitates clearly illegal activity, such as instructions for making weapons
+      or acquiring controlled substances.
+
+# Escalation guidelines (FR5, ADR-0020): when retrieval confidence is low or rules conflict, the agent
+# ABSTAINS (disposition=escalate_to_human) rather than guess. Retrieved alongside rules so the draft
+# node reasons over them too.
+escalation_guidelines:
+  - guideline_id: escalate-ambiguous-intent
+    text: >-
+      When a post's intent is genuinely ambiguous and no community rule clearly applies — or two
+      rules pull in opposite directions — do NOT guess. Escalate to a human moderator.
+  - guideline_id: escalate-low-confidence
+    text: >-
+      When retrieval surfaces no closely-matching rule for a borderline post, prefer escalation over
+      a low-confidence removal. A wrongful removal is costlier than a human second look.

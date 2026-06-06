@@ -44,16 +44,26 @@ components:
             $ref: '#/$defs/CommunityId'
           author_id:
             $ref: '#/$defs/UserId'
-          verdict:
-            $ref: '#/$defs/ModerationVerdict'
-          rule_id:
-            anyOf:
-            - type: string
+          disposition:
+            $ref: '#/$defs/ModerationDisposition'
+          cited_rules:
+            maxItems: 16
+            type: array
+            items:
+              type: string
               maxLength: 100
-            - type: 'null'
-          reason:
+          precedents:
+            maxItems: 16
+            type: array
+            items:
+              type: string
+              maxLength: 2000
+              pattern: ^[^\x00]*$
+          departs_from_precedent:
+            type: boolean
+          rationale:
             type: string
-            maxLength: 2000
+            maxLength: 4000
             pattern: ^[^\x00]*$
           confidence:
             type: number
@@ -73,14 +83,17 @@ components:
         - post_id
         - community_id
         - author_id
-        - verdict
-        - rule_id
-        - reason
+        - disposition
+        - cited_rules
+        - precedents
+        - departs_from_precedent
+        - rationale
         - confidence
         - model
         - occurred_at
         additionalProperties: false
-        description: Emitted when the moderator-agent records a decision for a post.
+        description: Emitted when the moderator-agent records a grounded decision
+          for a post.
         $defs:
           EventId:
             type: string
@@ -102,8 +115,9 @@ components:
             type: string
             pattern: ^user_[0-9A-HJKMNP-TV-Z]{26}$
             description: 'Branded identifier: user_<ULID>'
-          ModerationVerdict:
+          ModerationDisposition:
             type: string
             enum:
-            - allow
-            - flag
+            - approve
+            - remove
+            - escalate_to_human

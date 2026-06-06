@@ -1,6 +1,7 @@
 import { readFileSync } from 'node:fs'
 import { resolve } from 'node:path'
 import { describe, expect, it } from 'vitest'
+import { MODERATION_DECISION_RECORDED_VERSION } from './events/moderation-decision-recorded'
 import { CommunityId } from './ids'
 import {
   MODERATION_DECISION_RECORDED_ADDRESS,
@@ -27,6 +28,7 @@ describe('the committed cross-language subjects golden tracks the TypeScript sou
         posts_created_any_community: postsCreatedAnyCommunity(),
         moderation_decision_recorded: moderationDecisionRecorded(SAMPLE),
         moderation_decision_recorded_address: MODERATION_DECISION_RECORDED_ADDRESS,
+        moderation_decision_recorded_version: MODERATION_DECISION_RECORDED_VERSION,
       },
       null,
       2,

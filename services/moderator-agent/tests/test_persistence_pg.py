@@ -26,9 +26,11 @@ def _decision(**overrides: object):
         "post_id": f"post_{_B}",
         "community_id": f"comm_{_B}",
         "author_id": f"user_{_B}",
-        "verdict": "flag",
-        "rule_id": "no-harassment",
-        "reason": "targets an individual",
+        "disposition": "remove",
+        "cited_rules": ["no-harassment"],
+        "precedents": ["remove (no-harassment): a prior removal"],
+        "departs_from_precedent": False,
+        "rationale": "targets an individual",
         "confidence": 0.9,
         "model": "test-model",
         "created_at": "2026-06-04T00:00:00.000Z",
@@ -88,6 +90,34 @@ async def test_knowledge_store_seeds_rules_and_remembers_embeddings() -> None:
         )
         assert await store.count_embeddings() >= 1
         assert await store.similar(f"comm_{_B}", [0.1] * 1536)
+    finally:
+        await pool.close()
+
+
+@pytest.mark.skipif(not _DB, reason="needs QAROOM_TEST_DATABASE_URL (pgvector Postgres)")
+async def test_policy_corpus_seeds_and_retrieves() -> None:
+    # Proves the policy_corpus DDL + the retrieve SQL (FR1/FR2): a zero embedding short-circuits to a
+    # stable id order, so retrieve returns the seeded rule/guideline entries deterministically.
+    from pathlib import Path
+
+    from moderator_agent.llm import ZeroEmbedder
+    from moderator_agent.persistence.corpus import PgPolicyCorpusStore
+    from moderator_agent.persistence.db import open_pool
+    from moderator_agent.persistence.migrate import ensure_schema
+    from moderator_agent.persistence.rules_seed import seed_corpus
+
+    pool = await open_pool(_DB)  # type: ignore[arg-type]
+    try:
+        await ensure_schema(pool)
+        async with pool.connection() as conn:
+            await conn.execute("DELETE FROM policy_corpus")
+            await conn.commit()
+        await seed_corpus(pool, Path(__file__).resolve().parents[1] / "rules", ZeroEmbedder())
+        store = PgPolicyCorpusStore(pool)
+        assert await store.count_entries() >= 1
+        entries = await store.retrieve(f"comm_{_B}", [0.0] * 1536, limit=5)
+        assert any(e.entry_id == "no-harassment" for e in entries)
+        assert all(e.entry_type in ("rule", "guideline") for e in entries)
     finally:
         await pool.close()
 

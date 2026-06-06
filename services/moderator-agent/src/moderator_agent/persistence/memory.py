@@ -7,8 +7,14 @@ per test (Commitment: no shared mutable state across tests).
 
 from __future__ import annotations
 
-from ..ports import DecisionStore, IdempotencyStore, KnowledgeStore, StoredResponse
-from ..schemas import CommunityRule, ModerationDecision
+from ..ports import (
+    DecisionStore,
+    IdempotencyStore,
+    KnowledgeStore,
+    PolicyCorpusStore,
+    StoredResponse,
+)
+from ..schemas import CommunityRule, ModerationDecision, PolicyEntry
 
 
 class InMemoryDecisionStore(DecisionStore):
@@ -65,12 +71,39 @@ class InMemoryKnowledgeStore(KnowledgeStore):
         embedding: list[float],
         decision: ModerationDecision,
     ) -> None:
+        rules = ", ".join(decision.cited_rules) if decision.cited_rules else "no rule"
         self._summaries.append(
-            (community_id, f"{decision.verdict} ({decision.rule_id}): {decision.reason}")
+            (community_id, f"{decision.disposition} ({rules}): {decision.rationale}")
         )
 
     async def count_embeddings(self) -> int:
         return len(self._summaries)
+
+
+class InMemoryPolicyCorpusStore(PolicyCorpusStore):
+    """Deterministic double for the policy corpus. The zero embedder gives no nearest-neighbour
+    ranking, so ``retrieve`` returns the community's reasoned entries in a stable id order — enough to
+    drive the workflow + assert citation grounding without a live embedder."""
+
+    _REASONED = ("rule", "guideline")
+
+    def __init__(self, entries: dict[str, list[PolicyEntry]] | None = None) -> None:
+        self._entries: dict[str, list[PolicyEntry]] = entries or {}
+
+    def set_entries(self, community_id: str, entries: list[PolicyEntry]) -> None:
+        self._entries[community_id] = entries
+
+    async def retrieve(
+        self, community_id: str, embedding: list[float], *, limit: int = 5
+    ) -> list[PolicyEntry]:
+        reasoned = [e for e in self._entries.get(community_id, []) if e.entry_type in self._REASONED]
+        return sorted(reasoned, key=lambda e: e.entry_id)[:limit]
+
+    async def corpus_for(self, community_id: str) -> list[PolicyEntry]:
+        return list(self._entries.get(community_id, []))
+
+    async def count_entries(self) -> int:
+        return sum(len(v) for v in self._entries.values())
 
 
 class InMemoryIdempotencyStore(IdempotencyStore):

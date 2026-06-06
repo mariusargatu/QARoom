@@ -1,32 +1,44 @@
 {
   "additionalProperties": false,
-  "description": "The structured output the LLM MUST return (OpenAI structured outputs / ``response_format``).",
+  "description": "The structured output the LLM MUST return (OpenAI structured outputs / ``response_format``).\n\nCitation-bearing (ADR-0020): the model draws ``disposition`` + ``rationale`` from the RETRIEVED\npolicy context and names the ``cited_rules`` / ``precedents`` it relied on. The citation arrays\ndefault empty so a clean ``approve`` (or a minimal test double) need not enumerate them; the\nself-check node validates them against what was actually retrieved before recording.",
   "properties": {
-    "verdict": {
+    "disposition": {
       "enum": [
-        "allow",
-        "flag"
+        "approve",
+        "remove",
+        "escalate_to_human"
       ],
-      "title": "Verdict",
+      "title": "Disposition",
       "type": "string"
     },
-    "rule_id": {
-      "anyOf": [
-        {
-          "maxLength": 100,
-          "type": "string"
-        },
-        {
-          "type": "null"
-        }
-      ],
-      "default": null,
-      "title": "Rule Id"
+    "cited_rules": {
+      "items": {
+        "maxLength": 100,
+        "type": "string"
+      },
+      "maxItems": 16,
+      "title": "Cited Rules",
+      "type": "array"
     },
-    "reason": {
-      "maxLength": 2000,
+    "precedents": {
+      "items": {
+        "maxLength": 2000,
+        "pattern": "^[^\\x00]*$",
+        "type": "string"
+      },
+      "maxItems": 16,
+      "title": "Precedents",
+      "type": "array"
+    },
+    "departs_from_precedent": {
+      "default": false,
+      "title": "Departs From Precedent",
+      "type": "boolean"
+    },
+    "rationale": {
+      "maxLength": 4000,
       "pattern": "^[^\\x00]*$",
-      "title": "Reason",
+      "title": "Rationale",
       "type": "string"
     },
     "confidence": {
@@ -37,8 +49,8 @@
     }
   },
   "required": [
-    "verdict",
-    "reason",
+    "disposition",
+    "rationale",
     "confidence"
   ],
   "title": "LlmVerdict",

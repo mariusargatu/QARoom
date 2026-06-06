@@ -3,7 +3,7 @@ from typing import cast
 import pytest
 
 from moderator_agent.golden.agreement import fleiss_kappa, interpret_kappa
-from moderator_agent.golden.build import build_dataset, to_promptfoo_tests
+from moderator_agent.golden.build import build_dataset
 from moderator_agent.golden.schema import Candidate, SmeLabel, Verdict
 
 
@@ -61,16 +61,3 @@ def test_build_gates_unanimous_as_gold_and_splits_as_ambiguous() -> None:
     assert by_id["cand_b"].status == "ambiguous"  # a 2:1 split never becomes gold
     assert by_id["cand_b"].gold_verdict == "allow"  # majority is still recorded
     assert dataset.n_gold == 1
-
-
-def test_promptfoo_tests_include_only_gold_cases_plus_the_injection_case() -> None:
-    candidates = [Candidate(id="cand_a", post="x"), Candidate(id="cand_b", post="y")]
-    labels = _labels("cand_a", ["flag", "flag", "flag"]) + _labels(
-        "cand_b", ["allow", "allow", "flag"]
-    )
-    tests = to_promptfoo_tests(build_dataset(candidates, labels))
-    # one gold case + the appended injection case
-    assert len(tests) == 2
-    assert any("injection" in t["description"] for t in tests)
-    assert any("cand_a" in t.get("description", "") for t in tests)
-    assert not any("cand_b" in t.get("description", "") for t in tests)

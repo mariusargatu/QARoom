@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 from psycopg.rows import dict_row
+from psycopg.types.json import Json
 from psycopg_pool import AsyncConnectionPool
 
 from ..ports import DecisionStore
@@ -10,7 +11,7 @@ from ..schemas import ModerationDecision
 
 _COLUMNS = (
     "decision_id, event_id, post_id, community_id, author_id, "
-    "verdict, rule_id, reason, confidence, model, created_at"
+    "disposition, cited_rules, precedents, departs_from_precedent, rationale, confidence, model, created_at"
 )
 
 
@@ -26,7 +27,7 @@ class PgDecisionStore(DecisionStore):
             )
             cur = await conn.execute(
                 f"INSERT INTO moderation_decisions ({_COLUMNS}) "
-                "VALUES (%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s) "
+                "VALUES (%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s) "
                 "ON CONFLICT (event_id) DO NOTHING",
                 (
                     decision.decision_id,
@@ -34,9 +35,13 @@ class PgDecisionStore(DecisionStore):
                     decision.post_id,
                     decision.community_id,
                     decision.author_id,
-                    decision.verdict,
-                    decision.rule_id,
-                    decision.reason,
+                    decision.disposition,
+                    # cited_rules / precedents are jsonb arrays — wrap so psycopg serializes them; the
+                    # dict_row reader returns them already parsed back into Python lists.
+                    Json(decision.cited_rules),
+                    Json(decision.precedents),
+                    decision.departs_from_precedent,
+                    decision.rationale,
                     decision.confidence,
                     decision.model,
                     decision.created_at,

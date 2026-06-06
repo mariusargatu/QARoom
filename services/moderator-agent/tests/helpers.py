@@ -11,9 +11,10 @@ from moderator_agent.persistence.memory import (
     InMemoryDecisionStore,
     InMemoryIdempotencyStore,
     InMemoryKnowledgeStore,
+    InMemoryPolicyCorpusStore,
 )
 from moderator_agent.ports import EventPublisher
-from moderator_agent.schemas import CommunityRule, LlmVerdict, PostCreatedEvent
+from moderator_agent.schemas import CommunityRule, LlmVerdict, PolicyEntry, PostCreatedEvent
 from moderator_agent.workflow.graph import ModerationWorkflow
 
 
@@ -30,6 +31,26 @@ DEFAULT_RULES = [
     CommunityRule(rule_id="no-harassment", text="No personal attacks or slurs.", severity="high"),
     CommunityRule(rule_id="no-spam", text="No spam or undisclosed advertising.", severity="medium"),
 ]
+
+# The corpus the agent retrieves over (FR1/FR2). Mirrors DEFAULT_RULES as `rule` entries plus one
+# escalation guideline, so the fake LLM's cited rule is in the retrieved set (citation grounding keeps
+# it) and retrieve-then-reason has something to surface.
+DEFAULT_CORPUS = [
+    PolicyEntry(entry_id=r.rule_id, entry_type="rule", text=r.text, severity=r.severity)
+    for r in DEFAULT_RULES
+] + [
+    PolicyEntry(
+        entry_id="escalate-ambiguous-intent",
+        entry_type="guideline",
+        text="When intent is ambiguous and no rule clearly applies, escalate to a human.",
+    )
+]
+
+
+def make_corpus(community_id: str = COMMUNITY) -> InMemoryPolicyCorpusStore:
+    corpus = InMemoryPolicyCorpusStore()
+    corpus.set_entries(community_id, DEFAULT_CORPUS)
+    return corpus
 
 
 class RecordingPublisher(EventPublisher):
@@ -80,23 +101,30 @@ def make_event(
 def make_workflow(
     *,
     llm: LlmClient | None = None,
+    embedder: object | None = None,
     decisions: InMemoryDecisionStore | None = None,
     knowledge: InMemoryKnowledgeStore | None = None,
+    corpus: InMemoryPolicyCorpusStore | None = None,
     publisher: EventPublisher | None = None,
     prompt_bug: bool = False,
+    settings: Settings | None = None,
     sink: list[dict] | None = None,
     community_id: str = COMMUNITY,
     checkpointer: object = None,
 ) -> tuple[ModerationWorkflow, InMemoryDecisionStore, InMemoryKnowledgeStore]:
-    settings = Settings(moderator_prompt_bug=prompt_bug)
+    settings = settings or Settings(moderator_prompt_bug=prompt_bug)
     clock, ids, _ = seeded_trio()
     decisions = decisions or InMemoryDecisionStore()
     knowledge = knowledge or InMemoryKnowledgeStore()
-    knowledge.set_rules(community_id, DEFAULT_RULES)
+    # Only the in-memory store carries rules; a custom double (e.g. a failure injector) may not.
+    if hasattr(knowledge, "set_rules"):
+        knowledge.set_rules(community_id, DEFAULT_RULES)
+    corpus = corpus or make_corpus(community_id)
     workflow = ModerationWorkflow(
         llm=llm or RuleKeywordLlm(),
-        embedder=ZeroEmbedder(),
+        embedder=embedder or ZeroEmbedder(),  # type: ignore[arg-type]
         knowledge=knowledge,
+        corpus=corpus,
         decisions=decisions,
         clock=clock,
         ids=ids,
@@ -117,10 +145,12 @@ def make_app_client(*, llm: LlmClient | None = None):
     decisions = InMemoryDecisionStore()
     knowledge = InMemoryKnowledgeStore()
     knowledge.set_rules(COMMUNITY, DEFAULT_RULES)
+    corpus = make_corpus()
     workflow = ModerationWorkflow(
         llm=llm or RuleKeywordLlm(),
         embedder=ZeroEmbedder(),
         knowledge=knowledge,
+        corpus=corpus,
         decisions=decisions,
         clock=clock,
         ids=ids,
@@ -132,6 +162,7 @@ def make_app_client(*, llm: LlmClient | None = None):
             workflow=workflow,
             decisions=decisions,
             knowledge=knowledge,
+            corpus=corpus,
             idempotency=InMemoryIdempotencyStore(),
             clock=clock,
             lamport=LamportGate(ids),

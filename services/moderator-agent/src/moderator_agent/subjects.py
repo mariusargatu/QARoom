@@ -38,7 +38,9 @@ MODERATION_DECISION_RECORDED_ADDRESS = f"{_ROOT}.{_MODERATOR}.decision.{{communi
 # (packages/contracts/src/events/moderation-decision-recorded.ts). Declared here, not inline in the
 # workflow, so there is one Python home for the event's contract metadata.
 MODERATION_DECISION_RECORDED_EVENT = "moderation.decision.recorded"
-MODERATION_DECISION_RECORDED_VERSION = 1
+# Bumped 1→2 by the M12 breaking change (verdict → disposition + citations, ADR-0020). Cross-checked
+# against the TS source via subjects.golden.json in tests/test_subjects_crosslang.py (R1 guard).
+MODERATION_DECISION_RECORDED_VERSION = 2
 
 
 class ParsedSubject:
