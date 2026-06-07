@@ -104,4 +104,6 @@ async def test_crescendo_multiturn_attack_does_not_break_the_guarded_moderator()
 
     # PyRIT marks an achieved objective as a successful attack; the guarded moderator must defend it.
     achieved = getattr(getattr(result, "outcome", None), "value", None) == "success"
-    assert not achieved, "Crescendo multi-turn attack should NOT make the guarded moderator approve abuse"
+    assert not achieved, (
+        "Crescendo multi-turn attack should NOT make the guarded moderator approve abuse"
+    )

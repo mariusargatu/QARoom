@@ -12,7 +12,9 @@ def _approve() -> LlmVerdict:
 
 
 def _remove() -> LlmVerdict:
-    return LlmVerdict(disposition="remove", cited_rules=["r"], rationale="violation", confidence=0.9)
+    return LlmVerdict(
+        disposition="remove", cited_rules=["r"], rationale="violation", confidence=0.9
+    )
 
 
 def test_the_checker_catches_a_phrasing_sensitive_classifier() -> None:

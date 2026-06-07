@@ -34,7 +34,10 @@ def test_grounding_drops_a_hallucinated_citation() -> None:
 
 
 def test_grounding_keeps_retrieved_citations() -> None:
-    assert ground_cited_rules(["no-harassment", "no-spam"], _RETRIEVED) == ["no-harassment", "no-spam"]
+    assert ground_cited_rules(["no-harassment", "no-spam"], _RETRIEVED) == [
+        "no-harassment",
+        "no-spam",
+    ]
 
 
 def test_self_check_drops_hallucinated_policy_from_the_verdict() -> None:
@@ -70,7 +73,10 @@ def test_low_confidence_escalates_to_human() -> None:
 def test_a_removal_with_no_grounded_citation_escalates() -> None:
     # A remove whose only citation was hallucinated (and dropped) rests on nothing — escalate (FR5).
     out = self_check(
-        _draft(cited_rules=["invented-rule"], confidence=0.9), _RETRIEVED, [], abstain_confidence=0.5
+        _draft(cited_rules=["invented-rule"], confidence=0.9),
+        _RETRIEVED,
+        [],
+        abstain_confidence=0.5,
     )
     assert out.disposition == "escalate_to_human"
 

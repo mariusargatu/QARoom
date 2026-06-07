@@ -42,12 +42,16 @@ def test_pydantic_event_validates_against_the_zod_json_schema() -> None:
 
 
 def test_approve_with_empty_citations_validates() -> None:
-    event = _event(disposition="approve", cited_rules=[], precedents=[], rationale="no rule matched")
+    event = _event(
+        disposition="approve", cited_rules=[], precedents=[], rationale="no rule matched"
+    )
     jsonschema.validate(event.model_dump(mode="json"), _SCHEMA)
 
 
 def test_escalate_disposition_validates() -> None:
-    event = _event(disposition="escalate_to_human", cited_rules=[], rationale="ambiguous — escalated")
+    event = _event(
+        disposition="escalate_to_human", cited_rules=[], rationale="ambiguous — escalated"
+    )
     jsonschema.validate(event.model_dump(mode="json"), _SCHEMA)
 
 

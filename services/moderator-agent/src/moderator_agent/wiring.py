@@ -28,6 +28,8 @@ from .determinism import (
     production_trio,
 )
 from .lamport import LamportGate
+from .langfuse_integration import LangfuseClient
+from .langfuse_seed import seed_langfuse
 from .llm import LangChainEmbedder, LangChainLlmClient, RuleKeywordLlm, ZeroEmbedder
 from .persistence.corpus import PgPolicyCorpusStore
 from .persistence.db import open_pool
@@ -90,6 +92,12 @@ async def build_runtime(settings: Settings) -> Runtime:
     js = nc.jetstream()
     publisher = NatsEventPublisher(js)
 
+    # Langfuse LLM-observability. Idempotently seed the live-editable prompt + golden dataset + human
+    # annotation queue so they re-create on a fresh stack; best-effort, never blocks boot. No-op when
+    # Langfuse is not configured.
+    langfuse = LangfuseClient(settings)
+    langfuse_queue_id = await seed_langfuse(langfuse, settings)
+
     workflow = ModerationWorkflow(
         llm=LangChainLlmClient(settings),
         embedder=embedder,
@@ -102,6 +110,8 @@ async def build_runtime(settings: Settings) -> Runtime:
         settings=settings,
         publisher=publisher,
         checkpointer=checkpointer,
+        langfuse=langfuse,
+        langfuse_queue_id=langfuse_queue_id,
     )
 
     async def ready_check() -> bool:

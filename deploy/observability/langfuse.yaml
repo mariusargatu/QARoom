@@ -1,0 +1,438 @@
+# Langfuse v3 self-hosted — the LLM-trace UI for the moderator-agent (spike, Milestone-12 follow-up).
+#
+# v3 is a 6-component stack: the web (UI+API) and async worker, backed by Postgres (metadata),
+# ClickHouse (OLAP trace store — required in v3), Redis (queue), and MinIO (S3 event-upload blobs).
+# Everything lives in the `observability` namespace next to Jaeger/Tracetest and follows the same
+# conventions: `qaroom-*` names, `qaroom.io/observability` labels, dev-only PLAINTEXT creds (ADR-0009),
+# emptyDir (not persisted across restarts — a dev trace UI, not a system of record).
+#
+# Headless bootstrap: LANGFUSE_INIT_* seeds an org/project/user + a KNOWN public/secret key pair on
+# first web boot, so the moderator is pre-wired (deploy/moderator-agent/values.yaml) with no manual
+# project setup. Log in at http://langfuse.localhost with dev@qaroom.local / qaroom-dev-password.
+#
+# Resource note: ClickHouse + 2 Node services make this the heaviest item in the stack (~1.8Gi
+# requested, ~4.8Gi limit). It is opt-in via Tilt ordering; if your k3d is small, scale it down.
+# Image-pin note: pin every tag below to the exact latest-stable at apply (langfuse:3 → :3.x.y,
+# minio → a dated RELEASE) — `:3`/`latest` here track the stable channel for the dev loop.
+---
+# Shared backend connection env for web + worker (DRY via envFrom). Dev plaintext (ADR-0009).
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: qaroom-langfuse-env
+  namespace: observability
+data:
+  DATABASE_URL: "postgresql://langfuse:langfuse@qaroom-langfuse-postgres:5432/langfuse"
+  CLICKHOUSE_URL: "http://qaroom-langfuse-clickhouse:8123"
+  CLICKHOUSE_MIGRATION_URL: "clickhouse://qaroom-langfuse-clickhouse:9000"
+  CLICKHOUSE_USER: "clickhouse"
+  CLICKHOUSE_PASSWORD: "clickhouse"
+  CLICKHOUSE_CLUSTER_ENABLED: "false"
+  REDIS_HOST: "qaroom-langfuse-redis"
+  REDIS_PORT: "6379"
+  REDIS_TLS_ENABLED: "false"
+  # Langfuse always issues AUTH; a passwordless Redis then rejects it ("ERR AUTH ... no password
+  # configured"). Give Redis a matching password (--requirepass below) so both sides agree.
+  REDIS_AUTH: "langfuse"
+  LANGFUSE_S3_EVENT_UPLOAD_BUCKET: "langfuse"
+  LANGFUSE_S3_EVENT_UPLOAD_REGION: "auto"
+  LANGFUSE_S3_EVENT_UPLOAD_ENDPOINT: "http://qaroom-langfuse-minio:9000"
+  LANGFUSE_S3_EVENT_UPLOAD_ACCESS_KEY_ID: "minio"
+  LANGFUSE_S3_EVENT_UPLOAD_SECRET_ACCESS_KEY: "miniosecret"
+  LANGFUSE_S3_EVENT_UPLOAD_FORCE_PATH_STYLE: "true"
+  # 256-bit hex (openssl rand -hex 32). DEV value — rotate for any non-local use.
+  ENCRYPTION_KEY: "0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef"
+  SALT: "qaroom-dev-salt"
+  TELEMETRY_ENABLED: "false"
+  LANGFUSE_INIT_ORG_ID: "qaroom"
+  LANGFUSE_INIT_ORG_NAME: "QARoom"
+  LANGFUSE_INIT_PROJECT_ID: "moderator"
+  LANGFUSE_INIT_PROJECT_NAME: "moderator-agent"
+  LANGFUSE_INIT_PROJECT_PUBLIC_KEY: "pk-lf-qaroom-dev"
+  LANGFUSE_INIT_PROJECT_SECRET_KEY: "sk-lf-qaroom-dev"
+  LANGFUSE_INIT_USER_EMAIL: "dev@qaroom.local"
+  LANGFUSE_INIT_USER_NAME: "QARoom Dev"
+  LANGFUSE_INIT_USER_PASSWORD: "qaroom-dev-password"
+---
+# Persistence so the seeded prompt/dataset/queue + ingested traces SURVIVE pod restarts and
+# `tilt down` (a fresh `pnpm dev:down` deletes the cluster + PVs — the on-boot seeder re-creates the
+# seedable state there). k3d's default `local-path` StorageClass backs these.
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: qaroom-langfuse-postgres-data
+  namespace: observability
+spec:
+  accessModes: ["ReadWriteOnce"]
+  resources:
+    requests:
+      storage: 2Gi
+---
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: qaroom-langfuse-clickhouse-data
+  namespace: observability
+spec:
+  accessModes: ["ReadWriteOnce"]
+  resources:
+    requests:
+      storage: 5Gi
+---
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: qaroom-langfuse-minio-data
+  namespace: observability
+spec:
+  accessModes: ["ReadWriteOnce"]
+  resources:
+    requests:
+      storage: 2Gi
+---
+# ── Postgres (Langfuse metadata) ────────────────────────────────────────────────────────────────
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: qaroom-langfuse-postgres
+  namespace: observability
+  labels:
+    qaroom.io/observability: langfuse-postgres
+spec:
+  replicas: 1
+  # RWO PVC can attach to one pod at a time → Recreate (not RollingUpdate) so the old pod releases it.
+  strategy: { type: Recreate }
+  selector:
+    matchLabels:
+      qaroom.io/observability: langfuse-postgres
+  template:
+    metadata:
+      labels:
+        qaroom.io/observability: langfuse-postgres
+    spec:
+      containers:
+        - name: postgres
+          image: postgres:18-alpine
+          env:
+            - { name: POSTGRES_USER, value: "langfuse" }
+            - { name: POSTGRES_PASSWORD, value: "langfuse" }
+            - { name: POSTGRES_DB, value: "langfuse" }
+            - { name: PGDATA, value: "/var/lib/postgresql/data/pgdata" }
+          ports:
+            - { name: postgres, containerPort: 5432 }
+          readinessProbe:
+            exec:
+              command: ["pg_isready", "-U", "langfuse", "-d", "langfuse"]
+            initialDelaySeconds: 2
+            periodSeconds: 5
+            failureThreshold: 6
+          volumeMounts:
+            - { name: data, mountPath: /var/lib/postgresql/data }
+          resources:
+            requests: { cpu: 50m, memory: 128Mi }
+            limits: { cpu: "1", memory: 256Mi }
+      volumes:
+        - name: data
+          persistentVolumeClaim: { claimName: qaroom-langfuse-postgres-data }
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: qaroom-langfuse-postgres
+  namespace: observability
+spec:
+  selector:
+    qaroom.io/observability: langfuse-postgres
+  ports:
+    - { name: postgres, port: 5432, targetPort: 5432 }
+---
+# ── ClickHouse (OLAP trace store, required by v3) ─────────────────────────────────────────────────
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: qaroom-langfuse-clickhouse
+  namespace: observability
+  labels:
+    qaroom.io/observability: langfuse-clickhouse
+spec:
+  replicas: 1
+  strategy: { type: Recreate }
+  selector:
+    matchLabels:
+      qaroom.io/observability: langfuse-clickhouse
+  template:
+    metadata:
+      labels:
+        qaroom.io/observability: langfuse-clickhouse
+    spec:
+      containers:
+        - name: clickhouse
+          image: clickhouse/clickhouse-server:24.12-alpine
+          env:
+            - { name: CLICKHOUSE_USER, value: "clickhouse" }
+            - { name: CLICKHOUSE_PASSWORD, value: "clickhouse" }
+            - { name: CLICKHOUSE_DB, value: "default" }
+          ports:
+            - { name: http, containerPort: 8123 }
+            - { name: native, containerPort: 9000 }
+          readinessProbe:
+            httpGet: { path: /ping, port: 8123 }
+            initialDelaySeconds: 5
+            periodSeconds: 5
+            failureThreshold: 12
+          volumeMounts:
+            - { name: data, mountPath: /var/lib/clickhouse }
+          resources:
+            requests: { cpu: 200m, memory: 512Mi }
+            limits: { cpu: "2", memory: 2Gi }
+      volumes:
+        - name: data
+          persistentVolumeClaim: { claimName: qaroom-langfuse-clickhouse-data }
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: qaroom-langfuse-clickhouse
+  namespace: observability
+spec:
+  selector:
+    qaroom.io/observability: langfuse-clickhouse
+  ports:
+    - { name: http, port: 8123, targetPort: 8123 }
+    - { name: native, port: 9000, targetPort: 9000 }
+---
+# ── Redis (queue/cache) ───────────────────────────────────────────────────────────────────────────
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: qaroom-langfuse-redis
+  namespace: observability
+  labels:
+    qaroom.io/observability: langfuse-redis
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      qaroom.io/observability: langfuse-redis
+  template:
+    metadata:
+      labels:
+        qaroom.io/observability: langfuse-redis
+    spec:
+      containers:
+        - name: redis
+          image: redis:7-alpine
+          # Langfuse uses Redis as a durable queue → noeviction so jobs are never dropped.
+          # requirepass matches REDIS_AUTH in the shared ConfigMap (Langfuse always sends AUTH).
+          args: ["--requirepass", "langfuse", "--maxmemory-policy", "noeviction"]
+          ports:
+            - { name: redis, containerPort: 6379 }
+          readinessProbe:
+            # Must auth now that requirepass is set, else PING returns NOAUTH and readiness never flips.
+            exec: { command: ["redis-cli", "-a", "langfuse", "ping"] }
+            initialDelaySeconds: 2
+            periodSeconds: 5
+            failureThreshold: 6
+          resources:
+            requests: { cpu: 25m, memory: 64Mi }
+            limits: { cpu: 500m, memory: 256Mi }
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: qaroom-langfuse-redis
+  namespace: observability
+spec:
+  selector:
+    qaroom.io/observability: langfuse-redis
+  ports:
+    - { name: redis, port: 6379, targetPort: 6379 }
+---
+# ── MinIO (S3-compatible blob store for event uploads) ────────────────────────────────────────────
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: qaroom-langfuse-minio
+  namespace: observability
+  labels:
+    qaroom.io/observability: langfuse-minio
+spec:
+  replicas: 1
+  strategy: { type: Recreate }
+  selector:
+    matchLabels:
+      qaroom.io/observability: langfuse-minio
+  template:
+    metadata:
+      labels:
+        qaroom.io/observability: langfuse-minio
+    spec:
+      containers:
+        - name: minio
+          image: minio/minio:latest
+          args: ["server", "/data", "--console-address", ":9001"]
+          env:
+            - { name: MINIO_ROOT_USER, value: "minio" }
+            - { name: MINIO_ROOT_PASSWORD, value: "miniosecret" }
+          ports:
+            - { name: s3, containerPort: 9000 }
+            - { name: console, containerPort: 9001 }
+          readinessProbe:
+            httpGet: { path: /minio/health/ready, port: 9000 }
+            initialDelaySeconds: 3
+            periodSeconds: 5
+            failureThreshold: 12
+          volumeMounts:
+            - { name: data, mountPath: /data }
+          resources:
+            requests: { cpu: 50m, memory: 128Mi }
+            limits: { cpu: "1", memory: 512Mi }
+      volumes:
+        - name: data
+          persistentVolumeClaim: { claimName: qaroom-langfuse-minio-data }
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: qaroom-langfuse-minio
+  namespace: observability
+spec:
+  selector:
+    qaroom.io/observability: langfuse-minio
+  ports:
+    - { name: s3, port: 9000, targetPort: 9000 }
+    - { name: console, port: 9001, targetPort: 9001 }
+---
+# Ensure the `langfuse` bucket exists (the server image does not auto-create buckets). A long-lived
+# loop, NOT a one-shot Job: MinIO uses emptyDir (dev posture, like the rest of the stack), so a MinIO
+# pod restart wipes the bucket — this re-creates it within ~15s, so the stack self-heals instead of
+# spamming NoSuchBucket forever. Readiness flips only once the bucket is confirmed, so dependents
+# (langfuse-web/worker) wait for a real bucket, not just a started pod.
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: qaroom-langfuse-minio-init
+  namespace: observability
+  labels:
+    qaroom.io/observability: langfuse-minio-init
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      qaroom.io/observability: langfuse-minio-init
+  template:
+    metadata:
+      labels:
+        qaroom.io/observability: langfuse-minio-init
+    spec:
+      containers:
+        - name: mc
+          image: minio/mc:latest
+          command:
+            - /bin/sh
+            - -c
+            - >
+              while true; do
+              mc alias set local http://qaroom-langfuse-minio:9000 minio miniosecret >/dev/null 2>&1
+              && mc mb --ignore-existing local/langfuse >/dev/null 2>&1;
+              sleep 15; done
+          readinessProbe:
+            exec:
+              command: ["/bin/sh", "-c", "mc ls local/langfuse >/dev/null 2>&1"]
+            initialDelaySeconds: 3
+            periodSeconds: 5
+            failureThreshold: 12
+          resources:
+            requests: { cpu: 25m, memory: 32Mi }
+            limits: { cpu: 250m, memory: 128Mi }
+---
+# ── Langfuse web (UI + API + OTLP ingest) ─────────────────────────────────────────────────────────
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: qaroom-langfuse-web
+  namespace: observability
+  labels:
+    qaroom.io/observability: langfuse-web
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      qaroom.io/observability: langfuse-web
+  template:
+    metadata:
+      labels:
+        qaroom.io/observability: langfuse-web
+    spec:
+      containers:
+        - name: langfuse-web
+          image: langfuse/langfuse:3
+          envFrom:
+            - configMapRef: { name: qaroom-langfuse-env }
+          env:
+            # Reached through the Traefik ingress host; NextAuth must know its external origin.
+            - { name: NEXTAUTH_URL, value: "http://langfuse.localhost" }
+            - { name: NEXTAUTH_SECRET, value: "qaroom-dev-nextauth-secret" }
+            - { name: HOSTNAME, value: "0.0.0.0" }
+            # V8 caps the old-space heap well below the container limit by default; the Next.js boot
+            # OOMs at ~512Mi without this. Raise the heap and back it with a higher memory limit.
+            - { name: NODE_OPTIONS, value: "--max-old-space-size=1536" }
+          ports:
+            - { name: web, containerPort: 3000 }
+          # Migrations (Postgres + ClickHouse) run on boot, so give it a generous window.
+          readinessProbe:
+            httpGet: { path: /api/public/health, port: 3000 }
+            initialDelaySeconds: 20
+            periodSeconds: 10
+            failureThreshold: 30
+          resources:
+            requests: { cpu: 200m, memory: 768Mi }
+            limits: { cpu: "1", memory: 2Gi }
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: qaroom-langfuse-web
+  namespace: observability
+spec:
+  selector:
+    qaroom.io/observability: langfuse-web
+  ports:
+    - { name: web, port: 3000, targetPort: 3000 }
+---
+# ── Langfuse worker (async ingestion processor) ───────────────────────────────────────────────────
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: qaroom-langfuse-worker
+  namespace: observability
+  labels:
+    qaroom.io/observability: langfuse-worker
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      qaroom.io/observability: langfuse-worker
+  template:
+    metadata:
+      labels:
+        qaroom.io/observability: langfuse-worker
+    spec:
+      containers:
+        - name: langfuse-worker
+          image: langfuse/langfuse-worker:3
+          envFrom:
+            - configMapRef: { name: qaroom-langfuse-env }
+          env:
+            # Same V8 heap headroom as web — the worker is also a Node process.
+            - { name: NODE_OPTIONS, value: "--max-old-space-size=1024" }
+          ports:
+            - { name: worker, containerPort: 3030 }
+          readinessProbe:
+            httpGet: { path: /api/health, port: 3030 }
+            initialDelaySeconds: 20
+            periodSeconds: 10
+            failureThreshold: 30
+          resources:
+            requests: { cpu: 200m, memory: 512Mi }
+            limits: { cpu: "1", memory: 1536Mi }

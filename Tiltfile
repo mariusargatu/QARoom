@@ -94,6 +94,7 @@ k8s_yaml([
     'deploy/observability/gc-dedup-cronjob.yaml',
     'deploy/observability/tracetest-import.yaml',
     'deploy/observability/webhook-receiver.yaml',
+    'deploy/observability/langfuse.yaml',
 ])
 
 # Traefik Ingress — the whole platform at http://*.localhost, no port-forward (the cluster must be
@@ -113,8 +114,11 @@ k8s_resource('donations', resource_deps=['donations-pg', 'qaroom-nats', 'qaroom-
 k8s_resource('webhooks', port_forwards='8087:8087', resource_deps=['webhooks-pg', 'qaroom-nats'], labels=['services'])
 k8s_resource('gateway', port_forwards='8080:8080', resource_deps=['content', 'identity', 'donations', 'flags', 'webhooks', 'qaroom-nats'], labels=['services'])
 k8s_resource('web', port_forwards='8085:8085', resource_deps=['gateway'], labels=['services'])
-# Python moderator: its own pgvector Postgres + NATS (it subscribes to post.created).
-k8s_resource('moderator-agent', port_forwards='8086:8086', resource_deps=['moderator-agent-pg', 'qaroom-nats'], labels=['services'])
+# Python moderator: its own pgvector Postgres + NATS (it subscribes to post.created). Also waits on
+# langfuse-web so the ON-BOOT Langfuse seed (prompt + golden dataset + annotation queue) runs after the
+# API is up — it is one-shot, so a too-early boot would silently skip it. (Trace EXPORT stays
+# best-effort regardless; this dep is only for the seed.)
+k8s_resource('moderator-agent', port_forwards='8086:8086', resource_deps=['moderator-agent-pg', 'qaroom-nats', 'content', 'qaroom-langfuse-web'], labels=['services'])
 
 # Observability UIs. The collector exports traces to BOTH Jaeger and Tracetest, so it must
 # start AFTER both — otherwise its gRPC client to Tracetest resolves no endpoint ("no
@@ -139,4 +143,23 @@ k8s_resource('qaroom-microcks', port_forwards='8888:8080', labels=['observabilit
 # Dev webhook sink (Milestone 11): the echo endpoint webhooks-service delivers to.
 k8s_resource('webhook-receiver', labels=['observability'])
 
-print("QARoom on k3d — web :8085 · gateway :8080 · webhooks :8087 · moderator :8086 · Jaeger :16686 · Grafana :3000 · Prometheus :9090 · NATS :4222 · Tracetest :11633 · Microcks :8888")
+# Langfuse v3 LLM-trace UI (spike). Backends first, then the bucket-init Job, then web + worker.
+# web on :3001 (Grafana already holds :3001's neighbour :3000). UI at http://langfuse.localhost.
+k8s_resource('qaroom-langfuse-postgres', labels=['langfuse'])
+k8s_resource('qaroom-langfuse-clickhouse', labels=['langfuse'])
+k8s_resource('qaroom-langfuse-redis', labels=['langfuse'])
+k8s_resource('qaroom-langfuse-minio', labels=['langfuse'])
+k8s_resource('qaroom-langfuse-minio-init', resource_deps=['qaroom-langfuse-minio'], labels=['langfuse'])
+k8s_resource(
+    'qaroom-langfuse-web',
+    port_forwards='3001:3000',
+    resource_deps=['qaroom-langfuse-postgres', 'qaroom-langfuse-clickhouse', 'qaroom-langfuse-redis', 'qaroom-langfuse-minio-init'],
+    labels=['langfuse'],
+)
+k8s_resource(
+    'qaroom-langfuse-worker',
+    resource_deps=['qaroom-langfuse-postgres', 'qaroom-langfuse-clickhouse', 'qaroom-langfuse-redis', 'qaroom-langfuse-minio-init'],
+    labels=['langfuse'],
+)
+
+print("QARoom on k3d — web :8085 · gateway :8080 · webhooks :8087 · moderator :8086 · Jaeger :16686 · Grafana :3000 · Prometheus :9090 · NATS :4222 · Tracetest :11633 · Microcks :8888 · Langfuse :3001 (langfuse.localhost)")

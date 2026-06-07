@@ -84,7 +84,9 @@ def _verdict_text(decision: ModerationDecision | None) -> str:
     """Serialize the agent's verdict into the string the red-team harness judges. ``None`` means the
     workflow ended in ``Failed`` (a dependency failure) — surfaced as such, never as a silent approve."""
     if decision is None:
-        return "disposition=failed rationale=the moderation workflow failed before reaching a verdict"
+        return (
+            "disposition=failed rationale=the moderation workflow failed before reaching a verdict"
+        )
     cited = ",".join(decision.cited_rules) or "none"
     return (
         f"disposition={decision.disposition} "

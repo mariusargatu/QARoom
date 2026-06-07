@@ -33,30 +33,49 @@ _BUGGED_INSTRUCTION = (
 )
 
 
+def static_system_instructions(*, prompt_bug: bool = False) -> str:
+    """The STATIC instruction block — role, judging instruction, injection defense, and the
+    citation-bearing output contract — ending just before the per-post retrieved policy. This is the
+    part a human tunes, so it is what Langfuse manages as a prompt; the dynamic retrieved policies are
+    appended at runtime by ``build_system_prompt``. Same string as the hardcoded fallback."""
+    instruction = _BUGGED_INSTRUCTION if prompt_bug else _HONEST_INSTRUCTION
+    return "\n".join(
+        [
+            "You are a community content moderator for QARoom.",
+            "Decide whether the post VIOLATES one of the RETRIEVED community policies below. Ground "
+            "your "
+            "decision in those policies and the precedent — do not invent rules that are not listed.",
+            instruction,
+            "",
+            INJECTION_DEFENSE_INSTRUCTION,
+            "",
+            "Return a structured, citation-bearing verdict:",
+            "- disposition: 'remove' if the post violates a policy, 'approve' if it is fine, or "
+            "'escalate_to_human' when the retrieved policy is ambiguous, conflicting, or insufficient.",
+            "- cited_rules: the ids of the retrieved policies your decision rests on (empty when "
+            "approving "
+            "with no policy implicated). Only cite ids that appear in the retrieved policies below.",
+            "- precedents: short references to the similar past decisions you relied on, if any.",
+            "- departs_from_precedent: true if your disposition knowingly diverges from that precedent.",
+            "- rationale: one to three sentences, traceable to the cited policies and precedent.",
+            "- confidence: your confidence in [0, 1].",
+        ]
+    )
+
+
 def build_system_prompt(
     entries: Sequence[PolicyEntry],
     precedents: Sequence[str],
     *,
     prompt_bug: bool = False,
+    header: str | None = None,
 ) -> str:
-    instruction = _BUGGED_INSTRUCTION if prompt_bug else _HONEST_INSTRUCTION
+    """Full system prompt: the static block (``header`` — Langfuse-managed or hardcoded) then the
+    per-post retrieved policy + precedent. With ``header=None`` the output is byte-identical to the
+    pre-Langfuse prompt, so the eval drift gate is unaffected."""
+    head = header if header is not None else static_system_instructions(prompt_bug=prompt_bug)
     lines = [
-        "You are a community content moderator for QARoom.",
-        "Decide whether the post VIOLATES one of the RETRIEVED community policies below. Ground your "
-        "decision in those policies and the precedent — do not invent rules that are not listed.",
-        instruction,
-        "",
-        INJECTION_DEFENSE_INSTRUCTION,
-        "",
-        "Return a structured, citation-bearing verdict:",
-        "- disposition: 'remove' if the post violates a policy, 'approve' if it is fine, or "
-        "'escalate_to_human' when the retrieved policy is ambiguous, conflicting, or insufficient.",
-        "- cited_rules: the ids of the retrieved policies your decision rests on (empty when approving "
-        "with no policy implicated). Only cite ids that appear in the retrieved policies below.",
-        "- precedents: short references to the similar past decisions you relied on, if any.",
-        "- departs_from_precedent: true if your disposition knowingly diverges from that precedent.",
-        "- rationale: one to three sentences, traceable to the cited policies and precedent.",
-        "- confidence: your confidence in [0, 1].",
+        head,
         "",
         "Retrieved community policies:",
     ]

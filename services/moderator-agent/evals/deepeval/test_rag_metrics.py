@@ -77,7 +77,8 @@ async def test_contextual_precision_and_recall_gate(case: dict) -> None:
     for metric in (precision, recall, relevancy):
         metric.measure(tc)
         record_metric(
-            metric.__class__.__name__, passed=metric.score is not None and metric.score >= _THRESHOLD
+            metric.__class__.__name__,
+            passed=metric.score is not None and metric.score >= _THRESHOLD,
         )
     assert_test(tc, [precision, recall, relevancy])
 

@@ -32,7 +32,9 @@ def _strip_delimiters(text: str) -> str:
     attacker could close the fence early. Loop until no delimiter (forged or re-formed) remains."""
     cleaned = text
     while INJECTION_DELIMITER_OPEN in cleaned or INJECTION_DELIMITER_CLOSE in cleaned:
-        cleaned = cleaned.replace(INJECTION_DELIMITER_OPEN, "").replace(INJECTION_DELIMITER_CLOSE, "")
+        cleaned = cleaned.replace(INJECTION_DELIMITER_OPEN, "").replace(
+            INJECTION_DELIMITER_CLOSE, ""
+        )
     return cleaned
 
 
@@ -49,9 +51,10 @@ def is_guarded(text: str) -> bool:
     """True when ``text`` has been fenced by :func:`guard_post_text`. A sound oracle: it requires the
     open/close fence AND that the INTERIOR holds no delimiter — which the fixpoint strip guarantees, so
     attacker-supplied text that merely looks fenced (interior delimiters) is correctly rejected."""
-    if not (text.startswith(INJECTION_DELIMITER_OPEN) and text.rstrip().endswith(
-        INJECTION_DELIMITER_CLOSE
-    )):
+    if not (
+        text.startswith(INJECTION_DELIMITER_OPEN)
+        and text.rstrip().endswith(INJECTION_DELIMITER_CLOSE)
+    ):
         return False
     interior = text[len(INJECTION_DELIMITER_OPEN) : text.rstrip().rfind(INJECTION_DELIMITER_CLOSE)]
     return INJECTION_DELIMITER_OPEN not in interior and INJECTION_DELIMITER_CLOSE not in interior

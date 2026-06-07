@@ -35,6 +35,13 @@ if ! k3d cluster list 2>/dev/null | grep -qE "^${CLUSTER}\b"; then
     --wait
 fi
 
+# 2b. Refresh the kubeconfig from the LIVE cluster, merged into the default (~/.kube/config) and
+# switched to. A prior same-named cluster leaves a stale CA in the kubeconfig, so kubectl fails the
+# next step with "certificate signed by unknown authority" against https://0.0.0.0:6550 — the cluster
+# is up, the CA just doesn't match. Idempotent and cheap; always run so the kubeconfig can't drift
+# from the cluster it points at.
+k3d kubeconfig merge "${CLUSTER}" --kubeconfig-merge-default --kubeconfig-switch-context >/dev/null
+
 # 3. Namespaces (idempotent).
 for ns in qaroom observability; do
   kubectl create namespace "${ns}" --dry-run=client -o yaml | kubectl apply -f -

@@ -59,11 +59,15 @@ def self_check(
     ungrounded: bool = False,
     disable_abstain: bool = False,
 ) -> LlmVerdict:
-    cited = list(verdict.cited_rules) if ungrounded else ground_cited_rules(
-        verdict.cited_rules, retrieved_ids
+    cited = (
+        list(verdict.cited_rules)
+        if ungrounded
+        else ground_cited_rules(verdict.cited_rules, retrieved_ids)
     )
     disposition = verdict.disposition
-    departs = verdict.departs_from_precedent or infer_departs_from_precedent(disposition, precedents)
+    departs = verdict.departs_from_precedent or infer_departs_from_precedent(
+        disposition, precedents
+    )
 
     if not disable_abstain:
         if verdict.confidence < abstain_confidence:

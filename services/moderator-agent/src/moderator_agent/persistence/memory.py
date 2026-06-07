@@ -96,7 +96,9 @@ class InMemoryPolicyCorpusStore(PolicyCorpusStore):
     async def retrieve(
         self, community_id: str, embedding: list[float], *, limit: int = 5
     ) -> list[PolicyEntry]:
-        reasoned = [e for e in self._entries.get(community_id, []) if e.entry_type in self._REASONED]
+        reasoned = [
+            e for e in self._entries.get(community_id, []) if e.entry_type in self._REASONED
+        ]
         return sorted(reasoned, key=lambda e: e.entry_id)[:limit]
 
     async def corpus_for(self, community_id: str) -> list[PolicyEntry]:

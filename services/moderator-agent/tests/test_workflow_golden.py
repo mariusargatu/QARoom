@@ -40,7 +40,12 @@ async def test_the_workflow_records_each_gold_disposition(case: dict) -> None:
     expected = _DISPOSITION[case["gold_verdict"]]
     cited = [] if expected == "approve" else ["no-harassment"]  # grounded in the default corpus
     scripted = LlmVerdict.model_validate(
-        {"disposition": expected, "cited_rules": cited, "rationale": "scripted gold", "confidence": 0.99}
+        {
+            "disposition": expected,
+            "cited_rules": cited,
+            "rationale": "scripted gold",
+            "confidence": 0.99,
+        }
     )
     workflow, decisions, _ = make_workflow(llm=_ScriptedLlm(scripted))
     decision = await workflow.run(make_event(body=case["post"]))

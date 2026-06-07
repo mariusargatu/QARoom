@@ -70,5 +70,7 @@ async def test_tool_correctness_trajectory(case: dict) -> None:
     )
     metric = ToolCorrectnessMetric(threshold=_THRESHOLD)
     metric.measure(tc)
-    record_metric("tool_correctness", passed=metric.score is not None and metric.score >= _THRESHOLD)
+    record_metric(
+        "tool_correctness", passed=metric.score is not None and metric.score >= _THRESHOLD
+    )
     assert_test(tc, [metric])

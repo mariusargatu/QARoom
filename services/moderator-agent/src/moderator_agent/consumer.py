@@ -25,6 +25,11 @@ from .workflow.graph import ModerationWorkflow
 
 POST_CREATED_SUBJECT = posts_created_any_community()
 
+# The shared JetStream stream is created by a Node service on boot (@qaroom/messaging ensureStream),
+# so the moderator may start first. Wait up to ~60s for it before giving up to a crash-loop restart.
+_STREAM_WAIT_ATTEMPTS = 30
+_STREAM_WAIT_INTERVAL_S = 2.0
+
 
 async def handle_post_event(
     workflow: ModerationWorkflow, *, data: bytes, headers: dict[str, str], subject: str
@@ -56,12 +61,29 @@ class PostEventConsumer:
         self._sub: object = None
 
     async def start(self) -> None:
-        self._sub = await self._js.pull_subscribe(  # type: ignore[attr-defined]
-            POST_CREATED_SUBJECT,
-            durable=self._settings.moderator_subscription,
-            stream=self._settings.nats_stream,
-        )
+        self._sub = await self._subscribe_with_retry()
         self._task = asyncio.create_task(self._loop())
+
+    async def _subscribe_with_retry(self) -> object:
+        """Subscribe to the shared ``qaroom`` stream, tolerating the boot race where no Node service has
+        yet created it (the stream is owned by ``@qaroom/messaging``'s ``ensureStream``, not by the
+        moderator). Without this the moderator hard-crashes with ``stream not found`` and crash-loops
+        until a publisher comes up; instead we retry with a short backoff, then surface the error if it
+        never appears."""
+        from nats.js.errors import NotFoundError
+
+        for attempt in range(_STREAM_WAIT_ATTEMPTS):
+            try:
+                return await self._js.pull_subscribe(  # type: ignore[attr-defined]
+                    POST_CREATED_SUBJECT,
+                    durable=self._settings.moderator_subscription,
+                    stream=self._settings.nats_stream,
+                )
+            except NotFoundError:
+                if attempt == _STREAM_WAIT_ATTEMPTS - 1:
+                    raise
+                await asyncio.sleep(_STREAM_WAIT_INTERVAL_S)
+        raise AssertionError("unreachable")  # pragma: no cover
 
     async def _loop(self) -> None:
         from nats.errors import TimeoutError as NatsTimeout

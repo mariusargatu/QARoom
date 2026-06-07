@@ -73,6 +73,25 @@ class Settings(BaseSettings):
     otel_exporter_otlp_endpoint: str = ""
     otel_service_name: str = "moderator-agent"
 
+    # Langfuse LLM-trace UI (spike). When all three are set, OpenInference LangChain/LangGraph spans
+    # are exported to Langfuse over OTLP (Basic auth). Host is the in-cluster self-hosted instance
+    # (deploy/observability/langfuse.yaml) or any Langfuse URL. Off by default — absent these,
+    # telemetry behaves exactly as before.
+    langfuse_host: str = ""
+    langfuse_public_key: str = ""
+    langfuse_secret_key: str = ""
+    # Names of the Langfuse resources the moderator seeds + uses (idempotent, so they re-create on a
+    # fresh stack). The managed prompt is fetched at runtime with a hardcoded fallback; cache TTL
+    # bounds how fast a live edit in the Langfuse UI propagates to the agent.
+    langfuse_prompt_name: str = "moderator-system"
+    langfuse_prompt_cache_ttl_s: float = 60.0
+    # A SEPARATE chat prompt (system instructions + a `{{post}}` user turn) used ONLY by Langfuse's UI
+    # "Run Experiment" (prompt+model, no retrieval). Kept apart from the agent's `moderator-system` so
+    # adding the template variable can't corrupt the agent's runtime prompt.
+    langfuse_eval_prompt_name: str = "moderator-prompt-eval"
+    langfuse_dataset_name: str = "moderator-golden"
+    langfuse_annotation_queue: str = "moderator-escalations"
+
     # Scenario replay (Milestone 7 parity): SNAPSHOT_REPLAY=1 pins the clock.
     snapshot_replay: str = ""
     snapshot_clock_seed: str = "2026-01-01T00:00:00.000Z"

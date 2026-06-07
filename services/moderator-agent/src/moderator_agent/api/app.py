@@ -268,7 +268,9 @@ def build_app(deps: AppDeps) -> FastAPI:
     try:
         from opentelemetry.instrumentation.fastapi import FastAPIInstrumentor
 
-        FastAPIInstrumentor.instrument_app(app)
+        # Exclude the k8s probe routes — otherwise every /health + /ready poll becomes a span and
+        # floods the trace UI (Langfuse/Jaeger) with noise that drowns the actual agent traces.
+        FastAPIInstrumentor.instrument_app(app, excluded_urls="health,ready")
     except Exception:
         pass
 

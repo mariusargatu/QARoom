@@ -21,5 +21,13 @@ extraEnv:
   OPENAI_API_KEY: ""
   # LangChain provider-prefixed id (ADR-0017/0018). Reasoning model — effort set in config default.
   MODERATOR_MODEL: openai:gpt-5.5-2026-04-23
-  # Production moderation flows through NATS; the dev-only POST /review trigger is disabled here.
-  MODERATOR_ENABLE_MANUAL_REVIEW: "false"
+  # Dev/demo: enable the POST /review trigger so `scripts/seed-moderation.sh` can drive a review
+  # on demand and populate Langfuse end-to-end. Production still sets this false (NATS-only, ADR-0018).
+  MODERATOR_ENABLE_MANUAL_REVIEW: "true"
+  # Langfuse LLM-trace UI (spike). In-cluster web endpoint + the dev API keys seeded headlessly by
+  # deploy/observability/langfuse.yaml (LANGFUSE_INIT_*). When set, the moderator auto-instruments
+  # LangChain/LangGraph (OpenInference) and exports the trajectory/retrieval/generations to Langfuse.
+  # The image ships the `tracing` dependency group (Dockerfile). Dev-only plaintext (ADR-0009).
+  LANGFUSE_HOST: http://qaroom-langfuse-web.observability.svc.cluster.local:3000
+  LANGFUSE_PUBLIC_KEY: pk-lf-qaroom-dev
+  LANGFUSE_SECRET_KEY: sk-lf-qaroom-dev

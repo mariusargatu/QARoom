@@ -45,8 +45,12 @@ from moderator_agent.workflow.graph import ModerationWorkflow
 # DISCIPLINE note. ``LLMTestCase`` is built lazily in ``_llm_test_case`` so the conftest can import
 # ``ACCUMULATOR`` / ``SEED`` from here at collection time without the key-gated ``eval`` group present.
 
-SEED = 12  # Milestone 12 — surfaced in the report's `seed` field; the LLM is the only stochastic dep.
-COMMUNITY = "comm_" + "0" * 26  # the seeded `rules/comm_0…0.yaml` corpus the gold set is judged against
+SEED = (
+    12  # Milestone 12 — surfaced in the report's `seed` field; the LLM is the only stochastic dep.
+)
+COMMUNITY = (
+    "comm_" + "0" * 26
+)  # the seeded `rules/comm_0…0.yaml` corpus the gold set is judged against
 _GOLD = Path(__file__).resolve().parents[1] / "golden" / "gold.json"
 
 
@@ -161,7 +165,9 @@ def _to_target_case(
     if decision is None:
         # A Failed run (a provider/dependency error) — surface it as an escalation so the metrics see a
         # record rather than a crash; the conftest tally will reflect each metric's verdict.
-        actual = "disposition=escalate_to_human; rationale=workflow failed before producing a verdict"
+        actual = (
+            "disposition=escalate_to_human; rationale=workflow failed before producing a verdict"
+        )
         return TargetCase(
             case_id=case["id"],
             gold_verdict=case["gold_verdict"],

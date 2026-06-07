@@ -20,15 +20,46 @@ from __future__ import annotations
 import contextlib
 import contextvars
 from collections.abc import Iterator
+from typing import TYPE_CHECKING
 
 from opentelemetry import trace
 from opentelemetry.trace import Span, Tracer
 
 from .config import Settings
 
+if TYPE_CHECKING:
+    # Type-only: keeps the SDK import out of the runtime path so the helpers stay no-ops when no
+    # exporter is configured (determinism rule), while pyright still sees the exporter type.
+    from collections.abc import Sequence
+
+    from opentelemetry.sdk.trace import ReadableSpan
+    from opentelemetry.sdk.trace.export import SpanExporter, SpanExportResult
+
 TENANT_ID_ATTR = "tenant.id"
 XSTATE_TRANSITION_SPAN = "xstate.transition"
 SYSTEM_TENANT = "system"
+
+# Span names that are noise in the Langfuse LLM view and dropped from the LANGFUSE export ONLY (the
+# collector still gets them, so Jaeger/Tracetest are unaffected): the hand-rolled gen_ai.*/
+# xstate.transition spans (duplicates of OpenInference's ChatOpenAI/retriever spans + Tracetest's
+# conformance signal), the HTTP send/receive sub-spans, and LangChain plumbing wrappers.
+_LANGFUSE_DROP_EXACT = frozenset(
+    {
+        "xstate.transition",
+        "gen_ai.chat",
+        "gen_ai.embeddings",
+        "_route",
+        "RunnableSequence",
+        "RunnableParallel<raw>",
+        "RunnableParallel",
+        "RunnableLambda",
+    }
+)
+_LANGFUSE_DROP_SUBSTR = (" http send", " http receive")
+
+
+def _drop_from_langfuse(name: str) -> bool:
+    return name in _LANGFUSE_DROP_EXACT or any(s in name for s in _LANGFUSE_DROP_SUBSTR)
 
 _TENANT: contextvars.ContextVar[str] = contextvars.ContextVar(
     "qaroom_tenant_id", default=SYSTEM_TENANT
@@ -84,10 +115,15 @@ def emit_transition_span(*, machine: str, frm: str, to: str, event: str, at: str
 
 
 def setup_telemetry(settings: Settings) -> None:
-    """Install the SDK iff an OTLP endpoint is configured. Otherwise the helpers stay no-ops."""
-    if not settings.otel_exporter_otlp_endpoint:
+    """Install the SDK iff a trace sink is configured — the OTLP collector (Jaeger/Tracetest) and/or
+    Langfuse (the LLM-trace UI). Otherwise the helpers stay no-ops, so the determinism rule holds and
+    tests run with the SDK off. When Langfuse is configured, LangChain/LangGraph is auto-instrumented
+    (OpenInference) so each LLM call, pgvector retrieval, and LangGraph node renders as a rich span;
+    the hand-rolled ``gen_ai.*`` / ``xstate.transition`` spans keep flowing to the collector unchanged.
+    """
+    langfuse_exporter = _langfuse_exporter(settings)
+    if not settings.otel_exporter_otlp_endpoint and langfuse_exporter is None:
         return
-    from opentelemetry.exporter.otlp.proto.http.trace_exporter import OTLPSpanExporter
     from opentelemetry.sdk.resources import Resource
     from opentelemetry.sdk.trace import SpanProcessor, TracerProvider
     from opentelemetry.sdk.trace.export import BatchSpanProcessor
@@ -108,6 +144,77 @@ def setup_telemetry(settings: Settings) -> None:
     resource = Resource.create({"service.name": settings.otel_service_name})
     provider = TracerProvider(resource=resource)
     provider.add_span_processor(TenantSpanProcessor())
-    endpoint = settings.otel_exporter_otlp_endpoint.rstrip("/") + "/v1/traces"
-    provider.add_span_processor(BatchSpanProcessor(OTLPSpanExporter(endpoint=endpoint)))
+    if settings.otel_exporter_otlp_endpoint:
+        from opentelemetry.exporter.otlp.proto.http.trace_exporter import OTLPSpanExporter
+
+        endpoint = settings.otel_exporter_otlp_endpoint.rstrip("/") + "/v1/traces"
+        provider.add_span_processor(BatchSpanProcessor(OTLPSpanExporter(endpoint=endpoint)))
+    if langfuse_exporter is not None:
+        from opentelemetry.sdk.trace.export import SpanExporter, SpanExportResult
+
+        class _LangfuseFilterExporter(SpanExporter):
+            """Wrap the Langfuse exporter to drop the noise/duplicate spans (see ``_drop_from_langfuse``)
+            so the LLM trace view is clean. Only the Langfuse export is filtered — the collector
+            processor is separate, so Jaeger/Tracetest still receive every span."""
+
+            def __init__(self, inner: SpanExporter) -> None:
+                self._inner = inner
+
+            def export(self, spans: Sequence[ReadableSpan]) -> SpanExportResult:
+                kept = [s for s in spans if not _drop_from_langfuse(s.name)]
+                if not kept:
+                    return SpanExportResult.SUCCESS
+                return self._inner.export(kept)
+
+            def shutdown(self) -> None:
+                self._inner.shutdown()
+
+            def force_flush(self, timeout_millis: int = 30_000) -> bool:
+                return self._inner.force_flush(timeout_millis)
+
+        provider.add_span_processor(BatchSpanProcessor(_LangfuseFilterExporter(langfuse_exporter)))
     trace.set_tracer_provider(provider)
+    if langfuse_exporter is not None:
+        _instrument_langchain(provider)
+
+
+def langfuse_otlp_target(settings: Settings) -> tuple[str, dict[str, str]] | None:
+    """The ``(endpoint, headers)`` for the Langfuse OTLP/HTTP span exporter, or ``None`` when Langfuse
+    is not configured. Langfuse ingests OpenInference / OTel-GenAI spans at
+    ``<host>/api/public/otel/v1/traces`` with HTTP Basic auth — base64 of
+    ``<public_key>:<secret_key>`` (Langfuse cloud or a self-hosted instance). Pure, so it is unit
+    tested without standing up the SDK."""
+    if not (
+        settings.langfuse_host and settings.langfuse_public_key and settings.langfuse_secret_key
+    ):
+        return None
+    import base64
+
+    token = base64.b64encode(
+        f"{settings.langfuse_public_key}:{settings.langfuse_secret_key}".encode()
+    ).decode()
+    endpoint = settings.langfuse_host.rstrip("/") + "/api/public/otel/v1/traces"
+    return endpoint, {"Authorization": f"Basic {token}"}
+
+
+def _langfuse_exporter(settings: Settings) -> SpanExporter | None:
+    """An OTLP/HTTP span exporter to Langfuse, or ``None`` when Langfuse is not configured."""
+    target = langfuse_otlp_target(settings)
+    if target is None:
+        return None
+    from opentelemetry.exporter.otlp.proto.http.trace_exporter import OTLPSpanExporter
+
+    endpoint, headers = target
+    return OTLPSpanExporter(endpoint=endpoint, headers=headers)
+
+
+def _instrument_langchain(provider: object) -> None:
+    """Auto-instrument LangChain/LangGraph with OpenInference so the LangGraph trajectory, retrieval,
+    and each LLM generation (prompt + completion) render as rich spans in Langfuse. The package is a
+    runtime dependency; the ``try`` only degrades gracefully (to the hand-rolled ``gen_ai.*`` spans)
+    if it is ever stripped from the image."""
+    try:
+        from openinference.instrumentation.langchain import LangChainInstrumentor
+    except ImportError:
+        return
+    LangChainInstrumentor().instrument(tracer_provider=provider)

@@ -18,6 +18,9 @@ RUN uv sync --frozen --no-install-project --no-dev
 # Source + the rules seeded into the moderator's own Postgres on boot.
 COPY services/moderator-agent/src ./src
 COPY services/moderator-agent/rules ./rules
+# The SME golden set — seeded into Langfuse as a dataset on boot (langfuse_seed). Just the data, not
+# the heavy eval stack under evals/.
+COPY services/moderator-agent/evals/golden ./evals/golden
 RUN uv sync --frozen --no-dev
 
 EXPOSE 8086

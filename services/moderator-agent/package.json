@@ -16,6 +16,7 @@
     "golden:build": "uv run python -m moderator_agent.golden.build",
     "eval:deepeval": "uv run --group eval pytest -q evals/deepeval",
     "eval:deepteam": "uv run --group eval pytest -q evals/redteam -m deepteam",
-    "eval:pyrit": "uv run --group eval pytest -q evals/redteam -m pyrit"
+    "eval:pyrit": "uv run --group eval pytest -q evals/redteam -m pyrit",
+    "langfuse:dataset-run": "uv run --no-dev python -m moderator_agent.langfuse_dataset_run"
   }
 }

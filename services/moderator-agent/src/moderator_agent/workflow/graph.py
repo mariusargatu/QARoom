@@ -23,12 +23,14 @@ import asyncio
 from typing import Any, TypedDict
 
 from langgraph.graph import END, START, StateGraph
+from opentelemetry import trace as _otel_trace
 
 from .. import telemetry
 from ..config import Settings
 from ..determinism import Clock, IdGenerator
 from ..guard import guard_post_text
 from ..lamport import LamportGate
+from ..langfuse_integration import LangfuseClient, current_trace_id
 from ..llm import Embedder, LlmClient
 from ..ports import DecisionStore, EventPublisher, KnowledgeStore, PolicyCorpusStore
 from ..problem import ProblemError
@@ -46,7 +48,7 @@ from ..subjects import (
 )
 from . import model as M
 from . import selfcheck
-from .prompts import build_system_prompt
+from .prompts import build_system_prompt, static_system_instructions
 
 
 class WorkflowState(TypedDict, total=False):
@@ -79,6 +81,8 @@ class ModerationWorkflow:
         publisher: EventPublisher | None = None,
         checkpointer: Any = None,
         sink: list[dict] | None = None,
+        langfuse: LangfuseClient | None = None,
+        langfuse_queue_id: str | None = None,
     ) -> None:
         self._llm = llm
         self._embedder = embedder
@@ -91,6 +95,9 @@ class ModerationWorkflow:
         self._settings = settings
         self._publisher = publisher
         self._sink = sink
+        # Best-effort LLM-observability sink (Langfuse). None/disabled → the agent runs unchanged.
+        self._langfuse = langfuse
+        self._langfuse_queue_id = langfuse_queue_id
         self._last_state = M.INITIAL_STATE
         self._graph = self._build(checkpointer)
 
@@ -189,8 +196,19 @@ class ModerationWorkflow:
         (FR3). The untrusted post body is fenced by the injection guard. Failure → Failed@PrecedentGathered."""
         event = PostCreatedEvent.model_validate(state["event"])
         entries = [PolicyEntry.model_validate(e) for e in state.get("policy", [])]
+        bug = self._settings.moderator_prompt_bug
+        # The static instruction block is live-editable in Langfuse; fall back to the hardcoded block
+        # when Langfuse is off/unreachable. The deliberate-bug variant bypasses Langfuse (it is a test
+        # toggle, not a tuned prompt). The dynamic retrieved policy is appended either way.
+        fallback_header = static_system_instructions(prompt_bug=bug)
+        if self._langfuse is not None and not bug:
+            header = await self._langfuse.get_prompt_text(
+                self._settings.langfuse_prompt_name, fallback=fallback_header
+            )
+        else:
+            header = fallback_header
         prompt = build_system_prompt(
-            entries, state.get("precedents", []), prompt_bug=self._settings.moderator_prompt_bug
+            entries, state.get("precedents", []), prompt_bug=bug, header=header
         )
         guarded = guard_post_text(
             self._post_text(event), disabled=self._settings.moderator_disable_input_guard
@@ -285,6 +303,7 @@ class ModerationWorkflow:
         # publish failure is NOT a ProblemError: it propagates → the consumer naks → redelivery
         # re-attempts the publish. This is the outbox-free at-least-once guarantee (ADR-0018).
         await self._publish(decision)
+        await self._emit_observability(decision)
         return self._advance(
             state,
             {"decision": decision.model_dump()},
@@ -292,6 +311,39 @@ class ModerationWorkflow:
             event="SelfCheckPassed",
             to="Recorded",
         )
+
+    async def _emit_observability(self, decision: ModerationDecision) -> None:
+        """Attach the decision's outcome to its Langfuse trace as scores, and route an escalation into
+        the human-annotation queue. Entirely best-effort: the client swallows failures, so observability
+        never affects the recorded decision."""
+        if self._langfuse is None or not self._langfuse.enabled:
+            return
+        trace_id = current_trace_id()
+        if trace_id is None:
+            return
+        await self._langfuse.create_score(
+            trace_id=trace_id,
+            name="disposition",
+            value=decision.disposition,
+            data_type="CATEGORICAL",
+        )
+        await self._langfuse.create_score(
+            trace_id=trace_id, name="confidence", value=decision.confidence, data_type="NUMERIC"
+        )
+        await self._langfuse.create_score(
+            trace_id=trace_id,
+            name="cited_rules",
+            value=float(len(decision.cited_rules)),
+            data_type="NUMERIC",
+        )
+        await self._langfuse.create_score(
+            trace_id=trace_id,
+            name="departs_from_precedent",
+            value=1 if decision.departs_from_precedent else 0,
+            data_type="BOOLEAN",
+        )
+        if decision.disposition == "escalate_to_human" and self._langfuse_queue_id is not None:
+            await self._langfuse.add_queue_item(queue_id=self._langfuse_queue_id, trace_id=trace_id)
 
     async def _publish(self, decision: ModerationDecision) -> None:
         if self._publisher is None:
@@ -315,8 +367,21 @@ class ModerationWorkflow:
             "state": M.INITIAL_STATE,
             "transitions": [],
         }
+        # Set Langfuse trace-level fields on the ROOT span (active here, before the LangGraph child
+        # spans): session = community (tenant grouping), a clean name, and the post as the trace input
+        # so the trace card shows post → disposition instead of null/undefined. No-op when tracing off.
+        span = _otel_trace.get_current_span()
+        span.set_attribute("langfuse.session.id", event.community_id)
+        span.set_attribute("langfuse.trace.name", "moderate-post")
+        span.set_attribute("langfuse.trace.tags", ["moderation"])
+        span.set_attribute("langfuse.trace.input", self._post_text(event))
         config: dict = {"configurable": {"thread_id": event.event_id}}
         final = await self._graph.ainvoke(initial, config=config)
         self._last_state = final.get("state", M.INITIAL_STATE)
         decision = final.get("decision")
-        return ModerationDecision.model_validate(decision) if decision else None
+        result = ModerationDecision.model_validate(decision) if decision else None
+        if result is not None:
+            span.set_attribute(
+                "langfuse.trace.output", f"{result.disposition}: {result.rationale}"
+            )
+        return result

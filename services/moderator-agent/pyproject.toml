@@ -24,6 +24,7 @@ dependencies = [
     "pyyaml>=6.0",
     "jsonschema>=4.23",
     "httpx>=0.28",
+    "openinference-instrumentation-langchain>=0.1.66",
 ]
 
 [dependency-groups]

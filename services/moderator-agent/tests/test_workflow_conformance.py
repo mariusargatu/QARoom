@@ -49,7 +49,10 @@ class _FailingLlm:
 
     def classify(self, *, system_prompt: str, post_text: str) -> LlmVerdict:
         raise ProblemError(
-            slug="llm-down", title="LLM unavailable", status=502, failure_domain="dependency_failure"
+            slug="llm-down",
+            title="LLM unavailable",
+            status=502,
+            failure_domain="dependency_failure",
         )
 
 
@@ -70,7 +73,10 @@ class _FailingSimilarKnowledge:
 
     async def similar(self, community_id: str, embedding, *, limit: int = 3):
         raise ProblemError(
-            slug="pgvector-down", title="similar down", status=502, failure_domain="dependency_failure"
+            slug="pgvector-down",
+            title="similar down",
+            status=502,
+            failure_domain="dependency_failure",
         )
 
     async def remember(self, **kwargs) -> None:  # pragma: no cover - never reached on this path
