@@ -5,6 +5,7 @@
   "type": "module",
   "exports": {
     ".": "./src/index.ts",
+    "./webhook-hmac": "./src/webhook-hmac.ts",
     "./ids": "./src/ids.ts",
     "./errors": "./src/errors.ts",
     "./lamport": "./src/lamport.ts",

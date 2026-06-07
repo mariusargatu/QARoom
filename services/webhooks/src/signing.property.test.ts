@@ -1,10 +1,6 @@
 import { createHmac } from 'node:crypto'
-import {
-  signWebhook,
-  verifyWebhook,
-  WEBHOOK_SIGNATURE_HEADER,
-  WEBHOOK_TIMESTAMP_HEADER,
-} from '@qaroom/contracts'
+import { WEBHOOK_SIGNATURE_HEADER, WEBHOOK_TIMESTAMP_HEADER } from '@qaroom/contracts'
+import { signWebhook, verifyWebhook } from '@qaroom/contracts/webhook-hmac'
 import fc from 'fast-check'
 import { afterEach, describe, expect, it } from 'vitest'
 import {

@@ -1,11 +1,7 @@
 import type { Randomness } from '@qaroom/determinism'
 import { describe, expect, it } from 'vitest'
-import {
-  generateWebhookSecret,
-  signWebhook,
-  verifyWebhook,
-  webhookSigningInput,
-} from './webhook-signing'
+import { signWebhook, verifyWebhook } from './webhook-hmac'
+import { generateWebhookSecret, webhookSigningInput } from './webhook-signing'
 
 const SECRET = 'whsec_test'
 const TS = '2026-06-05T12:00:00.000Z'

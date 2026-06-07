@@ -3,7 +3,6 @@ import {
   applyWebhookDeliveryEvent,
   backoffCeilingMs,
   nextBackoff,
-  signWebhook,
   WEBHOOK_DELIVERY_ID_HEADER,
   WEBHOOK_EVENT_ID_HEADER,
   WEBHOOK_RETRY_POLICY,
@@ -12,6 +11,8 @@ import {
   type WebhookDeliveryStateName,
   type WebhookDeliveryTransitionSink,
 } from '@qaroom/contracts'
+// node:crypto-backed signing lives in the dedicated subpath, not the browser-reachable barrel.
+import { signWebhook } from '@qaroom/contracts/webhook-hmac'
 import type { Randomness } from '@qaroom/determinism'
 import { rowsOf, type SqlExecutor } from '@qaroom/messaging'
 import { traced, withTenant } from '@qaroom/otel'

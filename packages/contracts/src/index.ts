@@ -236,10 +236,11 @@ export {
 } from './webhook'
 export type { WebhookRetryPolicy } from './webhook-retry'
 export { backoffCeilingMs, nextBackoff, WEBHOOK_RETRY_POLICY } from './webhook-retry'
+// `signWebhook`/`verifyWebhook` are NOT re-exported here on purpose — they live in `./webhook-hmac`
+// (Node-only, `node:crypto`) and are imported via the `@qaroom/contracts/webhook-hmac` subpath, so the
+// browser-reachable barrel stays free of `node:crypto` (the web bundle imports this index).
 export {
   generateWebhookSecret,
-  signWebhook,
-  verifyWebhook,
   WEBHOOK_DELIVERY_ID_HEADER,
   WEBHOOK_EVENT_ID_HEADER,
   WEBHOOK_SIGNATURE_HEADER,
