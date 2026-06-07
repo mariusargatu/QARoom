@@ -34,21 +34,29 @@ assertion holds for the agent too.
 stateDiagram-v2
     [*] --> Received
     Received --> Retrieved: ReviewRequested
-    Retrieved --> PrecedentGathered: PolicyRetrieved
+    Retrieved --> Reranked: CandidatesReranked
+    Reranked --> PrecedentGathered: PolicyRetrieved
     PrecedentGathered --> Drafted: PrecedentCollected
     Drafted --> SelfChecked: DraftProduced
     SelfChecked --> Recorded: SelfCheckPassed
     Received --> Failed: DependencyFailed
     Retrieved --> Failed: DependencyFailed
+    Reranked --> Failed: DependencyFailed
     PrecedentGathered --> Failed: DependencyFailed
     SelfChecked --> Failed: DependencyFailed
     Recorded --> [*]
     Failed --> [*]
 ```
 
-- **Received -> Retrieved** (`ReviewRequested`): retrieve top-k policy chunks for the community from
-  the `pgvector` corpus (rules + escalation guidelines).
-- **Retrieved -> PrecedentGathered** (`PolicyRetrieved`): gather nearest-neighbour past decisions
+- **Received -> Retrieved** (`ReviewRequested`): stage 1 of two-stage retrieval
+  ([ADR-0021](../../docs/adr/0021-separable-retrieval-components.md)) — embed
+  the post and retrieve a WIDE candidate set (`moderator_retrieval_candidates`) from the `pgvector`
+  corpus (rules + escalation guidelines) by cosine.
+- **Retrieved -> Reranked** (`CandidatesReranked`): stage 2 — the LLM reranker narrows the candidates
+  to the top-k (`moderator_retrieval_limit`) the draft reasons over. Grounding-guarded (output ⊆
+  candidates), so it reorders but never fabricates policy. `MODERATOR_DISABLE_RERANK` keeps cosine
+  order; `MODERATOR_RERANK_BUG` is the deliberate-bug demo (relevant policy falls out of top-k).
+- **Reranked -> PrecedentGathered** (`PolicyRetrieved`): gather nearest-neighbour past decisions
   (precedent) for similar content.
 - **PrecedentGathered -> Drafted** (`PrecedentCollected`): the LLM reasons over the retrieved context
   and drafts a citation-bearing `disposition` (`approve` / `remove` / `escalate_to_human`) with
@@ -58,9 +66,9 @@ stateDiagram-v2
   declares no failure edge.
 - **SelfChecked -> Recorded** (`SelfCheckPassed`): persist the decision (single-writer per post),
   remember the post embedding, bump the LamportGate, and publish the event.
-- **{Received, Retrieved, PrecedentGathered, SelfChecked} -> Failed** (`DependencyFailed`): a
-  dependency error at any I/O node (corpus, embeddings, LLM, DB) ends the run in `Failed`, surfaced in
-  `/system/state` (recovery is via replay; auto-retry is out of scope, ADR-0018).
+- **{Received, Retrieved, Reranked, PrecedentGathered, SelfChecked} -> Failed** (`DependencyFailed`): a
+  dependency error at any I/O node (corpus, reranker, embeddings, LLM, DB) ends the run in `Failed`,
+  surfaced in `/system/state` (recovery is via replay; auto-retry is out of scope, ADR-0018).
 
 ## Testing techniques (ADR-0017, ADR-0020)
 

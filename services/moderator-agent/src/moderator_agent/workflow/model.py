@@ -3,17 +3,20 @@
 Hand-authored, context-free, and the SINGLE authority on transition legality. The LangGraph runner
 (``graph.py``) and the reverse-conformance test both read this — exactly the discipline ADR-0012
 established for the XState machines. As of Milestone 12 (ADR-0020) the agent is a retrieval-grounded
-RAG trajectory (FR6); each review of one post walks five observable nodes:
+RAG trajectory (FR6); two-stage retrieval (ADR-0021) inserts a ``rerank`` node, so each review of one
+post walks six observable nodes:
 
-    Received --ReviewRequested--> Retrieved          (retrieve top-k policy from the corpus)
+    Received --ReviewRequested--> Retrieved          (retrieve a wide candidate set from the corpus)
+             --CandidatesReranked--> Reranked        (rerank candidates to top-k — the LLM reranker)
              --PolicyRetrieved--> PrecedentGathered  (gather similar past decisions)
              --PrecedentCollected--> Drafted         (draft a citation-bearing disposition — the LLM)
              --DraftProduced--> SelfChecked          (validate citations, set departs/abstain — pure)
              --SelfCheckPassed--> Recorded           (persist + publish)
 
-Any I/O node may fail to its dependency (corpus, embeddings, LLM, DB), modeled as an explicit event:
+Any I/O node may fail to its dependency (corpus, reranker, embeddings, LLM, DB), modeled as an
+explicit event:
 
-    {Received|Retrieved|PrecedentGathered|SelfChecked} --DependencyFailed--> Failed
+    {Received|Retrieved|Reranked|PrecedentGathered|SelfChecked} --DependencyFailed--> Failed
 
 The self-check (Drafted→SelfChecked) is PURE validation — no I/O — so it declares no failure edge; the
 model declares only transitions the graph can actually emit (matching the original M9 discipline).
@@ -31,6 +34,7 @@ INITIAL_STATE = "Received"
 STATES: tuple[str, ...] = (
     "Received",
     "Retrieved",
+    "Reranked",
     "PrecedentGathered",
     "Drafted",
     "SelfChecked",
@@ -39,6 +43,7 @@ STATES: tuple[str, ...] = (
 )
 EVENTS: tuple[str, ...] = (
     "ReviewRequested",
+    "CandidatesReranked",
     "PolicyRetrieved",
     "PrecedentCollected",
     "DraftProduced",
@@ -50,12 +55,14 @@ TERMINAL_STATES = frozenset({"Recorded", "Failed"})
 # (from, event, to). The one place transition legality is declared.
 TRANSITIONS: tuple[tuple[str, str, str], ...] = (
     ("Received", "ReviewRequested", "Retrieved"),
-    ("Retrieved", "PolicyRetrieved", "PrecedentGathered"),
+    ("Retrieved", "CandidatesReranked", "Reranked"),
+    ("Reranked", "PolicyRetrieved", "PrecedentGathered"),
     ("PrecedentGathered", "PrecedentCollected", "Drafted"),
     ("Drafted", "DraftProduced", "SelfChecked"),
     ("SelfChecked", "SelfCheckPassed", "Recorded"),
     ("Received", "DependencyFailed", "Failed"),
     ("Retrieved", "DependencyFailed", "Failed"),
+    ("Reranked", "DependencyFailed", "Failed"),
     ("PrecedentGathered", "DependencyFailed", "Failed"),
     ("SelfChecked", "DependencyFailed", "Failed"),
 )

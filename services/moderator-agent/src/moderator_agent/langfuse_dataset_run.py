@@ -29,6 +29,7 @@ from .llm import LangChainEmbedder, LangChainLlmClient
 from .persistence.corpus import PgPolicyCorpusStore
 from .persistence.db import open_pool
 from .persistence.memory import InMemoryDecisionStore, InMemoryKnowledgeStore
+from .rerank import LlmReranker
 from .schemas import PostCreatedEvent, iso_z
 from .workflow.graph import ModerationWorkflow
 
@@ -51,6 +52,7 @@ async def main() -> int:
     workflow = ModerationWorkflow(
         llm=LangChainLlmClient(settings),
         embedder=LangChainEmbedder(settings),
+        reranker=LlmReranker(settings),
         knowledge=InMemoryKnowledgeStore(),
         corpus=PgPolicyCorpusStore(pool),
         decisions=InMemoryDecisionStore(),

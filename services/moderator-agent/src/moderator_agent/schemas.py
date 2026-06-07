@@ -84,6 +84,16 @@ class LlmVerdict(BaseModel):
     confidence: float = Field(ge=0, le=1)
 
 
+class RerankResult(BaseModel):
+    """The LLM reranker's structured output (ADR-0021): the retrieved policy-entry ids, most relevant
+    to THIS post first. Validated here, then grounding-guarded (kept ids must be a subset of the
+    candidates — see ``rerank.ground_order``) before it is allowed to reorder anything."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    ordered_ids: Annotated[list[RuleId], Field(max_length=64)] = Field(default_factory=list)
+
+
 class ModerationDecisionRecordedEvent(BaseModel):
     """Outbound — ``qaroom.moderator.decision.<community_id>.recorded``. Cross-service contract."""
 

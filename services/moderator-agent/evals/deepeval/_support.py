@@ -37,6 +37,7 @@ from moderator_agent.persistence.memory import (
     InMemoryPolicyCorpusStore,
 )
 from moderator_agent.persistence.rules_seed import load_corpus_dir
+from moderator_agent.rerank import LlmReranker
 from moderator_agent.schemas import ModerationDecision, PolicyEntry, PostCreatedEvent
 from moderator_agent.wiring import RULES_DIR
 from moderator_agent.workflow.graph import ModerationWorkflow
@@ -115,6 +116,7 @@ def build_workflow(
     workflow = ModerationWorkflow(
         llm=LangChainLlmClient(settings),
         embedder=LangChainEmbedder(settings),
+        reranker=LlmReranker(settings),
         knowledge=InMemoryKnowledgeStore(),
         corpus=corpus,
         decisions=InMemoryDecisionStore(),

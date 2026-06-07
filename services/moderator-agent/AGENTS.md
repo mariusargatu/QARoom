@@ -25,11 +25,17 @@ testing techniques are in [ADR-0017] + [ADR-0020], the architecture in [ADR-0018
 ## Where things live
 
 - **Workflow model:** `src/moderator_agent/workflow/model.py`: hand-authored, the single authority on
-  legal transitions (the LangGraph sibling of `rollout.machine.ts`). The Milestone-12 trajectory is
-  five observable nodes: `retrieve -> gather_precedent -> draft -> self_check -> record`
-  (states `{Received, Retrieved, PrecedentGathered, Drafted, SelfChecked, Recorded, Failed}`;
-  `DependencyFailed` from the four I/O nodes: the pure self-check declares no failure edge). Runner:
-  `workflow/graph.py`.
+  legal transitions (the LangGraph sibling of `rollout.machine.ts`). Two-stage retrieval (ADR-0021)
+  makes the trajectory six observable nodes: `retrieve -> rerank -> gather_precedent -> draft ->
+  self_check -> record` (states `{Received, Retrieved, Reranked, PrecedentGathered, Drafted,
+  SelfChecked, Recorded, Failed}`; `DependencyFailed` from the five I/O nodes: the pure self-check
+  declares no failure edge). Runner: `workflow/graph.py`.
+- **Retrieval seams (ADR-0021):** the four RAG sub-components are each injected + separately tested.
+  `tokenize.py` — `Tokenizer` port (token-aware truncation; `TiktokenTokenizer`/`cl100k_base` in prod,
+  `WordTokenizer` fake). `rerank.py` — `Reranker` port (stage 2: `LlmReranker` prod default,
+  `KeywordReranker`/`IdentityReranker` fakes; grounding-guarded by `ground_order`;
+  `MODERATOR_DISABLE_RERANK`/`MODERATOR_RERANK_BUG` toggles). Embedding + corpus/knowledge retrieval
+  keep their existing `Embedder`/`PolicyCorpusStore`/`KnowledgeStore` ports.
 - **Prompt:** `workflow/prompts.py`: honest vs `MODERATOR_PROMPT_BUG` variant (the deliberate-bug demo).
 - **Input guard:** `guard.py`: fences the untrusted post body in unforgeable delimiters + a
   system-prompt defense clause (the DeepTeam prompt-injection target); `MODERATOR_DISABLE_INPUT_GUARD=1`

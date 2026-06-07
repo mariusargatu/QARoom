@@ -34,6 +34,7 @@ from ..langfuse_integration import LangfuseClient, current_trace_id
 from ..llm import Embedder, LlmClient
 from ..ports import DecisionStore, EventPublisher, KnowledgeStore, PolicyCorpusStore
 from ..problem import ProblemError
+from ..rerank import Reranker
 from ..schemas import (
     LlmVerdict,
     ModerationDecision,
@@ -71,6 +72,7 @@ class ModerationWorkflow:
         *,
         llm: LlmClient,
         embedder: Embedder,
+        reranker: Reranker,
         knowledge: KnowledgeStore,
         corpus: PolicyCorpusStore,
         decisions: DecisionStore,
@@ -86,6 +88,7 @@ class ModerationWorkflow:
     ) -> None:
         self._llm = llm
         self._embedder = embedder
+        self._reranker = reranker
         self._knowledge = knowledge
         self._corpus = corpus
         self._decisions = decisions
@@ -108,13 +111,15 @@ class ModerationWorkflow:
     def _build(self, checkpointer: Any) -> Any:
         graph: StateGraph = StateGraph(WorkflowState)
         graph.add_node("retrieve", self._retrieve)
+        graph.add_node("rerank", self._rerank)
         graph.add_node("gather_precedent", self._gather_precedent)
         graph.add_node("draft", self._draft)
         graph.add_node("self_check", self._self_check)
         graph.add_node("record", self._record)
         graph.add_edge(START, "retrieve")
+        graph.add_conditional_edges("retrieve", self._route, {"continue": "rerank", "failed": END})
         graph.add_conditional_edges(
-            "retrieve", self._route, {"continue": "gather_precedent", "failed": END}
+            "rerank", self._route, {"continue": "gather_precedent", "failed": END}
         )
         graph.add_conditional_edges(
             "gather_precedent", self._route, {"continue": "draft", "failed": END}
@@ -157,12 +162,13 @@ class ModerationWorkflow:
         return f"Title: {event.title}\n\nBody: {body}"
 
     async def _retrieve(self, state: WorkflowState) -> dict:
-        """Embed the post and retrieve the top-k policy entries (FR2). Failure → Failed@Received."""
+        """Embed the post and retrieve a WIDE candidate set (stage 1 of two-stage retrieval, ADR-0021).
+        The rerank node narrows it to top-k; here we cast the net by cosine. Failure → Failed@Received."""
         event = PostCreatedEvent.model_validate(state["event"])
         try:
             embedding = await asyncio.to_thread(self._embedder.embed, self._post_text(event))
             policy = await self._corpus.retrieve(
-                event.community_id, embedding, limit=self._settings.moderator_retrieval_limit
+                event.community_id, embedding, limit=self._settings.moderator_retrieval_candidates
             )
         except ProblemError:
             return self._fail(state, frm="Received")
@@ -174,19 +180,42 @@ class ModerationWorkflow:
             to="Retrieved",
         )
 
+    async def _rerank(self, state: WorkflowState) -> dict:
+        """Stage 2: rerank the candidates to the top-k the draft reasons over (ADR-0021). The reranker
+        is grounding-guarded (output ⊆ candidates), so this narrows but never fabricates policy.
+        Failure → Failed@Retrieved."""
+        event = PostCreatedEvent.model_validate(state["event"])
+        candidates = [PolicyEntry.model_validate(e) for e in state.get("policy", [])]
+        try:
+            ranked = await asyncio.to_thread(
+                self._reranker.rerank,
+                self._post_text(event),
+                candidates,
+                top_k=self._settings.moderator_retrieval_limit,
+            )
+        except ProblemError:
+            return self._fail(state, frm="Retrieved")
+        return self._advance(
+            state,
+            {"policy": [e.model_dump() for e in ranked]},
+            frm="Retrieved",
+            event="CandidatesReranked",
+            to="Reranked",
+        )
+
     async def _gather_precedent(self, state: WorkflowState) -> dict:
-        """Gather similar past decisions as precedent (FR4). Failure → Failed@Retrieved."""
+        """Gather similar past decisions as precedent (FR4). Failure → Failed@Reranked."""
         event = PostCreatedEvent.model_validate(state["event"])
         try:
             precedents = await self._knowledge.similar(
                 event.community_id, state.get("embedding", [])
             )
         except ProblemError:
-            return self._fail(state, frm="Retrieved")
+            return self._fail(state, frm="Reranked")
         return self._advance(
             state,
             {"precedents": precedents},
-            frm="Retrieved",
+            frm="Reranked",
             event="PolicyRetrieved",
             to="PrecedentGathered",
         )
@@ -381,7 +410,5 @@ class ModerationWorkflow:
         decision = final.get("decision")
         result = ModerationDecision.model_validate(decision) if decision else None
         if result is not None:
-            span.set_attribute(
-                "langfuse.trace.output", f"{result.disposition}: {result.rationale}"
-            )
+            span.set_attribute("langfuse.trace.output", f"{result.disposition}: {result.rationale}")
         return result

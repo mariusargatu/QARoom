@@ -11,6 +11,7 @@ from langchain_core.runnables import Runnable
 from moderator_agent.config import Settings
 from moderator_agent.llm import LangChainEmbedder, LangChainLlmClient
 from moderator_agent.problem import ProblemError
+from moderator_agent.tokenize import WordTokenizer
 
 
 class _RaisingRunnable:
@@ -64,8 +65,20 @@ class _WrongDimEmbeddings:
         return [0.0, 1.0]  # dimension 2, not the configured 1536
 
 
-def _embedder_with(embeddings: object) -> LangChainEmbedder:
-    embedder = LangChainEmbedder(Settings())
+class _CapturingEmbeddings:
+    """Records the (already token-bounded) text it was asked to embed; returns a valid-dim vector."""
+
+    def __init__(self) -> None:
+        self.seen: str | None = None
+
+    def embed_query(self, text: str) -> list[float]:
+        self.seen = text
+        return [0.0] * 1536
+
+
+def _embedder_with(embeddings: object, *, settings: Settings | None = None) -> LangChainEmbedder:
+    # Inject the deterministic WordTokenizer so the embedder truncates offline (no tiktoken download).
+    embedder = LangChainEmbedder(settings or Settings(), tokenizer=WordTokenizer())
     embedder._embeddings = cast(Embeddings, embeddings)
     return embedder
 
@@ -80,3 +93,12 @@ def test_embed_rejects_an_unexpected_dimension() -> None:
     with pytest.raises(ProblemError) as ei:
         _embedder_with(_WrongDimEmbeddings()).embed("hi")
     assert ei.value.problem.status == 502
+
+
+def test_embed_bounds_the_input_to_the_token_cap_before_calling_the_provider() -> None:
+    # Token-aware truncation (ADR-0021): the embedder must hand the provider at most max_tokens tokens,
+    # not the raw text. With the WordTokenizer + a cap of 3, a six-word post is cut to its first three.
+    spy = _CapturingEmbeddings()
+    embedder = _embedder_with(spy, settings=Settings(moderator_embedding_max_tokens=3))
+    embedder.embed("alpha beta gamma delta epsilon zeta")
+    assert spy.seen == "alpha beta gamma"

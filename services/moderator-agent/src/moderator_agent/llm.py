@@ -27,6 +27,7 @@ from . import telemetry
 from .config import Settings
 from .problem import ProblemError
 from .schemas import LlmVerdict
+from .tokenize import TiktokenTokenizer, Tokenizer
 
 _logger = logging.getLogger("qaroom.moderator.llm")
 
@@ -147,11 +148,14 @@ class LangChainLlmClient:
 class LangChainEmbedder:
     """Provider-agnostic embeddings via ``init_embeddings`` (lazy, like the chat client)."""
 
-    def __init__(self, settings: Settings) -> None:
+    def __init__(self, settings: Settings, *, tokenizer: Tokenizer | None = None) -> None:
         self._settings = settings
         self._model_name = settings.moderator_embedding_model
-        self._max_chars = settings.moderator_max_post_chars
         self._expected_dim = settings.moderator_embedding_dim
+        self._max_tokens = settings.moderator_embedding_max_tokens
+        # Token-aware truncation (ADR-0021): bound the input to the model's TOKEN cap, not a char count.
+        # The real tokenizer builds its encoding lazily, so constructing the embedder loads no data.
+        self._tokenizer = tokenizer or TiktokenTokenizer()
         self._embeddings: Embeddings | None = None
         self._lock = threading.Lock()
 
@@ -178,7 +182,8 @@ class LangChainEmbedder:
         embeddings = self._ensure()
         with telemetry.genai_span(self._model_name, operation="embeddings") as span:
             try:
-                vector = embeddings.embed_query(text[: self._max_chars])
+                bounded = self._tokenizer.truncate(text, max_tokens=self._max_tokens)
+                vector = embeddings.embed_query(bounded)
             except Exception as exc:
                 raise _dependency_failure(
                     "embedding-unavailable", "Embedding call failed", str(exc)

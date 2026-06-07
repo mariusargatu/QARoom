@@ -14,6 +14,7 @@ from moderator_agent.persistence.memory import (
     InMemoryPolicyCorpusStore,
 )
 from moderator_agent.ports import EventPublisher
+from moderator_agent.rerank import IdentityReranker, Reranker
 from moderator_agent.schemas import CommunityRule, LlmVerdict, PolicyEntry, PostCreatedEvent
 from moderator_agent.workflow.graph import ModerationWorkflow
 
@@ -102,6 +103,7 @@ def make_workflow(
     *,
     llm: LlmClient | None = None,
     embedder: object | None = None,
+    reranker: Reranker | None = None,
     decisions: InMemoryDecisionStore | None = None,
     knowledge: InMemoryKnowledgeStore | None = None,
     corpus: InMemoryPolicyCorpusStore | None = None,
@@ -123,6 +125,7 @@ def make_workflow(
     workflow = ModerationWorkflow(
         llm=llm or RuleKeywordLlm(),
         embedder=embedder or ZeroEmbedder(),  # type: ignore[arg-type]
+        reranker=reranker or IdentityReranker(),
         knowledge=knowledge,
         corpus=corpus,
         decisions=decisions,
@@ -149,6 +152,7 @@ def make_app_client(*, llm: LlmClient | None = None):
     workflow = ModerationWorkflow(
         llm=llm or RuleKeywordLlm(),
         embedder=ZeroEmbedder(),
+        reranker=IdentityReranker(),
         knowledge=knowledge,
         corpus=corpus,
         decisions=decisions,

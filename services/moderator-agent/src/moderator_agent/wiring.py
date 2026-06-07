@@ -45,9 +45,19 @@ from .persistence.memory import (
 from .persistence.migrate import ensure_schema
 from .persistence.rules_seed import seed_corpus, seed_rules
 from .publisher import NatsEventPublisher
+from .rerank import IdentityReranker, LlmReranker, Reranker
 from .workflow.graph import ModerationWorkflow
 
 RULES_DIR = Path(__file__).resolve().parents[2] / "rules"
+
+
+def _build_reranker(settings: Settings) -> Reranker:
+    """Stage 2 of two-stage retrieval (ADR-0021). ``MODERATOR_DISABLE_RERANK`` keeps the cosine order
+    (IdentityReranker, no LLM call); otherwise the LLM reranker, with the ``MODERATOR_RERANK_BUG``
+    deliberate-bug toggle threaded in."""
+    if settings.moderator_disable_rerank:
+        return IdentityReranker()
+    return LlmReranker(settings, reverse=settings.moderator_rerank_bug)
 
 
 def _trio(settings: Settings) -> tuple[Clock, IdGenerator, object]:
@@ -101,6 +111,7 @@ async def build_runtime(settings: Settings) -> Runtime:
     workflow = ModerationWorkflow(
         llm=LangChainLlmClient(settings),
         embedder=embedder,
+        reranker=_build_reranker(settings),
         knowledge=knowledge,
         corpus=corpus,
         decisions=decisions,
@@ -174,6 +185,7 @@ def build_schema_app() -> FastAPI:
     workflow = ModerationWorkflow(
         llm=RuleKeywordLlm(),
         embedder=ZeroEmbedder(),
+        reranker=IdentityReranker(),
         knowledge=knowledge,
         corpus=corpus,
         decisions=decisions,

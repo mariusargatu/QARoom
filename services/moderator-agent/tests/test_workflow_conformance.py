@@ -37,7 +37,8 @@ async def test_the_approve_path_emits_only_legal_transitions_in_order() -> None:
         assert M.is_legal(transition["from"], transition["event"], transition["to"])
     assert [(t["from"], t["event"], t["to"]) for t in sink] == [
         ("Received", "ReviewRequested", "Retrieved"),
-        ("Retrieved", "PolicyRetrieved", "PrecedentGathered"),
+        ("Retrieved", "CandidatesReranked", "Reranked"),
+        ("Reranked", "PolicyRetrieved", "PrecedentGathered"),
         ("PrecedentGathered", "PrecedentCollected", "Drafted"),
         ("Drafted", "DraftProduced", "SelfChecked"),
         ("SelfChecked", "SelfCheckPassed", "Recorded"),
@@ -62,6 +63,20 @@ class _FailingEmbedder:
     def embed(self, text: str) -> list[float]:
         raise ProblemError(
             slug="embed-down", title="embed down", status=502, failure_domain="dependency_failure"
+        )
+
+
+class _FailingReranker:
+    """A reranker whose rerank fails (the rerank dependency, at Retrieved)."""
+
+    name = "fail-rerank-1"
+
+    def rerank(self, query, entries, *, top_k):  # type: ignore[no-untyped-def]
+        raise ProblemError(
+            slug="rerank-down",
+            title="rerank down",
+            status=502,
+            failure_domain="dependency_failure",
         )
 
 
@@ -122,8 +137,14 @@ async def test_a_retrieve_failure_emits_dependency_failed_from_received() -> Non
     )
 
 
-async def test_a_precedent_failure_emits_dependency_failed_from_retrieved() -> None:
+async def test_a_rerank_failure_emits_dependency_failed_from_retrieved() -> None:
     assert ("Retrieved", "DependencyFailed", "Failed") in await _failure_triples(
+        reranker=_FailingReranker()  # type: ignore[arg-type]
+    )
+
+
+async def test_a_precedent_failure_emits_dependency_failed_from_reranked() -> None:
+    assert ("Reranked", "DependencyFailed", "Failed") in await _failure_triples(
         knowledge=_FailingSimilarKnowledge()  # type: ignore[arg-type]
     )
 

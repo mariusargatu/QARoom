@@ -38,9 +38,15 @@ class Settings(BaseSettings):
     # components before the vector reaches pgvector — a guard against an unbounded/oversized response
     # (must match the `vector(N)` column in persistence/migrate.py).
     moderator_embedding_dim: int = 1536
+    # The embedding model's TOKEN cap (text-embedding-3-small = 8191). The injected Tokenizer bounds the
+    # embed input to this many tokens — chars are a poor proxy for the real limit (ADR-0021).
+    moderator_embedding_max_tokens: int = 8191
 
     # Retrieve-then-reason (FR2, ADR-0020): how many policy-corpus entries the draft node reasons over.
     moderator_retrieval_limit: int = 5
+    # Two-stage retrieval (ADR-0021): `retrieve` casts a wide net of candidates, the `rerank` node
+    # narrows them to `moderator_retrieval_limit`. Keep >= retrieval_limit (rerank slices down to it).
+    moderator_retrieval_candidates: int = 20
     # Abstain/escalate threshold (FR5): a draft below this confidence escalates to a human instead of
     # auto-acting. The self-check node also escalates a `remove` that, after grounding, cites no rule.
     moderator_abstain_confidence: float = 0.5
@@ -53,10 +59,15 @@ class Settings(BaseSettings):
     #                         (DeepEval faithfulness catches it; a non-grounded eval would not).
     #   disable_abstain     — self-check never escalates → a low-confidence/conflicting case is guessed
     #                         (the calibration/abstain check catches it).
+    #   disable_rerank      — the rerank node keeps cosine order (IdentityReranker), no LLM rerank.
+    #   rerank_bug          — the reranker ranks LEAST relevant first → the violated rule falls out of
+    #                         the top-k the LLM sees (a keyword-relevance test catches it; ADR-0021).
     moderator_prompt_bug: bool = False
     moderator_disable_input_guard: bool = False
     moderator_ungrounded: bool = False
     moderator_disable_abstain: bool = False
+    moderator_disable_rerank: bool = False
+    moderator_rerank_bug: bool = False
 
     # NATS consumer.
     nats_stream: str = "qaroom"
