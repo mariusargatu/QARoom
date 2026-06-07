@@ -1,6 +1,6 @@
 # qaroom-mcp
 
-A tested MCP server for QARoom — the LLM-engineering substrate everyone else ships
+A tested MCP server for QARoom: the LLM-engineering substrate everyone else ships
 trust-me, held to the same gates as every other service (ADR-0006, Milestone 10).
 
 It exposes the `content` + `gateway` read surface as MCP tools, the `/system/*` reads and
@@ -20,7 +20,7 @@ gates instead:
 | Golden transcript | a fixed call sequence is byte-identical under the seeded determinism trio | `src/server/golden-transcript.spec.ts` |
 | Property + metamorphic I/O | inputs that satisfy each tool's JSON Schema are accepted, reads are idempotent, and the manifest matches `/system/capabilities` + `openapi.yaml` | `src/server/tool-io.property.test.ts` |
 
-None of the gates use `toMatchSnapshot` — each is a typed contract.
+None of the gates use `toMatchSnapshot`: each is a typed contract.
 
 ## Architecture
 
@@ -30,8 +30,8 @@ McpCore (no DB, deps-injected)
   ├── SummaryProvider ── reads + validates test-results/summary.json
   └── ConventionsOracle ── ESLint Linter over eslint-plugin-qaroom
 Transports
-  ├── in-memory  (direct core calls)        → unit / property / golden
-  └── http       (JSON-RPC 2.0 over Fastify) → integration / contract
+  ├── in-memory  (direct core calls)        -> unit / property / golden
+  └── http       (JSON-RPC 2.0 over Fastify) -> integration / contract
 ```
 
 The core is transport-agnostic; the official MCP SDK is intentionally not a dependency

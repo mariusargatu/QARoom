@@ -1,4 +1,4 @@
-# QARoom — Architecture
+# QARoom: Architecture
 
 This document records the locked architectural commitments and gives a one-page-equivalent view of the system at maturity. Implementation details and tool versions live in ADRs (`docs/adr/`); this document is about shape.
 
@@ -7,7 +7,7 @@ This document records the locked architectural commitments and gives a one-page-
 These are immutable for the lifetime of v1. Changes require an ADR superseding the foundational one.
 
 1. **Microservices on Kubernetes.** k3d for local development with Tilt for the inner loop; KinD in CI for ephemeral environments. Not Docker Compose; not a monolith.
-2. **TypeScript end-to-end for core services.** Fastify for HTTP servers, Drizzle for database access, Zod for schema authority. Python is permitted for LLM-adjacent services — the Milestone 9 `moderator-agent` (`uv`/FastAPI/LangGraph) is the only one (ADR-0018).
+2. **TypeScript end-to-end for core services.** Fastify for HTTP servers, Drizzle for database access, Zod for schema authority. Python is permitted for LLM-adjacent services: the Milestone 9 `moderator-agent` (`uv`/FastAPI/LangGraph) is the only one (ADR-0018).
 3. **Schema-first contracts with triangulation, sync *and* async.** Zod schemas are the source of truth. OpenAPI YAML is generated from Zod and committed; `oasdiff` gates every PR for breaking changes. AsyncAPI YAML is also generated from Zod and committed; `@asyncapi/diff` (or custom thin diff) gates async breaking changes. Pact files (REST + message) are an independent second source of truth authored by consumers. Frozen `*.vN.yaml` (OAS) and `events/<name>.v{N}.ts` (event schemas) are the third source at release boundaries. No artifact is silently regenerated; every change to a contract is reviewable as a human-readable diff.
 4. **Sync REST + async messaging hybrid.** REST for queries and external-facing endpoints; NATS JetStream for cross-service state-change events. `Idempotency-Key` header on all HTTP mutations; replays served from per-service `idempotency_responses` table. Single-writer-per-resource enforced by Postgres advisory locks (`pg_advisory_xact_lock` keyed on resource ID) + row-level `SELECT … FOR UPDATE`. Async dedup discipline in Commitment 17.
 5. **All stateful flows are modeled as graphs.** XState v5 for TypeScript flows; LangGraph for Python flows (future). The model lives in `packages/contracts`, is authored by hand, is the contract that production code and tests both consult. State names are PascalCase and human-readable.
@@ -105,19 +105,19 @@ Service boundaries are not architectural noise; they are where bugs live and whe
 
 | Boundary | Example | Testing technique |
 |---|---|---|
-| **Trust boundary** | Client → gateway | Schemathesis fuzzing; RFC 7807 conformance |
-| **Process boundaries** | gateway → identity-service, gateway → content-service, etc. | Pact v4 REST contract tests |
-| **Async message boundaries** | content-service emits → flags-service consumes | Pact v4 message contract tests; OpenTelemetry trace propagation tests |
+| **Trust boundary** | Client -> gateway | Schemathesis fuzzing; RFC 7807 conformance |
+| **Process boundaries** | gateway -> identity-service, gateway -> content-service, etc. | Pact v4 REST contract tests |
+| **Async message boundaries** | content-service emits -> flags-service consumes | Pact v4 message contract tests; OpenTelemetry trace propagation tests |
 | **Tenancy boundary (logical)** | Community A's data vs Community B's data | fast-check property-based isolation tests |
 | **Temporal boundary** | Donation rollout state transitions | XState model-based testing via @xstate/graph and Playwright |
-| **External dependency boundary** | donations-service → payment provider (mocked via Microcks) | Strict schema validation; chaos engineering via Toxiproxy or Chaos Mesh HTTPChaos (with Litmus fallback) |
+| **External dependency boundary** | donations-service -> payment provider (mocked via Microcks) | Strict schema validation; chaos engineering via Toxiproxy or Chaos Mesh HTTPChaos (with Litmus fallback) |
 | **Observability boundary** | What a trace shows vs what the system did | Tracetest assertions against OpenTelemetry traces |
 | **WebSocket boundary** | Server push of notifications / live feed updates | AsyncAPI schema + Microcks-async mock + Playwright WS assertions + parity test vs polling endpoint |
 | **Identity issuance boundary** | identity-service signs JWT consumed by gateway | JWT property tests (issuance, kid lookup, expiry, rotation, revocation); JWKS contract test |
-| **AI / model boundary** | post content → LLM moderation verdict | Golden-set evaluation (Promptfoo) + metamorphic paraphrase-invariance; structured-output validation as a contract; LangGraph reverse-conformance (ADR-0017) |
-| **Outbound delivery boundary** *(Milestone 11)* | webhooks-service → external subscriber URL | Delivery-guarantee property tests (at-least-once + receiver dedup); deterministic retry-contract tests; HMAC signing + SSRF property tests; chaos of a flaky receiver (ADR-0019) |
+| **AI / model boundary** | post content -> LLM moderation verdict | Golden-set evaluation (Promptfoo) + metamorphic paraphrase-invariance; structured-output validation as a contract; LangGraph reverse-conformance (ADR-0017) |
+| **Outbound delivery boundary** *(Milestone 11)* | webhooks-service -> external subscriber URL | Delivery-guarantee property tests (at-least-once + receiver dedup); deterministic retry-contract tests; HMAC signing + SSRF property tests; chaos of a flaky receiver (ADR-0019) |
 
-These boundary types are the contract between architecture and testing — every service must respect the ones it touches.
+These boundary types are the contract between architecture and testing: every service must respect the ones it touches.
 
 ## Technology choices
 
@@ -162,11 +162,11 @@ Each omission has a reason. None of them are accidental.
 
 These are the seams left deliberately in place for future work:
 
-- **MCP servers per service** — `/system/capabilities` returns MCP-tool-shaped JSON; FastMCP or Stainless can wrap each service when needed. ADR-0006 realizes a single cross-service variant as a first-class tested service (Milestone-10 candidate).
-- **Agentic community moderator** — NATS event stream already exposes everything an agent needs; LangGraph slot reserved.
-- **Per-agent ephemeral environments** — `scripts/spin-up-ephemeral.sh` provisions namespaces; agents get one each when needed.
-- **Agentic CI/CD demonstration** — `test-results/summary.json` schema is frozen; future agents consume the artifact.
-- **Webhooks** — *realized in Milestone 11* (ADR-0019): `webhooks-service` consumes the five NATS event topics and delivers them to external subscribers (at-least-once, deterministic retry/backoff, HMAC signing, SSRF guard). The seam paid off — it consumes the existing event bus and adds no new commitment.
-- **Continuous testing in production** — feature flag system, observability stack, and rollout state machine are the substrate.
+- **MCP servers per service**: `/system/capabilities` returns MCP-tool-shaped JSON; FastMCP or Stainless can wrap each service when needed. ADR-0006 realizes a single cross-service variant as a first-class tested service (Milestone-10 candidate).
+- **Agentic community moderator**: NATS event stream already exposes everything an agent needs; LangGraph slot reserved.
+- **Per-agent ephemeral environments**: `scripts/spin-up-ephemeral.sh` provisions namespaces; agents get one each when needed.
+- **Agentic CI/CD demonstration**: `test-results/summary.json` schema is frozen; future agents consume the artifact.
+- **Webhooks**, *realized in Milestone 11* (ADR-0019): `webhooks-service` consumes the five NATS event topics and delivers them to external subscribers (at-least-once, deterministic retry/backoff, HMAC signing, SSRF guard). The seam paid off: it consumes the existing event bus and adds no new commitment.
+- **Continuous testing in production**: feature flag system, observability stack, and rollout state machine are the substrate.
 
 The architecture is sized exactly for v1, but every seam needed for likely v2/v3 work is in place. This is the discipline that the testing lens demands and that the agent-hospitability research validated.

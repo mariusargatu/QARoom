@@ -1,4 +1,4 @@
-# Spike 1 — EvoMaster v6 against TypeScript Fastify
+# Spike 1: EvoMaster v6 against TypeScript Fastify
 
 - **Milestone affected:** 8 (search-based fuzzing)
 - **Question:** Can EvoMaster drive a TS Fastify service from its OpenAPI (black-box) and
@@ -23,13 +23,13 @@ java -jar evomaster.jar --blackBox true \
 ## Result
 
 - Evaluated **151 tests / 179 actions** in a 45s budget; covered 27 targets.
-- **Successfully executed (HTTP 2xx) 5 of 6 endpoints (83%)** — including the required
+- **Successfully executed (HTTP 2xx) 5 of 6 endpoints (83%)**: including the required
   `Idempotency-Key` header on mutations, which EvoMaster generated from the OAS.
 - Emitted **9 runnable Jest tests** (`EvoMaster_successes_Test.js`, `EvoMaster_others_Test.js`,
   `EMTestUtils.js`) plus an HTML coverage report. 0 potential faults.
 
 The one endpoint not driven to 2xx is `castVote` (needs a pre-existing post; pure
-black-box without a create→vote sequence returns 404) — expected, and exactly what the
+black-box without a create->vote sequence returns 404), expected, and exactly what the
 stateful tools (Schemathesis links) cover.
 
 ## Consequence

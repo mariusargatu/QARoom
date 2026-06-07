@@ -1,4 +1,4 @@
-# ADR 0005 — Frontend testing stack: Storybook + Playwright CT + Screenplay + XState MBT
+# ADR 0005: Frontend testing stack: Storybook + Playwright CT + Screenplay + XState MBT
 
 - **Status:** Accepted
 - **Date:** 2026-05-30
@@ -12,23 +12,23 @@ The web frontend and its tests need a stack. The naive choice (React Testing Lib
 
 **1. The story is the source of truth.** Each component ships `Component.stories.tsx` declaring `args` per state, which feed: Storybook autodocs + `addon-a11y` + `play()` interaction tests; Playwright Component Tests (visual regression); and Screenplay-driven assertions.
 
-**2. The spine — one vocabulary, two runtimes.** XState model → Screenplay Task → `PageProvider.getPage()` seam → Playwright. The same Task source runs as E2E (`BrowseTheWeb`) or component test (`InteractWithComponent`); only the ability binding changes.
+**2. The spine: one vocabulary, two runtimes.** XState model -> Screenplay Task -> `PageProvider.getPage()` seam -> Playwright. The same Task source runs as E2E (`BrowseTheWeb`) or component test (`InteractWithComponent`); only the ability binding changes.
 
 **3. The load-bearing constraints** (each a footgun discovered the hard way):
-- **Model machines are flattened, context-free, and free of `invoke` / `after` / delayed actions** — `@xstate/graph` 3 throws "Invocations on test machines are not supported", and `context` explodes the BFS. Async/timer boundaries are modeled as explicit events. A regression test pins this.
+- **Model machines are flattened, context-free, and free of `invoke` / `after` / delayed actions**: `@xstate/graph` 3 throws "Invocations on test machines are not supported", and `context` explodes the BFS. Async/timer boundaries are modeled as explicit events. A regression test pins this.
 - **MBT generation:** `createTestModel(model).getShortestPaths({ allowDuplicatePaths: true, serializeState: s => JSON.stringify(s.value) })` (PR CI) / `.getSimplePaths(...)` (nightly). `allowDuplicatePaths` is mandatory (default dedup silently shrinks coverage); value-only `serializeState` keeps the model context-free. A path-count **floor and cap** both gate CI. `getShortestPathPlans`/`getSimplePathPlans` are the removed XState-v4 API.
-- **Playwright CT mounts the raw component spread with `story.args`**, using `composeStories` only to *read* args — a `composeStories()` result cannot be `mount()`-ed in CT ("Component cannot be mounted"). Lint-enforced.
+- **Playwright CT mounts the raw component spread with `story.args`**, using `composeStories` only to *read* args: a `composeStories()` result cannot be `mount()`-ed in CT ("Component cannot be mounted"). Lint-enforced.
 - **Screenplay Tasks route through `withPageProvider()`**, never a concrete ability, or they become E2E-bound and break the dual-context property.
 - **Storybook 10 is ESM-only**; `play()` functions import from `storybook/test` (not `@storybook/test`) and run headlessly via `@storybook/addon-vitest`.
 - **Coverage** merges V8 (Vitest) + Istanbul (Playwright CT) via `monocart-coverage-reports` (a plain `nyc merge` cannot mix the two), feeding `test-results/summary.json`.
 
-**4. The web frontend is a real atomic-design library** (`atoms → … → pages`, semantic `--color-*` tokens, Tailwind 4 CSS-first `@theme`, thin `ThemeProvider`), not a placeholder. **Test data uses fast-check** generators (the repo standard), not a separate factory library.
+**4. The web frontend is a real atomic-design library** (`atoms -> … -> pages`, semantic `--color-*` tokens, Tailwind 4 CSS-first `@theme`, thin `ThemeProvider`), not a placeholder. **Test data uses fast-check** generators (the repo standard), not a separate factory library.
 
 **5. Pinned stack** (npm `latest`, verified 2026-05-30):
 
 | Area | Packages |
 |---|---|
-| State + MBT | `xstate@5.32`, `@xstate/graph@3.0.4` (**exact** — invoke-rejection + traversal options are undocumented internals), `@xstate/react@6.1` |
+| State + MBT | `xstate@5.32`, `@xstate/graph@3.0.4` (**exact**: invoke-rejection + traversal options are undocumented internals), `@xstate/react@6.1` |
 | Stories | `storybook@10.4`, `@storybook/react-vite@10.4`, `@storybook/addon-vitest@10.4`, `@storybook/addon-a11y@10.4` |
 | Component / E2E | `@playwright/test@1.60`, `@playwright/experimental-ct-react@1.60` (still "experimental"; lock to the exact `@playwright/test` version), `@axe-core/playwright@4.11` |
 | Runner / coverage | `vitest@4.1` (v4: `projects`, not `workspace`), `@vitest/coverage-v8@4.1`, `vite-plugin-istanbul@9.0`, `monocart-coverage-reports@2.12` |
@@ -51,7 +51,7 @@ The web frontend and its tests need a stack. The naive choice (React Testing Lib
 
 ## Rejected alternatives
 
-- **React Testing Library only** (no visual regression, no MBT). Misses pixel and sequence-dependent bugs — the two categorical UI failures this stack exists to catch.
+- **React Testing Library only** (no visual regression, no MBT). Misses pixel and sequence-dependent bugs, the two categorical UI failures this stack exists to catch.
 - **Mounting the `composeStories()` result in CT.** Does not work (Node↔browser bundling split).
 - **Separate, parallel test stacks per layer.** Loses the one-vocabulary property that makes a Task reusable across CT and E2E.
 - **A factory library (e.g. fishery) for test data.** QARoom already standardizes on fast-check; a second data-generation paradigm earns nothing.
@@ -65,19 +65,19 @@ The web frontend and its tests need a stack. The naive choice (React Testing Lib
 
 ## Implementation notes (Milestone 8, 2026-06-04)
 
-Implementing the pinned stack against the live registry surfaced corrections to the table above —
+Implementing the pinned stack against the live registry surfaced corrections to the table above,
 recorded here rather than rewriting the decision:
 
 - **Add `@vitest/browser-playwright@4.1.8`.** Vitest 4 extracted the Playwright browser provider into
   this package; `@storybook/addon-vitest@10.4` peer-depends on it. It was missing from the pin table.
 - **`provider` is the function `playwright()`** imported from `@vitest/browser-playwright`, **not the
-  string `'playwright'`** — the string is the Vitest-3/Storybook-9 form.
+  string `'playwright'`**: the string is the Vitest-3/Storybook-9 form.
 - **No hand-authored `.storybook/vitest.setup.ts`.** Storybook 10's `@storybook/addon-vitest`
   auto-injects its own `setProjectAnnotations` setup; a manual file logs "you can safely remove." The
   file was deleted.
 - **vite is pinned to `^7`, `@vitejs/plugin-react` to `^5.2`** (not vite 8 / plugin-react 6): the
   pinned `@playwright/experimental-ct-react@1.60` caps the workspace vite at 7, and vite 7 satisfies
-  storybook 10.4 + vitest 4.1. `tailwindcss`/`@tailwindcss/vite` → `4.3`.
+  storybook 10.4 + vitest 4.1. `tailwindcss`/`@tailwindcss/vite` -> `4.3`.
 - **`vite-plugin-istanbul` is pinned `^8`, not `^9`** (corrects the table above): the CT coverage
   instrument is injected into the vite that Playwright CT **bundles internally (vite 6)**, not the
   workspace vite 7. istanbul@9 peers `vite >=7`, so it would be unsatisfied on that path; istanbul@8
@@ -86,9 +86,9 @@ recorded here rather than rewriting the decision:
   runtime-built element ("Object mount notation is not supported"), so each `.ct.tsx` does
   `mount(<Component {...story.args} />)` and the `readyFonts` helper (`src/test-support/ready-fonts.ts`)
   only awaits `document.fonts.ready`.
-  This is still "raw component spread with story.args" — the `no-mount-composed-story` rule holds.
+  This is still "raw component spread with story.args": the `no-mount-composed-story` rule holds.
 - **Vitest 4 V8 coverage** requires an explicit `coverage.include` (the default now reports only
-  covered files), aggregates at the **root** config (not per-project), and remaps differently — so the
+  covered files), aggregates at the **root** config (not per-project), and remaps differently, so the
   browser-tier coverage is **reported, not gated at 80%**: story+CT coverage of a 14-component library
   is naturally partial, and the merged V8+Istanbul report (`coverage/merged`, via `monocart.add()`)
   feeds `summary.json` as an artifact, not a hard threshold.

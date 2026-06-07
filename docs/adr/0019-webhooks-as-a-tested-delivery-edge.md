@@ -1,13 +1,13 @@
-# ADR 0019 — Webhooks: an outbound delivery edge over the NATS event seam
+# ADR 0019: Webhooks: an outbound delivery edge over the NATS event seam
 
 - **Status:** Accepted
 - **Date:** 2026-06-05
-- **Records:** the implementation decisions for QARoom's outbound webhooks capability (Milestone 11) —
+- **Records:** the implementation decisions for QARoom's outbound webhooks capability (Milestone 11):
   a new edge service that consumes the existing five NATS event channels and delivers them to
   external subscribers with at-least-once delivery, a deterministic retry/backoff contract, HMAC
   signing, and an SSRF guard; the delivery lifecycle as a hand-authored XState machine subject to
   reverse-conformance; and how it deploys and is tested on the shared substrate. It does **not**
-  modify [ADR-0001](0001-foundational-decisions.md) — it consumes the existing event seam and adds no
+  modify [ADR-0001](0001-foundational-decisions.md). It consumes the existing event seam and adds no
   new commitment. It realizes the "designed-for-later webhooks seam" recorded in
   [docs/02-architecture.md](../02-architecture.md).
 
@@ -15,7 +15,7 @@
 
 The architecture always promised webhooks as a later capability: *"NATS event topics map naturally to
 outbound webhook subscriptions; the abstraction exists."* Milestone 11 builds it. The point of the
-milestone is not the feature — it is to demonstrate the testing techniques unique to **delivery
+milestone is not the feature. It is to demonstrate the testing techniques unique to **delivery
 systems**, which the roadmap names precisely: *delivery guarantees* and *retry contracts*.
 
 Webhook delivery is a different shape from everything before it. It crosses an **untrusted external
@@ -30,28 +30,28 @@ story of Commitment 17) rather than a new one.
 
 ## Decision
 
-1. **A new edge service, `services/webhooks` (TypeScript, service-kit, port 8087) — not a feature
+1. **A new edge service, `services/webhooks` (TypeScript, service-kit, port 8087), not a feature
    inside an existing service.** Delivery is a long-running, retrying, externally-facing concern with
    its own Postgres (subscriptions + a delivery ledger) and its own failure domain. It fans out
    **all five** event channels, so it cannot live inside any single producer without coupling
-   unrelated services. It mirrors the gateway's NATS→WS feed but with durable Postgres state — that
+   unrelated services. It mirrors the gateway's NATS->WS feed but with durable Postgres state: that
    statefulness *is* "delivery guarantees."
 
 2. **A delivery store + worker, outbox-free.** A durable JetStream consumer (`webhooks-fanout`)
    inserts one `webhook_deliveries` row per (active subscription × event), deduped per
    `(WEBHOOK_FANOUT_DURABLE, event_id)` via `processed_events` and per `(subscription_id, event_id)`
-   via a unique index — the two at-least-once boundaries. A relay-shaped worker (`drainOnce`/`start`,
+   via a unique index: the two at-least-once boundaries. A relay-shaped worker (`drainOnce`/`start`,
    mirroring `@qaroom/messaging`'s outbox relay) claims due rows `FOR UPDATE SKIP LOCKED`, signs and
    POSTs each, and on failure schedules the backoff or dead-letters. There is **no transactional
    outbox**: Commitment 17's outbox is publish-side, and webhooks publishes nothing. The ledger *is*
    the durable work queue.
 
 3. **The delivery lifecycle is a hand-authored XState machine with reverse-conformance.** States
-   `Pending → Delivering → Delivered | Retrying → … → DeadLettered`, invoke-free and context-free
+   `Pending -> Delivering -> Delivered | Retrying -> … -> DeadLettered`, invoke-free and context-free
    (the `@xstate/graph` constraint), in `packages/contracts/src/machines/webhook-delivery.machine.ts`.
-   The worker drives every transition through the runner, which records an `xstate.transition` span —
+   The worker drives every transition through the runner, which records an `xstate.transition` span:
    so MBT (`@xstate/graph`) and Tracetest reverse-conformance (ADR-0012) operate on this machine
-   unchanged. The worker — not the machine — chooses `DeliveryFailed` vs `RetriesExhausted` (via
+   unchanged. The worker, not the machine, chooses `DeliveryFailed` vs `RetriesExhausted` (via
    `nextBackoff(...) === null`). `Delivered`/`DeadLettered` are terminal but not XState `final` (the
    rollout precedent).
 
@@ -66,7 +66,7 @@ story of Commitment 17) rather than a new one.
    `X-QARoom-Signature: v1=hex(hmac(secret, `${timestamp}.${body}`))` plus `X-QARoom-Timestamp`,
    `X-QARoom-Delivery-Id`, and `X-QARoom-Event-Id`. Binding the timestamp into the signed bytes (not
    merely sending it) is what closes the replay window. The per-subscription `secret` is minted from
-   the injected `Randomness` and is **write-once** — returned only on create, never on reads.
+   the injected `Randomness` and is **write-once**: returned only on create, never on reads.
 
 6. **An SSRF guard on delivery targets.** A subscription URL must be public https: the guard rejects
    non-https schemes, embedded credentials, and hostnames that are (or obviously resolve to)
@@ -83,7 +83,7 @@ story of Commitment 17) rather than a new one.
 
 8. **The subscription CRUD is gateway-proxied.** The browser/clients reach webhook management at
    `qaroom.localhost/api/...` same-origin, getting rate-limiting and a Pact consumer contract for
-   free, uniform with content/donations/flags. The **delivery** side has no ingress — it is an
+   free, uniform with content/donations/flags. The **delivery** side has no ingress: it is an
    outbound-only internal worker.
 
 ## Consequences
@@ -92,11 +92,11 @@ story of Commitment 17) rather than a new one.
 - A clean delivery edge with an inspectable ledger (`/system/state`, `.../deliveries`); the event
   seam pays off with **zero new commitments**.
 - The retry contract is a pure function, so the hardest-to-test part of a delivery system becomes the
-  easiest — deterministic, seed-replayable, and the centerpiece of the test portfolio.
+  easiest: deterministic, seed-replayable, and the centerpiece of the test portfolio.
 - Six deliberate-bug demos, each caught by a named test, so the exit criteria are mechanically
-  reproducible: five env toggles in the worker (`CHAOS_WEBHOOK_NO_CAP` → uncapped backoff,
-  `_DROP_ON_FAIL` → silent drop, `_UNSTABLE_DELIVERY_ID` → broken receiver dedup, `_SIGN_BODY_ONLY`
-  → replayable signature, `_ILLEGAL_TRANSITION` → off-model span), plus the chaos experiment (§08)
+  reproducible: five env toggles in the worker (`CHAOS_WEBHOOK_NO_CAP` -> uncapped backoff,
+  `_DROP_ON_FAIL` -> silent drop, `_UNSTABLE_DELIVERY_ID` -> broken receiver dedup, `_SIGN_BODY_ONLY`
+  -> replayable signature, `_ILLEGAL_TRANSITION` -> off-model span), plus the chaos experiment (§08)
   that removes the retry mitigation under a down receiver (it reuses `_DROP_ON_FAIL`).
 
 ### Negative / Trade-offs accepted
@@ -105,7 +105,7 @@ story of Commitment 17) rather than a new one.
   exactly-once.
 - The SSRF guard is syntactic at write time; DNS-rebinding hardening is deferred.
 - The async-fuzz gap (ADR-0011) applies again: delivery interleavings are property-sampled in-process,
-  not explored by an independent stateful fuzzer (none exists). Named, not papered over — Milestone 14
+  not explored by an independent stateful fuzzer (none exists). Named, not papered over. Milestone 14
   DST is where they would be *discovered*.
 
 ### Future applications
@@ -116,13 +116,13 @@ story of Commitment 17) rather than a new one.
 ## Rejected alternatives
 
 - **Deliver inside the consumer / synchronously on the producing request.** Couples a producer's
-  write latency to a flaky external receiver — exactly the anti-pattern failure-modes experiment 02
+  write latency to a flaky external receiver: exactly the anti-pattern failure-modes experiment 02
   warns against. Delivery must be off the request and consume paths.
 - **Push over the existing gateway WebSocket.** That is *inbound* browser push (Commitment 11), a
   different audience and auth model with no retry ledger. Outbound server-to-server delivery is a
   separate concern.
 - **A third-party (Svix / Hookdeck).** Buying delivery would hide the entire testing story this
-  milestone exists to demonstrate — the point is to *build* the delivery guarantees, mirroring
+  milestone exists to demonstrate: the point is to *build* the delivery guarantees, mirroring
   ADR-0001's "principles without the multi-year investment" stance.
 - **A transactional outbox for deliveries.** The outbox is a publish-side pattern; webhooks publishes
   nothing. The delivery ledger already provides durability + at-least-once without it, and reusing the
@@ -130,11 +130,11 @@ story of Commitment 17) rather than a new one.
 
 ## Related decisions
 
-- [ADR-0010](0010-sync-vs-async-and-otel-propagation-contract.md) — sync/async placement and the OTel
+- [ADR-0010](0010-sync-vs-async-and-otel-propagation-contract.md): sync/async placement and the OTel
   propagation contract the fan-out consumer reuses.
-- [ADR-0011](0011-async-dedup-outbox-msgid-processed-events.md) — `processed_events` dedup (reused on
+- [ADR-0011](0011-async-dedup-outbox-msgid-processed-events.md): `processed_events` dedup (reused on
   the consume side) and the accepted async-fuzz gap (restated here).
-- [ADR-0012](0012-feature-rollout-state-machine-and-reverse-conformance.md) — the state-machine +
+- [ADR-0012](0012-feature-rollout-state-machine-and-reverse-conformance.md): the state-machine +
   reverse-conformance discipline reused for the delivery machine.
-- [ADR-0014](0014-chaos-as-property-check.md) — chaos-as-property; the new failure-modes §08 entry.
+- [ADR-0014](0014-chaos-as-property-check.md): chaos-as-property; the new failure-modes §08 entry.
 - `docs/04-roadmap.md` §Milestone 11; `services/webhooks/AGENTS.md`.

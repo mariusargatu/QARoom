@@ -2,15 +2,15 @@
 
 Milestone-end **summaries**, one per milestone. A retrospective is the *synthesis* tier of the
 learning loop; the *raw record* is [`docs/journey/`](../journey/). Each retro is composed
-from the journey entries of its milestone — it does not duplicate them, it draws the line
+from the journey entries of its milestone. It does not duplicate them, it draws the line
 through them: what the milestone set out to demonstrate, what each technique caught and missed,
 the cost, and what changes for the next milestone.
 
-The hierarchy (most → least mutable):
+The hierarchy (most -> least mutable):
 
-- [`docs/journey/`](../journey/) — append-only narrative, captured as decisions happen.
-- `docs/retrospectives/` — milestone summaries, composed at each milestone exit *(this directory)*.
-- [`docs/adr/`](../adr/) — decisions of record, immutable.
+- [`docs/journey/`](../journey/): append-only narrative, captured as decisions happen.
+- `docs/retrospectives/`: milestone summaries, composed at each milestone exit *(this directory)*.
+- [`docs/adr/`](../adr/): decisions of record, immutable.
 
 ## How a retrospective is created
 
@@ -38,4 +38,4 @@ record the §10 metrics (see the template), and commit alongside the milestone-c
 
 | Milestone | Headline | Status |
 |---|---|---|
-| _none yet — first retro lands when Milestone 1 closes_ | | |
+| _none yet: first retro lands when Milestone 1 closes_ | | |

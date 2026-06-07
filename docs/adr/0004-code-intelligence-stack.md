@@ -1,4 +1,4 @@
-# ADR 0004 — Code-intelligence stack and scale triggers
+# ADR 0004: Code-intelligence stack and scale triggers
 
 - **Status:** Accepted
 - **Date:** 2026-05-29
@@ -17,10 +17,10 @@ QARoom is small (~4k LOC, 2 services) and grows toward ~10 services. Adopting he
 A layered stack, adopted by size and cross-service coupling, never by default:
 
 1. **Floor (always present):** the `AGENTS.md`/`CLAUDE.md` orientation hierarchy (root + per-package + per-service) plus **agentic search** (grep / glob / read). There is deliberately **no embedding/RAG index** for code.
-2. **Now (adopted, Milestone 1):** **LSP** for symbol-level precision — the `typescript-lsp` plugin (go-to-definition, find-references, diagnostics; out-of-process, ~0 token cost) and **Serena MCP** (`.mcp.json`, LSP-backed symbol navigation and symbolic edits across packages). Fresh, exact, local — consistent with the determinism / no-globals discipline.
-3. **Trigger → repo-map** (Aider-style tree-sitter + PageRank): only when agents visibly burn context re-discovering structure.
-4. **Trigger → code knowledge graph** (tree-sitter → SQLite, e.g. codegraph / LocAgent): only when cross-service blast-radius and refactor questions span roughly ten services and need multi-hop traversal.
-5. **Trigger → RAG / Sourcegraph SCIP:** only at genuine multi-repo, polyglot, or org scale. Out of scope for one cohesive monorepo.
+2. **Now (adopted, Milestone 1):** **LSP** for symbol-level precision: the `typescript-lsp` plugin (go-to-definition, find-references, diagnostics; out-of-process, ~0 token cost) and **Serena MCP** (`.mcp.json`, LSP-backed symbol navigation and symbolic edits across packages). Fresh, exact, local: consistent with the determinism / no-globals discipline.
+3. **Trigger -> repo-map** (Aider-style tree-sitter + PageRank): only when agents visibly burn context re-discovering structure.
+4. **Trigger -> code knowledge graph** (tree-sitter -> SQLite, e.g. codegraph / LocAgent): only when cross-service blast-radius and refactor questions span roughly ten services and need multi-hop traversal.
+5. **Trigger -> RAG / Sourcegraph SCIP:** only at genuine multi-repo, polyglot, or org scale. Out of scope for one cohesive monorepo.
 
 Rule of thumb: orientation files + agentic search are the floor and never go away; LSP is the next-cheapest precision layer (adopted); everything heavier is gated by measured pain (token burn, cross-service coupling), not adopted speculatively.
 
@@ -28,7 +28,7 @@ Rule of thumb: orientation files + agentic search are the floor and never go awa
 
 ### Positive
 
-- Always fresh (live reads, no index to invalidate), exact-match precision, fully local/private — no code is embedded or sent out.
+- Always fresh (live reads, no index to invalidate), exact-match precision, fully local/private: no code is embedded or sent out.
 - Minimal moving parts now; the harness documents its own navigation strategy (AGENTS.md "Code intelligence").
 - A written ladder means future scaling is a deliberate, triggered decision rather than a reflex.
 

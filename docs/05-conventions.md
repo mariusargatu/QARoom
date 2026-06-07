@@ -1,6 +1,6 @@
-# QARoom — Conventions
+# QARoom: Conventions
 
-The conventions in this document are enforced by lint where possible and by review where not. They exist to make the repository legible — to humans, to future-you, and to LLM agents.
+The conventions in this document are enforced by lint where possible and by review where not. They exist to make the repository legible: to humans, to future-you, and to LLM agents.
 
 ## 1. Repository layout
 
@@ -184,11 +184,11 @@ Rules:
 
 ### Idempotency
 
-- Every mutating HTTP endpoint requires an `Idempotency-Key` header. Missing header → 400 with `failure_domain: "validation"`.
-- Replays are served from a per-service `idempotency_responses` table keyed by `(idempotency_key, route, body_hash)`. Same key + same body → return stored response, do not re-execute. Same key + different body → 409 with `failure_domain: "conflict"` and `next_actions` pointing at the conflicting request.
+- Every mutating HTTP endpoint requires an `Idempotency-Key` header. Missing header -> 400 with `failure_domain: "validation"`.
+- Replays are served from a per-service `idempotency_responses` table keyed by `(idempotency_key, route, body_hash)`. Same key + same body -> return stored response, do not re-execute. Same key + different body -> 409 with `failure_domain: "conflict"` and `next_actions` pointing at the conflicting request.
 - The `idempotency_responses` table schema is shipped as a reusable Drizzle migration fragment from `@qaroom/messaging/migrations/`. Every service that exposes mutations applies the fragment.
 - Test discipline: every mutating endpoint has a property test asserting that any sequence containing duplicate `Idempotency-Key` requests produces the same observable state as the sequence with duplicates removed.
-- **TTL/GC.** Rows in `idempotency_responses` and `processed_events` are deleted by a scheduled job (`pnpm jobs:gc-dedup`) after 24h. The job is hygiene only — correctness rests on the `Nats-Msg-Id` window and consumer idempotency, not on the GC running on time.
+- **TTL/GC.** Rows in `idempotency_responses` and `processed_events` are deleted by a scheduled job (`pnpm jobs:gc-dedup`) after 24h. The job is hygiene only. Correctness rests on the `Nats-Msg-Id` window and consumer idempotency, not on the GC running on time.
 
 ## 4. Error response conventions
 
@@ -210,15 +210,15 @@ All non-2xx responses use `application/problem+json` per RFC 7807, with these re
 ```
 
 Failure domains are a closed enum, defined in `packages/contracts/errors.ts`. The initial set:
-- `validation` — input does not match the schema
-- `authentication` — caller is not who they claim to be
-- `authorization` — caller is not allowed to perform this action
-- `tenant_resolution` — community ID does not exist or caller is not a member
-- `rate_limit` — caller exceeded their allowance
-- `conflict` — operation conflicts with current state (e.g., feature flag mid-transition)
-- `not_found` — resource does not exist
-- `dependency_failure` — a downstream service or external dependency failed
-- `internal_error` — unexpected; investigate
+- `validation`: input does not match the schema
+- `authentication`: caller is not who they claim to be
+- `authorization`: caller is not allowed to perform this action
+- `tenant_resolution`: community ID does not exist or caller is not a member
+- `rate_limit`: caller exceeded their allowance
+- `conflict`: operation conflicts with current state (e.g., feature flag mid-transition)
+- `not_found`: resource does not exist
+- `dependency_failure`: a downstream service or external dependency failed
+- `internal_error`: unexpected; investigate
 
 ## 5. Testing conventions
 
@@ -273,7 +273,7 @@ Types: `feat`, `fix`, `chore`, `docs`, `test`, `refactor`, `perf`.
 
 Scope is optional: add the service or package name when it sharpens the subject (`feat(content): add post deletion`); a bare `feat:` / `docs:` is fine for repo-wide or cross-cutting changes.
 
-Subjects are **descriptive, not milestone-numbered.** Never put "Milestone N" in a commit subject. Milestones belong to the roadmap; a subject like "Milestone 1 — gateway" implies a fixed ordering and rots when history is reorganized. Name the change itself (`feat: the first defended boundary`), not its roadmap slot.
+Subjects are **descriptive, not milestone-numbered.** Never put "Milestone N" in a commit subject. Milestones belong to the roadmap; a subject like "Milestone 1: gateway" implies a fixed ordering and rots when history is reorganized. Name the change itself (`feat: the first defended boundary`), not its roadmap slot.
 
 ### PR titles and descriptions
 
@@ -316,7 +316,7 @@ These are bugs, not stylistic issues. Each is enforced by lint where possible.
 - Hidden retries inside service-to-service clients. Retries belong at the call site and are configured per call.
 - "Magic" abstractions: framework decorators that hide what would otherwise be explicit code paths.
 - Any file longer than 500 lines, including tests. Caught by lint. Two exceptions:
-  - Generated artifacts marked `// @generated` (OpenAPI YAML, Drizzle migration scaffolds, code emitted by build scripts, and EvoMaster black-box suites under `services/*/tests/evomaster-generated/`) are exempt and counted against a separate, untracked budget. The EvoMaster output is also gitignored and lint-ignored — a disposable nightly review artifact, never hand-edited (Milestone 8, ADR-0016).
+  - Generated artifacts marked `// @generated` (OpenAPI YAML, Drizzle migration scaffolds, code emitted by build scripts, and EvoMaster black-box suites under `services/*/tests/evomaster-generated/`) are exempt and counted against a separate, untracked budget. The EvoMaster output is also gitignored and lint-ignored: a disposable nightly review artifact, never hand-edited (Milestone 8, ADR-0016).
   - Hand-authored files may exceed via a `// biome-ignore lint/style/maxFileLength` comment with a tracking issue. The baseline is 500; the threshold may be raised later when concrete examples justify it.
 - Barrel exports (`index.ts` that re-exports many modules) for non-public APIs.
 - Untyped JSON in NATS event payloads. Every event has a Zod schema and a name.

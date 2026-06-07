@@ -1,8 +1,8 @@
-# ADR 0012 — Feature-flag rollout as an XState machine, MBT, and reverse conformance
+# ADR 0012: Feature-flag rollout as an XState machine, MBT, and reverse conformance
 
 - **Status:** Accepted
 - **Date:** 2026-06-04
-- **Records:** the Milestone 5 core demonstration — modelling the donations rollout as an XState
+- **Records:** the Milestone 5 core demonstration: modelling the donations rollout as an XState
   machine, generating model-based tests (MBT) from it, and verifying the running system never
   leaves the model via OpenTelemetry `xstate.transition` spans + Tracetest. Builds on the
   Milestone-2 migration machine (the first invoke-free/context-free XState taste). Does **not**
@@ -10,8 +10,8 @@
 
 ## Context
 
-A feature flag in QARoom is not a boolean — it is the current state of a *gradual rollout*
-(`Off → Enabling → Canary → Enabled`, with a reverse `Enabled → Disabling → Off`). Rollouts are
+A feature flag in QARoom is not a boolean: it is the current state of a *gradual rollout*
+(`Off -> Enabling -> Canary -> Enabled`, with a reverse `Enabled -> Disabling -> Off`). Rollouts are
 where state-transition bugs hide: an illegal transition accepted, a state reachable that
 shouldn't be, a UI offering an action the server will reject. These are exactly the bugs a
 hand-written example test rarely covers and a *model* does.
@@ -21,11 +21,11 @@ hand-written example test rarely covers and a *model* does.
 **1. The rollout is one hand-authored XState 5 machine** (`packages/contracts/machines/
 rollout.machine.ts`), and it is the single authority on transition legality. The flags-service
 applies a client-requested event through `applyRolloutEvent` (the runner); an event with no
-transition from the current state leaves the state untouched → the route returns 409, never a
+transition from the current state leaves the state untouched -> the route returns 409, never a
 silent no-op. The machine, the `FlagState` contract, and the `RolloutEventName` contract are
 pinned equal by a test, so the API can never report an unreachable state.
 
-**2. The machine is invoke-free and context-free**, exactly like the migration machine — the
+**2. The machine is invoke-free and context-free**, exactly like the migration machine: the
 load-bearing constraint for `@xstate/graph` 3 (it hard-rejects `invoke`/`after`, and `context`
 explodes the BFS). Async/timer boundaries are modelled as explicit events. A regression test
 (`rollout-traversal.regression.test.ts`) pins both halves: the rollout model traverses, and an
@@ -40,12 +40,12 @@ validation guard runs first (system initial state + event surface must match the
 path-count **floor** catches a regression that erases reachable states.
 
 **4. Reverse conformance via spans.** Every committed transition emits an `xstate.transition`
-OTel span carrying `{machine, from, to, event}` — emitted by the flags-service repository
+OTel span carrying `{machine, from, to, event}`: emitted by the flags-service repository
 *after* the transaction commits (so an observed span always reflects committed state). These
 spans are **always-sampled** (`XStateTransitionSampler`, `@qaroom/otel`) so a head-sampling
 decision can never drop one. A Tracetest assertion checks each observed `(from, to, event)` is a
-legal edge of the model graph: if the code ever emits an off-model transition, the spans — not
-the endpoint — catch it.
+legal edge of the model graph: if the code ever emits an off-model transition, the spans, not
+the endpoint, catch it.
 
 ## Consequences
 
@@ -54,13 +54,13 @@ the endpoint — catch it.
 - One model is the source of truth for: transition legality (server), the events the UI offers
   (`useRollout` reads the same machine), the generated tests, and the reverse-conformance
   assertion. They cannot drift independently.
-- The two exit-criterion demos are mechanical: break a transition → one MBT path fails at the
-  exact state; emit an off-model `to` → the Tracetest `xstate.to` assertion fails.
+- The two exit-criterion demos are mechanical: break a transition -> one MBT path fails at the
+  exact state; emit an off-model `to` -> the Tracetest `xstate.to` assertion fails.
 
 ### Negative / trade-offs accepted
 
 - The context-free constraint pushes per-rollout data (cohort, requester) out of the machine and
-  into service rows — intentional, to keep `@xstate/graph` traversal finite.
+  into service rows: intentional, to keep `@xstate/graph` traversal finite.
 - `@xstate/graph@3.0.4` is pinned **exact**; the invoke-rejection and traversal options are
   undocumented internals a minor bump could change.
 - Reverse conformance needs always-sampled transition spans; tail-based sampling can be layered

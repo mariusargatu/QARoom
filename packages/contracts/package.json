@@ -6,6 +6,7 @@
   "exports": {
     ".": "./src/index.ts",
     "./webhook-hmac": "./src/webhook-hmac.ts",
+    "./claims": "./src/claims.ts",
     "./ids": "./src/ids.ts",
     "./errors": "./src/errors.ts",
     "./lamport": "./src/lamport.ts",

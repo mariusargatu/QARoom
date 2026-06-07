@@ -1,4 +1,4 @@
-# Spike 6 — Test-name lint rule
+# Spike 6: Test-name lint rule
 
 - **Milestone affected:** 0 (and ongoing)
 - **Question:** Can a lint rule enforce the test-name-shape convention (titles describe
@@ -19,7 +19,7 @@ Validated with ESLint `RuleTester` (part of the 23/23 plugin suite): bad titles
 (`"works"`, `"vote() works"`, `"happy path"`, `"returns"`) are flagged; good titles
 (`"voting on a deleted post returns 410 with the deletion problem-details"`) and noun
 `describe` labels pass. No false positives observed across the existing test suite
-(64 tests) — the rule is active in `eslint.config.js` for `*.test.ts` / `*.spec.ts` /
+(64 tests): the rule is active in `eslint.config.js` for `*.test.ts` / `*.spec.ts` /
 `*.property.test.ts` and CI is green.
 
 ## Consequence

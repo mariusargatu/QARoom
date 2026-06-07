@@ -1,4 +1,4 @@
-# Spike 3 — Pact ↔ OpenAPI cross-check
+# Spike 3: Pact ↔ OpenAPI cross-check
 
 - **Milestone affected:** 1 (contract testing)
 - **Question:** Can we build a thin `@apidevtools/swagger-parser`-based wrapper that
@@ -21,7 +21,7 @@ Proven by `contract-crosscheck/index.test.ts` (3/3):
 
 The wrapper detects exactly the silent-drift case it targets: a consumer Pact
 expectation that no longer matches the provider's published contract. No heavyweight
-Pact tooling needed for the check itself — the interaction shape is plain JSON.
+Pact tooling needed for the check itself: the interaction shape is plain JSON.
 
 ## Consequence
 

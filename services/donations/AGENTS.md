@@ -8,7 +8,7 @@ service follows the content-service template.
 
 | Method | Path | operationId | Notes |
 |---|---|---|---|
-| POST | `/api/communities/{communityId}/donations` | `createDonation` | mutating; `Idempotency-Key`; 409 if flag not enabled; 502 if provider unreachable; OAS `links`→getDonation |
+| POST | `/api/communities/{communityId}/donations` | `createDonation` | mutating; `Idempotency-Key`; 409 if flag not enabled; 502 if provider unreachable; OAS `links`->getDonation |
 | GET | `/api/communities/{communityId}/donations/{donationId}` | `getDonation` | tenant-scoped; cross-tenant id 404s |
 | GET | `/api/communities/{communityId}/donations` | `listDonations` | newest first |
 | GET | `/system/state` | `getSystemState` | observable state + `as_of` (Commitment 7) |
@@ -18,10 +18,10 @@ service follows the content-service template.
 
 - **Gating cache:** a NATS consumer (`src/consumer.ts`, subscription `donations.on-flag-state`)
   projects flags-service `flag.state.changed` events into the local `flag_cache` table.
-  `createDonation` reads that cache — gating survives a momentary flags-service outage.
+  `createDonation` reads that cache: gating survives a momentary flags-service outage.
 - **Payment provider:** `src/payment-client.ts` is the single injectable seam. In-cluster it
   hits the Microcks mock of `payment-provider.openapi.yaml`; tests inject a stub. A provider
-  fault (`charge` throws) → 502 `dependency_failure`; a decline is a recorded `Failed` donation.
+  fault (`charge` throws) -> 502 `dependency_failure`; a decline is a recorded `Failed` donation.
 - **Events out:** `donation.state.changed` via the transactional outbox (Commitment 17).
 
 ## Conventions enforced here

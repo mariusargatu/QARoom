@@ -1,8 +1,8 @@
-# ADR 0014 — Chaos as a property check, not a stunt; why Chaos Mesh and Litmus together
+# ADR 0014: Chaos as a property check, not a stunt; why Chaos Mesh and Litmus together
 
 - **Status:** Accepted
 - **Date:** 2026-06-04
-- **Records:** how QARoom does chaos engineering (Milestone 6) — the steady-state-hypothesis
+- **Records:** how QARoom does chaos engineering (Milestone 6): the steady-state-hypothesis
   discipline, the assertion mechanism, and why two chaos tools coexist. Does **not** modify any
   ADR-0001 commitment; builds on [ADR-0009](0009-kubernetes-and-keeping-dev-fast.md) (the k3d
   cluster), [ADR-0010](0010-sync-vs-async-and-otel-propagation-contract.md), and
@@ -16,12 +16,12 @@ already *documents* its failure behaviour as contract: RFC 7807 problems carry a
 `failure_domain` plus `retryable`, readiness flips to a 503 `dependency_failure`, consumers
 dedupe via `processed_events`, the write path is decoupled from the broker by the outbox. The
 value of chaos here is to **verify those documented behaviours hold under real infrastructure
-fault** — a property check — not to discover that "something breaks."
+fault**, a property check, not to discover that "something breaks."
 
 Two tool constraints shape the decision. Chaos Mesh is the mature CRD-driven injector for
 Pod/Network/Stress/Time faults, but its **HTTPChaos is unreliable on k3d's flannel CNI** (the
 documented Milestone 6 risk). And the existing test ecosystem is uniformly TypeScript + Vitest
-with shared matchers (`expectRFC7807`) and `test-results/summary.json` — a second, opaque
+with shared matchers (`expectRFC7807`) and `test-results/summary.json`: a second, opaque
 assertion language embedded in CRDs would fight that grain.
 
 ## Decision
@@ -29,9 +29,9 @@ assertion language embedded in CRDs would fight that grain.
 1. **Every experiment is a steady-state hypothesis.** Each `chaos-experiments/<slug>.yaml` is
    paired with a TypeScript hypothesis in `tests/chaos/<slug>.test.ts` that must hold in the
    **healthy baseline AND during the fault** (and ideally after recovery). A hypothesis asserts a
-   *documented* observable — "2xx, or a typed retryable 502, within a bounded budget; never a
-   naked 5xx, never a hang" — never the vacuous "no errors". The harness
-   (`@qaroom/testing-utils/chaos`) samples the probe before → inject → during → heal → after.
+   *documented* observable: "2xx, or a typed retryable 502, within a bounded budget; never a
+   naked 5xx, never a hang", never the vacuous "no errors". The harness
+   (`@qaroom/testing-utils/chaos`) samples the probe before -> inject -> during -> heal -> after.
 
 2. **The assertion authority stays in TypeScript.** Even the Litmus-injected experiment asserts
    its steady state in TS, reusing `expectRFC7807` and the port-forward pattern from
@@ -42,7 +42,7 @@ assertion language embedded in CRDs would fight that grain.
    Chaos Mesh HTTPChaos is broken on k3d flannel. This is the entire reason two tools coexist;
    neither is redundant. *(Confirmed empirically in Milestone 6: an HTTPChaos response-replace to
    500 reaches `desiredPhase: Run` but leaves donations' responses unmodified on this k3d/flannel
-   cluster — the experiment-06 property is therefore proven in-process against the real breaker
+   cluster. The experiment-06 property is therefore proven in-process against the real breaker
    while the live Litmus injection is a nightly task, since Litmus 3.x is the heavy ChaosCenter
    platform rather than a thin operator.)*
 
@@ -61,7 +61,7 @@ assertion language embedded in CRDs would fight that grain.
    `--kubelet-arg=allowed-unsafe-sysctls=*` (always on; it only *permits* the `SYS_TIME`/
    `SYS_BOOT` sysctls TimeChaos needs), and `chaos-daemon` runs against the k3s containerd
    socket `/run/k3s/containerd/containerd.sock`. Operators install via `pnpm chaos:install`,
-   **never** under `pnpm dev` — chaos runs nightly, and the inner loop pays nothing for it.
+   **never** under `pnpm dev`; chaos runs nightly, and the inner loop pays nothing for it.
 
 ## Consequences
 
@@ -84,7 +84,7 @@ assertion language embedded in CRDs would fight that grain.
 
 ## Rejected alternatives
 
-- **Gremlin (SaaS).** Cost, and a run cannot be replayed from the repo — contradicts
+- **Gremlin (SaaS).** Cost, and a run cannot be replayed from the repo, contradicts
   "replayable from the manifest alone".
 - **No chaos / table-top only.** Loses the verification that mitigations actually fire under
   fault; the deliberate-bug demos would be untestable.
@@ -96,8 +96,8 @@ assertion language embedded in CRDs would fight that grain.
 
 ## Related decisions
 
-- [ADR-0009](0009-kubernetes-and-keeping-dev-fast.md) — the k3d/Tilt/Helm cluster chaos targets.
-- [ADR-0011](0011-async-dedup-outbox-msgid-processed-events.md) — the dedup/outbox mitigations
+- [ADR-0009](0009-kubernetes-and-keeping-dev-fast.md): the k3d/Tilt/Helm cluster chaos targets.
+- [ADR-0011](0011-async-dedup-outbox-msgid-processed-events.md): the dedup/outbox mitigations
   experiments 01–03 exercise.
-- `docs/failure-modes.md` — the per-experiment expected-behaviour spec (change both or neither).
+- `docs/failure-modes.md`: the per-experiment expected-behaviour spec (change both or neither).
 - `docs/04-roadmap.md` §Milestone 6.

@@ -1,0 +1,79 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>QARoom falsifiable claims</title>
+<style>
+  :root {
+    --bg: oklch(0.165 0.008 255); --line: oklch(0.30 0.008 255); --grp: oklch(0.22 0.008 255);
+    --fg: oklch(0.94 0.006 255); --dim: oklch(0.64 0.008 255);
+    --green: oklch(0.76 0.15 150); --amber: oklch(0.82 0.13 80);
+    --mono: ui-monospace, "SF Mono", "Cascadia Code", "Menlo", monospace;
+    --sans: system-ui, -apple-system, "Segoe UI", "Helvetica Neue", sans-serif;
+    --s-fact: 0.8rem; --s-body: 1.02rem;
+  }
+  * { box-sizing: border-box; }
+  body { margin: 0; background: var(--bg); color: var(--fg); font-family: var(--mono);
+         line-height: 1.5; -webkit-font-smoothing: antialiased; font-size: var(--s-fact); }
+  main { max-width: 1180px; margin: 0 auto; padding: clamp(2.5rem, 6vw, 5rem) clamp(1rem, 4vw, 2rem) 6rem; }
+  header { margin-bottom: clamp(2rem, 5vw, 3.5rem); max-width: 70ch; }
+  h1 { font-family: var(--sans); font-size: clamp(1.9rem, 5vw, 2.5rem); font-weight: 680;
+       letter-spacing: -0.02em; line-height: 1.1; margin: 0 0 1rem; }
+  .tag { font-family: var(--sans); color: var(--dim); font-size: var(--s-body); margin: 0; }
+  .tag b { color: var(--fg); font-weight: 600; }
+  .tag code { font-family: var(--mono); font-size: 0.92em; color: var(--fg); }
+  table { width: 100%; border-collapse: collapse; }
+  th, td { text-align: left; padding: 0.8rem 0.9rem; vertical-align: top; border-bottom: 1px solid var(--line); }
+  thead th { font-size: var(--s-fact); text-transform: uppercase; letter-spacing: 0.07em; color: var(--dim);
+             font-weight: 500; border-bottom: 1px solid var(--line); position: sticky; top: 0; background: var(--bg); }
+  tr.grp th { background: var(--grp); color: var(--fg); font-size: var(--s-fact); text-transform: uppercase;
+              letter-spacing: 0.12em; font-weight: 600; padding-top: 1.1rem; }
+  .status { white-space: nowrap; }
+  .dot { display: inline-block; width: 8px; height: 8px; border-radius: 50%; background: var(--amber); margin-right: 0.5rem;
+         vertical-align: middle; }
+  tr.verified .dot { background: var(--green); }
+  .lbl { font-size: var(--s-fact); letter-spacing: 0.04em; color: var(--amber); vertical-align: middle; }
+  tr.verified .lbl { color: var(--green); }
+  .claim { max-width: 46ch; }
+  .id { display: inline-block; font-weight: 650; color: var(--fg); margin-right: 0.5rem; }
+  .sentence { font-family: var(--sans); font-size: var(--s-body); color: var(--fg); }
+  .caught, .prov { display: block; color: var(--dim); margin-top: 0.45rem; }
+  .caught code, .ev code { color: var(--fg); word-break: break-word; }
+  .ev .evv { display: block; margin-top: 0.45rem; color: var(--fg); }
+  .ev .prov { font-size: var(--s-fact); }
+  .fls code { color: var(--green); white-space: nowrap; }
+  footer { margin-top: 2.5rem; color: var(--dim); font-size: var(--s-fact); max-width: 80ch; }
+  @media (prefers-reduced-motion: no-preference) { .dot { transition: background 0.2s; } }
+  @media (max-width: 720px) { .table-wrap { overflow-x: auto; } table { min-width: 680px; } }
+</style></head>
+<body><main>
+  <header>
+    <h1>Don't trust the green check. Flip the switch.</h1>
+    <p class="tag">QARoom ships the bug that breaks each guarantee and the gate that catches it. <b>3 falsifiable claims across 3 boundaries. 1 verified (2 stale until summary.json is regenerated in CI).</b> Run <code>pnpm prove &lt;id&gt; --break</code> and watch a gate go red.</p>
+  </header>
+  <div class="table-wrap"><table>
+    <thead><tr><th>Status</th><th>Claim</th><th>Breaks when / evidence</th><th>Falsify</th></tr></thead>
+    <tbody>
+        <tr class="grp"><th colspan="4">external-dep</th></tr>
+        <tr class="verified">
+          <td class="status"><span class="dot"></span><span class="lbl">VERIFIED</span></td>
+          <td class="claim"><code class="id">moderator-abstain</code><span class="sentence">The moderator escalates to a human on a low-confidence verdict instead of guessing (FR5 calibration).</span><span class="caught">caught by <code>(services/moderator-agent) uv run pytest -q tests/test_workflow_decision.py -k low_confidence_draft_escalates</code></span></td>
+          <td class="ev"><code>MODERATOR_DISABLE_ABSTAIN</code><span class="evv">passed=43</span><span class="prov">summary.json · moderator · commit b6a3ec4 · 3d ago</span></td>
+          <td class="fls"><code>pnpm prove moderator-abstain --break</code></td>
+        </tr>
+        <tr class="grp"><th colspan="4">process-async</th></tr>
+        <tr class="stale">
+          <td class="status"><span class="dot"></span><span class="lbl">STALE</span></td>
+          <td class="claim"><code class="id">webhook-at-least-once</code><span class="sentence">Every webhook delivery reaches a terminal state; a failed send is retried, never silently dropped.</span><span class="caught">caught by <code>pnpm --filter @qaroom/webhooks exec vitest run -t every delivery reaches a terminal state</code></span></td>
+          <td class="ev"><code>CHAOS_WEBHOOK_DROP_ON_FAIL</code><span class="evv">unresolved</span><span class="prov">runner '@qaroom/webhooks' absent from summary.json</span></td>
+          <td class="fls"><code>pnpm prove webhook-at-least-once --break</code></td>
+        </tr>
+        <tr class="grp"><th colspan="4">trust</th></tr>
+        <tr class="stale">
+          <td class="status"><span class="dot"></span><span class="lbl">STALE</span></td>
+          <td class="claim"><code class="id">webhook-signing</code><span class="sentence">A webhook signature binds the timestamp, so a captured (body, signature) pair cannot be replayed.</span><span class="caught">caught by <code>pnpm --filter @qaroom/webhooks exec vitest run -t binds the timestamp into the signature</code></span></td>
+          <td class="ev"><code>CHAOS_WEBHOOK_SIGN_BODY_ONLY</code><span class="evv">unresolved</span><span class="prov">runner '@qaroom/webhooks' absent from summary.json</span></td>
+          <td class="fls"><code>pnpm prove webhook-signing --break</code></td>
+        </tr>
+    </tbody>
+  </table></div>
+  <footer>Derived live from summary.json, commit b6a3ec4, generated 2026-06-04T18:00:17.126Z. This page cannot show green without a passing run; an unresolved claim renders amber, not green. ADR: demo-as-tested-surface.</footer>
+</main></body></html>

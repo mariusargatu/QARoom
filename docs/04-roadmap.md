@@ -1,4 +1,4 @@
-# QARoom — Roadmap
+# QARoom: Roadmap
 
 Ten milestones. Each milestone introduces a small, sharply-defined set of testing techniques applied to the architectural boundary where they belong. Each milestone ships a working artifact, a blog post draft, and at least one ADR. Each milestone has explicit exit criteria so "done" is unambiguous.
 
@@ -6,16 +6,16 @@ Milestones are sized to be demonstrable, not to a fixed schedule. A milestone is
 
 ## Reading this document
 
-- **Goal** — what the milestone demonstrates and why it exists.
-- **Scope (built)** — what code, services, and infrastructure exist by the end of this milestone but not before.
-- **Testing techniques introduced** — the techniques whose stories are told by this milestone.
-- **Exit criteria** — observable conditions that must hold for the milestone to be considered complete.
-- **Blog post angle** — the framing of the public artifact.
-- **Risk and mitigation** — what is most likely to overflow the week, and the plan for that.
+- **Goal**: what the milestone demonstrates and why it exists.
+- **Scope (built)**: what code, services, and infrastructure exist by the end of this milestone but not before.
+- **Testing techniques introduced**: the techniques whose stories are told by this milestone.
+- **Exit criteria**: observable conditions that must hold for the milestone to be considered complete.
+- **Blog post angle**: the framing of the public artifact.
+- **Risk and mitigation**: what is most likely to overflow the week, and the plan for that.
 
 ---
 
-## Milestone 0 — Foundations of testability
+## Milestone 0: Foundations of testability
 
 **Goal.** Establish what a testable service looks like, in one service, with no microservices complexity to distract.
 
@@ -29,24 +29,24 @@ Milestones are sized to be demonstrable, not to a fixed schedule. A milestone is
 - `oasdiff` configured in CI to gate breaking changes.
 - Branded ID parsers (`UserId`, `PostId`, `CommunityId`, ...) via Zod `.brand()` with prefix-refinement.
 - AGENTS.md at repo root; CLAUDE.md as a symlink to AGENTS.md.
-- `services/content/AGENTS.md` (≤80 lines) — first per-service agent reference, sets the template for later services.
+- `services/content/AGENTS.md` (≤80 lines): first per-service agent reference, sets the template for later services.
 - `/.well-known/llms.txt`.
 - `.claude/skills/` directory present (initially with a README explaining the convention).
 - `test-results/summary.json` schema with `schema_version: 1` field, extensible `runners[].output: Record<string, unknown>` per-runner payload, and `runners[].seeds: Record<string, unknown>` for property-test seeds and fuzzing seeds. Envelope frozen; per-runner payload extensible.
-- `LamportGate` primitive in `packages/contracts/lamport.ts` — all mutating paths funnel through it.
+- `LamportGate` primitive in `packages/contracts/lamport.ts`: all mutating paths funnel through it.
 - **Domain generators** in `packages/testing-utils/generators/` for `Post`, `Vote`, `IdempotencyKey`, `ProblemDetails`. Later milestones add their own.
 - **Custom matchers** in `packages/testing-utils/matchers/`: `expectRFC7807`, `expectLamportAdvanced`. State-machine + span matchers ship later milestones.
 - **Canonical test harness** in `packages/testing-utils/harness/`: `setupServiceTest()` returns `{db, clock, ids, randomness, request}` with per-test isolation (fresh schema, seeded clock, deterministic IDs). Example wiring documented in `services/content/tests/README.md`.
 - `/system/capabilities` MCP-shape validation: a CI test loads the endpoint output and validates against the MCP tool JSON Schema.
-- fast-check seed reporting via custom Vitest reporter — failure output includes seed; replay via `VITEST_SEED=<n> pnpm test`.
+- fast-check seed reporting via custom Vitest reporter: failure output includes seed; replay via `VITEST_SEED=<n> pnpm test`.
 - SLO baseline document at `docs/slos.md` (mirrors and points to Doc 03 §12).
 - Custom Biome (or ESLint sidecar) rule enforcing test-name format (no `vote() works` style; names must describe the property/invariant).
-- Zod ↔ OpenAPI round-trip property test: any Zod schema → OpenAPI → schema-validate sample payloads → must accept/reject identically to direct Zod parse. Catches generator gaps.
+- Zod ↔ OpenAPI round-trip property test: any Zod schema -> OpenAPI -> schema-validate sample payloads -> must accept/reject identically to direct Zod parse. Catches generator gaps.
 
 **Milestone 0 spikes** (1 day each, run in parallel before scope work begins). If a spike fails, the corresponding later-milestone technique is dropped or replaced:
 
 - **EvoMaster v3 against TS Fastify.** Verify EvoMaster can drive a Fastify service from its OpenAPI and emit usable test output. If it cannot, Milestone 8 drops EvoMaster and substitutes Schemathesis stateful-links.
-- **Schemathesis stateful workflows on the example service.** Verify `--stateful=links` produces meaningful sequences against a real OAS (requires OAS `links` declared — see Doc 05 OpenAPI conventions).
+- **Schemathesis stateful workflows on the example service.** Verify `--stateful=links` produces meaningful sequences against a real OAS (requires OAS `links` declared, see Doc 05 OpenAPI conventions).
 - **Pact ↔ OpenAPI cross-check.** Spike the thin `@apidevtools/swagger-parser`-based wrapper used in Milestone 1.
 - **Microcks-async WS binding.** Verify Microcks-async serves a sample WebSocket AsyncAPI mock with Playwright-readable behavior. If it fails, Milestone 5 falls back to a handrolled WS mock via `mock-socket`.
 - **AsyncAPI drift gate.** Evaluate `@asyncapi/diff` for breaking-change detection on a sample async contract. If it lacks semantic-diff fidelity, ship a thin custom diff in `packages/testing-utils/async-diff/` matching the OAS-diff philosophy.
@@ -54,7 +54,7 @@ Milestones are sized to be demonstrable, not to a fixed schedule. A milestone is
 
 **Testing techniques introduced.**
 - Unit testing (Vitest)
-- Property-based testing (fast-check) — e.g., "post creation is idempotent given the same Idempotency-Key"
+- Property-based testing (fast-check), e.g., "post creation is idempotent given the same Idempotency-Key"
 - Schema validation (Zod runtime + OpenAPI + oasdiff)
 - Lint rules enforcing the determinism abstractions and the test-name convention
 
@@ -75,7 +75,7 @@ Milestones are sized to be demonstrable, not to a fixed schedule. A milestone is
 
 ---
 
-## Milestone 1 — The first boundary
+## Milestone 1: The first boundary
 
 **Goal.** Introduce a service boundary and demonstrate two complementary API-testing philosophies in conversation with each other. Also: the trust-boundary milestone introduces rate limiting and its failure-domain testing.
 
@@ -83,7 +83,7 @@ Milestones are sized to be demonstrable, not to a fixed schedule. A milestone is
 - Add `gateway` service. The gateway calls content-service for posts.
 - Pact v4 REST contract tests: consumer in gateway, provider verification in content-service.
 - Schemathesis fuzzing the gateway against its OpenAPI spec (containerized; no Python in the monorepo).
-- Pact ↔ OpenAPI cross-check test (custom Vitest wrapper — see ADR-0003).
+- Pact ↔ OpenAPI cross-check test (custom Vitest wrapper, see ADR-0003).
 - **Rate limiting at the gateway**: per-IP and per-authenticated-principal token bucket via a Fastify plugin (in-memory in Milestone 1, swappable for Redis in a later milestone if needed). Exceeded limits return RFC 7807 Problem Details with `failure_domain: "rate_limit"`, `retryable: true`, and `next_actions: [{verb:"GET", href:"/system/limits", description:"Inspect your current usage"}]`.
 - `GET /system/limits` introspection endpoint on the gateway (per-principal current usage and reset time).
 - **Pact provider verification** runs against a Testcontainers-booted content-service with a real Postgres container (`@pact-foundation/pact` provider verifier). Document the pattern; later providers reuse it.
@@ -104,11 +104,11 @@ Milestones are sized to be demonstrable, not to a fixed schedule. A milestone is
 
 **Blog post angle.** *"Two philosophies of API testing: when Pact and Schemathesis each earn their place."*
 
-**Risk and mitigation.** Risk: Pact ↔ OpenAPI cross-check has no first-class OSS tool (PactFlow's BDCT is SaaS-only). Mitigation: ship a thin custom check in `packages/testing-utils/contract-crosscheck/` that loads OAS via `@apidevtools/swagger-parser`, parses Pact JSON, and asserts each Pact interaction is a subset of an OAS operation. Limit acknowledged: validates Pact→OAS direction only; OAS→Pact gaps are caught by Schemathesis instead.
+**Risk and mitigation.** Risk: Pact ↔ OpenAPI cross-check has no first-class OSS tool (PactFlow's BDCT is SaaS-only). Mitigation: ship a thin custom check in `packages/testing-utils/contract-crosscheck/` that loads OAS via `@apidevtools/swagger-parser`, parses Pact JSON, and asserts each Pact interaction is a subset of an OAS operation. Limit acknowledged: validates Pact->OAS direction only; OAS->Pact gaps are caught by Schemathesis instead.
 
 ---
 
-## Milestone 2 — Multi-tenancy as a property
+## Milestone 2: Multi-tenancy as a property
 
 **Goal.** Introduce communities as the tenancy boundary. Demonstrate that isolation is a *property*, not a feature, and is best tested as one. Introduce the identity boundary and prove that JWT issuance itself is a tested surface.
 
@@ -117,7 +117,7 @@ Milestones are sized to be demonstrable, not to a fixed schedule. A milestone is
 - JWT signing-key model: per-environment keypair with `kid` header; rotation supported via a `JWKS` endpoint that lists current + previous public keys.
 - Communities as tenants; posts now belong to a community via `community_id`.
 - Backfill existing posts into a default "general" community.
-- The backfill migration is itself a small state machine (XState — first taste).
+- The backfill migration is itself a small state machine (XState, first taste).
 - Property-based tests: for any sequence of operations across two communities, no read returns data from the other community.
 - JWT property tests: issuance, validation, kid-not-found rejection, expired-token rejection, rotation continuity (old kid still validates within grace window).
 - Pact contract test for `GET /jwks.json` (gateway consumer, identity provider).
@@ -141,11 +141,11 @@ Milestones are sized to be demonstrable, not to a fixed schedule. A milestone is
 
 **Blog post angle.** *"Property-based testing for multi-tenant correctness: when one test catches what a hundred examples can't."*
 
-**Risk and mitigation.** Risk is overscoping the migration story (we said earlier we'd defer it). Mitigation: keep the migration to a single forward step — adding the `community_id` column and backfilling. The full migration narrative is a future series.
+**Risk and mitigation.** Risk is overscoping the migration story (we said earlier we'd defer it). Mitigation: keep the migration to a single forward step: adding the `community_id` column and backfilling. The full migration narrative is a future series.
 
 ---
 
-## Milestone 3 — Going to Kubernetes (and proving nothing broke)
+## Milestone 3: Going to Kubernetes (and proving nothing broke)
 
 **Goal.** Migrate from Docker Compose to k3d + Tilt + Helm. The migration *itself* is the demonstration: existing tests catch any regression introduced by the move. Bring OpenTelemetry online with it because Milestone 4's async work demands it.
 
@@ -156,9 +156,9 @@ Milestones are sized to be demonstrable, not to a fixed schedule. A milestone is
 - OpenTelemetry SDK in every service.
 - Manual trace propagation primitives (the seed of the `@qaroom/messaging` SDK that Milestone 4 expands).
 - Jaeger for trace visualization.
-- Prometheus + Grafana for metrics (minimal — just enough to demonstrate).
+- Prometheus + Grafana for metrics (minimal, just enough to demonstrate).
 - `tenant.id` attribute on every span.
-- GenAI semantic conventions opted in (`OTEL_SEMCONV_STABILITY_OPT_IN=gen_ai_latest_experimental`) even though no LLM calls yet — sets the precedent.
+- GenAI semantic conventions opted in (`OTEL_SEMCONV_STABILITY_OPT_IN=gen_ai_latest_experimental`) even though no LLM calls yet: sets the precedent.
 
 **Testing techniques introduced.**
 - Migration as a tested transformation (no new test types; demonstration of using existing types to verify a big change)
@@ -178,7 +178,7 @@ Milestones are sized to be demonstrable, not to a fixed schedule. A milestone is
 
 ---
 
-## Milestone 4 — Async messaging and the second contract philosophy
+## Milestone 4: Async messaging and the second contract philosophy
 
 **Goal.** Introduce message-based communication for state changes. Demonstrate that contract testing applies to async messages with the same rigor as REST, with new failure modes that REST doesn't have. Land the full dedup discipline (Commitment 17) so duplicate delivery cannot produce double-effects.
 
@@ -196,18 +196,18 @@ Milestones are sized to be demonstrable, not to a fixed schedule. A milestone is
 - NATS subject naming convention enforced (see Doc 05 §3).
 - Pact v4 message contract tests for the new async flows; Pact also asserts publisher sets `Nats-Msg-Id`.
 - `Idempotency-Key` middleware on all HTTP mutations, backed by the `idempotency_responses` table.
-- **TTL/GC for dedup tables.** Scheduled job (`pnpm jobs:gc-dedup`) deletes `idempotency_responses` and `processed_events` rows older than 24h. Runs hourly in dev, daily in CI smoke. Convention: do not rely on it for correctness — `Nats-Msg-Id` window + handler idempotency are the contract; GC is hygiene.
+- **TTL/GC for dedup tables.** Scheduled job (`pnpm jobs:gc-dedup`) deletes `idempotency_responses` and `processed_events` rows older than 24h. Runs hourly in dev, daily in CI smoke. Convention: do not rely on it for correctness: `Nats-Msg-Id` window + handler idempotency are the contract; GC is hygiene.
 - **NATS subject literal lint rule** (`qaroom/no-raw-nats-subject`): bans string literals matching `qaroom\.` outside `packages/contracts/subjects.ts`. Devs must use the builders.
 - **Async-fuzz portfolio gap, explicit.** Schemathesis is REST-only. AsyncAPI stateful fuzzing has no mature OSS tool. The async story stops at contract + dedup + drift; the Milestone 4 blog post names this gap as intellectual honesty rather than papering over with a half-tool.
 - Single-writer-per-resource enforcement at the persistence layer: `pg_advisory_xact_lock(hashtextextended(resource_id, 0))` + `SELECT … FOR UPDATE` on the resource row.
-- Tracetest comes online with assertions on the cross-service async flows. **Tracetest assertions run in PR full (<25min) and merge-to-main loops, not PR fast** — Tracetest infra (collector + assertion service in cluster) does not fit the <10min fast budget.
+- Tracetest comes online with assertions on the cross-service async flows. **Tracetest assertions run in PR full (<25min) and merge-to-main loops, not PR fast**: Tracetest infra (collector + assertion service in cluster) does not fit the <10min fast budget.
 
 **Testing techniques introduced.**
 - Message contract testing (Pact v4 async)
 - Async dedup as a property: fast-check fires duplicate `Nats-Msg-Id` deliveries and asserts no observable double-effect on any consumer
 - Idempotency-Key replay test: identical key returns identical response without re-executing
 - Single-writer property: concurrent mutations on the same resource serialize correctly under advisory + row locks
-- Trace-based testing (Tracetest) — the observability boundary becomes a testing surface
+- Trace-based testing (Tracetest): the observability boundary becomes a testing surface
 - Cross-async tracing
 - Async schema drift detection (AsyncAPI diff)
 
@@ -217,7 +217,7 @@ Milestones are sized to be demonstrable, not to a fixed schedule. A milestone is
 - A Tracetest assertion fails when a service makes an unexpected downstream call.
 - A duplicate-delivery property test catches a regression where a consumer handler is not idempotent (e.g., the developer removes the `processed_events` insert).
 - A breaking AsyncAPI change is caught by CI before merge.
-- ADR: "Sync vs async — where each lives and why; the OTel propagation contract."
+- ADR: "Sync vs async: where each lives and why; the OTel propagation contract."
 - ADR: "Async dedup: outbox, Msg-Id, and processed_events."
 
 **Blog post angle.** *"Contract testing your async messages: the bug Pact catches that you didn't know existed."*
@@ -226,33 +226,33 @@ Milestones are sized to be demonstrable, not to a fixed schedule. A milestone is
 
 ---
 
-## Milestone 5 — Feature gating as a state machine
+## Milestone 5: Feature gating as a state machine
 
 **Goal.** The core demonstration of the project. Introduce the donations feature with a gradual per-community rollout, model the rollout as an XState machine, and use Playwright + `@xstate/graph` to do model-based testing across the whole system.
 
 **Scope (built).**
 - `flags-service` (per-community flag resolution).
 - `donations-service` (donation transactions; integrates with the mocked payment provider).
-- The donation rollout state machine (**XState 5**, hand-authored, in `packages/contracts`). Every transition emits an `xstate.transition` OTel span — substrate for reverse-conformance assertions in CI. The machine that `@xstate/graph` traverses is a **flattened, context-free projection** of the rollout machine: `@xstate/graph` 3 hard-rejects `invoke`, `after`, and delayed actions ("Invocations on test machines are not supported"), and any `context` explodes the BFS — so async/timer boundaries are modeled as explicit events and per-actor data lives in isolated sub-machines unit-tested separately. A regression test pins the constraint (an `invoke` machine must throw; the flattened one must traverse).
-- A **React + Vite** web frontend (`services/web`) built on a real **atomic-design** library — `atoms/ → molecules/ → organisms/ → templates/ → pages/`, each tier importing only tiers below it. Folder-per-component (`Component.tsx` + one-line `index.ts` barrel + `Component.stories.tsx` + `Component.ct.tsx`), `forwardRef` + `displayName`, styled exclusively through **semantic design tokens**: `--color-*` CSS variables in `styles/globals.css` (dark on `:root`, light flipped under `.light`), surfaced as **Tailwind 4** utilities via the CSS-first `@theme` block (no `tailwind.config.js`). A thin `ThemeProvider` toggles `.light` only and holds no styles. This is a real component library, not a placeholder — it is the substrate the Milestone 8 component tests exercise.
+- The donation rollout state machine (**XState 5**, hand-authored, in `packages/contracts`). Every transition emits an `xstate.transition` OTel span: substrate for reverse-conformance assertions in CI. The machine that `@xstate/graph` traverses is a **flattened, context-free projection** of the rollout machine: `@xstate/graph` 3 hard-rejects `invoke`, `after`, and delayed actions ("Invocations on test machines are not supported"), and any `context` explodes the BFS, so async/timer boundaries are modeled as explicit events and per-actor data lives in isolated sub-machines unit-tested separately. A regression test pins the constraint (an `invoke` machine must throw; the flattened one must traverse).
+- A **React + Vite** web frontend (`services/web`) built on a real **atomic-design** library: `atoms/ -> molecules/ -> organisms/ -> templates/ -> pages/`, each tier importing only tiers below it. Folder-per-component (`Component.tsx` + one-line `index.ts` barrel + `Component.stories.tsx` + `Component.ct.tsx`), `forwardRef` + `displayName`, styled exclusively through **semantic design tokens**: `--color-*` CSS variables in `styles/globals.css` (dark on `:root`, light flipped under `.light`), surfaced as **Tailwind 4** utilities via the CSS-first `@theme` block (no `tailwind.config.js`). A thin `ThemeProvider` toggles `.light` only and holds no styles. This is a real component library, not a placeholder: it is the substrate the Milestone 8 component tests exercise.
 - WebSocket push for donation-state and notification events, with a polling fallback (Commitment 11). AsyncAPI schema for the WS protocol committed; drift gated by the AsyncAPI diff tool chosen in Milestone 0.
 - **WS authentication via short-lived ticket.** Client `POST /ws/tickets` (authenticated with JWT) returns a one-time, 30-second `ticket` string stored in identity-service Redis (or in-memory Milestone 5; Redis later). Client opens WS with `Sec-WebSocket-Protocol: ticket.<ticket>`; gateway validates and consumes the ticket before upgrade. Invalid, expired, or replayed tickets fail handshake with 401 RFC 7807. The pattern is chosen over bearer-in-subprotocol because subprotocol headers leak into proxy/server access logs; ticket leak window is ≤30s and one-use. Test: replayed ticket rejected; expired ticket rejected; tampered JWT on `POST /ws/tickets` rejected.
 - Microcks-async mock for the WS schema; Playwright assertions verify the UI under both WS and polling paths.
 - Parity test: every WS event delivered must also be retrievable via the polling endpoint.
-- **Screenplay foundation** (`packages/testing-utils/screenplay/`). Shared Actors, Abilities, Tasks, and Questions over Playwright. The load-bearing design is a single **`PageProvider.getPage()` seam**: `BrowseTheWeb` (wraps a full `Page`) and the Milestone-8 `InteractWithComponent` (wraps a CT mount) both implement it, so every Action/Question touches the browser through `actor.withPageProvider().getPage()` and runs unchanged in E2E or CT. **High-level Tasks must route through `withPageProvider()`, never a concrete ability** — calling `BrowseTheWeb` directly makes a Task E2E-bound and silently breaks the Milestone 8 "same Task, two contexts" promise. Also ships `CallTheApi` and `ConsumeTheStream`. Introduced now because the system-test side needs it first; reused verbatim by Milestone 8 component tests.
-- System tests in `services/web/tests/e2e/` are authored as Screenplay flows whose paths are *generated from the XState model* via `createTestModel(rolloutModel).getShortestPaths({ allowDuplicatePaths: true, serializeState: s => JSON.stringify(s.value) })` for PR CI and `.getSimplePaths(...)` for nightly. `allowDuplicatePaths` is load-bearing — the default dedup drops prefix paths and silently shrinks coverage; the value-only `serializeState` keeps the context-free model from multiplying states. Each path becomes a sequence of Screenplay Tasks performed by an Actor. (`getShortestPathPlans`/`getSimplePathPlans` are the removed XState-v4 API — do not use them.)
+- **Screenplay foundation** (`packages/testing-utils/screenplay/`). Shared Actors, Abilities, Tasks, and Questions over Playwright. The load-bearing design is a single **`PageProvider.getPage()` seam**: `BrowseTheWeb` (wraps a full `Page`) and the Milestone-8 `InteractWithComponent` (wraps a CT mount) both implement it, so every Action/Question touches the browser through `actor.withPageProvider().getPage()` and runs unchanged in E2E or CT. **High-level Tasks must route through `withPageProvider()`, never a concrete ability**: calling `BrowseTheWeb` directly makes a Task E2E-bound and silently breaks the Milestone 8 "same Task, two contexts" promise. Also ships `CallTheApi` and `ConsumeTheStream`. Introduced now because the system-test side needs it first; reused verbatim by Milestone 8 component tests.
+- System tests in `services/web/tests/e2e/` are authored as Screenplay flows whose paths are *generated from the XState model* via `createTestModel(rolloutModel).getShortestPaths({ allowDuplicatePaths: true, serializeState: s => JSON.stringify(s.value) })` for PR CI and `.getSimplePaths(...)` for nightly. `allowDuplicatePaths` is load-bearing: the default dedup drops prefix paths and silently shrinks coverage; the value-only `serializeState` keeps the context-free model from multiplying states. Each path becomes a sequence of Screenplay Tasks performed by an Actor. (`getShortestPathPlans`/`getSimplePathPlans` are the removed XState-v4 API; do not use them.)
 - Microcks deployed to mock the payment provider from its OpenAPI spec.
 - The model-validation test: a single test that runs at the start of any MBT suite and asserts the system's reported initial state matches the model's initial state and every modeled event has a corresponding system endpoint.
 - Tracetest assertion: for every observed `xstate.transition` span, `from`, `to`, and `event` are members of the model's transition graph (reverse conformance). **`xstate.transition` spans are always-sampled** (sampling decision flag set per-span in the instrumentation wrapper) so head-based sampling never drops them. Tail-based sampling can be added later without changing the assertion.
 - **`LamportGate` snapshot atomicity.** `GET /system/snapshot` acquires the gate (no concurrent writes proceed) for the duration of the read, then releases. Snapshot is a consistent view across DB-backed and in-memory models.
 - **MBT path bounds** at `MAX_DEPTH=10` in PR CI; nightly bound `MAX_DEPTH=20`. The generator also asserts a path-count *floor* (not just an upper cap): a model that shrinks below the expected reachable-state count fails CI, so a regression that erases states can't pass silently. Bounds raised later when concrete examples justify.
-- **Stack (pinned, verified 2026-05):** `xstate@5.32`, `@xstate/graph@3.0.4` (pinned exact — the invoke/`after` rejection and traversal options are undocumented internals a minor bump could change), `@xstate/react@6.1`, React + Vite, `tailwindcss@4.3` + `@tailwindcss/vite@4.3`, `@playwright/test@1.60`. Test data uses **fast-check** generators (the repo standard), not a separate factory library.
+- **Stack (pinned, verified 2026-05):** `xstate@5.32`, `@xstate/graph@3.0.4` (pinned exact: the invoke/`after` rejection and traversal options are undocumented internals a minor bump could change), `@xstate/react@6.1`, React + Vite, `tailwindcss@4.3` + `@tailwindcss/vite@4.3`, `@playwright/test@1.60`. Test data uses **fast-check** generators (the repo standard), not a separate factory library.
 - **State-machine custom matchers** ship: `expectStateMachineAt(actor, state)`, `expectTransitionEmitted(span, {from, to, event})`.
 - **WS test matchers** ship: `expectWsEventMatchesPolling(window)`.
 
 **Testing techniques introduced.**
 - Model-based testing (XState + `@xstate/graph` + Playwright + Screenplay)
-- Screenplay pattern as the shared test-authoring discipline (Actors, Abilities, Tasks, Questions) — same primitives later reused by component tests in Milestone 8
+- Screenplay pattern as the shared test-authoring discipline (Actors, Abilities, Tasks, Questions): same primitives later reused by component tests in Milestone 8
 - Reverse conformance via OTel transition spans + Tracetest
 - Service virtualization (Microcks; Microcks-async for WS)
 - The model-validation test (conformance between model and system)
@@ -272,7 +272,7 @@ Milestones are sized to be demonstrable, not to a fixed schedule. A milestone is
 
 ---
 
-## Milestone 6 — Chaos engineering
+## Milestone 6: Chaos engineering
 
 **Goal.** Introduce Chaos Mesh and demonstrate that the system, designed for testability, holds up under realistic failure modes. Each chaos experiment is paired with an assertion about documented failure behavior.
 
@@ -288,7 +288,7 @@ Milestones are sized to be demonstrable, not to a fixed schedule. A milestone is
   6. Litmus HTTPChaos: gateway returns 500 for donations endpoint
   7. NetworkChaos: partition between gateway and donations-service
 - Each experiment has a documented "expected behavior" assertion that the chaos test verifies.
-- **Each experiment ships its own deliberate-bug demo**: remove the documented mitigation (circuit breaker, retry, fallback, dedup, timeout, queue backpressure, partition tolerance) → the matching chaos assertion fails → restore mitigation → green.
+- **Each experiment ships its own deliberate-bug demo**: remove the documented mitigation (circuit breaker, retry, fallback, dedup, timeout, queue backpressure, partition tolerance) -> the matching chaos assertion fails -> restore mitigation -> green.
 - A "failure modes document" (`docs/failure-modes.md`) compiled from these.
 
 **Testing techniques introduced.**
@@ -306,7 +306,7 @@ Milestones are sized to be demonstrable, not to a fixed schedule. A milestone is
 
 ---
 
-## Milestone 7 — Scoped scenario replay
+## Milestone 7: Scoped scenario replay
 
 **Goal.** Build the scenario capture and replay system. Scoped per the architecture: database state + observable state + clock seed only. Documented limits are part of the deliverable, not a footnote.
 
@@ -336,7 +336,7 @@ Milestones are sized to be demonstrable, not to a fixed schedule. A milestone is
 
 ---
 
-## Milestone 8 — Load, mutation, search-based fuzzing, and component testing
+## Milestone 8: Load, mutation, search-based fuzzing, and component testing
 
 **Goal.** Round out the portfolio with the techniques that verify the tests themselves and find what the tests don't. Introduce Storybook-driven component testing for the web frontend.
 
@@ -345,15 +345,15 @@ Milestones are sized to be demonstrable, not to a fixed schedule. A milestone is
 - Stryker mutation testing on the **critical-modules list** (locked in Doc 03 §11): voting score logic, flag resolution, donation gating, RFC 7807 envelope construction, `LamportGate`, branded ID parsers, rate-limit token bucket. Adding a module to the list is an ADR; removing requires a retrospective.
 - EvoMaster v3 (if Milestone 0 spike confirmed feasibility) as a nightly job: outputs test files into `services/<name>/tests/evomaster-generated/` for review and selective commit. If the spike failed, Schemathesis stateful-links runs nightly instead and EvoMaster is dropped.
 - **Storybook + Playwright CT + Screenplay** for the web frontend. Every atomic-design component (atoms/molecules/organisms) has a story. Stories are consumed two ways:
-  - **As the visual showcase + interaction tests** — **Storybook 10** (`@storybook/react-vite`) with `play()` functions (importing `expect`/`userEvent` from `storybook/test`, the consolidated subpath — *not* `@storybook/test`) that run **headlessly in CI via `@storybook/addon-vitest`** (the portable-stories Vitest runner that supersedes the legacy test-runner), with `@storybook/addon-a11y` checks in the same run.
-  - **As Playwright Component Tests.** `composeStories` (from `@storybook/react-vite`) is used to *read* each story's composed `args`/decorators, but the CT **mounts the raw component spread with `story.args`** — a `composeStories()` result cannot be `mount()`-ed in Playwright CT ("Component cannot be mounted", the Node↔browser bundling split). This is the single most important CT pattern; lint forbids the anti-pattern. Each CT mounts in real Chromium, awaits `document.fonts.ready`, then asserts via `toHaveScreenshot` (visual) and/or Screenplay Tasks. Component and system tests share one Screenplay vocabulary; only the Ability binding differs — CT actors get `InteractWithComponent` (wrapping the CT mount), system actors `BrowseTheWeb` — both behind the Milestone-5 `PageProvider.getPage()` seam, so the **same Task source file** runs in both suites.
+  - **As the visual showcase + interaction tests**: **Storybook 10** (`@storybook/react-vite`) with `play()` functions (importing `expect`/`userEvent` from `storybook/test`, the consolidated subpath, *not* `@storybook/test`) that run **headlessly in CI via `@storybook/addon-vitest`** (the portable-stories Vitest runner that supersedes the legacy test-runner), with `@storybook/addon-a11y` checks in the same run.
+  - **As Playwright Component Tests.** `composeStories` (from `@storybook/react-vite`) is used to *read* each story's composed `args`/decorators, but the CT **mounts the raw component spread with `story.args`**: a `composeStories()` result cannot be `mount()`-ed in Playwright CT ("Component cannot be mounted", the Node↔browser bundling split). This is the single most important CT pattern; lint forbids the anti-pattern. Each CT mounts in real Chromium, awaits `document.fonts.ready`, then asserts via `toHaveScreenshot` (visual) and/or Screenplay Tasks. Component and system tests share one Screenplay vocabulary; only the Ability binding differs: CT actors get `InteractWithComponent` (wrapping the CT mount), system actors `BrowseTheWeb`, both behind the Milestone-5 `PageProvider.getPage()` seam, so the **same Task source file** runs in both suites.
   - **Unified coverage:** component-test coverage (Playwright CT instrumented with `vite-plugin-istanbul`, Istanbul) and unit/property coverage (Vitest, V8) are reconciled into one report with `monocart-coverage-reports` (a plain `nyc merge` cannot mix V8 + Istanbul), feeding the same `test-results/summary.json` discipline.
-  - The custom framework lives in `packages/testing-utils/screenplay/` (Milestone 5) + `packages/testing-utils/screenplay-ct/` (this milestone). The framework is the headline deliverable — Storybook and Playwright CT are means, not ends. **Stack (pinned, verified 2026-05):** `storybook@10.4` + `@storybook/addon-vitest@10.4` + `@storybook/addon-a11y@10.4`, `@playwright/experimental-ct-react@1.60` (still "experimental", locked to the exact `@playwright/test` version), `vitest@4.1` (v4 splits suites via `projects`, not the removed `workspace`; re-baseline the coverage gate — V8 remap changed), `monocart-coverage-reports@2.12`, `@axe-core/playwright@4.11`.
+  - The custom framework lives in `packages/testing-utils/screenplay/` (Milestone 5) + `packages/testing-utils/screenplay-ct/` (this milestone). The framework is the headline deliverable: Storybook and Playwright CT are means, not ends. **Stack (pinned, verified 2026-05):** `storybook@10.4` + `@storybook/addon-vitest@10.4` + `@storybook/addon-a11y@10.4`, `@playwright/experimental-ct-react@1.60` (still "experimental", locked to the exact `@playwright/test` version), `vitest@4.1` (v4 splits suites via `projects`, not the removed `workspace`; re-baseline the coverage gate: V8 remap changed), `monocart-coverage-reports@2.12`, `@axe-core/playwright@4.11`.
 
 **Testing techniques introduced.**
 - Load testing against documented SLOs (k6)
 - Mutation testing (Stryker)
-- Search-based fuzzing (EvoMaster v3) — conditional on Milestone 0 spike
+- Search-based fuzzing (EvoMaster v3), conditional on Milestone 0 spike
 - Component testing as Screenplay Tasks against Storybook portable stories (Playwright CT)
 - The custom framework: one Screenplay vocabulary, two Ability bindings (CT and system), shared across component and end-to-end tests
 
@@ -362,7 +362,7 @@ Milestones are sized to be demonstrable, not to a fixed schedule. A milestone is
 - Mutation testing surfaces at least one surviving mutant that leads to a real test improvement.
 - EvoMaster generates at least one test case covering an edge case not previously tested, and the case is committed to the regression catalog. (Or: Schemathesis stateful-links covers an analogous case if EvoMaster was dropped.)
 - Every web component has a Storybook story; a deliberately broken atom (e.g., a button that no longer dispatches its click) is caught by the component-level Screenplay Task asserting the expected Question.
-- A Screenplay Task authored once (e.g., `castVote(post)`) is provably executable in both contexts: as a system test via the system Ability binding, and as a component test via the CT Ability binding. The same Task source file appears in both test suites (proving the `PageProvider` seam holds — the Task touches the browser only through `withPageProvider()`).
+- A Screenplay Task authored once (e.g., `castVote(post)`) is provably executable in both contexts: as a system test via the system Ability binding, and as a component test via the CT Ability binding. The same Task source file appears in both test suites (proving the `PageProvider` seam holds: the Task touches the browser only through `withPageProvider()`).
 - Component tests mount the raw component spread with `story.args` (reading `args` via `composeStories`); a lint rule flags any attempt to `mount()` a `composeStories()` result, which fails at runtime.
 - ADR: "Testing your tests: when to invest in mutation testing and search-based fuzzing."
 - The frontend testing stack (portable stories + Playwright CT + Screenplay + XState MBT, one vocabulary two contexts) is recorded in [ADR-0005](adr/0005-frontend-testing-stack.md).
@@ -373,7 +373,7 @@ Milestones are sized to be demonstrable, not to a fixed schedule. A milestone is
 
 ---
 
-## Milestone 9 — The agentic moderator
+## Milestone 9: The agentic moderator
 
 **Goal.** Demonstrate that the architecture welcomes LLM agents as first-class actors. Introduce a Python LangGraph-based community moderator service that subscribes to NATS events, builds a retrievable knowledge base, and proposes moderation actions. Apply the testing techniques specific to LLM-integrated systems.
 
@@ -382,9 +382,9 @@ Milestones are sized to be demonstrable, not to a fixed schedule. A milestone is
 - Vector store via pgvector in a dedicated Postgres instance.
 - Structured outputs only: every LLM response validated against Pydantic schemas (mirrors the TS Zod shape).
 - The agent's workflow modeled as a LangGraph state machine, with the same `/system/state` and conformance-test contract as every other service.
-- LLM provider: **OpenAI**. Models pinned in config (`gpt-*` family — exact ID locked in the Milestone 9 ADR). `temperature=0`, `seed` parameter set, `response_format={type: json_schema}` for structured outputs. Cost guard: per-eval-run budget cap; CI eval pre-flight estimates token cost and fails if it exceeds the cap.
+- LLM provider: **OpenAI**. Models pinned in config (`gpt-*` family, exact ID locked in the Milestone 9 ADR). `temperature=0`, `seed` parameter set, `response_format={type: json_schema}` for structured outputs. Cost guard: per-eval-run budget cap; CI eval pre-flight estimates token cost and fails if it exceeds the cap.
 - Promptfoo eval harness with a golden set of moderation scenarios; OpenAI as the provider.
-- Metamorphic tests: the agent's moderation decision is invariant under benign paraphrase. **Deliberate-bug demo:** introduce a prompt regression sensitive to one specific phrasing — metamorphic test catches it; non-metamorphic Promptfoo eval misses it.
+- Metamorphic tests: the agent's moderation decision is invariant under benign paraphrase. **Deliberate-bug demo:** introduce a prompt regression sensitive to one specific phrasing: metamorphic test catches it; non-metamorphic Promptfoo eval misses it.
 - **Python NATS dedup story.** The moderator subscribes to NATS but does not own a `@qaroom/messaging` Python sibling. Instead, idempotency is delegated to **LangGraph's checkpointer** (per-thread state, replay-safe). The asymmetry vs TS services is documented in the Milestone 9 ADR as a deliberate scope choice: replicating the full TS dedup machinery in Python costs more than it teaches.
 - OpenTelemetry GenAI semantic conventions on every LLM call.
 
@@ -403,7 +403,7 @@ Milestones are sized to be demonstrable, not to a fixed schedule. A milestone is
 
 **Blog post angle.** *"An LLM agent on rails: how the architecture made it possible to add an AI feature without rethinking anything."*
 
-**Risk and mitigation.** Risk: this is genuinely the most complex milestone and the most novel territory. Mitigation: scope reductions if needed — the agent only needs to demonstrate one workflow (auto-flag posts that violate documented community rules), not be a full moderator.
+**Risk and mitigation.** Risk: this is genuinely the most complex milestone and the most novel territory. Mitigation: scope reductions if needed: the agent only needs to demonstrate one workflow (auto-flag posts that violate documented community rules), not be a full moderator.
 
 ---
 
@@ -411,24 +411,24 @@ Milestones are sized to be demonstrable, not to a fixed schedule. A milestone is
 
 Milestones beyond 9 are deliberately uncommitted. Candidate follow-ups, in rough order of interest:
 
-- **Milestone 10: The tested MCP server, and the agentic CI/CD demonstration.** Two movements. (1) A single **cross-service MCP server** (`packages/qaroom-mcp`) realizing the `/system/capabilities` seam as a *first-class tested service* — tool manifest drift-gated by the same Zod→OpenAPI→`oasdiff` pipeline as the services, RFC 7807 tool errors, determinism-trio golden transcripts, and property/metamorphic tool I/O. Read-first surface (capabilities proxy, state/limits/test-results resources, conventions oracle); mutating tools a second pass. The four gates and rejected alternatives are recorded in [ADR-0006](adr/0006-mcp-as-tested-service.md). (2) 10 parallel Claude Code subagents working on goals, each in its own ephemeral namespace, consuming that tested tool surface and the frozen `test-results/summary.json` schema as substrate. The server core depends only on Milestone-1 surfaces, so it *could* be pulled forward — but on dev-velocity grounds it does not yet earn its place (ADR-0006), which is why it sits here.
-- **Milestone 11: Webhooks** with their unique testing problems (delivery guarantees, retry contracts). **Built** — full spec below; [ADR-0019](adr/0019-webhooks-as-a-tested-delivery-edge.md).
-- **Milestone 12: Moderator v2 — retrieval-grounded RAG + the eval / red-team stack.** Re-scope the Milestone 9 moderator from a prompt-baked classifier into a genuine retrieval-grounded agent (policy corpus, citation-bearing verdict, precedent consistency, abstain/escalate) and realign LLM testing: **DeepEval** (RAG + agentic + custom metrics), **DeepTeam** (OWASP red-team), **Promptfoo dropped** (OpenAI-acquired, March 2026). RAGAS demonstrated via DeepEval's wrapper, not adopted as a separate framework. **Built** — full spec below; [ADR-0020](adr/0020-moderator-rag-and-eval-stack.md).
-- **Milestone 13: Continuous testing in production** — feature flags as the canary substrate. **Deferred** — parked, not currently planned.
-- **Milestone 14: Visual regression and accessibility testing** — for the frontend. **Deferred** — parked, not currently planned.
+- **Milestone 10: The tested MCP server, and the agentic CI/CD demonstration.** Two movements. (1) A single **cross-service MCP server** (`packages/qaroom-mcp`) realizing the `/system/capabilities` seam as a *first-class tested service*: tool manifest drift-gated by the same Zod->OpenAPI->`oasdiff` pipeline as the services, RFC 7807 tool errors, determinism-trio golden transcripts, and property/metamorphic tool I/O. Read-first surface (capabilities proxy, state/limits/test-results resources, conventions oracle); mutating tools a second pass. The four gates and rejected alternatives are recorded in [ADR-0006](adr/0006-mcp-as-tested-service.md). (2) 10 parallel Claude Code subagents working on goals, each in its own ephemeral namespace, consuming that tested tool surface and the frozen `test-results/summary.json` schema as substrate. The server core depends only on Milestone-1 surfaces, so it *could* be pulled forward, but on dev-velocity grounds it does not yet earn its place (ADR-0006), which is why it sits here.
+- **Milestone 11: Webhooks** with their unique testing problems (delivery guarantees, retry contracts). **Built**: full spec below; [ADR-0019](adr/0019-webhooks-as-a-tested-delivery-edge.md).
+- **Milestone 12: Moderator v2, retrieval-grounded RAG + the eval / red-team stack.** Re-scope the Milestone 9 moderator from a prompt-baked classifier into a genuine retrieval-grounded agent (policy corpus, citation-bearing verdict, precedent consistency, abstain/escalate) and realign LLM testing: **DeepEval** (RAG + agentic + custom metrics), **DeepTeam** (OWASP red-team), **Promptfoo dropped** (OpenAI-acquired, March 2026). RAGAS demonstrated via DeepEval's wrapper, not adopted as a separate framework. **Built**: full spec below; [ADR-0020](adr/0020-moderator-rag-and-eval-stack.md).
+- **Milestone 13: Continuous testing in production**: feature flags as the canary substrate. **Deferred**: parked, not currently planned.
+- **Milestone 14: Visual regression and accessibility testing**: for the frontend. **Deferred**: parked, not currently planned.
 
 These are future series. The v1 commitment ends with Milestone 9.
 
 ---
 
-## Milestone 11 — Webhooks
+## Milestone 11: Webhooks
 
 Post-v1, additive. The architecture left a "designed-for-later" seam for webhooks
-(docs/02-architecture.md); this milestone realizes it. No superseding ADR for ADR-0001 is needed —
+(docs/02-architecture.md); this milestone realizes it. No superseding ADR for ADR-0001 is needed:
 webhooks consume the existing event seam and add no new commitment ([ADR-0019](adr/0019-webhooks-as-a-tested-delivery-edge.md)).
 
-**Goal.** Build the outbound-delivery edge — QARoom's five domain events delivered to external
-subscribers — and demonstrate the testing techniques unique to delivery systems: **at-least-once
+**Goal.** Build the outbound-delivery edge (QARoom's five domain events delivered to external
+subscribers) and demonstrate the testing techniques unique to delivery systems: **at-least-once
 delivery guarantees** and the **retry/backoff contract**, the two problems the roadmap named.
 
 **Scope (built).**
@@ -440,7 +440,7 @@ delivery guarantees** and the **retry/backoff contract**, the two problems the r
 - Delivery engine: a durable fan-out consumer writing one `webhook_deliveries` row per
   (subscription × event), and a relay-shaped worker that signs, POSTs, and retries on the
   deterministic backoff or dead-letters.
-- A hand-authored **webhook-delivery XState machine** (Pending → Delivering → Delivered | Retrying →
+- A hand-authored **webhook-delivery XState machine** (Pending -> Delivering -> Delivered | Retrying ->
   DeadLettered) with reverse-conformance, MBT, and the runner-emitted `xstate.transition` spans.
 - A deterministic, capped, full-jittered **retry contract** (`nextBackoff`), HMAC-SHA256 signing with
   the timestamp bound in (replay defense), and an **SSRF guard** on delivery URLs.
@@ -451,7 +451,7 @@ delivery guarantees** and the **retry/backoff contract**, the two problems the r
   Delivered implies the receiver returned 2xx (a flaky receiver double + FakeClock, no sleeping).
 - Retry-contract property testing: an exponential, capped, seed-determined schedule, asserted as a
   pure function.
-- Receiver-idempotency testing: at-least-once → exactly-once-effects via a stable delivery id.
+- Receiver-idempotency testing: at-least-once -> exactly-once-effects via a stable delivery id.
 - HMAC signature + replay-window property testing.
 - SSRF-guard property testing (every private/loopback/link-local target rejected).
 - A message-pact for the **outbound payload** (QARoom as *provider*, the receiver as *consumer*),
@@ -484,17 +484,17 @@ Milestone 5 XState / reverse-conformance discipline, and the Milestone 1 Schemat
 
 ---
 
-## Milestone 12 — Moderator v2: retrieval-grounded RAG + the eval / red-team stack
+## Milestone 12: Moderator v2: retrieval-grounded RAG + the eval / red-team stack
 
 Post-v1, built. Re-scopes the Milestone 9 moderator from a prompt-baked classifier into a genuine retrieval-grounded RAG agent, and realigns the LLM-testing stack. Recorded in [ADR-0020](adr/0020-moderator-rag-and-eval-stack.md) (Accepted); supersedes ADR-0017's tool choices and extends ADR-0018. Does **not** modify any ADR-0001 commitment.
 
-**Goal.** Make retrieval *load-bearing* so retrieval quality and agentic behaviour become first-class testable surfaces — then demonstrate RAG, RAG-evaluation, agentic-evaluation, and LLM red-teaming as distinct techniques. Honest framing: a demonstration re-scope, not product necessity; the functional upgrades are genuine improvements, so the tools follow the requirements rather than the reverse.
+**Goal.** Make retrieval *load-bearing* so retrieval quality and agentic behaviour become first-class testable surfaces, then demonstrate RAG, RAG-evaluation, agentic-evaluation, and LLM red-teaming as distinct techniques. Honest framing: a demonstration re-scope, not product necessity; the functional upgrades are genuine improvements, so the tools follow the requirements rather than the reverse.
 
 **Scope (built).**
 - **Retrieval-grounded moderator (FR1–FR6).** Per-community policy corpus (rules + escalation guidelines + prior decisions) embedded in `pgvector`; retrieve-then-reason; citation-bearing verdict (`cited_rules[]`, `precedents[]`, `rationale`); precedent consistency (or an explicit `departs_from_precedent` flag); abstain/escalate on low retrieval confidence or conflicting rules; observable LangGraph trajectory. The structured-output contract extends with `disposition ∈ {approve, remove, escalate_to_human}`.
-- **DeepEval — single CI eval harness.** Native RAG metrics (faithfulness, contextual precision / recall / relevancy), agentic metrics (task completion, tool correctness, trajectory), and custom G-Eval metrics (precedent-consistency, calibration). Pytest-native, vendor-neutral judge. RAGAS is *not* adopted separately — its metrics are demonstrated via DeepEval's `RAGASMetric` wrapper in one named eval.
-- **DeepTeam — red-team.** `model_callback` wraps the moderator; OWASP LLM Top 10; headline target is **prompt-injection-in-post-body** (untrusted content flowing to the LLM). PyRIT optional nightly for multi-turn depth.
-- **Promptfoo dropped** — OpenAI acquired it (March 2026), realizing the conflict ADR-0017 flagged. `summary.json`: the `promptfoo` runner is replaced by `deepeval` + `deepteam` runners (frozen envelope untouched).
+- **DeepEval: single CI eval harness.** Native RAG metrics (faithfulness, contextual precision / recall / relevancy), agentic metrics (task completion, tool correctness, trajectory), and custom G-Eval metrics (precedent-consistency, calibration). Pytest-native, vendor-neutral judge. RAGAS is *not* adopted separately: its metrics are demonstrated via DeepEval's `RAGASMetric` wrapper in one named eval.
+- **DeepTeam: red-team.** `model_callback` wraps the moderator; OWASP LLM Top 10; headline target is **prompt-injection-in-post-body** (untrusted content flowing to the LLM). PyRIT optional nightly for multi-turn depth.
+- **Promptfoo dropped**: OpenAI acquired it (March 2026), realizing the conflict ADR-0017 flagged. `summary.json`: the `promptfoo` runner is replaced by `deepeval` + `deepteam` runners (frozen envelope untouched).
 - Metamorphic paraphrase-invariance and LangGraph reverse-conformance are retained (ADR-0017).
 
 **Testing techniques introduced.**
@@ -504,14 +504,14 @@ Post-v1, built. Re-scopes the Milestone 9 moderator from a prompt-baked classifi
 - LLM red-teaming (OWASP LLM Top 10) via DeepTeam.
 
 **Exit criteria (met).**
-- A planted hallucinated-policy regression is caught by the faithfulness metric and *missed* by a non-grounded eval — demonstrating why grounding matters.
+- A planted hallucinated-policy regression is caught by the faithfulness metric and *missed* by a non-grounded eval, demonstrating why grounding matters.
 - Retrieval precision/recall is gated in CI; a corpus-retrieval regression fails the gate.
 - The abstain path fires on a low-confidence / conflicting-rules case (calibration metric green).
 - A prompt-injection-in-post-body attack is caught by DeepTeam; removing the input-guard mitigation breaks it.
 - `deepeval` + `deepteam` runners land in `summary.json` with no schema change, key-gated + cost-guarded.
 - ADR-0020 committed.
 
-**Blog post angle.** *"Eval the model, red-team the agent: testing a retrieval-grounded moderator with DeepEval + DeepTeam — and why RAGAS didn't earn a separate seat."*
+**Blog post angle.** *"Eval the model, red-team the agent: testing a retrieval-grounded moderator with DeepEval + DeepTeam, and why RAGAS didn't earn a separate seat."*
 
 **Dependencies.** Extends the Milestone 9 moderator (LangGraph / pgvector / OpenAI), the metamorphic + reverse-conformance discipline (ADR-0017), and the `summary.json` runner-fold mechanism (Commitment 14).
 

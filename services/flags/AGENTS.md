@@ -11,7 +11,7 @@ first; this service follows the content-service template.
 |---|---|---|---|
 | GET | `/api/communities/{communityId}/flags/{flagKey}` | `resolveFlag` | rollout `state` + gating `enabled`; carries `as_of` |
 | GET | `/api/communities/{communityId}/flags` | `listFlags` | every resolved flag; carries `as_of` |
-| POST | `/api/communities/{communityId}/flags/{flagKey}/rollout` | `advanceRollout` | mutating; `Idempotency-Key`; 409 on an illegal transition; OAS `links`→resolveFlag |
+| POST | `/api/communities/{communityId}/flags/{flagKey}/rollout` | `advanceRollout` | mutating; `Idempotency-Key`; 409 on an illegal transition; OAS `links`->resolveFlag |
 | GET | `/system/state` | `getSystemState` | observable state + `as_of` (Commitment 7) |
 | GET | `/system/capabilities` | `getSystemCapabilities` | MCP-tool-shaped (Commitment 7) |
 
@@ -20,13 +20,13 @@ first; this service follows the content-service template.
 - **Rollout machine:** `@qaroom/contracts` `machines/rollout.machine.ts` (invoke-free, context-free)
   + `rollout.runner.ts` (`applyRolloutEvent`). The machine, not the handler, decides legality.
 - **Schemas:** `@qaroom/contracts` (`FlagResolution`, `AdvanceRolloutRequest`, `FlagStateChangedEvent`).
-- **Operation registry:** `src/operations.ts` — single source feeding `openapi.yaml`, `/system/capabilities`, and the completeness test.
+- **Operation registry:** `src/operations.ts`: single source feeding `openapi.yaml`, `/system/capabilities`, and the completeness test.
 - **Persistence:** `src/db/schema.ts` (one row per `(community_id, flag_key)`) + `src/db/migrate.ts`.
-- **Repository:** `src/repository.ts` — advisory lock + `FOR UPDATE`, transactional outbox, LamportGate bump.
+- **Repository:** `src/repository.ts`: advisory lock + `FOR UPDATE`, transactional outbox, LamportGate bump.
 
 ## Conventions enforced here
 
-- A rollout transition emits an always-sampled `xstate.transition` span (from/to/event) **after** commit — the reverse-conformance substrate (ADR-0012).
+- A rollout transition emits an always-sampled `xstate.transition` span (from/to/event) **after** commit: the reverse-conformance substrate (ADR-0012).
 - The published `flag.state.changed` event uses the `subjects.ts` builder; `community_id` is at the fixed third subject position.
 - Mutations carry `Idempotency-Key` and declare OAS `links`; `enabled` is derived only via `rolloutEnabled` (state === `Enabled`).
 

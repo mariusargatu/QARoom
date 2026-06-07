@@ -1,4 +1,4 @@
-# QARoom — Testing Strategy
+# QARoom: Testing Strategy
 
 This document is the keystone of the project. The architecture exists to enable this strategy; the strategy exists because the architecture was designed to admit it. Reading this document standalone should tell you what we test, where we test it, why we test it that way, and what we deliberately do not test.
 
@@ -19,13 +19,13 @@ This document is the keystone of the project. The architecture exists to enable 
 
 ## 2. The complexity constraint
 
-QARoom resists feature richness. Every architectural element — every service, table, endpoint, abstraction — exists because without it, a specific testing demonstration would be impossible or unconvincing. When the project tempts toward adding behavior "for realism," the question is asked: *does this enable a testing technique we haven't demonstrated yet?* If no, it is cut.
+QARoom resists feature richness. Every architectural element (every service, table, endpoint, abstraction) exists because without it, a specific testing demonstration would be impossible or unconvincing. When the project tempts toward adding behavior "for realism," the question is asked: *does this enable a testing technique we haven't demonstrated yet?* If no, it is cut.
 
 Specific exclusions:
-- Comment threading beyond one level — adds no testing surface, removed.
-- Multiple feature flags beyond donations — adds combinatorial complexity without new technique, removed.
-- Multiple user roles beyond owner/member — adds no isolation surface that two roles don't cover, removed.
-- A migration narrative parallel to the donations rollout — doubles the state machine surface for one extra demonstration, deferred to a future series.
+- Comment threading beyond one level: adds no testing surface, removed.
+- Multiple feature flags beyond donations: adds combinatorial complexity without new technique, removed.
+- Multiple user roles beyond owner/member: adds no isolation surface that two roles don't cover, removed.
+- A migration narrative parallel to the donations rollout: doubles the state machine surface for one extra demonstration, deferred to a future series.
 
 This constraint is a contract with the reader: when they encounter complexity in QARoom, they can trust it earns its place.
 
@@ -39,7 +39,7 @@ The strategy is optimized for *teaching clarity*, not for *catching the maximum 
 - Tools that demonstrate distinct philosophies beat tools that incrementally improve coverage.
 - Honest documentation of what each technique misses beats the appearance of completeness.
 
-The risk this strategy is most exposed to is **technique-overlap confusion** — two tools that both generate API calls (Pact, Schemathesis) without clear delineation will read as redundant. The mitigation is the per-tool "what this catches that nothing else does" framing, applied ruthlessly throughout.
+The risk this strategy is most exposed to is **technique-overlap confusion**: two tools that both generate API calls (Pact, Schemathesis) without clear delineation will read as redundant. The mitigation is the per-tool "what this catches that nothing else does" framing, applied ruthlessly throughout.
 
 ## 4. The portfolio: layers and their unique value
 
@@ -71,23 +71,23 @@ This is the central artifact of the strategy. Every architectural boundary in QA
 
 | Boundary | Where it lives in QARoom | Technique that defends it | What that technique catches uniquely |
 |---|---|---|---|
-| **Trust boundary** | Client → gateway | Schemathesis fuzzing + RFC 7807 conformance test | Server crashes on malformed input; spec-violating error responses |
+| **Trust boundary** | Client -> gateway | Schemathesis fuzzing + RFC 7807 conformance test | Server crashes on malformed input; spec-violating error responses |
 | **Process boundary (REST)** | gateway ↔ each backend service | Pact v4 + Schemathesis on the provider side | Consumer-perceived contract breakage; spec-violating provider behavior |
 | **Process boundary (async)** | content-service emits, flags-service / future moderator consume | Pact v4 message contracts + OTel trace propagation tests | Message shape drift between publisher and subscriber |
 | **Tenancy boundary** | Community A's data vs Community B's data | fast-check generated operation sequences, asserting no cross-tenant leakage | Isolation bugs the developer never wrote an example for |
 | **Temporal boundary** | Donation rollout state transitions | XState model + @xstate/graph + Playwright MBT | Mid-transition bugs (e.g., request arrives during state change) |
 | **External dependency boundary** | donations-service ↔ payment provider (Microcks-mocked) | Strict Zod schema validation + Chaos Mesh / Litmus HTTPChaos | Behavior when external service is slow, returning errors, or returning unexpected shapes |
 | **Observability boundary** | What traces show vs what the system did | Tracetest assertions on trace structure | Unexpected service calls; missing spans; silent degradation that "works" but does extra work |
-| **WebSocket boundary** | Server → client push (notifications, live feed) | AsyncAPI schema + Microcks-async mock + Playwright WS assertions; parity test against polling endpoint | Drift between WS events and the polling-fallback view; protocol-level shape regressions |
+| **WebSocket boundary** | Server -> client push (notifications, live feed) | AsyncAPI schema + Microcks-async mock + Playwright WS assertions; parity test against polling endpoint | Drift between WS events and the polling-fallback view; protocol-level shape regressions |
 | **Identity issuance boundary** | identity-service issues JWT consumed by gateway and downstream | JWT property tests (issuance, validation, kid lookup, expiry, revocation); contract test for `JWKS` endpoint | Signing-key rotation drift; kid mismatches; expired-token acceptance |
 
 Three of these mappings deserve particular emphasis:
 
-**The tenancy boundary is the property-based testing crown jewel.** Multi-tenant systems have one categorical bug — cross-tenant leakage — that example-based tests will rarely catch and that, in production, is catastrophic. fast-check generating arbitrary operation sequences across multiple tenants and asserting "no read from tenant A returns data created by tenant B" is the only technique that catches this class systematically. Milestone 2 demonstrates exactly this.
+**The tenancy boundary is the property-based testing crown jewel.** Multi-tenant systems have one categorical bug, cross-tenant leakage, that example-based tests will rarely catch and that, in production, is catastrophic. fast-check generating arbitrary operation sequences across multiple tenants and asserting "no read from tenant A returns data created by tenant B" is the only technique that catches this class systematically. Milestone 2 demonstrates exactly this.
 
 **The temporal boundary is the model-based testing crown jewel.** A donation request that arrives in the middle of a flag transition has nondeterministic outcomes that no example-based test will exhaustively cover. The XState model enumerates valid states; @xstate/graph enumerates paths through them; Playwright drives the UI through each path and asserts the documented observable behavior at each state. Milestone 5 demonstrates this.
 
-**Reverse conformance** — the guarantee that the running system never enters a state outside the model — is enforced separately from path-based MBT. Every XState actor emits an OpenTelemetry span (`xstate.transition`, attributes: `from`, `to`, `event`, `actor`) on every transition. The instrumentation wrapper lives in `packages/contracts/instrumentation/` and is the only entry point through which actors are created in production code. A Tracetest assertion in CI verifies that for every observed transition span, both `from` and `to` belong to the model's `states` set and `(from, event, to)` is a legal transition in the model. Drift between code and model is detected by a tracing-time check, not by an assumed correspondence.
+**Reverse conformance**, the guarantee that the running system never enters a state outside the model, is enforced separately from path-based MBT. Every XState actor emits an OpenTelemetry span (`xstate.transition`, attributes: `from`, `to`, `event`, `actor`) on every transition. The instrumentation wrapper lives in `packages/contracts/instrumentation/` and is the only entry point through which actors are created in production code. A Tracetest assertion in CI verifies that for every observed transition span, both `from` and `to` belong to the model's `states` set and `(from, event, to)` is a legal transition in the model. Drift between code and model is detected by a tracing-time check, not by an assumed correspondence.
 
 **The observability boundary is the secret weapon.** Most teams use OpenTelemetry as a debugging aid. QARoom uses it as a *testing surface*: Tracetest asserts on the structure of traces, catching bugs where the system "works" by external API standards but is doing something wrong internally (calling a service it shouldn't, in an order it shouldn't, with spans missing). This is the demonstration that the OTel investment pays off in testing, not just in debugging.
 
@@ -120,24 +120,24 @@ Four tools touch the API contract, and the single biggest teaching risk (§3) is
 | Tool | Direction of agreement | Catches uniquely | Deliberately does **not** check |
 |---|---|---|---|
 | **Pact v4** | consumer ↔ *real* provider | breakage of behaviour the consumer actually depends on; consumer evolution | shapes no consumer uses; crashes; whether the provider's *published spec* agrees |
-| **Pact ↔ OpenAPI cross-check** | pact ↔ *published* OpenAPI (shape) | a path/method/status/response-shape the consumer relies on that the spec never documents — drift between the pact and the published contract | example **values** (two valid ULIDs both pass); runtime behaviour |
+| **Pact ↔ OpenAPI cross-check** | pact ↔ *published* OpenAPI (shape) | a path/method/status/response-shape the consumer relies on that the spec never documents: drift between the pact and the published contract | example **values** (two valid ULIDs both pass); runtime behaviour |
 | **`oasdiff`** | OpenAPI *was* ↔ OpenAPI *now* | undeclared breaking changes to the published contract over time | whether the contract matches the running code |
 | **Schemathesis** | OpenAPI ↔ *running* implementation | 5xx/crashes and spec-violating responses on edge inputs; **stateful** link sequences (`--phases stateful` follows OAS `links`) | bugs requiring domain knowledge to trigger |
 
-The cross-check is the one most easily mistaken for Pact or Schemathesis: it reads neither the running provider (Pact does) nor the implementation (Schemathesis does) — only the *static* pact against the *static* published spec. It is the cheapest of the four and the one that catches "the consumer expects something the spec forgot to document."
+The cross-check is the one most easily mistaken for Pact or Schemathesis: it reads neither the running provider (Pact does) nor the implementation (Schemathesis does): only the *static* pact against the *static* published spec. It is the cheapest of the four and the one that catches "the consumer expects something the spec forgot to document."
 
 ### What we are honest about
 
 Bidirectional verification has a cost. Adding a field to a donation request requires editing: the Zod schema, the consumer Pact test, the handler code, the OpenAPI is regenerated (and diff-reviewed), the XState model if the field affects flow, and possibly the snapshot schema. Each edit is small. The discipline is real.
 
-We accept this cost because the alternative — silent drift — destroys the entire value of having tests. The strategy doc is explicit about this trade.
+We accept this cost because the alternative, silent drift, destroys the entire value of having tests. The strategy doc is explicit about this trade.
 
 ### What we explicitly reject
 
 - **Snapshot tests** (`toMatchSnapshot()`, `--update-snapshots` workflows). They are a developer convenience that makes drift invisible. If they appear, they must be hand-authored and justified per test.
 - **Generated-only contracts.** Any contract that is generated from code with no independent second source is forbidden. There is always a Pact, a frozen spec, or a property test backing it up.
 
-## 7. Determinism and observability — the strategy preconditions
+## 7. Determinism and observability: the strategy preconditions
 
 Several techniques in the portfolio require system properties that don't come for free. The strategy depends on them and names them explicitly.
 
@@ -149,24 +149,24 @@ QARoom distinguishes two layers of time and three sources of non-determinism. Ea
 |---|---|---|
 | Logical time (business TTLs, expiries, machine timers) | Logical | Injected `Clock`; production = real, tests = `FakeClock` advanced explicitly |
 | OS wall clock (chaos perturbation, OTel timestamps) | OS | `TimeChaos` perturbs OS time; the **chaos manifest** (YAML) is captured into the snapshot so a replay can reapply it verbatim |
-| UUIDs / IDs | — | Injected `IdGenerator`; tests use seeded deterministic sequences |
-| Randomness (e.g., flag rollout sampling) | — | Injected `Randomness`; tests use seeded PRNG |
-| HTTP timing | — | Toxiproxy or Chaos Mesh adds controlled latency, not OS-scheduled |
-| Async ordering | — | Single-writer-per-resource; HTTP `Idempotency-Key`; async `Nats-Msg-Id` + `processed_events` dedup (Commitment 17) |
-| Database | — | Postgres `random()` seeded per session; no auto-vacuum noise in tests |
-| External services | — | Microcks deterministic responses keyed by request content |
-| Message broker | — | NATS JetStream with deterministic consumer groups |
+| UUIDs / IDs | - | Injected `IdGenerator`; tests use seeded deterministic sequences |
+| Randomness (e.g., flag rollout sampling) | - | Injected `Randomness`; tests use seeded PRNG |
+| HTTP timing | - | Toxiproxy or Chaos Mesh adds controlled latency, not OS-scheduled |
+| Async ordering | - | Single-writer-per-resource; HTTP `Idempotency-Key`; async `Nats-Msg-Id` + `processed_events` dedup (Commitment 17) |
+| Database | - | Postgres `random()` seeded per session; no auto-vacuum noise in tests |
+| External services | - | Microcks deterministic responses keyed by request content |
+| Message broker | - | NATS JetStream with deterministic consumer groups |
 
 **Business logic reads only the injected `Clock`.** OS wall time is reserved for chaos and for OTel span timestamps; production code never observes it directly. Chaos runs remain replayable because the chaos manifest (the TimeChaos config: targets, skew direction, magnitude, duration) is part of the snapshot artifact (see Commitment 8); a replay reapplies the manifest against a fresh cluster.
 
-**Leakage of non-determinism is treated as a P0 defect.** A direct `new Date()` call in business code, a `Math.random()` outside the `Randomness` interface, an unseeded UUID generation — these are bugs, not stylistic issues. They are caught by lint rules in Milestone 0.
+**Leakage of non-determinism is treated as a P0 defect.** A direct `new Date()` call in business code, a `Math.random()` outside the `Randomness` interface, an unseeded UUID generation: these are bugs, not stylistic issues. They are caught by lint rules in Milestone 0.
 
 ### Observability contract
 
 Every service must expose:
-- `GET /system/state` — the current state of every model the service runs (XState machines, internal counters, etc.) in structured JSON. Every response wraps the payload in an `as_of: {snapshot_id, lamport, wall_clock}` envelope, read at Postgres `REPEATABLE READ` isolation. MBT and Tracetest assertions pin reads against `snapshot_id` so concurrent transitions do not flake the test.
-- `GET /system/capabilities` — operations the service exposes, in MCP-tool-shaped JSON Schema
-- `GET /system/snapshot` and `POST /system/snapshot` — scoped scenario capture and restore (bundle includes DB state, observable state, clock seed, lamport value, *and* any active chaos manifests; format versioned via `manifest.json` with `schema_version`)
+- `GET /system/state`: the current state of every model the service runs (XState machines, internal counters, etc.) in structured JSON. Every response wraps the payload in an `as_of: {snapshot_id, lamport, wall_clock}` envelope, read at Postgres `REPEATABLE READ` isolation. MBT and Tracetest assertions pin reads against `snapshot_id` so concurrent transitions do not flake the test.
+- `GET /system/capabilities`: operations the service exposes, in MCP-tool-shaped JSON Schema
+- `GET /system/snapshot` and `POST /system/snapshot`: scoped scenario capture and restore (bundle includes DB state, observable state, clock seed, lamport value, *and* any active chaos manifests; format versioned via `manifest.json` with `schema_version`)
 - OpenTelemetry traces on every request, with `tenant.id` attribute on every span; `xstate.transition` spans for every state-machine transition
 - RFC 7807 Problem Details for every non-2xx response
 
@@ -186,24 +186,24 @@ When tests run determines what they catch and what they cost. The strategy assig
 | **Nightly** | Unbounded | < 5% | Above + Schemathesis broad + EvoMaster v6 + chaos experiments + Stryker on critical modules |
 | **Weekly** | Unbounded | n/a | Above + Stryker full + Promptfoo evals *(Milestone 9)* |
 
-**Flake budgets are intentional and emulate a real project.** Pre-commit and on-save use the developer machine and tolerate zero / < 0.5% because the loop is tight; CI loops carry small but realistic budgets to reflect KinD spin-up, shared-runner contention, and Testcontainers warm-up — sources of flake that no amount of test-code discipline will fully eliminate. A test that flakes more than its layer's budget is quarantined (skipped with a tracking issue) and treated as a bug — non-determinism (P0), an unreachable external service (wrong layer), or a layer-mismatch problem.
+**Flake budgets are intentional and emulate a real project.** Pre-commit and on-save use the developer machine and tolerate zero / < 0.5% because the loop is tight; CI loops carry small but realistic budgets to reflect KinD spin-up, shared-runner contention, and Testcontainers warm-up: sources of flake that no amount of test-code discipline will fully eliminate. A test that flakes more than its layer's budget is quarantined (skipped with a tracking issue) and treated as a bug: non-determinism (P0), an unreachable external service (wrong layer), or a layer-mismatch problem.
 
 ### How failures are localized
 
 Each layer is designed so that a failure points to a specific cause:
 
-- A failing unit test → broken business logic in a known function
-- A failing property test → an invariant violated; the counter-example *and* the seed are included in the output (replay via `VITEST_SEED=<n>`)
-- A failing contract test → consumer and provider disagree; the disagreeing interaction is named
-- A failing component test → the Storybook story name + the Screenplay Task that failed + the assertion Question
-- A failing MBT path → the state transition the system failed to honor; the path itself is the trace
-- A failing Tracetest assertion → the trace span that violated the assertion; the trace ID is in the output
-- A failing reverse-conformance assertion → the off-model `xstate.transition` span with its `from`, `to`, `event` attributes
-- A failing WS protocol test → the AsyncAPI operation that drifted from the WS event observed; parity test names the polling endpoint that disagreed
-- A failing idempotency property → the duplicate-key sequence that produced divergent state
-- A failing rate-limit property → the input distribution that breached or under-counted
-- A failing chaos experiment → the documented failure mode that did not hold; the chaos manifest is in the output for replay
-- A failing async dedup property → the duplicate-`Nats-Msg-Id` sequence and the consumer that double-applied
+- A failing unit test -> broken business logic in a known function
+- A failing property test -> an invariant violated; the counter-example *and* the seed are included in the output (replay via `VITEST_SEED=<n>`)
+- A failing contract test -> consumer and provider disagree; the disagreeing interaction is named
+- A failing component test -> the Storybook story name + the Screenplay Task that failed + the assertion Question
+- A failing MBT path -> the state transition the system failed to honor; the path itself is the trace
+- A failing Tracetest assertion -> the trace span that violated the assertion; the trace ID is in the output
+- A failing reverse-conformance assertion -> the off-model `xstate.transition` span with its `from`, `to`, `event` attributes
+- A failing WS protocol test -> the AsyncAPI operation that drifted from the WS event observed; parity test names the polling endpoint that disagreed
+- A failing idempotency property -> the duplicate-key sequence that produced divergent state
+- A failing rate-limit property -> the input distribution that breached or under-counted
+- A failing chaos experiment -> the documented failure mode that did not hold; the chaos manifest is in the output for replay
+- A failing async dedup property -> the duplicate-`Nats-Msg-Id` sequence and the consumer that double-applied
 
 If a layer's failures don't localize, that layer is failing as a testing technique even when it's catching bugs. The strategy is to fix the layer, not to live with the lack of signal.
 
@@ -220,7 +220,7 @@ packages/
     generators/           # fast-check arbitraries for QARoom domain types
     harness/              # Test setup: containers, clock control, ID seeding
     matchers/             # Custom Vitest matchers (e.g., expectRFC7807, expectStateMachineAt)
-    screenplay/           # Actors, Abilities, Tasks, Questions — shared vocabulary
+    screenplay/           # Actors, Abilities, Tasks, Questions: shared vocabulary
     screenplay-system/    # Ability bindings for Playwright system tests (BrowseTheWeb, CallTheApi, ConsumeTheStream)
     screenplay-ct/        # Ability bindings for Playwright CT (BrowseTheStory) + Storybook portable-story helpers
     contract-crosscheck/  # Pact ↔ OpenAPI thin wrapper (Milestone 1)
@@ -246,7 +246,7 @@ These conventions are enforced by lint rules, not by review.
 
 The strategy itself evolves. Each milestone post includes a retrospective: what did the techniques catch, what did they miss, what was the cost, what would we do differently. These retrospectives accumulate in `docs/retrospectives/` and inform the next milestone.
 
-Retrospectives are *composed*, not freshly written. The raw material is `docs/journey/` — the per-decision journey log captured at the moment things happened, via the `journey-log` skill. The skill spec and templates live in `.claude/skills/journey-log/`. The journey log is also the source for LinkedIn threads and the long-form blog posts that ship with each milestone.
+Retrospectives are *composed*, not freshly written. The raw material is `docs/journey/`: the per-decision journey log captured at the moment things happened, via the `journey-log` skill. The skill spec and templates live in `.claude/skills/journey-log/`. The journey log is also the source for LinkedIn threads and the long-form blog posts that ship with each milestone.
 
 Specific metrics tracked:
 - **Layer-by-layer bug counts.** When a bug surfaces, which layer caught it? Which layers should have but didn't?
@@ -273,7 +273,7 @@ These are silent omissions in most projects. In QARoom they are explicit, becaus
 
 ## 12. Service-level objectives (demo-grade)
 
-QARoom is a demo product, not a production service. The SLOs below are *sensible* — they are real enough that load tests have a target, and lax enough that the demo can run on a laptop.
+QARoom is a demo product, not a production service. The SLOs below are *sensible*: they are real enough that load tests have a target, and lax enough that the demo can run on a laptop.
 
 | Endpoint | Latency (p50 / p95 / p99) | Error rate | Availability |
 |---|---|---|---|
@@ -296,14 +296,14 @@ For navigation back:
 
 | Strategy concern | Architectural commitment that enables it |
 |---|---|
-| Determinism budget | Commitment 6 — Determinism abstractions in every service |
-| Observable state | Commitment 7 — `/system/state` and `/system/capabilities` per service |
-| Scenario replay | Commitment 8 — Scoped scenario replay |
-| Property-based tenant isolation | Commitment 9 — Communities are tenants |
-| Model-based testing | Commitment 5 — All stateful flows are graphs |
-| Trace-based testing | Commitment 12 — OpenTelemetry across all services |
-| RFC 7807 conformance | Commitment 13 — All errors follow RFC 7807 |
-| Machine-readable test outputs | Commitment 14 — Test outputs are machine-readable |
-| Substrate for agent participation | Commitment 15 — Substrate is agent-hospitable |
+| Determinism budget | Commitment 6: Determinism abstractions in every service |
+| Observable state | Commitment 7: `/system/state` and `/system/capabilities` per service |
+| Scenario replay | Commitment 8: Scoped scenario replay |
+| Property-based tenant isolation | Commitment 9: Communities are tenants |
+| Model-based testing | Commitment 5: All stateful flows are graphs |
+| Trace-based testing | Commitment 12: OpenTelemetry across all services |
+| RFC 7807 conformance | Commitment 13: All errors follow RFC 7807 |
+| Machine-readable test outputs | Commitment 14: Test outputs are machine-readable |
+| Substrate for agent participation | Commitment 15: Substrate is agent-hospitable |
 
 The strategy is what the architecture enables. The architecture is what the strategy demands. They were designed together; the documents reflect that.

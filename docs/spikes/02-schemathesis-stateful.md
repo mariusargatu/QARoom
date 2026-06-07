@@ -1,8 +1,8 @@
-# Spike 2 — Schemathesis stateful workflows (`--phases stateful`)
+# Spike 2: Schemathesis stateful workflows (`--phases stateful`)
 
 - **Milestone affected:** 1 (API schema fuzzing)
 - **Question:** Does stateful fuzzing produce meaningful sequences against a real OAS that
-  declares `links` (create → retrieve)?
+  declares `links` (create -> retrieve)?
 - **Verdict:** ✅ **PASS** (and it found a real contract gap, since fixed)
 
 ## Method
@@ -15,17 +15,17 @@ schemathesis run services/content/openapi.yaml --url http://localhost:8081 \
 ```
 
 The static `Idempotency-Key` header lets mutations reach 2xx so the OAS `links`
-(createPost → getPost, castVote → getPost) can be followed.
+(createPost -> getPost, castVote -> getPost) can be followed.
 
 ## Result
 
 First run: **`API Links: 8 covered / 8 selected / 8 total (6 inferred)`**, 17 scenarios,
-81 cases — Schemathesis discovered and traversed our declared links and inferred more.
+81 cases; Schemathesis discovered and traversed our declared links and inferred more.
 
 It also surfaced a genuine finding:
 
 ```
-Undocumented HTTP status code — Received: 400, Documented: 200
+Undocumented HTTP status code: Received: 400, Documented: 200
 GET /api/communities/{communityId}/feed   (malformed branded community id)
 ```
 
