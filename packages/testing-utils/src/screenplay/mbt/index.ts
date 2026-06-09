@@ -1,3 +1,12 @@
+export type { EdgeCoverageReport, EdgeRecorder, IllegalPair, MachineEdge } from './edge-coverage'
+export {
+  allEdges,
+  coverageReport,
+  edgeKey,
+  edgeRecorder,
+  edgesOfPaths,
+  illegalPairs,
+} from './edge-coverage'
 export type { GeneratedPath, GeneratedStep, PathCountBounds, PathOptions } from './generate-paths'
 export {
   assertPathCount,

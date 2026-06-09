@@ -54,3 +54,7 @@ else
   echo "smoke: FAILED"
   exit 1
 fi
+
+# Beyond /health: the rollout all-transitions tour through the Ingress exercises the full
+# request path (Traefik -> gateway proxy -> flags-service -> Postgres) edge by edge.
+bash "$(dirname "$0")/live-rollout-tour.sh"

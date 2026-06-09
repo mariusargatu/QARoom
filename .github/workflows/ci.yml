@@ -24,6 +24,12 @@ jobs:
       - name: Test + aggregate results
         run: pnpm test-results:generate
 
+      # The flags mbt suite writes its edge-coverage artifacts during the test run above;
+      # this folds them into summary.json as the mbt-edge-coverage runner (all-transitions
+      # 7/7 + illegal-pairs 23/23) and fails if either coverage is incomplete.
+      - name: Fold MBT edge-coverage results into summary.json
+        run: pnpm mbt:results
+
       - name: Verify test-results/summary.json against frozen schema
         run: pnpm test-results:verify
 

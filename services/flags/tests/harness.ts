@@ -32,6 +32,22 @@ export async function setupFlagsTest(seed?: SeedConfig) {
   return { ...ctx, request: injectClient(ctx.app), transitions }
 }
 
+export type FlagsTestCtx = Awaited<ReturnType<typeof setupFlagsTest>>
+
+/**
+ * Run `fn` against a fresh flags app with guaranteed teardown. Owns the try/finally the
+ * `no-conditional-in-test` rule (rightly) keeps out of spec bodies — without it, every failing
+ * fast-check run AND every shrink iteration would leak a live pglite instance.
+ */
+export async function withFlagsCtx<T>(fn: (ctx: FlagsTestCtx) => Promise<T>): Promise<T> {
+  const ctx = await setupFlagsTest()
+  try {
+    return await fn(ctx)
+  } finally {
+    await ctx.close()
+  }
+}
+
 /** Valid example identifiers for tests (communityB differs from A for isolation tests). */
 export const SAMPLE = {
   communityA: EXAMPLE_COMMUNITY_ID,

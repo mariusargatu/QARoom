@@ -45,6 +45,7 @@
     "stryker:results": "tsx scripts/stryker-results.ts",
     "evomaster": "tsx scripts/evomaster-run.ts",
     "evomaster:results": "tsx scripts/evomaster-results.ts",
+    "mbt:results": "tsx scripts/mbt-coverage-results.ts",
     "prove": "tsx scripts/prove.ts",
     "claims:render": "tsx scripts/render-claims.ts",
     "stats:render": "tsx scripts/render-stats.ts",

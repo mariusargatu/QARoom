@@ -63,6 +63,28 @@ export async function listFlags(db: FlagsDb, communityId: string): Promise<FlagR
 }
 
 /**
+ * Deliberate-bug toggle (stateful-PBT demo, docs/spikes/07): misroutes a successful
+ * `CanaryConfirmed` to land on `Enabled` instead of `Canary` — a TRANSFER fault. Every
+ * observable (persisted row, echoed `state`, outbox event, transition span) coherently
+ * reports the wrong target, so only a test that holds its own model of the machine can
+ * catch it. Gated so it can NEVER fire in production, and read per call so one test process
+ * can demo red (toggle on) then green (toggle off). Injected HERE, service-side, on purpose:
+ * a bug in the shared contracts runner would corrupt the test's own legality oracle in
+ * lockstep and the demo would prove nothing.
+ */
+function withCanaryMisrouteDemo(
+  applied: RolloutApplyResult,
+  event: RolloutEventName,
+): RolloutApplyResult {
+  const enabled =
+    process.env.NODE_ENV !== 'production' && process.env.FLAGS_BUG_CANARY_MISROUTES === '1'
+  if (!enabled || event !== 'CanaryConfirmed' || !applied.changed) return applied
+  const to: RolloutState = 'Enabled'
+  if (applied.transition === undefined) return { ...applied, to }
+  return { ...applied, to, transition: { ...applied.transition, to } }
+}
+
+/**
  * Advance a flag's rollout by applying one event. The rollout machine — not this code —
  * decides legality (`applyRolloutEvent`); an illegal event leaves the state untouched and
  * returns `changed: false`, which the route maps to a 409. A real transition persists the
@@ -91,7 +113,10 @@ export async function advanceRollout(
       const current = (rows[0]?.state as RolloutState | undefined) ?? INITIAL_STATE
 
       // No sink here: the transition span is emitted after commit, not inside the tx.
-      applied = applyRolloutEvent(current, event, { clock: deps.clock })
+      applied = withCanaryMisrouteDemo(
+        applyRolloutEvent(current, event, { clock: deps.clock }),
+        event,
+      )
       if (!applied.changed) return
 
       const updatedAt = deps.clock.now()
