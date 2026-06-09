@@ -10,6 +10,7 @@ import {
   type NatsHandle,
   QAROOM_STREAM,
   readEventHeaders,
+  runResilientConsume,
 } from '@qaroom/messaging'
 import type { CommunityEventStream, FrameInput } from './event-stream'
 
@@ -56,7 +57,9 @@ export const WS_FEED_DURABLE = 'gateway-ws-feed'
  * WS push and the polling fallback. Dedup is in-memory by `Nats-Msg-Id`: the gateway is
  * stateless (no Postgres), and a duplicate frame would otherwise get a fresh `seq` and break
  * WS↔polling parity. On restart, JetStream redelivery re-warms the stream; clients reconnect
- * with their last `seq` as the `after` cursor. Returns a stop function.
+ * with their last `seq` as the `after` cursor. The resilient consume loop (per-message span,
+ * poison/transient settle, loop-death surfacing) is owned by `runResilientConsume`. Returns a
+ * stop function.
  */
 export async function startWsFeed(
   handle: NatsHandle,
@@ -72,20 +75,36 @@ export async function startWsFeed(
   const messages = await consumer.consume()
   const seen = new Set<string>()
 
-  const loop = (async () => {
-    for await (const message of messages) {
+  return runResilientConsume({
+    messages,
+    spanName: 'gateway.event.process',
+    loopDeathSpanName: 'gateway.feed.loop_died',
+    handle: async (message) => {
       const { eventId } = readEventHeaders(headersToRecord(message.headers))
       if (!seen.has(eventId)) {
-        seen.add(eventId)
+        // `message.json()` throws on an undecodable payload — a poison message. Mark seen only
+        // AFTER a successful decode so a poison message we `term` does not suppress a
+        // (hypothetical) later well-formed redelivery of the same id.
         const frame = wsFrameFor(message.json())
+        seen.add(eventId)
         if (frame) stream.publish(frame)
       }
       message.ack()
-    }
-  })()
+    },
+    // Poison vs transient: a payload that cannot be parsed will never succeed on redelivery, so
+    // terminate it; anything else may be transient, so nak for redelivery.
+    settle: (message, err) => {
+      if (isPoison(err)) message.term('undecodable feed event')
+      else message.nak()
+    },
+  })
+}
 
-  return async () => {
-    messages.stop()
-    await loop
-  }
+/**
+ * A poison message is one whose payload cannot be decoded (e.g. `message.json()` on non-JSON).
+ * `SyntaxError` is what `JSON.parse` throws; such a message will never decode on redelivery, so
+ * it is `term`ed rather than `nak`ed. Everything else is treated as potentially transient.
+ */
+function isPoison(err: unknown): boolean {
+  return err instanceof SyntaxError
 }

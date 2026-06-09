@@ -2,7 +2,7 @@ openapi: 3.0.3
 info:
   title: QARoom gateway
   version: 0.0.0
-  description: External API gateway fronting content-, donations-, and flags-service. Generated from Zod — do not edit by hand.
+  description: External API gateway fronting content-, donations-, flags-, webhooks-, identity-service and the moderator-agent. Generated from Zod — do not edit by hand.
 paths:
   /api/communities/{communityId}/posts:
     post:
@@ -1594,6 +1594,705 @@ paths:
           schema:
             type: string
             pattern: ^whsub_[0-9A-HJKMNP-TV-Z]{26}$
+  /api/users:
+    post:
+      operationId: createUser
+      summary: Create a user identity (proxied to identity-service)
+      description: "Registers a user (handle + display name). Idempotent on Idempotency-Key. Credentials are out of scope (ADR-0022): there is no password — a session is issued from the user id alone."
+      responses:
+        "201":
+          description: The created user.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/User"
+              example:
+                id: user_01HZY0K7M3QF8VN2J5RX9TB4CF
+                handle: ada
+                display_name: Ada Lovelace
+                created_at: 2026-05-28T12:00:00.000Z
+          links:
+            GetCreatedUser:
+              operationId: getUser
+              parameters:
+                userId: $response.body#/id
+              description: Fetch the user that was just created.
+        "400":
+          description: The request failed validation at the gateway edge.
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ProblemDetails"
+              example:
+                type: https://qaroom.dev/errors/validation-failed
+                title: Request failed validation
+                status: 400
+                detail: Request failed validation.
+                instance: /api/posts/post_01HZY0K7M3QF8VN2J5RX9TB4CE
+                retryable: false
+                next_actions: []
+                failure_domain: validation
+        "502":
+          description: identity-service is unreachable or timed out.
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ProblemDetails"
+              example:
+                type: https://qaroom.dev/errors/identity-unreachable
+                title: Upstream identity-service unavailable
+                status: 502
+                detail: Upstream identity-service unavailable.
+                instance: /api/posts/post_01HZY0K7M3QF8VN2J5RX9TB4CE
+                retryable: true
+                next_actions: []
+                failure_domain: dependency_failure
+      tags:
+        - identity
+      parameters:
+        - name: Idempotency-Key
+          in: header
+          required: true
+          description: Client-supplied key making this mutation safely retryable (Commitment 4).
+          schema:
+            type: string
+            minLength: 1
+            maxLength: 255
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CreateUserRequest"
+            example:
+              handle: ada
+              display_name: Ada Lovelace
+  /api/users/{userId}:
+    get:
+      operationId: getUser
+      summary: Get a user by id (proxied)
+      description: Returns a user identity by id, via identity-service.
+      responses:
+        "200":
+          description: The user.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/User"
+              example:
+                id: user_01HZY0K7M3QF8VN2J5RX9TB4CF
+                handle: ada
+                display_name: Ada Lovelace
+                created_at: 2026-05-28T12:00:00.000Z
+        "400":
+          description: The request failed validation at the gateway edge.
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ProblemDetails"
+              example:
+                type: https://qaroom.dev/errors/validation-failed
+                title: Request failed validation
+                status: 400
+                detail: Request failed validation.
+                instance: /api/posts/post_01HZY0K7M3QF8VN2J5RX9TB4CE
+                retryable: false
+                next_actions: []
+                failure_domain: validation
+        "404":
+          description: No user with that id exists.
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ProblemDetails"
+              example:
+                type: https://qaroom.dev/errors/user-not-found
+                title: User not found
+                status: 404
+                detail: User not found.
+                instance: /api/posts/post_01HZY0K7M3QF8VN2J5RX9TB4CE
+                retryable: false
+                next_actions: []
+                failure_domain: not_found
+        "502":
+          description: identity-service is unreachable or timed out.
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ProblemDetails"
+              example:
+                type: https://qaroom.dev/errors/identity-unreachable
+                title: Upstream identity-service unavailable
+                status: 502
+                detail: Upstream identity-service unavailable.
+                instance: /api/posts/post_01HZY0K7M3QF8VN2J5RX9TB4CE
+                retryable: true
+                next_actions: []
+                failure_domain: dependency_failure
+      tags:
+        - identity
+      parameters:
+        - name: userId
+          in: path
+          required: true
+          description: Target user.
+          schema:
+            type: string
+            pattern: ^user_[0-9A-HJKMNP-TV-Z]{26}$
+  /api/communities:
+    post:
+      operationId: createCommunity
+      summary: Create a community (tenant) (proxied)
+      description: Registers a community with a unique slug. Idempotent on Idempotency-Key.
+      responses:
+        "201":
+          description: The created community.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Community"
+              example:
+                id: comm_01HZY0K7M3QF8VN2J5RX9TB4CD
+                slug: general
+                name: General
+                created_at: 2026-05-28T12:00:00.000Z
+          links:
+            AddFirstMember:
+              operationId: addMembership
+              parameters:
+                communityId: $response.body#/id
+              description: Add a member (e.g. the owner) to the community.
+            ListCommunityMembers:
+              operationId: listMembers
+              parameters:
+                communityId: $response.body#/id
+              description: List the community’s members.
+        "400":
+          description: The request failed validation at the gateway edge.
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ProblemDetails"
+              example:
+                type: https://qaroom.dev/errors/validation-failed
+                title: Request failed validation
+                status: 400
+                detail: Request failed validation.
+                instance: /api/posts/post_01HZY0K7M3QF8VN2J5RX9TB4CE
+                retryable: false
+                next_actions: []
+                failure_domain: validation
+        "409":
+          description: A community already exists with that slug.
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ProblemDetails"
+              example:
+                type: https://qaroom.dev/errors/community-slug-taken
+                title: Community slug already taken
+                status: 409
+                detail: Community slug already taken.
+                instance: /api/posts/post_01HZY0K7M3QF8VN2J5RX9TB4CE
+                retryable: false
+                next_actions: []
+                failure_domain: conflict
+        "502":
+          description: identity-service is unreachable or timed out.
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ProblemDetails"
+              example:
+                type: https://qaroom.dev/errors/identity-unreachable
+                title: Upstream identity-service unavailable
+                status: 502
+                detail: Upstream identity-service unavailable.
+                instance: /api/posts/post_01HZY0K7M3QF8VN2J5RX9TB4CE
+                retryable: true
+                next_actions: []
+                failure_domain: dependency_failure
+      tags:
+        - identity
+      parameters:
+        - name: Idempotency-Key
+          in: header
+          required: true
+          description: Client-supplied key making this mutation safely retryable (Commitment 4).
+          schema:
+            type: string
+            minLength: 1
+            maxLength: 255
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CreateCommunityRequest"
+            example:
+              slug: general
+              name: General
+  /api/communities/{communityId}/members:
+    post:
+      operationId: addMembership
+      summary: Add a member to a community (proxied)
+      description: Grants a user a role (owner/moderator/member). Idempotent on Idempotency-Key.
+      responses:
+        "201":
+          description: The created membership.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Membership"
+              example:
+                user_id: user_01HZY0K7M3QF8VN2J5RX9TB4CF
+                community_id: comm_01HZY0K7M3QF8VN2J5RX9TB4CD
+                role: member
+                joined_at: 2026-05-28T12:00:00.000Z
+          links:
+            ListMembers:
+              operationId: listMembers
+              parameters:
+                communityId: $response.body#/community_id
+              description: List the community’s members.
+        "400":
+          description: The request failed validation at the gateway edge.
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ProblemDetails"
+              example:
+                type: https://qaroom.dev/errors/validation-failed
+                title: Request failed validation
+                status: 400
+                detail: Request failed validation.
+                instance: /api/posts/post_01HZY0K7M3QF8VN2J5RX9TB4CE
+                retryable: false
+                next_actions: []
+                failure_domain: validation
+        "409":
+          description: The user already has a membership in this community.
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ProblemDetails"
+              example:
+                type: https://qaroom.dev/errors/membership-exists
+                title: User is already a member
+                status: 409
+                detail: User is already a member.
+                instance: /api/posts/post_01HZY0K7M3QF8VN2J5RX9TB4CE
+                retryable: false
+                next_actions: []
+                failure_domain: conflict
+        "502":
+          description: identity-service is unreachable or timed out.
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ProblemDetails"
+              example:
+                type: https://qaroom.dev/errors/identity-unreachable
+                title: Upstream identity-service unavailable
+                status: 502
+                detail: Upstream identity-service unavailable.
+                instance: /api/posts/post_01HZY0K7M3QF8VN2J5RX9TB4CE
+                retryable: true
+                next_actions: []
+                failure_domain: dependency_failure
+      tags:
+        - identity
+      parameters:
+        - name: communityId
+          in: path
+          required: true
+          description: Target community (tenant).
+          schema:
+            type: string
+            pattern: ^comm_[0-9A-HJKMNP-TV-Z]{26}$
+        - name: Idempotency-Key
+          in: header
+          required: true
+          description: Client-supplied key making this mutation safely retryable (Commitment 4).
+          schema:
+            type: string
+            minLength: 1
+            maxLength: 255
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/AddMembershipRequest"
+            example:
+              user_id: user_01HZY0K7M3QF8VN2J5RX9TB4CF
+              role: member
+    get:
+      operationId: listMembers
+      summary: List a community’s members (proxied)
+      description: Returns the community’s memberships, newest first, with a read envelope.
+      responses:
+        "200":
+          description: The community’s members.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/MemberList"
+              example:
+                community_id: comm_01HZY0K7M3QF8VN2J5RX9TB4CD
+                members:
+                  - user_id: user_01HZY0K7M3QF8VN2J5RX9TB4CF
+                    community_id: comm_01HZY0K7M3QF8VN2J5RX9TB4CD
+                    role: member
+                    joined_at: 2026-05-28T12:00:00.000Z
+                as_of:
+                  snapshot_id: snap_01HZY0K7M3QF8VN2J5RX9TB4CL
+                  lamport: 7
+                  wall_clock: 2026-05-28T12:00:00.000Z
+        "400":
+          description: The request failed validation at the gateway edge.
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ProblemDetails"
+              example:
+                type: https://qaroom.dev/errors/validation-failed
+                title: Request failed validation
+                status: 400
+                detail: Request failed validation.
+                instance: /api/posts/post_01HZY0K7M3QF8VN2J5RX9TB4CE
+                retryable: false
+                next_actions: []
+                failure_domain: validation
+        "502":
+          description: identity-service is unreachable or timed out.
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ProblemDetails"
+              example:
+                type: https://qaroom.dev/errors/identity-unreachable
+                title: Upstream identity-service unavailable
+                status: 502
+                detail: Upstream identity-service unavailable.
+                instance: /api/posts/post_01HZY0K7M3QF8VN2J5RX9TB4CE
+                retryable: true
+                next_actions: []
+                failure_domain: dependency_failure
+      tags:
+        - identity
+      parameters:
+        - name: communityId
+          in: path
+          required: true
+          description: Target community (tenant).
+          schema:
+            type: string
+            pattern: ^comm_[0-9A-HJKMNP-TV-Z]{26}$
+  /api/sessions:
+    post:
+      operationId: createSession
+      summary: Issue an access token for a user (proxied)
+      description: Issues an ES256 JWT carrying the user’s memberships. Idempotent on Idempotency-Key. No credentials are checked (ADR-0022) — this is a demo identity boundary.
+      responses:
+        "201":
+          description: The issued access token.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AccessTokenResponse"
+              example:
+                session_id: sess_01HZY0K7M3QF8VN2J5RX9TB4CG
+                access_token: eyJhbGciOiJFUzI1NiIsImtpZCI6Imtl…
+                token_type: Bearer
+                expires_at: 2026-05-28T12:00:00.000Z
+                kid: key_01HZY0K7M3QF8VN2J5RX9TB4CH
+          links:
+            MintWsTicket:
+              operationId: createWsTicket
+              description: Mint a WebSocket handshake ticket with this access token.
+        "400":
+          description: The request failed validation at the gateway edge.
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ProblemDetails"
+              example:
+                type: https://qaroom.dev/errors/validation-failed
+                title: Request failed validation
+                status: 400
+                detail: Request failed validation.
+                instance: /api/posts/post_01HZY0K7M3QF8VN2J5RX9TB4CE
+                retryable: false
+                next_actions: []
+                failure_domain: validation
+        "404":
+          description: No user with that id exists.
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ProblemDetails"
+              example:
+                type: https://qaroom.dev/errors/user-not-found
+                title: User not found
+                status: 404
+                detail: User not found.
+                instance: /api/posts/post_01HZY0K7M3QF8VN2J5RX9TB4CE
+                retryable: false
+                next_actions: []
+                failure_domain: not_found
+        "502":
+          description: identity-service is unreachable or timed out.
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ProblemDetails"
+              example:
+                type: https://qaroom.dev/errors/identity-unreachable
+                title: Upstream identity-service unavailable
+                status: 502
+                detail: Upstream identity-service unavailable.
+                instance: /api/posts/post_01HZY0K7M3QF8VN2J5RX9TB4CE
+                retryable: true
+                next_actions: []
+                failure_domain: dependency_failure
+      tags:
+        - identity
+      parameters:
+        - name: Idempotency-Key
+          in: header
+          required: true
+          description: Client-supplied key making this mutation safely retryable (Commitment 4).
+          schema:
+            type: string
+            minLength: 1
+            maxLength: 255
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CreateSessionRequest"
+            example:
+              user_id: user_01HZY0K7M3QF8VN2J5RX9TB4CF
+  /ws/tickets:
+    post:
+      operationId: createWsTicket
+      summary: Mint a one-use WebSocket handshake ticket (proxied)
+      description: "Mints a short-lived (≤30s), one-use ticket for the bearer principal (ADR-0013). Forwarded to identity-service, which verifies the JWT. Deliberately NOT idempotent: each call mints a fresh ticket."
+      responses:
+        "201":
+          description: The minted ticket and its lifetime.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/TicketResponse"
+              example:
+                ticket: tkt_01HZY0K7M3QF8VN2J5RX9TB4CK
+                expires_in_seconds: 30
+          links:
+            PollEvents:
+              operationId: listEvents
+              description: The polling fallback that mirrors the WebSocket stream (Commitment 11).
+        "401":
+          description: The bearer access token is missing, expired, or invalid.
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ProblemDetails"
+              example:
+                type: https://qaroom.dev/errors/ws-ticket-unauthorized
+                title: Authentication failed
+                status: 401
+                detail: Authentication failed.
+                instance: /api/posts/post_01HZY0K7M3QF8VN2J5RX9TB4CE
+                retryable: false
+                next_actions: []
+                failure_domain: authentication
+        "502":
+          description: identity-service is unreachable or timed out.
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ProblemDetails"
+              example:
+                type: https://qaroom.dev/errors/identity-unreachable
+                title: Upstream identity-service unavailable
+                status: 502
+                detail: Upstream identity-service unavailable.
+                instance: /api/posts/post_01HZY0K7M3QF8VN2J5RX9TB4CE
+                retryable: true
+                next_actions: []
+                failure_domain: dependency_failure
+      tags:
+        - identity
+      parameters:
+        - name: Authorization
+          in: header
+          required: true
+          description: Bearer access token (the JWT from createSession). Verified by identity-service.
+          schema:
+            type: string
+            pattern: ^Bearer .+
+  /api/communities/{communityId}/moderation-decisions:
+    get:
+      operationId: listModerationDecisions
+      summary: List a community’s moderation decisions (proxied to moderator-agent)
+      description: Returns the grounded moderation decisions the agent has recorded for a community, newest first, with a read envelope.
+      responses:
+        "200":
+          description: A page of moderation decisions.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ModerationDecisionList"
+              example:
+                decisions:
+                  - decision_id: mdec_01HZY0K7M3QF8VN2J5RX9TB4CQ
+                    event_id: evt_01HZY0K7M3QF8VN2J5RX9TB4CP
+                    post_id: post_01HZY0K7M3QF8VN2J5RX9TB4CE
+                    community_id: comm_01HZY0K7M3QF8VN2J5RX9TB4CD
+                    author_id: user_01HZY0K7M3QF8VN2J5RX9TB4CF
+                    disposition: approve
+                    cited_rules: []
+                    precedents: []
+                    departs_from_precedent: false
+                    rationale: No policy rule matched; the post is clearly within the community guidelines.
+                    confidence: 0.97
+                    model: openai:gpt-5.5-2026-04-23
+                    created_at: 2026-05-28T12:00:00.000Z
+                as_of:
+                  snapshot_id: snap_01HZY0K7M3QF8VN2J5RX9TB4CL
+                  lamport: 7
+                  wall_clock: 2026-05-28T12:00:00.000Z
+        "400":
+          description: The request failed validation at the gateway edge.
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ProblemDetails"
+              example:
+                type: https://qaroom.dev/errors/validation-failed
+                title: Request failed validation
+                status: 400
+                detail: Request failed validation.
+                instance: /api/posts/post_01HZY0K7M3QF8VN2J5RX9TB4CE
+                retryable: false
+                next_actions: []
+                failure_domain: validation
+        "502":
+          description: moderator-agent is unreachable or timed out.
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ProblemDetails"
+              example:
+                type: https://qaroom.dev/errors/moderator-unreachable
+                title: Upstream moderator-agent unavailable
+                status: 502
+                detail: Upstream moderator-agent unavailable.
+                instance: /api/posts/post_01HZY0K7M3QF8VN2J5RX9TB4CE
+                retryable: true
+                next_actions: []
+                failure_domain: dependency_failure
+      tags:
+        - moderation
+      parameters:
+        - name: communityId
+          in: path
+          required: true
+          description: Target community (tenant).
+          schema:
+            type: string
+            pattern: ^comm_[0-9A-HJKMNP-TV-Z]{26}$
+  /api/communities/{communityId}/moderation-decisions/{decisionId}:
+    get:
+      operationId: getModerationDecision
+      summary: Get a single moderation decision (proxied)
+      description: Returns one grounded moderation decision by id within a community.
+      responses:
+        "200":
+          description: The moderation decision.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ModerationDecision"
+              example:
+                decision_id: mdec_01HZY0K7M3QF8VN2J5RX9TB4CQ
+                event_id: evt_01HZY0K7M3QF8VN2J5RX9TB4CP
+                post_id: post_01HZY0K7M3QF8VN2J5RX9TB4CE
+                community_id: comm_01HZY0K7M3QF8VN2J5RX9TB4CD
+                author_id: user_01HZY0K7M3QF8VN2J5RX9TB4CF
+                disposition: approve
+                cited_rules: []
+                precedents: []
+                departs_from_precedent: false
+                rationale: No policy rule matched; the post is clearly within the community guidelines.
+                confidence: 0.97
+                model: openai:gpt-5.5-2026-04-23
+                created_at: 2026-05-28T12:00:00.000Z
+        "400":
+          description: The request failed validation at the gateway edge.
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ProblemDetails"
+              example:
+                type: https://qaroom.dev/errors/validation-failed
+                title: Request failed validation
+                status: 400
+                detail: Request failed validation.
+                instance: /api/posts/post_01HZY0K7M3QF8VN2J5RX9TB4CE
+                retryable: false
+                next_actions: []
+                failure_domain: validation
+        "404":
+          description: No moderation decision with that id exists in this community.
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ProblemDetails"
+              example:
+                type: https://qaroom.dev/errors/decision-not-found
+                title: Moderation decision not found
+                status: 404
+                detail: Moderation decision not found.
+                instance: /api/posts/post_01HZY0K7M3QF8VN2J5RX9TB4CE
+                retryable: false
+                next_actions: []
+                failure_domain: not_found
+        "502":
+          description: moderator-agent is unreachable or timed out.
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ProblemDetails"
+              example:
+                type: https://qaroom.dev/errors/moderator-unreachable
+                title: Upstream moderator-agent unavailable
+                status: 502
+                detail: Upstream moderator-agent unavailable.
+                instance: /api/posts/post_01HZY0K7M3QF8VN2J5RX9TB4CE
+                retryable: true
+                next_actions: []
+                failure_domain: dependency_failure
+      tags:
+        - moderation
+      parameters:
+        - name: communityId
+          in: path
+          required: true
+          description: Target community (tenant).
+          schema:
+            type: string
+            pattern: ^comm_[0-9A-HJKMNP-TV-Z]{26}$
+        - name: decisionId
+          in: path
+          required: true
+          description: Target moderation decision.
+          schema:
+            type: string
+            pattern: ^mdec_[0-9A-HJKMNP-TV-Z]{26}$
   /system/state:
     get:
       operationId: getSystemState
@@ -1638,6 +2337,43 @@ paths:
         - system
 components:
   schemas:
+    AccessTokenResponse:
+      type: object
+      properties:
+        session_id:
+          $ref: "#/components/schemas/SessionId"
+        access_token:
+          type: string
+        token_type:
+          type: string
+          enum:
+            - Bearer
+        expires_at:
+          type: string
+          format: date-time
+          pattern: ^(?:(?:\d\d[2468][048]|\d\d[13579][26]|\d\d0[48]|[02468][048]00|[13579][26]00)-02-29|\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\d|30)|(?:02)-(?:0[1-9]|1\d|2[0-8])))T(?:(?:[01]\d|2[0-3]):[0-5]\d(?::[0-5]\d(?:\.\d+)?)?(?:Z))$
+        kid:
+          type: string
+      required:
+        - session_id
+        - access_token
+        - token_type
+        - expires_at
+        - kid
+      additionalProperties: false
+      description: Issued access token and its signing kid.
+    AddMembershipRequest:
+      type: object
+      properties:
+        user_id:
+          $ref: "#/components/schemas/UserId"
+        role:
+          $ref: "#/components/schemas/Role"
+      required:
+        - user_id
+        - role
+      additionalProperties: false
+      description: Body for addMembership.
     AdvanceRolloutRequest:
       type: object
       properties:
@@ -1740,10 +2476,54 @@ components:
         - voter_value
       additionalProperties: false
       description: Resulting post score after a vote.
+    Community:
+      type: object
+      properties:
+        id:
+          $ref: "#/components/schemas/CommunityId"
+        slug:
+          type: string
+          minLength: 2
+          maxLength: 64
+          pattern: ^[a-z0-9_]+$
+        name:
+          type: string
+          minLength: 1
+          maxLength: 120
+          pattern: ^[^\x00]*$
+        created_at:
+          type: string
+          format: date-time
+          pattern: ^(?:(?:\d\d[2468][048]|\d\d[13579][26]|\d\d0[48]|[02468][048]00|[13579][26]00)-02-29|\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\d|30)|(?:02)-(?:0[1-9]|1\d|2[0-8])))T(?:(?:[01]\d|2[0-3]):[0-5]\d(?::[0-5]\d(?:\.\d+)?)?(?:Z))$
+      required:
+        - id
+        - slug
+        - name
+        - created_at
+      additionalProperties: false
+      description: A community (tenant) in the identity registry.
     CommunityId:
       type: string
       pattern: ^comm_[0-9A-HJKMNP-TV-Z]{26}$
       description: "Branded identifier: comm_<ULID>"
+    CreateCommunityRequest:
+      type: object
+      properties:
+        slug:
+          type: string
+          minLength: 2
+          maxLength: 64
+          pattern: ^[a-z0-9_]+$
+        name:
+          type: string
+          minLength: 1
+          maxLength: 120
+          pattern: ^[^\x00]*$
+      required:
+        - slug
+        - name
+      additionalProperties: false
+      description: Body for createCommunity.
     CreateDonationRequest:
       type: object
       properties:
@@ -1783,6 +2563,33 @@ components:
         - body
       additionalProperties: false
       description: Body for createPost.
+    CreateSessionRequest:
+      type: object
+      properties:
+        user_id:
+          $ref: "#/components/schemas/UserId"
+      required:
+        - user_id
+      additionalProperties: false
+      description: Body for createSession.
+    CreateUserRequest:
+      type: object
+      properties:
+        handle:
+          type: string
+          minLength: 2
+          maxLength: 40
+          pattern: ^[a-z0-9_]+$
+        display_name:
+          type: string
+          minLength: 1
+          maxLength: 120
+          pattern: ^[^\x00]*$
+      required:
+        - handle
+        - display_name
+      additionalProperties: false
+      description: Body for createUser.
     CreateWebhookRequest:
       type: object
       properties:
@@ -1966,6 +2773,129 @@ components:
         - Enabled
         - Disabling
       description: Current state of a feature-flag rollout.
+    MemberList:
+      type: object
+      properties:
+        community_id:
+          $ref: "#/components/schemas/CommunityId"
+        members:
+          type: array
+          items:
+            $ref: "#/components/schemas/Membership"
+        as_of:
+          $ref: "#/components/schemas/AsOf"
+      required:
+        - community_id
+        - members
+        - as_of
+      additionalProperties: false
+      description: Members of a community with a read envelope.
+    Membership:
+      type: object
+      properties:
+        user_id:
+          $ref: "#/components/schemas/UserId"
+        community_id:
+          $ref: "#/components/schemas/CommunityId"
+        role:
+          $ref: "#/components/schemas/Role"
+        joined_at:
+          type: string
+          format: date-time
+          pattern: ^(?:(?:\d\d[2468][048]|\d\d[13579][26]|\d\d0[48]|[02468][048]00|[13579][26]00)-02-29|\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\d|30)|(?:02)-(?:0[1-9]|1\d|2[0-8])))T(?:(?:[01]\d|2[0-3]):[0-5]\d(?::[0-5]\d(?:\.\d+)?)?(?:Z))$
+      required:
+        - user_id
+        - community_id
+        - role
+        - joined_at
+      additionalProperties: false
+      description: A user↔community↔role grant.
+    ModerationDecision:
+      type: object
+      properties:
+        decision_id:
+          $ref: "#/components/schemas/ModerationDecisionId"
+        event_id:
+          $ref: "#/components/schemas/EventId"
+        post_id:
+          $ref: "#/components/schemas/PostId"
+        community_id:
+          $ref: "#/components/schemas/CommunityId"
+        author_id:
+          $ref: "#/components/schemas/UserId"
+        disposition:
+          $ref: "#/components/schemas/ModerationDisposition"
+        cited_rules:
+          maxItems: 16
+          type: array
+          items:
+            type: string
+            maxLength: 100
+        precedents:
+          maxItems: 16
+          type: array
+          items:
+            type: string
+            maxLength: 2000
+            pattern: ^[^\x00]*$
+        departs_from_precedent:
+          type: boolean
+        rationale:
+          type: string
+          maxLength: 4000
+          pattern: ^[^\x00]*$
+        confidence:
+          type: number
+          minimum: 0
+          maximum: 1
+        model:
+          type: string
+          minLength: 1
+          maxLength: 100
+        created_at:
+          type: string
+          format: date-time
+          pattern: ^(?:(?:\d\d[2468][048]|\d\d[13579][26]|\d\d0[48]|[02468][048]00|[13579][26]00)-02-29|\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\d|30)|(?:02)-(?:0[1-9]|1\d|2[0-8])))T(?:(?:[01]\d|2[0-3]):[0-5]\d(?::[0-5]\d(?:\.\d+)?)?(?:Z))$
+      required:
+        - decision_id
+        - event_id
+        - post_id
+        - community_id
+        - author_id
+        - disposition
+        - cited_rules
+        - precedents
+        - departs_from_precedent
+        - rationale
+        - confidence
+        - model
+        - created_at
+      additionalProperties: false
+      description: A grounded moderation decision for a post.
+    ModerationDecisionId:
+      type: string
+      pattern: ^mdec_[0-9A-HJKMNP-TV-Z]{26}$
+      description: "Branded identifier: mdec_<ULID>"
+    ModerationDecisionList:
+      type: object
+      properties:
+        decisions:
+          type: array
+          items:
+            $ref: "#/components/schemas/ModerationDecision"
+        as_of:
+          $ref: "#/components/schemas/AsOf"
+      required:
+        - decisions
+        - as_of
+      additionalProperties: false
+      description: A community’s moderation decisions with a read envelope.
+    ModerationDisposition:
+      type: string
+      enum:
+        - approve
+        - remove
+        - escalate_to_human
     NextAction:
       type: object
       properties:
@@ -2059,6 +2989,13 @@ components:
         - failure_domain
       additionalProperties: false
       description: RFC 7807 Problem Details with QARoom agent extensions.
+    Role:
+      type: string
+      enum:
+        - owner
+        - moderator
+        - member
+      description: Membership role within a community.
     RolloutEventName:
       type: string
       enum:
@@ -2069,6 +3006,10 @@ components:
         - DisableCompleted
         - RolloutAborted
       description: A rollout state-machine event a client may request.
+    SessionId:
+      type: string
+      pattern: ^sess_[0-9A-HJKMNP-TV-Z]{26}$
+      description: "Branded identifier: sess_<ULID>"
     SystemLimits:
       type: object
       properties:
@@ -2115,6 +3056,51 @@ components:
         - as_of
       additionalProperties: false
       description: Current observable state of every model the service runs.
+    TicketId:
+      type: string
+      pattern: ^tkt_[0-9A-HJKMNP-TV-Z]{26}$
+      description: "Branded identifier: tkt_<ULID>"
+    TicketResponse:
+      type: object
+      properties:
+        ticket:
+          $ref: "#/components/schemas/TicketId"
+        expires_in_seconds:
+          type: integer
+          minimum: 0
+          exclusiveMinimum: true
+          maximum: 9007199254740991
+      required:
+        - ticket
+        - expires_in_seconds
+      additionalProperties: false
+      description: A freshly minted WebSocket handshake ticket.
+    User:
+      type: object
+      properties:
+        id:
+          $ref: "#/components/schemas/UserId"
+        handle:
+          type: string
+          minLength: 2
+          maxLength: 40
+          pattern: ^[a-z0-9_]+$
+        display_name:
+          type: string
+          minLength: 1
+          maxLength: 120
+          pattern: ^[^\x00]*$
+        created_at:
+          type: string
+          format: date-time
+          pattern: ^(?:(?:\d\d[2468][048]|\d\d[13579][26]|\d\d0[48]|[02468][048]00|[13579][26]00)-02-29|\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\d|30)|(?:02)-(?:0[1-9]|1\d|2[0-8])))T(?:(?:[01]\d|2[0-3]):[0-5]\d(?::[0-5]\d(?:\.\d+)?)?(?:Z))$
+      required:
+        - id
+        - handle
+        - display_name
+        - created_at
+      additionalProperties: false
+      description: A user identity.
     UserId:
       type: string
       pattern: ^user_[0-9A-HJKMNP-TV-Z]{26}$

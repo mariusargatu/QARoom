@@ -14,6 +14,8 @@ import {
   postIdParam,
   problemResponse,
 } from '@qaroom/contracts'
+import { IDENTITY_OPERATIONS } from './identity-operations'
+import { MODERATION_OPERATIONS } from './moderation-operations'
 import { WEBHOOK_OPERATIONS } from './webhooks-operations'
 
 /**
@@ -383,6 +385,8 @@ export const OPERATIONS: readonly OasOperation[] = [
     ],
   },
   ...WEBHOOK_OPERATIONS,
+  ...IDENTITY_OPERATIONS,
+  ...MODERATION_OPERATIONS,
   {
     operationId: 'getSystemState',
     method: 'get',

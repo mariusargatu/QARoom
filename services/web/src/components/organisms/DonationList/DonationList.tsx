@@ -1,6 +1,7 @@
 import type { Donation, DonationStatus } from '@qaroom/contracts'
 import { TESTID } from '@qaroom/testing-utils/testids'
 import { forwardRef } from 'react'
+import { formatDate, formatMoney } from '../../../lib/format'
 import { Badge, type BadgeTone } from '../../atoms/Badge'
 
 export interface DonationListProps {
@@ -15,38 +16,30 @@ const TONE: Record<DonationStatus, BadgeTone> = {
   Refunded: 'warning',
 }
 
-// One formatter per currency, reused across rows/renders (constructing Intl.NumberFormat is the costly part).
-const formatters = new Map<string, Intl.NumberFormat>()
-function money(cents: number, currency: string): string {
-  let formatter = formatters.get(currency)
-  if (!formatter) {
-    formatter = new Intl.NumberFormat('en-US', { style: 'currency', currency })
-    formatters.set(currency, formatter)
-  }
-  return formatter.format(cents / 100)
-}
-
-/** Organism: the list of a community's donations with status badges. */
+/**
+ * Organism: a community's donations as hairline-separated rows (DESIGN.md), not a card grid. Each
+ * row pairs a tabular-nums amount with a status Badge and the date; the section owns the rule.
+ */
 export const DonationList = forwardRef<HTMLElement, DonationListProps>(function DonationList(
   { donations },
   ref,
 ) {
   return (
-    <section
-      ref={ref}
-      aria-label="Donations"
-      data-testid={TESTID.donationList}
-      className="rounded-lg border border-border bg-surface p-4"
-    >
-      <h2 className="mb-3 text-sm font-semibold text-text">Donations</h2>
+    <section ref={ref} aria-label="Donations" data-testid={TESTID.donationList}>
+      <h2 className="mb-3 font-display text-lg font-medium text-text">Recent donations</h2>
       {donations.length === 0 ? (
         <p className="text-sm text-muted">No donations yet.</p>
       ) : (
-        <ul className="flex flex-col gap-2">
+        <ul className="divide-y divide-border border-t border-border">
           {donations.map((d) => (
-            <li key={d.id} className="flex items-center justify-between text-sm">
-              <span className="text-text">{money(d.amount_cents, d.currency)}</span>
-              <Badge tone={TONE[d.status]}>{d.status}</Badge>
+            <li key={d.id} className="flex items-center justify-between gap-4 py-4">
+              <span className="text-sm font-medium tabular-nums text-text">
+                {formatMoney(d.amount_cents, d.currency)}
+              </span>
+              <div className="flex items-center gap-3">
+                <Badge tone={TONE[d.status]}>{d.status}</Badge>
+                <span className="text-xs tabular-nums text-muted">{formatDate(d.created_at)}</span>
+              </div>
             </li>
           ))}
         </ul>

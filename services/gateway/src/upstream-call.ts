@@ -17,6 +17,12 @@ export interface UpstreamCallOptions {
   path: string
   body?: unknown
   idempotencyKey?: string
+  /**
+   * A bearer credential to forward verbatim (e.g. `Authorization: Bearer <jwt>`). The gateway is a
+   * dumb passthrough: it never decodes or verifies the token — the upstream (identity, on
+   * `POST /ws/tickets`) verifies it against its own JWKS. Omitted by every other client.
+   */
+  authorization?: string
 }
 
 import { intFromEnv } from '@qaroom/service-kit'
@@ -55,6 +61,7 @@ export async function upstreamCall(
   const headers: Record<string, string> = { accept: 'application/json' }
   if (opts.body !== undefined) headers['content-type'] = 'application/json'
   if (opts.idempotencyKey !== undefined) headers['idempotency-key'] = opts.idempotencyKey
+  if (opts.authorization !== undefined) headers.authorization = opts.authorization
 
   const res = await fetch(`${baseUrl}${opts.path}`, {
     method: opts.method,

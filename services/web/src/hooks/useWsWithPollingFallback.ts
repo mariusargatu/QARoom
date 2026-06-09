@@ -26,8 +26,16 @@ export interface EventFeedOptions {
 }
 
 const FEED_CAP = 50
-const prepend = (prev: WsEnvelope[], incoming: WsEnvelope[]): WsEnvelope[] =>
-  [...incoming, ...prev].slice(0, FEED_CAP)
+// Merge newest-first, capped, deduped by per-community `seq` (monotonic + unique per community,
+// which this hook is scoped to). Without the dedup, the WS push and the polling fallback both
+// replay the same backlog (poll from cursor 0, socket with no `after`), so an envelope would
+// appear twice — duplicate React keys + duplicated feed rows. WS<->polling parity is "same set",
+// not the union of both transports.
+const prepend = (prev: WsEnvelope[], incoming: WsEnvelope[]): WsEnvelope[] => {
+  const seen = new Set(prev.map((e) => e.seq))
+  const fresh = incoming.filter((e) => !seen.has(e.seq))
+  return [...fresh, ...prev].slice(0, FEED_CAP)
+}
 
 /**
  * The activity feed with the Commitment-11 polling fallback. Polling always runs (the fallback,

@@ -95,7 +95,7 @@ export async function createDonation(
   deps: RepoDeps,
   input: CreateDonationInput,
 ): Promise<CreateDonationResult> {
-  return traced('db.donations.create', async () => {
+  return traced('db.donations.create', async (span) => {
     if (!(await isDonationsEnabled(db, input.communityId))) {
       return { ok: false, reason: 'gated' }
     }
@@ -108,7 +108,11 @@ export async function createDonation(
         idempotency_key: input.idempotencyKey,
       })
       authStatus = auth.status
-    } catch {
+    } catch (err) {
+      // A provider/transport fault is a real dependency failure: surface it on the span (the
+      // service runs with Fastify logging off by design, so Jaeger is the diagnostic seam) rather
+      // than swallow it, then map to a 502 dependency_failure at the route.
+      span.recordException(err as Error)
       return { ok: false, reason: 'payment_unavailable' }
     }
 

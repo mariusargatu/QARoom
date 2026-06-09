@@ -1,19 +1,9 @@
-import { type FlagState, type RolloutEventName, rolloutMachine } from '@qaroom/contracts'
+import type { FlagState, RolloutEventName } from '@qaroom/contracts'
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import type { ApiClient } from '../api/client'
+import { legalEventsFor } from '../lib/rollout'
 
 const DONATIONS_FLAG = 'donations'
-
-/**
- * The events legal from a state, read from the SAME rollout machine the server drives — so the
- * UI can only offer transitions the machine (and therefore the server) will accept. This is the
- * single source of legal transitions on the client side.
- */
-function legalEventsFor(state: FlagState): RolloutEventName[] {
-  const states = rolloutMachine.config.states ?? {}
-  const on = (states[state] as { on?: Record<string, unknown> } | undefined)?.on ?? {}
-  return Object.keys(on) as RolloutEventName[]
-}
 
 export interface UseRollout {
   state: FlagState

@@ -20,22 +20,19 @@ function describe(event: WsEnvelope): string {
 export const NotificationFeed = forwardRef<HTMLElement, NotificationFeedProps>(
   function NotificationFeed({ events, live = true }, ref) {
     return (
-      <section
-        ref={ref}
-        aria-label="Activity"
-        data-testid={TESTID.notificationFeed}
-        className="rounded-lg border border-border bg-surface p-4"
-      >
-        <div className="mb-3 flex items-center justify-between">
-          <h2 className="text-sm font-semibold text-text">Activity</h2>
+      <section ref={ref} aria-label="Activity" data-testid={TESTID.notificationFeed}>
+        <div className="flex items-center justify-between border-b border-border pb-2">
+          <h2 className="font-display text-lg font-medium text-text">Activity</h2>
           <Badge tone={live ? 'success' : 'warning'}>{live ? 'live' : 'polling'}</Badge>
         </div>
         {events.length === 0 ? (
-          <p className="text-sm text-muted">No activity yet.</p>
+          <p className="py-6 text-sm text-muted">No activity yet.</p>
         ) : (
-          <ul className="flex flex-col gap-1 text-sm text-text">
+          <ul className="divide-y divide-border border-t border-border text-sm text-text">
             {events.map((event) => (
-              <li key={`${event.type}-${event.seq}`}>{describe(event)}</li>
+              <li key={`${event.type}-${event.seq}`} className="py-4">
+                {describe(event)}
+              </li>
             ))}
           </ul>
         )}

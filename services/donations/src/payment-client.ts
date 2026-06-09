@@ -37,7 +37,8 @@ export function createPaymentClient(
         body: JSON.stringify({ amount_cents: req.amount_cents, currency: req.currency }),
       })
       if (!res.ok) {
-        throw new Error(`payment provider returned ${res.status}`)
+        const body = await res.text().catch(() => '')
+        throw new Error(`payment provider returned ${res.status}: ${body.slice(0, 200)}`)
       }
       const json = (await res.json()) as { id: string; status: string }
       return { provider_ref: json.id, status: json.status === 'captured' ? 'captured' : 'declined' }

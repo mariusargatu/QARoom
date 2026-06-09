@@ -31,8 +31,10 @@ spec:
           restartPolicy: Never
           containers:
             - name: gc-dedup
-              # Same image content-service runs; Tilt rewrites to the k3d registry.
-              image: qaroom/content:latest
+              # A restart-free alias of content's image (built plain in the Tiltfile). The
+              # live_update image (`qaroom/content`) would let Tilt inject the server entrypoint +
+              # restart wrapper here, clobbering this command. Tilt rewrites both to the k3d registry.
+              image: qaroom/content-gc:latest
               imagePullPolicy: IfNotPresent
               command: ["pnpm", "--filter", "@qaroom/content", "exec", "tsx", "src/jobs/gc-dedup.ts"]
               env:

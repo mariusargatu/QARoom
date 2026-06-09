@@ -14,6 +14,11 @@ extraEnv:
   CONTENT_BASE_URL: http://content:80
   DONATIONS_BASE_URL: http://donations:80
   FLAGS_BASE_URL: http://flags:80
+  WEBHOOKS_BASE_URL: http://webhooks:80
+  # identity: WS-ticket minting/redeem + the bootstrap/session passthrough (ADR-0022).
+  IDENTITY_BASE_URL: http://identity:80
+  # moderator-agent: the read-only moderation-decision passthrough (ADR-0022).
+  MODERATOR_AGENT_BASE_URL: http://moderator-agent:80
   # Bounded upstream timeout so a partition (chaos experiment 07) surfaces as a prompt 502
   # rather than a socket hang. Widen this to demonstrate the deliberate-bug (the hang).
   GATEWAY_UPSTREAM_TIMEOUT_MS: "5000"

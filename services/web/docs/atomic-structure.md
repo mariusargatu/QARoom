@@ -7,14 +7,38 @@ tokens. This is the substrate the Milestone-8 component tests exercise.
 ## Tiers (import direction is downward only)
 
 ```
-pages        CommunityDashboardPage              : composition root; wires hooks -> organisms
-  └ templates  DashboardTemplate                 : pure layout, named slots, no data
-      └ organisms  RolloutPanel, DonationForm,    : feature sections
-                   DonationList, NotificationFeed
-          └ molecules  RolloutStepper,            : small compositions of atoms
-                       DonationAmountField
-              └ atoms  Button, Badge, Spinner     : primitives, token-styled
+pages        Login, Communities, CommunityFeed,   : composition roots; wire hooks/session -> organisms
+             Submit, PostDetail, Donate, Flags,      (one per route; no stories — like a controller)
+             Members, Webhooks, Moderation,
+             Activity, Profile, NotFound
+  └ templates  AppShell (sidebar+topbar+outlet),  : pure layout, named slots, no data
+               CenteredShell, DashboardTemplate
+      └ organisms  SidebarNav, TopBar, CommunityTabs, PostCard, PostList, PostComposer,
+                   IdentityPicker, FlagList, MemberList, AddMemberForm, WebhookForm,
+                   WebhookList, DeliveryList, DecisionCard, ModerationDecisionList, RightRail,
+                   RolloutPanel, DonationForm, DonationList, NotificationFeed  : feature sections
+          └ molecules  FormField, VoteControl, SortTabs, EmptyState, ErrorState, MenuDropdown,
+                       RolloutStepper, DonationAmountField                      : small compositions
+              └ atoms  Button, Badge, Spinner, Input, Textarea, Select, Card,
+                       Avatar, Skeleton, IconButton                            : primitives, token-styled
 ```
+
+The full consumer + operator surface (Milestone 14, the deferred frontend slot) is built on this
+library and backed by the gateway's identity + moderation passthrough (ADR-0022). Same-tier imports
+are allowed; only importing a *higher* tier is a lint error.
+
+## App wiring (outside the tiers)
+
+- **`src/routes/`** — the router (`AppRoutes`) + route wrappers (`RequireSession`, `AppShellRoute`,
+  `CommunityLayout`). `react-router-dom` v7.
+- **`src/session/`** — `SessionProvider` + `useSession` (the demo identity: pick/create a user →
+  mint a session JWT; no passwords, ADR-0022) and `jwt.ts` (decode claims for nav, unverified).
+- **`src/api/`** — `http.ts` (fetch core: counter idempotency keys, bearer for the WS-ticket mint,
+  RFC 7807 → typed `ApiError`), `client.ts` (the full `ApiClient`, every response Zod-parsed),
+  `ApiProvider`/`useApi`.
+- **`src/hooks/`** — one data hook per surface (`useFeed`, `usePost`, `useVote`, `useMembers`,
+  `useWebhooks`, `useModeration`, `useFlagsList`, `useWsConnector`, + the existing rollout/donation/
+  activity hooks). **`src/lib/`** — pure helpers (`format`, `errors`, `rollout`).
 
 ## Folder-per-component
 

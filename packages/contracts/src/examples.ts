@@ -103,6 +103,25 @@ export const EXAMPLE_WEBHOOK_DELIVERY = {
   updated_at: EXAMPLE_WHEN,
 }
 
+export const EXAMPLE_DECISION_ID = 'mdec_01HZY0K7M3QF8VN2J5RX9TB4CQ'
+
+/** Example moderation decision (a clean approve) for OpenAPI examples + the moderation reads. */
+export const EXAMPLE_MODERATION_DECISION = {
+  decision_id: EXAMPLE_DECISION_ID,
+  event_id: 'evt_01HZY0K7M3QF8VN2J5RX9TB4CP',
+  post_id: EXAMPLE_POST_ID,
+  community_id: EXAMPLE_COMMUNITY_ID,
+  author_id: EXAMPLE_USER_ID,
+  disposition: 'approve',
+  cited_rules: [],
+  precedents: [],
+  departs_from_precedent: false,
+  rationale: 'No policy rule matched; the post is clearly within the community guidelines.',
+  confidence: 0.97,
+  model: 'openai:gpt-5.5-2026-04-23',
+  created_at: EXAMPLE_WHEN,
+}
+
 /**
  * Example public EC P-256 JWK (the canonical RFC 7517 §A.1 coordinates). Illustrative
  * only — the JWKS pact matches structure via hand-authored regex, not these exact bytes.

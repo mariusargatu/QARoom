@@ -13,6 +13,9 @@ export default [
       '**/node_modules/**',
       '**/.turbo/**',
       '**/coverage/**',
+      // Playwright CT's Vite build cache (services/web/playwright/.cache) — generated bundles,
+      // gitignored, regenerated on every `ct` run; never hand-authored.
+      '**/playwright/.cache/**',
       'test-results/**',
       '**/*.gen.ts',
       '**/openapi.yaml',

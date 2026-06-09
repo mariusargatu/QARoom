@@ -4,6 +4,7 @@ import {
   type NextAction,
   type ProblemDetails,
 } from '@qaroom/contracts'
+import { recordOnActiveSpan } from '@qaroom/otel'
 import type { FastifyInstance, FastifyReply } from 'fastify'
 import { ZodError } from 'zod'
 
@@ -99,7 +100,12 @@ export function registerProblemHandler(app: FastifyInstance): void {
       )
       return
     }
+    // `Fastify({ logger: false })` is the design default for every QARoom service, so
+    // `req.log.error` is a no-op. A genuine server fault must still surface somewhere: record
+    // the exception on the live Fastify request span (`getActiveSpan()` is valid here — we are
+    // inside the request span's context) and mark it ERROR, so an internal 500 is never silent.
     req.log.error(err)
+    recordOnActiveSpan(err, { markError: true })
     sendProblem(
       reply,
       makeProblem({

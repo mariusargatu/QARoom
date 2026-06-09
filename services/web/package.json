@@ -20,9 +20,11 @@
   },
   "dependencies": {
     "@qaroom/contracts": "workspace:*",
+    "@qaroom/determinism": "workspace:*",
     "@xstate/react": "^6.0.0",
     "react": "^19.0.0",
     "react-dom": "^19.0.0",
+    "react-router-dom": "^7.17.0",
     "xstate": "^5.19.0"
   },
   "devDependencies": {

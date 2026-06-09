@@ -1,5 +1,6 @@
 import type { OasOperation } from '@qaroom/contracts'
 import { LamportGate } from '@qaroom/contracts'
+import { SpanStatusCode, startInMemoryTelemetry, trace } from '@qaroom/otel'
 import Fastify, { type FastifyInstance } from 'fastify'
 import { describe, expect, it } from 'vitest'
 import { z } from 'zod'
@@ -116,6 +117,54 @@ describe('the service-kit problem handler', () => {
     expect(res.json().detail).toBe('An unexpected error occurred.')
     expect(JSON.stringify(res.json())).not.toContain('SENSITIVE')
     await app.close()
+  })
+
+  // Every service runs `Fastify({ logger: false })`, so `req.log.error` is a no-op: the
+  // ONLY surviving record of a genuine 500 is the exception recorded on the live request
+  // span. Without a real tracer `getActiveSpan()` is undefined, so we run the request inside
+  // an active span and assert the handler stamped it (OTel records an exception as a span
+  // event named 'exception'; an internal 500 must never go silent).
+  it('records the exception and an ERROR status on the active span for a server-fault 500', async () => {
+    const telemetry = startInMemoryTelemetry()
+    const app = appThatThrows(() => {
+      throw new Error('SENSITIVE connection string')
+    })
+    await trace.getTracer('test').startActiveSpan('request', async (span) => {
+      const res = await app.inject({ method: 'GET', url: '/boom' })
+      expect(res.statusCode).toBe(500)
+      span.end()
+    })
+
+    const requestSpan = telemetry.exporter.getFinishedSpans().find((s) => s.name === 'request')
+    const exceptionEvents = (requestSpan?.events ?? []).filter((e) => e.name === 'exception')
+    expect(exceptionEvents).toHaveLength(1)
+    expect(requestSpan?.status.code).toBe(SpanStatusCode.ERROR)
+    // The recorded exception stays internal to the span; the leak guard above proves it
+    // never reaches the response body.
+    expect(exceptionEvents[0]?.attributes?.['exception.message']).toContain('SENSITIVE')
+
+    await app.close()
+    await telemetry.shutdown()
+  })
+
+  it('does NOT touch the active span on a client-fault 4xx (only server faults are recorded)', async () => {
+    const telemetry = startInMemoryTelemetry()
+    const app = appThatThrows(() => {
+      z.string().parse(123)
+    })
+    await trace.getTracer('test').startActiveSpan('request', async (span) => {
+      const res = await app.inject({ method: 'GET', url: '/boom' })
+      expect(res.statusCode).toBe(400)
+      span.end()
+    })
+
+    const requestSpan = telemetry.exporter.getFinishedSpans().find((s) => s.name === 'request')
+    const exceptionEvents = (requestSpan?.events ?? []).filter((e) => e.name === 'exception')
+    expect(exceptionEvents).toHaveLength(0)
+    expect(requestSpan?.status.code).not.toBe(SpanStatusCode.ERROR)
+
+    await app.close()
+    await telemetry.shutdown()
   })
 
   it('maps an unknown route to a 404 route-not-found problem', async () => {

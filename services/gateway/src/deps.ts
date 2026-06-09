@@ -4,6 +4,8 @@ import type { ContentClient } from './content-client'
 import type { DonationsClient } from './donations-client'
 import type { CommunityEventStream } from './event-stream'
 import type { FlagsClient } from './flags-client'
+import type { IdentityClient } from './identity-client'
+import type { ModeratorClient } from './moderator-client'
 import type { RateLimitConfig, RateLimiter } from './rate-limiter'
 import type { TicketClient } from './ticket-client'
 import type { WebhooksClient } from './webhooks-client'
@@ -11,10 +13,12 @@ import type { WebhooksClient } from './webhooks-client'
 /** What `buildGatewayApp` receives. `lamport`/`rateLimit`/`eventStream` optional with defaults. */
 export interface GatewayDeps {
   content: ContentClient
-  /** donations/flags/webhooks proxy clients. When omitted, those routes are simply not registered. */
+  /** donations/flags/webhooks/identity/moderator proxy clients. Omit → those routes are not registered. */
   donations?: DonationsClient
   flags?: FlagsClient
   webhooks?: WebhooksClient
+  identity?: IdentityClient
+  moderator?: ModeratorClient
   /** Redeems WebSocket tickets against identity-service (ADR-0013). */
   tickets: TicketClient
   clock: Clock

@@ -1,4 +1,5 @@
 import { WsEnvelope } from '@qaroom/contracts'
+import { recordOnActiveSpan } from '@qaroom/otel'
 
 type Listener = (envelope: WsEnvelope) => void
 
@@ -37,7 +38,17 @@ export class CommunityEventStream {
     const buffer = [...(this.#buffers.get(communityId) ?? []), envelope].slice(-this.#cap)
     this.#buffers.set(communityId, buffer)
 
-    for (const listener of this.#listeners.get(communityId) ?? []) listener(envelope)
+    // Notify subscribers defensively: one throwing listener (e.g. a `socket.send` on a
+    // closing socket) must not break delivery to the others, nor throw into the publisher —
+    // the publisher runs inside the NATS consume loop, and an escaping throw there would skip
+    // the message ack. Record the exception on the active span so the failure stays observable.
+    for (const listener of this.#listeners.get(communityId) ?? []) {
+      try {
+        listener(envelope)
+      } catch (err) {
+        recordOnActiveSpan(err)
+      }
+    }
     return envelope
   }
 

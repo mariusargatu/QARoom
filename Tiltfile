@@ -34,6 +34,17 @@ for name, port in services:
     )
     k8s_yaml(helm('packages/helm-template', name=name, namespace='qaroom', values=['deploy/%s/values.yaml' % name]))
 
+# The gc-dedup CronJob reuses content's code but must run its OWN command (the hourly TTL job,
+# not the server). `docker_build_with_restart` bakes the server entrypoint + restart wrapper into
+# every container using `qaroom/content`, which clobbers the CronJob's `command` — so the job gets
+# a plain, restart-free image alias (same Dockerfile, no entrypoint injection).
+docker_build(
+    'qaroom/content-gc',
+    '.',
+    dockerfile='services/content/Dockerfile',
+    only=['pnpm-workspace.yaml', 'package.json', 'pnpm-lock.yaml', 'packages', 'services/content', 'tools'],
+)
+
 # Web frontend: a Vite build served by `vite preview` (static SPA), no tsx entrypoint.
 docker_build(
     'qaroom/web',

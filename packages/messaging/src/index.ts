@@ -5,6 +5,7 @@ export {
   type NatsHandle,
   QAROOM_STREAM,
 } from './connection'
+export { type ResilientConsumeOpts, runResilientConsume } from './consume-loop'
 export { alreadyProcessed, markProcessed } from './dedup'
 export { gcDedup } from './gc'
 export { buildEventHeaders, headersToRecord, readEventHeaders } from './headers'

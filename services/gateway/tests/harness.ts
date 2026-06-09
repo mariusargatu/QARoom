@@ -10,6 +10,8 @@ import type { ClientResponse, ContentClient } from '../src/content-client'
 import type { DonationsClient } from '../src/donations-client'
 import { CommunityEventStream } from '../src/event-stream'
 import type { FlagsClient } from '../src/flags-client'
+import type { IdentityClient } from '../src/identity-client'
+import type { ModeratorClient } from '../src/moderator-client'
 import type { RateLimitConfig } from '../src/rate-limiter'
 import type { TicketClient } from '../src/ticket-client'
 
@@ -19,6 +21,8 @@ export interface GatewayTestOptions {
   eventStream?: CommunityEventStream
   donations?: DonationsClient
   flags?: FlagsClient
+  identity?: IdentityClient
+  moderator?: ModeratorClient
 }
 
 /** Build the gateway with injected stub clients + seeded determinism. */
@@ -29,6 +33,8 @@ export function setupGatewayTest(content: ContentClient, options: GatewayTestOpt
     content,
     donations: options.donations,
     flags: options.flags,
+    identity: options.identity,
+    moderator: options.moderator,
     tickets: options.tickets ?? noTickets(),
     clock: deps.clock,
     ids: deps.ids,
@@ -79,6 +85,50 @@ export function unreachableFlags(): FlagsClient {
     throw new Error('ECONNREFUSED')
   }
   return { resolveFlag: fail, listFlags: fail, advanceRollout: fail }
+}
+
+/** An identity stub returning the same response for every call. */
+export function constantIdentity(response: ClientResponse): IdentityClient {
+  const reply = async () => response
+  return {
+    createUser: reply,
+    getUser: reply,
+    createCommunity: reply,
+    addMembership: reply,
+    listMembers: reply,
+    createSession: reply,
+    createWsTicket: reply,
+  }
+}
+
+/** An identity stub whose every call throws (unreachable / timed-out). */
+export function unreachableIdentity(): IdentityClient {
+  const fail = async (): Promise<ClientResponse> => {
+    throw new Error('ECONNREFUSED')
+  }
+  return {
+    createUser: fail,
+    getUser: fail,
+    createCommunity: fail,
+    addMembership: fail,
+    listMembers: fail,
+    createSession: fail,
+    createWsTicket: fail,
+  }
+}
+
+/** A moderator stub returning the same response for every call. */
+export function constantModerator(response: ClientResponse): ModeratorClient {
+  const reply = async () => response
+  return { listDecisions: reply, getDecision: reply }
+}
+
+/** A moderator stub whose every call throws (unreachable / timed-out). */
+export function unreachableModerator(): ModeratorClient {
+  const fail = async (): Promise<ClientResponse> => {
+    throw new Error('ECONNREFUSED')
+  }
+  return { listDecisions: fail, getDecision: fail }
 }
 
 /** A ticket client that never recognizes any ticket (the default — no valid tickets). */

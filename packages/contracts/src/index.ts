@@ -58,6 +58,7 @@ export {
   EXAMPLE_AS_OF,
   EXAMPLE_COMMUNITY,
   EXAMPLE_COMMUNITY_ID,
+  EXAMPLE_DECISION_ID,
   EXAMPLE_DONATION,
   EXAMPLE_DONATION_ID,
   EXAMPLE_FLAG_KEY,
@@ -66,6 +67,7 @@ export {
   EXAMPLE_JWK,
   EXAMPLE_KEY_ID,
   EXAMPLE_MEMBERSHIP,
+  EXAMPLE_MODERATION_DECISION,
   EXAMPLE_POST,
   EXAMPLE_POST_ID,
   EXAMPLE_SESSION_ID,
@@ -162,6 +164,7 @@ export type {
   WebhookDeliveryTransitionSink,
 } from './machines/webhook-delivery.runner'
 export { applyWebhookDeliveryEvent } from './machines/webhook-delivery.runner'
+export { ModerationDecision, ModerationDecisionList } from './moderation'
 export type { OasInfo, OasOperation, OasParam, OasResponse, OasServer } from './openapi/builder'
 export { buildOpenApiDocument, schemaRef, stringifyOpenApi } from './openapi/builder'
 export type { ProblemResponseOptions } from './openapi/params'

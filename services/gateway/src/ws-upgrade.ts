@@ -1,5 +1,6 @@
 import websocketPlugin from '@fastify/websocket'
-import { CommunityId } from '@qaroom/contracts'
+import { CommunityId, type WsEnvelope } from '@qaroom/contracts'
+import { recordOnActiveSpan } from '@qaroom/otel'
 import { problem } from '@qaroom/service-kit'
 import type { FastifyInstance, FastifyRequest } from 'fastify'
 import type { GatewayRouteDeps } from './deps'
@@ -86,13 +87,25 @@ function registerWsRoute(app: FastifyInstance, deps: GatewayRouteDeps): void {
     (socket, req) => {
       const communityId = requestedCommunity(req)
       const after = cursorFromQuery(req.query as { after?: string })
+      // A `socket.send` on a closing/closed socket throws; left unguarded it escapes through
+      // the stream's `publish` and into the NATS consume loop, skipping the message ack. Guard
+      // every send: on failure, unsubscribe and close so this dead socket stops being notified
+      // and cannot throw again. `subscribe` returns the unsubscribe fn, so we close over a ref.
+      let unsubscribe: () => void = () => {}
+      const sendOrDrop = (envelope: WsEnvelope): void => {
+        try {
+          socket.send(JSON.stringify(envelope))
+        } catch (err) {
+          recordOnActiveSpan(err)
+          unsubscribe()
+          socket.close()
+        }
+      }
       // Replay any backlog after the cursor, then stream live envelopes.
       for (const envelope of deps.eventStream.since(communityId, after)) {
-        socket.send(JSON.stringify(envelope))
+        sendOrDrop(envelope)
       }
-      const unsubscribe = deps.eventStream.subscribe(communityId, (envelope) => {
-        socket.send(JSON.stringify(envelope))
-      })
+      unsubscribe = deps.eventStream.subscribe(communityId, sendOrDrop)
       socket.on('close', unsubscribe)
     },
   )

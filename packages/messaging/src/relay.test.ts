@@ -3,7 +3,7 @@ import { COMM_GENERAL, composeMigrations, postCreated } from '@qaroom/contracts'
 import { startInMemoryTelemetry, trace } from '@qaroom/otel'
 import { sql } from 'drizzle-orm'
 import { drizzle } from 'drizzle-orm/pglite'
-import { describe, expect, it } from 'vitest'
+import { afterAll, beforeAll, beforeEach, describe, expect, it } from 'vitest'
 import { MESSAGING_MIGRATIONS } from './migrations'
 import { outboxPublish } from './outbox'
 import { createRelay } from './relay'
@@ -42,6 +42,31 @@ const sampleEvent = (eventId: string): OutboxEvent => ({
   eventVersion: 1,
   communityId: COMM_GENERAL,
   payload: { hello: 'world' },
+})
+
+// The drain span carries the failure signal (it is the nearest LIVE span — the per-publish
+// span has already ended by the time a failure is caught). OTel records an exception as a
+// span event named 'exception' (semantic conventions), so we look for that on the
+// `outbox.relay.drain` span the relay opens.
+function drainExceptionMessages(telemetry: ReturnType<typeof startInMemoryTelemetry>): string[] {
+  return telemetry.exporter
+    .getFinishedSpans()
+    .filter((span) => span.name === 'outbox.relay.drain')
+    .flatMap((span) => span.events)
+    .filter((event) => event.name === 'exception')
+    .map((event) => String(event.attributes?.['exception.message'] ?? ''))
+}
+
+// One in-memory provider per file. `traced` caches the module-level tracer the first time it
+// runs, so a second per-test `startInMemoryTelemetry()` would never become the active provider
+// (OTel registers the global tracer provider once). Register once, reset spans between tests.
+let telemetry: ReturnType<typeof startInMemoryTelemetry>
+beforeAll(() => {
+  telemetry = startInMemoryTelemetry()
+})
+afterAll(() => telemetry.shutdown())
+beforeEach(() => {
+  telemetry.exporter.reset()
 })
 
 describe('the outbox relay publishes each row once and marks it published', () => {
@@ -89,10 +114,41 @@ describe('the outbox relay is at-least-once: a failed publish is retried, never 
   })
 })
 
+describe('a failed publish is surfaced on a live span, not silently dropped', () => {
+  it('records the broker exception on the outbox.relay.drain span', async () => {
+    const db = await freshMessagingDb()
+    await outboxPublish(db, sampleEvent('evt_00000000000000000000000004'), NOW)
+    const failing: EventPublisher = {
+      async publish() {
+        throw new Error('broker unavailable')
+      },
+    }
+
+    await createRelay({ db, publisher: failing, clock }).drainOnce()
+
+    expect(drainExceptionMessages(telemetry)).toContain('broker unavailable')
+  })
+})
+
+describe('a drain that throws (DB/NATS down) surfaces on a span before it propagates', () => {
+  it('records the transaction failure on a real span rather than a no-op getActiveSpan', async () => {
+    const exploding: TxRunner = {
+      transaction() {
+        return Promise.reject(new Error('database is down'))
+      },
+    } as unknown as TxRunner
+    const { publisher } = recordingPublisher()
+    const relay = createRelay({ db: exploding, publisher, clock })
+
+    await expect(relay.drainOnce()).rejects.toThrow('database is down')
+
+    expect(drainExceptionMessages(telemetry)).toContain('database is down')
+  })
+})
+
 describe('the relay carries the enqueue-time trace context through to publish', () => {
   it('publishes with the traceparent captured when the event was written to the outbox', async () => {
     const db = await freshMessagingDb()
-    const telemetry = startInMemoryTelemetry()
     await trace.getTracer('test').startActiveSpan('create-post', async (span) => {
       await outboxPublish(db, sampleEvent('evt_00000000000000000000000003'), NOW)
       span.end()
@@ -102,6 +158,5 @@ describe('the relay carries the enqueue-time trace context through to publish', 
     await createRelay({ db, publisher, clock }).drainOnce()
 
     expect(published[0]?.headers.traceparent).toMatch(/^00-[0-9a-f]{32}-[0-9a-f]{16}-[0-9a-f]{2}$/)
-    await telemetry.shutdown()
   })
 })

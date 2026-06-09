@@ -13,19 +13,39 @@ data:
           http:
             endpoint: 0.0.0.0:4318
     processors:
+      # Cap the collector's own heap so a flapping downstream (jaeger/tracetest) can never grow
+      # the export queue into an OOMKill — it refuses/drops data above the soft limit instead.
+      # Must run FIRST in every pipeline. Percentages are of the container memory limit below.
+      memory_limiter:
+        check_interval: 1s
+        limit_percentage: 80
+        spike_limit_percentage: 25
       batch: {}
     exporters:
-      # Jaeger v2 ingests OTLP natively on 4317.
+      # Jaeger v2 ingests OTLP natively on 4317. Bounded queue + capped retry so a jaeger
+      # restart sheds spans instead of accumulating them unbounded in the collector.
       otlp/jaeger:
         endpoint: qaroom-jaeger.observability.svc.cluster.local:4317
         tls:
           insecure: true
+        sending_queue:
+          enabled: true
+          queue_size: 2000
+        retry_on_failure:
+          enabled: true
+          max_elapsed_time: 30s
       # Dual-export traces to Tracetest's own OTLP ingest (trace-based testing reads
       # the same spans Jaeger sees). Tracetest's otlp DataStore listens on 4317.
       otlp/tracetest:
         endpoint: qaroom-tracetest.observability.svc.cluster.local:4317
         tls:
           insecure: true
+        sending_queue:
+          enabled: true
+          queue_size: 2000
+        retry_on_failure:
+          enabled: true
+          max_elapsed_time: 30s
       # Prometheus scrapes the collector here (service metrics surface via this exporter).
       prometheus:
         endpoint: 0.0.0.0:8889
@@ -35,11 +55,11 @@ data:
       pipelines:
         traces:
           receivers: [otlp]
-          processors: [batch]
+          processors: [memory_limiter, batch]
           exporters: [otlp/jaeger, otlp/tracetest, debug]
         metrics:
           receivers: [otlp]
-          processors: [batch]
+          processors: [memory_limiter, batch]
           exporters: [prometheus]
 ---
 apiVersion: apps/v1
@@ -71,8 +91,8 @@ spec:
             - name: config
               mountPath: /etc/otel
           resources:
-            requests: { cpu: 50m, memory: 128Mi }
-            limits: { cpu: "1", memory: 512Mi }
+            requests: { cpu: 50m, memory: 256Mi }
+            limits: { cpu: "1", memory: 1Gi }
       volumes:
         - name: config
           configMap:

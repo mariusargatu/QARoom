@@ -11,6 +11,8 @@ import { registerDonationsRoutes } from './donations-routes'
 import { CommunityEventStream } from './event-stream'
 import { registerEventsRoute } from './events-routes'
 import { registerFlagsRoutes } from './flags-routes'
+import { registerIdentityRoutes } from './identity-routes'
+import { registerModerationRoutes } from './moderation-routes'
 import { OPERATIONS } from './operations'
 import { registerProxyRoutes } from './proxy-routes'
 import { registerRateLimit } from './rate-limit'
@@ -49,6 +51,8 @@ export function buildGatewayApp(deps: GatewayDeps): FastifyInstance {
   if (deps.donations) registerDonationsRoutes(app, routeDeps, deps.donations)
   if (deps.flags) registerFlagsRoutes(app, routeDeps, deps.flags)
   if (deps.webhooks) registerWebhooksRoutes(app, routeDeps, deps.webhooks)
+  if (deps.identity) registerIdentityRoutes(app, routeDeps, deps.identity)
+  if (deps.moderator) registerModerationRoutes(app, routeDeps, deps.moderator)
   registerEventsRoute(app, routeDeps)
   registerWsUpgrade(app, routeDeps)
   registerSystemRoutes(app, {

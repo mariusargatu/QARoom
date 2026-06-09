@@ -1,11 +1,16 @@
 @import "tailwindcss";
 
 /*
- * Semantic design tokens (ADR-0005). Components style EXCLUSIVELY through these — never raw
- * hex or palette literals — so a theme is a token remap, not a component rewrite. The Tailwind
- * 4 CSS-first `@theme` block surfaces each token as a utility (`bg-surface`, `text-muted`,
- * `border-border`, `text-primary`, …). Dark is the `:root` default; light flips the same
- * tokens under `.light` (toggled by the thin ThemeProvider, which holds no styles).
+ * Semantic design tokens (ADR-0005 + the "Slate Commons" system, see /DESIGN.md). Components style
+ * EXCLUSIVELY through these — never raw hex/oklch literals — so a theme is a token remap, not a
+ * component rewrite. The Tailwind 4 CSS-first `@theme` block surfaces each token as a utility
+ * (`bg-surface`, `text-muted`, `border-border`, `text-primary`, `font-display`, …).
+ *
+ * Cool light grey is the `:root` default; cool graphite flips the same tokens under `.dark` (the
+ * ThemeProvider toggles only that class). Every neutral is a COOL near-neutral grey (hue ~258,
+ * chroma ≤0.012 — no warm/earthy tint); the single accent is a muted slate, not an electric
+ * dev-blue. Accent text colors sit at L ~0.45–0.50 so they clear WCAG AA on their own /10–/15 tints
+ * (the M8 a11y gate enforces it).
  */
 @theme {
   --color-bg: var(--c-bg);
@@ -20,45 +25,71 @@
   --color-danger: var(--c-danger);
   --color-danger-solid: var(--c-danger-solid);
   --color-warning: var(--c-warning);
+  --color-accent: var(--c-accent);
+  --color-info: var(--c-info);
+  --color-upvote: var(--c-upvote);
+  --color-downvote: var(--c-downvote);
+  --color-ring: var(--c-ring);
+
+  /* Editorial type: a variable serif for names/titles, a humanist sans for prose + UI. */
+  --font-sans: "Hanken Grotesk", ui-sans-serif, system-ui, -apple-system, "Segoe UI", sans-serif;
+  --font-display: "Fraunces", Georgia, "Times New Roman", serif;
+
+  /* Crisp corners — only slightly softened (DESIGN.md `rounded`). */
+  --radius-sm: 3px;
+  --radius-md: 5px;
+  --radius-lg: 8px;
 }
 
+/* Cool light grey — the default. */
 :root {
-  --c-bg: #0b0e14;
-  --c-surface: #151a23;
-  --c-elevated: #1c2330;
-  --c-border: #232b38;
-  --c-text: #e6edf3;
-  --c-muted: #8b97a7;
-  --c-primary: #5b8cff;
-  --c-primary-fg: #0b0e14;
-  --c-success: #3fb950;
-  /* danger = bright accent for text/icons on subtle (`bg-danger/15`) surfaces; danger-solid = dark
-   * fill for solid buttons with white text. Split to satisfy WCAG AA both ways (M8 a11y gate). */
-  --c-danger: #ff8079;
-  --c-danger-solid: #b32b29;
-  --c-warning: #d29922;
+  --c-bg: oklch(0.980 0.003 258);
+  --c-surface: oklch(0.996 0.002 258);
+  --c-elevated: oklch(0.958 0.004 258);
+  --c-border: oklch(0.888 0.006 258);
+  --c-text: oklch(0.255 0.012 262);
+  --c-muted: oklch(0.498 0.014 260);
+  /* Accent text colors sit at L ~0.45–0.49 so they clear WCAG AA (4.5:1) on their own /10–/15
+   * tints over the cool grey surface (the a11y gate verifies these pairs). */
+  --c-primary: oklch(0.470 0.078 262);
+  --c-primary-fg: oklch(0.996 0.002 258);
+  --c-success: oklch(0.450 0.085 150);
+  /* danger = accent text on `bg-danger/15`; danger-solid = darker fill for white text. */
+  --c-danger: oklch(0.490 0.135 25);
+  --c-danger-solid: oklch(0.470 0.145 25);
+  --c-warning: oklch(0.475 0.085 80);
+  --c-accent: oklch(0.495 0.090 300);
+  --c-info: oklch(0.480 0.060 255);
+  --c-upvote: oklch(0.470 0.078 262);
+  --c-downvote: oklch(0.490 0.110 25);
+  --c-ring: oklch(0.470 0.078 262);
 }
 
-.light {
-  --c-bg: #f6f8fa;
-  --c-surface: #ffffff;
-  --c-elevated: #ffffff;
-  --c-border: #d0d7de;
-  --c-text: #1f2328;
-  --c-muted: #59636e;
-  --c-primary: #2f6feb;
-  --c-primary-fg: #ffffff;
-  --c-success: #1a7f37;
-  /* danger (accent text on `bg-danger/15`) darkened to clear WCAG AA 4.5:1 over the light surface;
-   * danger-solid stays for white-text fills (Button danger). */
-  --c-danger: #c01c28;
-  --c-danger-solid: #cf222e;
-  --c-warning: #9a6700;
+/* Cool graphite dark — the alternate, never the default. */
+.dark {
+  --c-bg: oklch(0.205 0.006 262);
+  --c-surface: oklch(0.245 0.006 262);
+  --c-elevated: oklch(0.292 0.007 262);
+  --c-border: oklch(0.350 0.008 262);
+  --c-text: oklch(0.930 0.005 258);
+  --c-muted: oklch(0.702 0.011 258);
+  --c-primary: oklch(0.705 0.080 262);
+  --c-primary-fg: oklch(0.205 0.006 262);
+  --c-success: oklch(0.720 0.090 150);
+  --c-danger: oklch(0.705 0.130 25);
+  --c-danger-solid: oklch(0.500 0.150 25);
+  --c-warning: oklch(0.785 0.090 82);
+  --c-accent: oklch(0.715 0.085 300);
+  --c-info: oklch(0.705 0.060 258);
+  --c-upvote: oklch(0.705 0.080 262);
+  --c-downvote: oklch(0.705 0.110 25);
+  --c-ring: oklch(0.705 0.080 262);
 }
 
 body {
   margin: 0;
   background: var(--color-bg);
   color: var(--color-text);
-  font-family: ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+  font-family: var(--font-sans);
+  -webkit-font-smoothing: antialiased;
 }

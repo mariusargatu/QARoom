@@ -8,7 +8,7 @@ export function gatewayOpenApiYaml(): string {
       title: 'QARoom gateway',
       version: '0.0.0',
       description:
-        'External API gateway fronting content-, donations-, and flags-service. Generated from Zod — do not edit by hand.',
+        'External API gateway fronting content-, donations-, flags-, webhooks-, identity-service and the moderator-agent. Generated from Zod — do not edit by hand.',
     },
     OPERATIONS,
     [{ url: 'http://localhost:8080', description: 'local' }],

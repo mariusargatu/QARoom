@@ -23,6 +23,8 @@ function propArb(schema: unknown): fc.Arbitrary<unknown> {
   if (node.pattern?.startsWith('^comm_')) return brandedArb('comm')
   if (node.pattern?.startsWith('^dntn_')) return brandedArb('dntn')
   if (node.pattern?.startsWith('^whsub_')) return brandedArb('whsub')
+  if (node.pattern?.startsWith('^user_')) return brandedArb('user')
+  if (node.pattern?.startsWith('^mdec_')) return brandedArb('mdec')
   if (node.pattern === '^[a-z][a-z0-9-]{1,63}$') {
     return fc.constantFrom('donations', 'new-feature', 'beta-mode')
   }

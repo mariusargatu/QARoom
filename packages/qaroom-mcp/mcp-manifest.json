@@ -80,6 +80,34 @@
       }
     },
     {
+      "name": "gateway_getModerationDecision",
+      "service": "gateway",
+      "operation_id": "getModerationDecision",
+      "method": "GET",
+      "path": "/api/communities/{communityId}/moderation-decisions/{decisionId}",
+      "mutating": false,
+      "title": "Get a single moderation decision (proxied)",
+      "description": "Returns one grounded moderation decision by id within a community.",
+      "input_schema": {
+        "type": "object",
+        "properties": {
+          "communityId": {
+            "type": "string",
+            "pattern": "^comm_[0-9A-HJKMNP-TV-Z]{26}$"
+          },
+          "decisionId": {
+            "type": "string",
+            "pattern": "^mdec_[0-9A-HJKMNP-TV-Z]{26}$"
+          }
+        },
+        "required": [
+          "communityId",
+          "decisionId"
+        ],
+        "additionalProperties": false
+      }
+    },
+    {
       "name": "gateway_getPost",
       "service": "gateway",
       "operation_id": "getPost",
@@ -98,6 +126,29 @@
         },
         "required": [
           "postId"
+        ],
+        "additionalProperties": false
+      }
+    },
+    {
+      "name": "gateway_getUser",
+      "service": "gateway",
+      "operation_id": "getUser",
+      "method": "GET",
+      "path": "/api/users/{userId}",
+      "mutating": false,
+      "title": "Get a user by id (proxied)",
+      "description": "Returns a user identity by id, via identity-service.",
+      "input_schema": {
+        "type": "object",
+        "properties": {
+          "userId": {
+            "type": "string",
+            "pattern": "^user_[0-9A-HJKMNP-TV-Z]{26}$"
+          }
+        },
+        "required": [
+          "userId"
         ],
         "additionalProperties": false
       }
@@ -212,6 +263,52 @@
       "mutating": false,
       "title": "List all flags for a community (proxied)",
       "description": "Returns every flag resolved for the community, with a read envelope, via flags-service.",
+      "input_schema": {
+        "type": "object",
+        "properties": {
+          "communityId": {
+            "type": "string",
+            "pattern": "^comm_[0-9A-HJKMNP-TV-Z]{26}$"
+          }
+        },
+        "required": [
+          "communityId"
+        ],
+        "additionalProperties": false
+      }
+    },
+    {
+      "name": "gateway_listMembers",
+      "service": "gateway",
+      "operation_id": "listMembers",
+      "method": "GET",
+      "path": "/api/communities/{communityId}/members",
+      "mutating": false,
+      "title": "List a community’s members (proxied)",
+      "description": "Returns the community’s memberships, newest first, with a read envelope.",
+      "input_schema": {
+        "type": "object",
+        "properties": {
+          "communityId": {
+            "type": "string",
+            "pattern": "^comm_[0-9A-HJKMNP-TV-Z]{26}$"
+          }
+        },
+        "required": [
+          "communityId"
+        ],
+        "additionalProperties": false
+      }
+    },
+    {
+      "name": "gateway_listModerationDecisions",
+      "service": "gateway",
+      "operation_id": "listModerationDecisions",
+      "method": "GET",
+      "path": "/api/communities/{communityId}/moderation-decisions",
+      "mutating": false,
+      "title": "List a community’s moderation decisions (proxied to moderator-agent)",
+      "description": "Returns the grounded moderation decisions the agent has recorded for a community, newest first, with a read envelope.",
       "input_schema": {
         "type": "object",
         "properties": {
