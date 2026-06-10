@@ -1,4 +1,6 @@
 import { execFileSync, spawnSync } from 'node:child_process'
+import { existsSync, readFileSync } from 'node:fs'
+import { resolve } from 'node:path'
 import { buildPlan, type GauntletOpts, PHASE_TITLES, type PreflightCtx } from './lib/gauntlet-plan'
 import { appendRecord, InfraAbort, runPhase, type StepRecord } from './lib/gauntlet-steps'
 
@@ -31,6 +33,17 @@ const opts: GauntletOpts = {
 }
 
 const has = (tool: string): boolean => spawnSync('which', [tool], { encoding: 'utf8' }).status === 0
+
+// The key lives in the moderator's own gitignored .env (the file pydantic-settings loads), but
+// DeepEval/DeepTeam gate on os.environ — so source it into THIS process's env for the spawned
+// steps to inherit. Local secret → local child processes, same trust domain; value never logged.
+if (!process.env.OPENAI_API_KEY) {
+  const envFile = resolve(process.cwd(), 'services/moderator-agent/.env')
+  const fromFile = existsSync(envFile)
+    ? /^OPENAI_API_KEY=(.+)$/m.exec(readFileSync(envFile, 'utf8'))?.[1]?.trim()
+    : undefined
+  if (fromFile) process.env.OPENAI_API_KEY = fromFile
+}
 
 const ctx: PreflightCtx = {
   hasDocker: has('docker'),
