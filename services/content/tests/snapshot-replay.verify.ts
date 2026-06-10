@@ -21,6 +21,9 @@ import { schema } from '../src/db/schema'
  *   3. empty-restore — restoring an empty capture wipes a dirtied DB (truncation works).
  *   4. plumbing-reset — restore clears the idempotency cache so a reused env serves no stale reply.
  *   5. evomaster-idempotency-conflict — a black-box-fuzzing find (M8) reified deterministically.
+ *   6. bulk-restore — a snapshot whose posts table exceeds Postgres's 65534 bind-param cap in a
+ *      single multi-row INSERT must still restore (chunked); a seam-A find against a gauntlet-sized
+ *      bundle, where a 6MB content capture 413'd, then 500'd, then MAX_PARAMETERS_EXCEEDED'd.
  */
 const COMMUNITY = EXAMPLE_COMMUNITY_ID
 const AUTHOR = EXAMPLE_USER_ID
@@ -173,6 +176,35 @@ async function scenarioEvomasterIdempotencyConflict(): Promise<void> {
   assert.equal(problem.retryable, false, 'an idempotency conflict is not retryable')
 }
 
+async function scenarioBulkRestore(): Promise<void> {
+  await clearDomain()
+  // posts has 7 columns, so >9362 rows would blow the 65534 bind-param cap in ONE multi-row
+  // INSERT (the pre-fix restore did exactly that and 500'd). Seed past the cap directly in SQL
+  // (the HTTP path is too slow for 10k posts), capture, dirty, restore — the chunked insert must
+  // succeed and round-trip every row.
+  const N = 12_000
+  await sql`
+    INSERT INTO posts (id, community_id, author_id, title, body, score, created_at)
+    SELECT
+      'post_' || lpad(g::text, 26, '0'),
+      ${COMMUNITY}, ${AUTHOR}, 'bulk-' || g, 'b', 0,
+      timestamptz '2026-06-04T00:00:00.000Z' + (g * interval '1 second')
+    FROM generate_series(1, ${N}) AS g`
+  const captured = (await sql<{ n: number }[]>`SELECT count(*)::int AS n FROM posts`)[0]?.n ?? 0
+  assert.equal(captured, N, `seeded ${N} posts`)
+
+  const snapshot = (await request.get('/system/snapshot')).json
+  await clearDomain() // dirty: empty it
+  const restore = await request.post('/system/snapshot', snapshot)
+  assert.equal(restore.status, 200, `bulk restore failed: ${JSON.stringify(restore.json)}`)
+  const restored = (await sql<{ n: number }[]>`SELECT count(*)::int AS n FROM posts`)[0]?.n ?? 0
+  assert.equal(
+    restored,
+    N,
+    'every row past the bind-param cap round-trips through the chunked insert',
+  )
+}
+
 let failed = false
 try {
   await scenarioFeedOrderBug()
@@ -188,6 +220,10 @@ try {
   await scenarioEvomasterIdempotencyConflict()
   process.stdout.write(
     '✓ scenario 5 evomaster-idempotency-conflict: reused key + different body → RFC 7807 409\n',
+  )
+  await scenarioBulkRestore()
+  process.stdout.write(
+    '✓ scenario 6 bulk-restore: a snapshot past the 65534 bind-param cap restores chunked\n',
   )
 } catch (err) {
   failed = true
