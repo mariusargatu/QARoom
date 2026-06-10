@@ -82,3 +82,22 @@ no k3d/tilt → every cluster phase skips (phases 1–2 still run).
 Related: the **detection matrix** (`docs/detection-matrix.md`, `pnpm matrix`) is the
 bug-side complement — gauntlet runs every technique once; the matrix arms every deliberate bug
 and measures which techniques notice.
+
+## Seam A — chaos-state replay (the finale)
+
+`scripts/replay-under-chaos.sh <scenario> [tracetest-def...]` closes the loop Commitment 6
+promised but never wired: capture a scenario WHILE a chaos experiment is active
+(`replay:capture <s> --chaos <slug>` embeds the experiment YAML in the bundle), then replay it
+into the live cluster with that exact fault reapplied (`replay:load <s> --chaos`) and assert
+trace shape under those conditions — "a bug that exists only under chaos+state is now a
+regression test."
+
+Replaying a gauntlet-sized bundle (a content-service that ran the whole battery captured a 6MB
+snapshot) found three restore defects in sequence, each hidden behind the previous: a 1MB body
+limit (413), a swallowed error (opaque 500 → now a 422 Problem with the real cause), and the
+real cause — `MAX_PARAMETERS_EXCEEDED`, a multi-row INSERT past Postgres's 65534 bind-param cap.
+Restore was only ever exercised on tiny fixtures, so the bulk ceiling stayed invisible until a
+real-sized bundle. All three are fixed and guarded by scenario 6 in the M7 regression catalog
+(`pnpm replay:regression`, real Postgres) — which fails red on the unchunked code.
+
+## Artifacts
