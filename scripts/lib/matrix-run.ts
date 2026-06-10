@@ -77,11 +77,12 @@ export function runPySweep(
   root: string,
   envPatch: Record<string, string>,
   pytestArgs: string[] = ['-q'],
+  uvArgs: string[] = ['run'],
 ): SweepResult {
   const started = Date.now()
   const junitRel = 'test-results/matrix-pytest.xml'
   process.stdout.write(`    · pytest ${MOD_DIR} ${pytestArgs.join(' ')}\n`)
-  spawnSync('uv', ['run', 'pytest', ...pytestArgs, `--junitxml=${junitRel}`], {
+  spawnSync('uv', [...uvArgs, 'pytest', ...pytestArgs, `--junitxml=${junitRel}`], {
     cwd: resolve(root, MOD_DIR),
     env: { ...process.env, ...envPatch },
     encoding: 'utf8',
@@ -113,7 +114,10 @@ export function runPySweep(
 /** Re-run ONE file with the toggle OFF; true = green (the toggle really caused the red). */
 export function deflake(root: string, file: string): boolean {
   if (file.startsWith(MOD_DIR)) {
-    const run = spawnSync('uv', ['run', 'pytest', '-q', file.slice(MOD_DIR.length + 1)], {
+    const rel = file.slice(MOD_DIR.length + 1)
+    // Eval files need the `eval` dependency group or they fail on imports, not on the toggle.
+    const uvArgs = rel.startsWith('evals/') ? ['run', '--group', 'eval'] : ['run']
+    const run = spawnSync('uv', [...uvArgs, 'pytest', '-q', rel], {
       cwd: resolve(root, MOD_DIR),
       encoding: 'utf8',
     })
@@ -149,13 +153,15 @@ export interface CellInput {
   standingReds: Set<string>
   commit: string
   recordedAt: string
+  /** Override the technique-group universe (the llm tier verdicts deepeval/redteam/metamorphic). */
+  groups?: readonly string[]
 }
 
 export function computeCells(input: CellInput): MatrixCell[] {
   const { root, toggle, tier, sweep, standingReds, commit, recordedAt } = input
   const isPy = toggle.component === 'moderator'
   const classifiers = isPy ? PY_TECHNIQUE_CLASSIFIERS : TS_TECHNIQUE_CLASSIFIERS
-  const groups: readonly string[] = isPy ? PY_GROUPS : TS_GROUPS
+  const groups: readonly string[] = input.groups ?? (isPy ? PY_GROUPS : TS_GROUPS)
 
   const newlyFailing = new Map<string, string[]>()
   for (const [file, status] of sweep.files) {

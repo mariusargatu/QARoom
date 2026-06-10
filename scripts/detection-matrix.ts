@@ -1,10 +1,17 @@
-import { execFileSync } from 'node:child_process'
+import { execFileSync, spawnSync } from 'node:child_process'
 import { existsSync, readFileSync, writeFileSync } from 'node:fs'
 import { resolve } from 'node:path'
 import { CLAIMS } from '@qaroom/contracts/claims'
 import { TOGGLES } from '@qaroom/contracts/detection-matrix'
 import { DetectionMatrixArtifact, type MatrixCell } from '@qaroom/contracts/detection-matrix-schema'
-import { computeCells, runPySweep, runTsSweep, type SweepResult } from './lib/matrix-run'
+import { CLUSTER_ROWS, runClusterRow } from './lib/matrix-cluster'
+import {
+  computeCells,
+  type FileStatus,
+  runPySweep,
+  runTsSweep,
+  type SweepResult,
+} from './lib/matrix-run'
 
 /**
  * THE DETECTION MATRIX — arm each deliberate-bug toggle, run the whole battery, record EVERY
@@ -162,8 +169,117 @@ if (tier === 'in-proc') {
   }
   process.exit(0)
 }
+// ── Tier B: live cluster rows (needs the gauntlet's cluster up + battery proven green) ──
+if (tier === 'cluster') {
+  const onlyId = flagValue('--toggle')
+  const artifact = loadArtifact()
+  const targets = TOGGLES.filter(
+    (t) => t.tiers.includes('cluster') && (onlyId === undefined || t.id === onlyId),
+  ).filter((t) => CLUSTER_ROWS[t.id])
+  if (targets.length === 0) {
+    process.stderr.write(`no cluster rows match${onlyId ? ` "${onlyId}"` : ''}\n`)
+    process.exit(2)
+  }
+  for (const [i, toggle] of targets.entries()) {
+    process.stdout.write(`\n▶ [${i + 1}/${targets.length}] ${toggle.id} (live)\n`)
+    const cells = runClusterRow(ROOT, {
+      toggleId: toggle.id,
+      env: toggle.env,
+      commit,
+      recordedAt: new Date().toISOString(),
+    })
+    foldCells(artifact, cells)
+    saveArtifact(artifact)
+  }
+  process.exit(0)
+}
+
+// ── Tier C: key-gated LLM eval rows (cost-guarded; clean diff base recorded once) ──
+const LLM_GROUP_RUNS: { group: string; uvArgs: string[]; pytestArgs: string[] }[] = [
+  { group: 'deepeval', uvArgs: ['run', '--group', 'eval'], pytestArgs: ['-q', 'evals/deepeval'] },
+  {
+    group: 'redteam',
+    uvArgs: ['run', '--group', 'eval'],
+    pytestArgs: ['-q', 'evals/redteam', '-m', 'deepteam'],
+  },
+  {
+    group: 'metamorphic',
+    uvArgs: ['run'],
+    pytestArgs: ['-q', '-m', 'llm', 'tests/test_metamorphic.py'],
+  },
+]
+const llmSweep = (envPatch: Record<string, string>): SweepResult => {
+  const merged = new Map<string, FileStatus>()
+  let duration = 0
+  for (const g of LLM_GROUP_RUNS) {
+    const s = runPySweep(ROOT, envPatch, g.pytestArgs, g.uvArgs)
+    for (const [f, st] of s.files) merged.set(f, st)
+    duration += s.duration_ms
+  }
+  return { files: merged, duration_ms: duration }
+}
+
+if (tier === 'llm') {
+  if (!process.env.OPENAI_API_KEY) {
+    process.stderr.write('OPENAI_API_KEY not set — the llm tier costs real spend, key required\n')
+    process.exit(2)
+  }
+  const guard = spawnSync('uv', ['run', 'python', '-m', 'moderator_agent.eval_cost_guard'], {
+    cwd: resolve(ROOT, 'services/moderator-agent'),
+    stdio: 'inherit',
+  })
+  if (guard.status !== 0) {
+    process.stderr.write('eval cost guard refused the run — budget first, evals second\n')
+    process.exit(2)
+  }
+  const onlyId = flagValue('--toggle')
+  const artifact = loadArtifact()
+  if (!artifact.baseline) {
+    process.stderr.write('no baseline — run `pnpm matrix --baseline` first\n')
+    process.exit(2)
+  }
+  if (!artifact.baseline.llm_recorded_at) {
+    process.stdout.write('▶ llm clean pass (diff base for eval verdicts — one-time spend)\n')
+    const clean = llmSweep({})
+    const reds = [...clean.files].filter(([, s]) => s === 'failed').map(([f]) => f)
+    artifact.baseline.standing_reds = [
+      ...new Set([...artifact.baseline.standing_reds, ...reds]),
+    ].sort()
+    artifact.baseline.llm_recorded_at = new Date().toISOString()
+    saveArtifact(artifact)
+    process.stdout.write(`  clean pass done — ${reds.length} standing red(s) merged\n`)
+  }
+  const standingReds = new Set(artifact.baseline.standing_reds)
+  const targets = TOGGLES.filter(
+    (t) => t.tiers.includes('llm') && (onlyId === undefined || t.id === onlyId),
+  )
+  for (const [i, toggle] of targets.entries()) {
+    process.stdout.write(
+      `\n▶ [${i + 1}/${targets.length}] ${toggle.id} — arming ${toggle.env.name}=${toggle.env.value} (llm)\n`,
+    )
+    const sweep = llmSweep({ [toggle.env.name]: toggle.env.value })
+    const cells = computeCells({
+      root: ROOT,
+      toggle,
+      tier: 'llm',
+      sweep,
+      standingReds,
+      commit,
+      recordedAt: new Date().toISOString(),
+      groups: ['deepeval', 'redteam', 'metamorphic'],
+    })
+    foldCells(artifact, cells)
+    saveArtifact(artifact)
+    const caught = cells.filter((c) => c.status === 'caught')
+    process.stdout.write(
+      `  ${toggle.id}: ${caught.length > 0 ? `caught by ${caught.map((c) => c.technique).join(', ')}` : 'MISSED by every llm group'}\n`,
+    )
+  }
+  process.exit(0)
+}
+
 if (tier !== undefined) {
-  process.stderr.write(`tier "${tier}" not implemented yet (cluster/llm land with Tier B/C)\n`)
+  process.stderr.write(`unknown tier "${tier}" (in-proc | cluster | llm)\n`)
   process.exit(2)
 }
 
