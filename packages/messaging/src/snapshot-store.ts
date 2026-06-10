@@ -74,7 +74,16 @@ export function pgSnapshotStore(
           await tx`TRUNCATE ${tx(name)} CASCADE`
         }
         for (const [name, rows] of Object.entries(tables)) {
-          if (rows.length > 0) await tx`INSERT INTO ${tx(name)} ${tx(rows)}`
+          if (rows.length === 0) continue
+          // Chunk the bulk insert under Postgres's 65534 bind-parameter cap per statement.
+          // postgres-js flattens a multi-row insert into cols×rows parameters, so a wide table
+          // with many rows (a busy content-service snapshot) blows the limit in ONE statement.
+          // Found via seam A's replay of a gauntlet-sized bundle, 2026-06-10.
+          const cols = Object.keys(rows[0] ?? {}).length || 1
+          const perChunk = Math.max(1, Math.floor(65534 / cols))
+          for (let i = 0; i < rows.length; i += perChunk) {
+            await tx`INSERT INTO ${tx(name)} ${tx(rows.slice(i, i + perChunk))}`
+          }
         }
       })
     },
