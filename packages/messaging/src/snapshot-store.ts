@@ -75,12 +75,13 @@ export function pgSnapshotStore(
         }
         for (const [name, rows] of Object.entries(tables)) {
           if (rows.length === 0) continue
-          // Chunk the bulk insert under Postgres's 65534 bind-parameter cap per statement.
-          // postgres-js flattens a multi-row insert into cols×rows parameters, so a wide table
-          // with many rows (a busy content-service snapshot) blows the limit in ONE statement.
-          // Found via seam A's replay of a gauntlet-sized bundle, 2026-06-10.
+          // Chunk the bulk insert under Postgres's bind-parameter cap per statement. postgres-js
+          // flattens a multi-row insert into cols×rows parameters, so a wide table with many rows
+          // (a busy content-service snapshot) blows the limit in ONE statement. Budget 60000 (the
+          // wire cap is 65535, postgres-js rejects at 65534) leaves margin for any per-statement
+          // overhead. Found via seam A's replay of a gauntlet-sized bundle, 2026-06-10.
           const cols = Object.keys(rows[0] ?? {}).length || 1
-          const perChunk = Math.max(1, Math.floor(65534 / cols))
+          const perChunk = Math.max(1, Math.floor(60000 / cols))
           for (let i = 0; i < rows.length; i += perChunk) {
             await tx`INSERT INTO ${tx(name)} ${tx(rows.slice(i, i + perChunk))}`
           }
