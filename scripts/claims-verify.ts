@@ -44,6 +44,17 @@ const TOOL_RUNNERS = new Set([
   'web-ct',
   'chaos',
   'eslint-plugin-qaroom',
+  // Max-out fold-runners (the gauntlet folds these; a normal CI run doesn't, so a claim's evidence
+  // pointing at one resolves STALE-not-fatal off a non-gauntlet summary). tenant-spans backs the
+  // tenant-span-everywhere claim; the rest are valid runner names a future claim may reference.
+  'tenant-spans',
+  'pact',
+  'schemathesis',
+  'tracetest',
+  'coverage',
+  'stryker-attribution',
+  'mbt-edge-coverage',
+  'gauntlet',
 ])
 function isValidRunnerName(name: string): boolean {
   if (TOOL_RUNNERS.has(name)) return true
