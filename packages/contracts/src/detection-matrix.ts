@@ -88,6 +88,20 @@ export const TOGGLES: DetectionToggle[] = z.array(DetectionToggle).parse([
       'H3 probe: predicted MISSED by every functional technique in-proc (suites get slower, not ' +
       'redder) and caught only by the k6 SLO threshold — performance bugs need a performance gate.',
   },
+  {
+    id: 'sync-publish',
+    env: { name: 'CHAOS_SYNC_PUBLISH', value: '1' },
+    component: 'content',
+    readSite: { file: 'services/content/src/server.ts', timing: 'construction-time' },
+    designatedCatcher: 'scripts/k6-under-chaos.sh 02-net-slow-nats vote-cast (chaos × load)',
+    tiers: ['cluster'],
+    selfToggling: [],
+    notes:
+      'The composition-only bug (failure-modes.md#02, demo previously documented-unbuilt): lives ' +
+      'in live-only wiring, a no-op burden on a healthy broker — green in-proc, green under chaos ' +
+      'alone, green under load alone; red ONLY under chaos+load. Candidate permanent claim: ' +
+      'outbox-isolates-broker-latency.',
+  },
   // ── flags ──
   {
     id: 'canary-misroutes',

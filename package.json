@@ -27,6 +27,7 @@
     "tracetest:results": "tsx scripts/tracetest-results.ts",
     "coverage:results": "tsx scripts/coverage-results.ts",
     "gauntlet": "tsx scripts/gauntlet.ts",
+    "gauntlet:report": "tsx scripts/gauntlet-report.ts",
     "matrix": "tsx scripts/detection-matrix.ts",
     "jobs:gc-dedup": "pnpm --filter @qaroom/content exec tsx src/jobs/gc-dedup.ts",
     "test-results:generate": "tsx scripts/aggregate-test-results.ts",
