@@ -73,8 +73,10 @@ export const TOGGLES: DetectionToggle[] = z.array(DetectionToggle).parse([
     tiers: ['in-proc', 'cluster'],
     selfToggling: ['services/content/tests/snapshot-replay.verify.ts'],
     notes:
-      'The replay regression verifier arms AND clears this env itself; feed-order assertions in ' +
-      'the content suite are the expected empirical catchers.',
+      'Tier-A v1 verdict (2026-06-10): ALL MISSED — content.spec.ts asserted a created post ' +
+      'APPEARS in the feed, never its ORDER; a reversed feed passed the entire battery. Hole ' +
+      'closed same day by tests/feed-order.spec.ts (newest-first pinned); row re-ran ✗→✓. The ' +
+      'matrix-finds-hole → fix → re-run loop, demonstrated.',
   },
   {
     id: 'vote-slow',
@@ -125,8 +127,10 @@ export const TOGGLES: DetectionToggle[] = z.array(DetectionToggle).parse([
     tiers: ['in-proc', 'cluster'],
     selfToggling: [],
     notes:
-      'Construction-time read: only tests that BUILD a server under the injected env see it; a ' +
-      'suite reusing one prebuilt fixture would not — exactly what the matrix measures.',
+      'Tier-A verdict (2026-06-10): ALL MISSED in-proc, structurally — the designated spec ' +
+      'constructs new CircuitBreaker(...) directly, while the toggle disables the WIRING in ' +
+      'server.ts, which no in-proc test executes. Component tests cannot see wiring bugs; ' +
+      'detection is live-tier only.',
   },
   {
     id: 'upstream-timeout',
