@@ -58,3 +58,6 @@ em.yaml
 .pyright/
 # Promptfoo eval output is a disposable artifact folded into summary.json by promptfoo-results.ts.
 services/moderator-agent/evals/promptfoo-output.json
+
+# DeepEval local telemetry artifact (created per eval run)
+services/moderator-agent/.deepeval/
