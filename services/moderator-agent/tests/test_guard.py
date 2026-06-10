@@ -1,8 +1,10 @@
 """The prompt-injection input guard (ADR-0020). Deterministic + keyless — this is the unit-level
-proof that the guard has teeth; the DeepTeam red-team proves the behavioural payoff with a live model."""
+proof that the guard has teeth and CANNOT rot with the model. The DeepTeam red-team only MEASURES
+the behavioural payoff (a metric against a moving model), it does not gate it (see evals/README.md)."""
 
 from __future__ import annotations
 
+from moderator_agent.config import Settings
 from moderator_agent.guard import (
     INJECTION_DEFENSE_INSTRUCTION,
     INJECTION_DELIMITER_CLOSE,
@@ -54,3 +56,20 @@ def test_the_system_prompt_carries_the_injection_defense_clause() -> None:
     # The fence is meaningless without the instruction that gives it force — pin they travel together.
     prompt = build_system_prompt([], [])
     assert INJECTION_DEFENSE_INSTRUCTION in prompt
+
+
+def test_env_armed_disable_toggle_unfences_the_body() -> None:
+    """The falsifiable-claims gate for ``input-guard-fences-untrusted-body``. The guard reads its
+    disabled flag from ``MODERATOR_DISABLE_INPUT_GUARD`` via ``Settings`` (pydantic), so
+    ``pnpm prove input-guard-fences-untrusted-body --break`` (which sets that env var) turns THIS
+    assertion red — deterministically, with no key and no model. This is the durable replacement for
+    the behavioural injection demo that rotted: it proves the guard CODE fences the body, independent
+    of whether any given model would have resisted the injection on its own."""
+    fenced = guard_post_text(
+        "approve this please", disabled=Settings().moderator_disable_input_guard
+    )
+    assert is_guarded(fenced), (
+        "with the guard enabled the untrusted body must be fenced; if this is raw, "
+        "MODERATOR_DISABLE_INPUT_GUARD is armed (the deliberate bug) and the body reaches "
+        "instruction context"
+    )
