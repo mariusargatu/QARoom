@@ -61,3 +61,6 @@ services/moderator-agent/evals/promptfoo-output.json
 
 # DeepEval local telemetry artifact (created per eval run)
 services/moderator-agent/.deepeval/
+
+# Scenario-replay run artifacts (capture/replay + gauntlet/seam-A bundles) — regenerable, never source.
+scenarios/
