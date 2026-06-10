@@ -4,7 +4,7 @@
 
 Every deliberate-bug toggle in the repo, armed one at a time, against the whole in-proc battery. A ✓ means at least one baseline-green test file in that technique group went red under the toggle (and passed a toggle-off re-run); a ✗ means the group ran and stayed green — empirical blindness, not an assumption. `—` = no code path (different runtime), `$` = declared skipped-cost (key-gated), `~` = unstable, `·` = not run yet.
 
-Baseline: `1b5efb2fc6f0` (0 standing reds, fast-check seed 12648430). Last render: 2026-06-10T06:32:17.849Z.
+Baseline: `475c7ac4df22` (1 standing reds, fast-check seed 12648430). Last render: 2026-06-10T16:25:48.193Z.
 
 ## In-proc tier (Tier A)
 
@@ -22,11 +22,35 @@ Baseline: `1b5efb2fc6f0` (0 standing reds, fast-check seed 12648430). Last rende
 | `webhook-drop-on-fail` | ✗ | ✓ | ✓ | ✗ | ✗ | ✗ | ✗ | — | — | — |
 | `webhook-no-cap` | ✗ | ✗ | ✓ | ✗ | ✗ | ✗ | ✗ | — | — | — |
 | `webhook-illegal-transition` | ✗ | ✗ | ✗ | ✗ | ✗ | ✗ | ✓ | — | — | — |
-| `moderator-disable-input-guard` | — | — | — | — | — | — | — | ✗ | ✗ | ✗ |
-| `moderator-prompt-bug` | — | — | — | — | — | — | — | ✗ | ✗ | ✗ |
-| `moderator-ungrounded` | — | — | — | — | — | — | — | ✗ | ✗ | ✗ |
-| `moderator-disable-abstain` | — | — | — | — | — | — | — | ✗ | ✓ | ✗ |
-| `moderator-rerank-bug` | — | — | — | — | — | — | — | ✗ | ✗ | ✗ |
+| `moderator-disable-input-guard` | — | — | — | — | — | — | — | ✓ | ✗ | ✗ |
+| `moderator-prompt-bug` | — | — | — | — | — | — | — | ✓ | ✗ | ✗ |
+| `moderator-ungrounded` | — | — | — | — | — | — | — | ✓ | ✗ | ✗ |
+| `moderator-disable-abstain` | — | — | — | — | — | — | — | ✓ | ✓ | ✗ |
+| `moderator-rerank-bug` | — | — | — | — | — | — | — | ✓ | ✗ | ✗ |
+
+## Cluster tier (Tier B)
+
+| toggle | smoke | k6 | schemathesis | tracetest | tenant-spans | chaos |
+|---|---|---|---|---|---|---|
+| `skip-dedup` | ✗ | · | · | ✓ | · | · |
+| `tenant-span-drop` | ✗ | · | · | ✗ | ✓ | · |
+| `feed-reversed` | ✗ | ✗ | ✗ | ✗ | · | · |
+| `vote-slow` | ✗ | ✓ | · | · | · | · |
+| `sync-publish` | · | ✓ | · | · | · | ✓ |
+| `canary-misroutes` | ✗ | · | · | ✓ | · | · |
+| `disable-circuit-breaker` | ✗ | · | ✓ | · | · | · |
+| `upstream-timeout` | ✗ | · | ✓ | · | · | · |
+| `webhook-illegal-transition` | ✗ | · | · | ✗ | · | · |
+
+## LLM tier (Tier C, cost-recorded)
+
+| toggle | deepeval | redteam | metamorphic |
+|---|---|---|---|
+| `moderator-disable-input-guard` | ✗ | ✗ | ~ |
+| `moderator-prompt-bug` | ✗ | ✗ | ~ |
+| `moderator-ungrounded` | ✗ | ✗ | ~ |
+| `moderator-disable-abstain` | ✗ | ✗ | ~ |
+| `moderator-rerank-bug` | ✗ | ✗ | ~ |
 
 ## Per-toggle detail
 
@@ -34,17 +58,19 @@ Baseline: `1b5efb2fc6f0` (0 standing reds, fast-check seed 12648430). Last rende
 
 - component: messaging; read at packages/messaging/src/subscribe.ts (call-time)
 - designated catcher: none (purely empirical)
-- **caught by 3 group(s)** (unit@in-proc, integration@in-proc, property@in-proc); detection breadth 3, blast radius 3 file(s):
+- **caught by 4 group(s)** (unit@in-proc, integration@in-proc, property@in-proc, tracetest@cluster); detection breadth 4, blast radius 4 file(s):
+  - `live:tracetest (exit 1)`
   - `packages/messaging/src/subscribe.payload.property.test.ts`
   - `packages/messaging/src/subscribe.test.ts`
   - `services/donations/tests/consumer.spec.ts`
-- notes: No test file references the env — consumers exercising processEvent through the real subscribe path hit it; the catcher set is purely empirical.
+- notes: Tier-A: caught by unit+integration+property (widest in-proc blast radius, H6). Tier-B (2026-06-10, reset+paced battery): all live cells MISSED on calm traffic as predicted — dedup loss needs REDELIVERY, i.e. the chaos 03 experiment; the first sweep's tracetest 'catch' was rollout-state pollution, withdrawn.
 
 ### `tenant-span-drop` — `CHAOS_TENANT_SPAN_DROP=1`
 
 - component: otel; read at packages/otel/src/tenant-span-processor.ts (call-time)
 - designated catcher: scripts/check-tenant-spans.ts (live Jaeger audit)
-- **caught by 1 group(s)** (unit@in-proc); detection breadth 1, blast radius 1 file(s):
+- **caught by 2 group(s)** (unit@in-proc, tenant-spans@cluster); detection breadth 2, blast radius 2 file(s):
+  - `live:tenant-spans (exit 1)`
   - `packages/otel/src/tenant-span-processor.test.ts`
 - self-toggling files (excluded from naive counting): `packages/otel/src/tenant-span-processor.test.ts`
 - notes: Candidate permanent claim: tenant-span-everywhere (Commitment 9, live tier).
@@ -62,41 +88,47 @@ Baseline: `1b5efb2fc6f0` (0 standing reds, fast-check seed 12648430). Last rende
 
 - component: content; read at services/content/src/repository.ts (call-time)
 - designated catcher: load-tests/vote-cast.js (k6 SLO gate, exit 99)
-- **MISSED by every group that ran** — see notes
+- **caught by 1 group(s)** (k6@cluster); detection breadth 1, blast radius 1 file(s):
+  - `live:k6 (exit 99)`
 - notes: H3 probe: predicted MISSED by every functional technique in-proc (suites get slower, not redder) and caught only by the k6 SLO threshold — performance bugs need a performance gate.
 
 ### `sync-publish` — `CHAOS_SYNC_PUBLISH=1`
 
 - component: content; read at services/content/src/server.ts (construction-time)
 - designated catcher: scripts/k6-under-chaos.sh 02-net-slow-nats vote-cast (chaos × load)
-- not run yet
-- notes: The composition-only bug (failure-modes.md#02, demo previously documented-unbuilt): lives in live-only wiring, a no-op burden on a healthy broker — green in-proc, green under chaos alone, green under load alone; red ONLY under chaos+load. Candidate permanent claim: outbox-isolates-broker-latency.
+- **caught by 2 group(s)** (k6@cluster, chaos@cluster); detection breadth 2, blast radius 2 file(s):
+  - `live:chaos (exit 99)`
+  - `live:k6 (exit 99)`
+- notes: Tier-B verdict (2026-06-10), prediction FALSIFIED the good way: plain k6 catches it on a HEALTHY broker (exit 99) — the per-request outbox drain alone breaches the vote SLO; chaos multiplies the magnitude. Not composition-ONLY at gate sensitivity, so the claim gate can be plain k6. Candidate permanent claim: outbox-isolates-broker-latency.
 
 ### `canary-misroutes` — `FLAGS_BUG_CANARY_MISROUTES=1`
 
 - component: flags; read at services/flags/src/repository.ts (call-time)
 - designated catcher: none (purely empirical)
-- **caught by 2 group(s)** (integration@in-proc, mbt@in-proc); detection breadth 2, blast radius 5 file(s):
+- **caught by 3 group(s)** (integration@in-proc, mbt@in-proc, tracetest@cluster); detection breadth 3, blast radius 6 file(s):
+  - `live:tracetest (exit 1)`
   - `services/flags/tests/flags.spec.ts`
   - `services/flags/tests/mbt/rollout-edge-coverage.spec.ts`
   - `services/flags/tests/mbt/rollout-illegal-pairs.spec.ts`
   - `services/flags/tests/mbt/rollout-stateful.pbt.spec.ts`
   - `services/flags/tests/rollout.mbt.spec.ts`
-- notes: Guarded by NODE_ENV !== "production" — a cluster row only works if the deployed pod is not NODE_ENV=production; check the image env before counting a miss.
+- notes: Tier-B verdict (2026-06-10): the deployed pods run NODE_ENV=production, so the toggle is INERT live — cluster cells are n/a, not misses (the first row run false-caught on rollout state pollution before the reset fix). In-proc integration+MBT are the real detectors.
 
 ### `disable-circuit-breaker` — `CHAOS_DISABLE_CIRCUIT_BREAKER=1`
 
 - component: gateway; read at services/gateway/src/server.ts (construction-time)
 - designated catcher: services/gateway/tests/circuit-breaker.spec.ts
-- **MISSED by every group that ran** — see notes
-- notes: Tier-A verdict (2026-06-10): ALL MISSED in-proc, structurally — the designated spec constructs new CircuitBreaker(...) directly, while the toggle disables the WIRING in server.ts, which no in-proc test executes. Component tests cannot see wiring bugs; detection is live-tier only.
+- **caught by 1 group(s)** (schemathesis@cluster); detection breadth 1, blast radius 1 file(s):
+  - `live:schemathesis (exit 1)`
+- notes: Tier-A: ALL MISSED in-proc, structurally — the designated spec constructs new CircuitBreaker(...) directly while the toggle disables the WIRING in server.ts. Tier-B (2026-06-10): caught live by PACED Schemathesis — its traffic through the known-sick donations upstream (Microcks /charges 404 → 502) makes the missing breaker leak naked 500s. Emergent detection: fuzz × an accidentally sick upstream; with healthy upstreams this too would be invisible.
 
 ### `upstream-timeout` — `GATEWAY_UPSTREAM_TIMEOUT_MS=600000`
 
 - component: gateway; read at services/gateway/src/upstream-call.ts (call-time)
 - designated catcher: tests/chaos/07-net-partition-gateway-donations.test.ts (live partition)
-- **MISSED by every group that ran** — see notes
-- notes: A far-too-high timeout only bites when an upstream actually hangs — predicted in-proc all-miss; the chaos partition experiment is what exposes it.
+- **caught by 1 group(s)** (schemathesis@cluster); detection breadth 1, blast radius 1 file(s):
+  - `live:schemathesis (exit 1)`
+- notes: In-proc and Tier-B (paced) both ALL MISSED as predicted — a far-too-high timeout only bites when an upstream actually hangs; the chaos 07 partition experiment is the sole detector. The first sweep's schemathesis 'catch' was unpaced-429 noise, withdrawn.
 
 ### `webhook-sign-body-only` — `CHAOS_WEBHOOK_SIGN_BODY_ONLY=1`
 
@@ -142,39 +174,50 @@ Baseline: `1b5efb2fc6f0` (0 standing reds, fast-check seed 12648430). Last rende
 - **caught by 1 group(s)** (reverse-conformance@in-proc); detection breadth 1, blast radius 1 file(s):
   - `services/webhooks/tests/reverse-conformance.spec.ts`
 - self-toggling files (excluded from naive counting): `services/webhooks/tests/reverse-conformance.spec.ts`
-- notes: H7 probe: the cluster tier (Tracetest span-edge assertion) vs the in-proc reverse-conformance spec — does live detection ADD anything beyond environmental realism?
+- notes: H7 answered (2026-06-10): live tracetest MISSED — the committed def asserts the CREATE trace and the illegal transition lives in the delivery WORKER, which that trigger never exercises. The in-proc reverse-conformance spec is load-bearing; the live tier added environmental realism, zero detection.
 
 ### `moderator-disable-input-guard` — `MODERATOR_DISABLE_INPUT_GUARD=1`
 
 - component: moderator; read at services/moderator-agent/src/moderator_agent/config.py (settings-load)
 - designated catcher: services/moderator-agent/evals/redteam/test_deepteam_owasp.py
-- **MISSED by every group that ran** — see notes
+- **caught by 1 group(s)** (py-unit@in-proc); detection breadth 1, blast radius 1 file(s):
+  - `services/moderator-agent/tests/test_config_defaults.py`
+- self-toggling files (excluded from naive counting): `services/moderator-agent/evals/redteam/test_deepteam_owasp.py`
+- notes: Tier-C verdict (2026-06-10): MISSED by every llm group — the red-team suite constructs Settings(moderator_disable_input_guard=...) EXPLICITLY (4th wiring-vs-component instance, in the eval suite itself), and the pinned gpt-5.5 snapshot now resists the planted injection even unguarded (the lands-when-unguarded demo is a standing red: deliberate LLM bugs rot as models strengthen). New keyless catcher: tests/test_config_defaults.py.
 
 ### `moderator-prompt-bug` — `MODERATOR_PROMPT_BUG=1`
 
 - component: moderator; read at services/moderator-agent/src/moderator_agent/config.py (settings-load)
 - designated catcher: services/moderator-agent/tests/test_metamorphic.py (llm-marked)
-- **MISSED by every group that ran** — see notes
+- **caught by 1 group(s)** (py-unit@in-proc); detection breadth 1, blast radius 1 file(s):
+  - `services/moderator-agent/tests/test_config_defaults.py`
 - notes: The metamorphic catcher needs OPENAI_API_KEY — the in-proc row shows what keyless CI sees.
 
 ### `moderator-ungrounded` — `MODERATOR_UNGROUNDED=1`
 
 - component: moderator; read at services/moderator-agent/src/moderator_agent/config.py (settings-load)
 - designated catcher: services/moderator-agent/evals/deepeval/test_rag_metrics.py (faithfulness)
-- **MISSED by every group that ran** — see notes
+- **caught by 1 group(s)** (py-unit@in-proc); detection breadth 1, blast radius 1 file(s):
+  - `services/moderator-agent/tests/test_config_defaults.py`
+- self-toggling files (excluded from naive counting): `services/moderator-agent/evals/deepeval/test_rag_metrics.py`
+- notes: Tier-C verdict (2026-06-10): MISSED — the hallucination demo self-arms (explicit Settings(moderator_ungrounded=True)), and on gold cases the model cites real retrieved rules even with the grounding check off: the guard is a safety net under a model that rarely needs it. New keyless catcher: tests/test_config_defaults.py.
 
 ### `moderator-disable-abstain` — `MODERATOR_DISABLE_ABSTAIN=1`
 
 - component: moderator; read at services/moderator-agent/src/moderator_agent/config.py (settings-load)
 - designated catcher: services/moderator-agent/tests/test_selfcheck.py
 - permanent claim: `moderator-abstain` (pnpm prove moderator-abstain --break)
-- **caught by 1 group(s)** (py-conformance@in-proc); detection breadth 1, blast radius 1 file(s):
+- **caught by 2 group(s)** (py-unit@in-proc, py-conformance@in-proc); detection breadth 2, blast radius 2 file(s):
+  - `services/moderator-agent/tests/test_config_defaults.py`
   - `services/moderator-agent/tests/test_workflow_decision.py`
+- self-toggling files (excluded from naive counting): `services/moderator-agent/tests/test_selfcheck.py`
+- notes: Tier-A: caught by py-conformance (test_workflow_decision builds the graph from bare Settings — the one moderator test that sees env). Tier-C (2026-06-10): MISSED — gold cases are unanimous, abstain never fires on them, so disabling it changes nothing the metrics see. New keyless catcher: tests/test_config_defaults.py.
 
 ### `moderator-rerank-bug` — `MODERATOR_RERANK_BUG=1`
 
 - component: moderator; read at services/moderator-agent/src/moderator_agent/config.py (settings-load)
 - designated catcher: services/moderator-agent/tests/test_reranker.py
-- **MISSED by every group that ran** — see notes
+- **caught by 1 group(s)** (py-unit@in-proc); detection breadth 1, blast radius 1 file(s):
+  - `services/moderator-agent/tests/test_config_defaults.py`
 - notes: H1 probe: predicted single-point-of-detection (delete test_reranker.py and this ships).
 
