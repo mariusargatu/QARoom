@@ -14,6 +14,11 @@ export const TENANT_ID_ATTR = 'tenant.id'
  */
 export class TenantSpanProcessor implements SpanProcessor {
   onStart(span: Span, _parentContext: Context): void {
+    // Deliberate-bug toggle (falsifiable-claims / detection-matrix): drop the stamp entirely so
+    // spans reach Jaeger without `tenant.id` and `pnpm check:tenant-spans` MUST go red. Read
+    // per-span (not at construction) so the toggle works however it arrives — kubectl set env
+    // on a live pod or an env-injected in-proc test run — matching CHAOS_SKIP_DEDUP's pattern.
+    if (process.env.CHAOS_TENANT_SPAN_DROP === '1') return
     span.setAttribute(TENANT_ID_ATTR, currentTenant())
   }
   onEnd(_span: ReadableSpan): void {}

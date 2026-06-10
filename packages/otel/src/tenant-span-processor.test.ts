@@ -1,5 +1,5 @@
 import { trace } from '@opentelemetry/api'
-import { afterAll, beforeAll, describe, expect, it } from 'vitest'
+import { afterAll, afterEach, beforeAll, describe, expect, it, vi } from 'vitest'
 import { SYSTEM_TENANT, withTenant } from './tenant-context'
 import { TENANT_ID_ATTR } from './tenant-span-processor'
 import { type InMemoryTelemetry, startInMemoryTelemetry } from './test-telemetry'
@@ -35,5 +35,35 @@ describe('TenantSpanProcessor', () => {
     })
     const span = tel.exporter.getFinishedSpans().find((s) => s.name === 'system-op')
     expect(span?.attributes[TENANT_ID_ATTR]).toBe(SYSTEM_TENANT)
+  })
+})
+
+describe('TenantSpanProcessor under CHAOS_TENANT_SPAN_DROP (deliberate-bug toggle)', () => {
+  afterEach(() => {
+    vi.unstubAllEnvs()
+  })
+
+  it('drops the tenant.id stamp entirely when the toggle is armed', () => {
+    vi.stubEnv('CHAOS_TENANT_SPAN_DROP', '1')
+    tel.exporter.reset()
+    withTenant('comm_01HZY0K7M3QF8VN2J5RX9TB4CD', () => {
+      trace.getTracer('test').startActiveSpan('dropped-op', (span) => {
+        span.end()
+      })
+    })
+    const span = tel.exporter.getFinishedSpans().find((s) => s.name === 'dropped-op')
+    expect(span?.attributes[TENANT_ID_ATTR]).toBeUndefined()
+  })
+
+  it('keeps stamping when the toggle holds any value other than "1"', () => {
+    vi.stubEnv('CHAOS_TENANT_SPAN_DROP', '0')
+    tel.exporter.reset()
+    withTenant('comm_01HZY0K7M3QF8VN2J5RX9TB4CD', () => {
+      trace.getTracer('test').startActiveSpan('stamped-op', (span) => {
+        span.end()
+      })
+    })
+    const span = tel.exporter.getFinishedSpans().find((s) => s.name === 'stamped-op')
+    expect(span?.attributes[TENANT_ID_ATTR]).toBe('comm_01HZY0K7M3QF8VN2J5RX9TB4CD')
   })
 })
