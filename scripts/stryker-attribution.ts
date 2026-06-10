@@ -58,6 +58,7 @@ const results = PACKAGES.flatMap((pkg) => {
   let propertyOnly = 0
   let exampleOnly = 0
   let both = 0
+  let coveredByBoth = 0
   let killed = 0
   let survivedOrUncovered = 0
   for (const f of Object.values(report.files ?? {})) {
@@ -67,10 +68,14 @@ const results = PACKAGES.flatMap((pkg) => {
         continue
       }
       killed += 1
-      const groups = new Set((m.killedBy ?? []).map((id) => testToGroup.get(id)).filter(Boolean))
-      if (groups.has('property') && groups.has('example')) both += 1
-      else if (groups.has('property')) propertyOnly += 1
-      else if (groups.has('example')) exampleOnly += 1
+      // killedBy is FIRST-kill credit (runner ordering), not exclusive capability — a mutant
+      // covered by both groups could likely be killed by either. Report both views honestly.
+      const killers = new Set((m.killedBy ?? []).map((id) => testToGroup.get(id)).filter(Boolean))
+      const cover = new Set((m.coveredBy ?? []).map((id) => testToGroup.get(id)).filter(Boolean))
+      if (cover.has('property') && cover.has('example')) coveredByBoth += 1
+      if (killers.has('property') && killers.has('example')) both += 1
+      else if (killers.has('property')) propertyOnly += 1
+      else if (killers.has('example')) exampleOnly += 1
     }
   }
 
@@ -83,6 +88,7 @@ const results = PACKAGES.flatMap((pkg) => {
       property_only_kills: propertyOnly,
       example_only_kills: exampleOnly,
       both_kill: both,
+      killed_covered_by_both: coveredByBoth,
       single_technique_scope: techniques.size < 2,
     },
   ]
@@ -95,7 +101,7 @@ if (results.length === 0) {
 
 for (const r of results) {
   process.stdout.write(
-    `  ${r.package.padEnd(12)} killed=${String(r.killed).padEnd(4)} property-only=${String(r.property_only_kills).padEnd(4)} example-only=${String(r.example_only_kills).padEnd(4)} both=${String(r.both_kill).padEnd(4)}${r.single_technique_scope ? ' (single-technique scope)' : ''}\n`,
+    `  ${r.package.padEnd(12)} killed=${String(r.killed).padEnd(4)} property-first=${String(r.property_only_kills).padEnd(4)} example-first=${String(r.example_only_kills).padEnd(4)} covered-by-both=${String(r.killed_covered_by_both).padEnd(4)}${r.single_technique_scope ? ' (single-technique scope)' : ''}\n`,
   )
 }
 
