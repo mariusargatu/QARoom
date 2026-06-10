@@ -2,7 +2,7 @@ import { execFileSync } from 'node:child_process'
 import { existsSync, readFileSync, writeFileSync } from 'node:fs'
 import { resolve } from 'node:path'
 import { CLAIMS } from '@qaroom/contracts/claims'
-import { TOGGLES, toggleById } from '@qaroom/contracts/detection-matrix'
+import { TOGGLES } from '@qaroom/contracts/detection-matrix'
 import { DetectionMatrixArtifact, type MatrixCell } from '@qaroom/contracts/detection-matrix-schema'
 import { computeCells, runPySweep, runTsSweep, type SweepResult } from './lib/matrix-run'
 

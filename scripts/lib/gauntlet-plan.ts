@@ -98,6 +98,7 @@ export function buildPlan(ctx: PreflightCtx, opts: GauntletOpts): GauntletStep[]
       timeoutMs: 60 * 60_000,
     }),
     step(2, 'fold-stryker', 'gate', 'pnpm', ['stryker:results'], { lane: 'mutation' }),
+    step(2, 'stryker-attribution', 'gate', 'pnpm', ['stryker:attribution'], { lane: 'mutation' }),
     step(
       2,
       'eval-cost-guard',
