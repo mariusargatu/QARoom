@@ -91,11 +91,13 @@ RFC 7807 problem of the right `failure_domain`, within a bounded budget), never 
 - **Mitigation:** the write path commits the domain row + an outbox row in one transaction and
   returns; a background relay drains the outbox to NATS asynchronously (Commitment 17), so a slow
   broker never blocks the request path.
-- **Deliberate-bug demo:** publish synchronously on the request path (move the publish out of the
-  outbox into the handler). A slow broker now stalls HTTP -> the latency property goes red.
-  Restore the outbox path -> green.
+- **Deliberate-bug demo:** `CHAOS_SYNC_PUBLISH=1` on content-service drains the outbox ON the
+  request path before the response leaves (services/content/src/server.ts) — a slow broker now
+  stalls mutating HTTP. Run `scripts/k6-under-chaos.sh 02-net-slow-nats vote-cast` with the toggle
+  armed: the latency property goes red. Unset the toggle -> green. The composition-only bug:
+  green in-proc, green under chaos alone, green under load alone; red only under chaos+load.
 - **Status:** verified live (`tests/chaos/02-net-slow-nats.test.ts`): the create path stays fast
-  under +2s NATS delay. The sync-publish red demo is documented (toggle not built this milestone).
+  under +2s NATS delay. The sync-publish toggle is built (detection-matrix id `sync-publish`).
 
 ---
 

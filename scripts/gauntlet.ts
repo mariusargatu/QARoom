@@ -27,6 +27,7 @@ const opts: GauntletOpts = {
   pyrit: args.includes('--pyrit'),
   triangulate: args.includes('--triangulate'),
   reuseCluster: args.includes('--reuse-cluster'),
+  down: args.includes('--down'),
 }
 
 const has = (tool: string): boolean => spawnSync('which', [tool], { encoding: 'utf8' }).status === 0

@@ -29,9 +29,20 @@ runServer(
       await runContentBackfill(db, { clock: deps.clock })
       // Transactional-outbox relay (Commitment 17): drain committed events to JetStream.
       const nats = await connectNats(natsUrl)
-      createRelay({ db, publisher: natsPublisher(nats.js), clock: deps.clock }).start(
-        RELAY_INTERVAL_MS,
-      )
+      const relay = createRelay({ db, publisher: natsPublisher(nats.js), clock: deps.clock })
+      relay.start(RELAY_INTERVAL_MS)
+      const app = await buildApp({ db, snapshotStore, ...deps })
+      // CHAOS_SYNC_PUBLISH (deliberate-bug demo, failure-modes.md#02): drain the outbox ON the
+      // request path before the response leaves, undoing Commitment 17's isolation — a slow
+      // broker now stalls mutating HTTP. Invisible to every functional test (drain is a no-op
+      // burden on a healthy broker); only chaos (slow NATS) × k6 (latency SLO) exposes it.
+      if (process.env.CHAOS_SYNC_PUBLISH === '1') {
+        app.addHook('onSend', async (request, _reply, payload) => {
+          if (request.method !== 'GET') await relay.drainOnce()
+          return payload
+        })
+      }
+      return app
     }
     return buildApp({ db, snapshotStore, ...deps })
   },
