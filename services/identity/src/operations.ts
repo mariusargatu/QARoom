@@ -66,6 +66,21 @@ const membershipConflict = problemResponse(
   },
 )
 
+// Undocumented-409 fuzz finding (gauntlet phase 6, live identity, Schemathesis seed
+// 6206237401687615594460301199776970265): the shared idempotency middleware answers a reused
+// Idempotency-Key with a different body as 409 on EVERY mutating endpoint — content's registry
+// declared it, identity's never did. Declared here exactly like content's.
+const idempotencyConflict = problemResponse(
+  409,
+  'idempotency-key-conflict',
+  'Idempotency-Key reused with a different body',
+  'conflict',
+  {
+    description: 'This Idempotency-Key was already used for a request with a different body.',
+    instance: '/api/users',
+  },
+)
+
 const EXAMPLE_ACCESS_TOKEN = {
   session_id: EXAMPLE_SESSION_ID,
   access_token: 'eyJhbGciOiJFUzI1NiIsImtpZCI6ImtleV8wMSJ9.eyJzdWIiOiJ1c2VyXzAxIn0.sig',
@@ -128,6 +143,7 @@ export const OPERATIONS: readonly OasOperation[] = [
         },
       },
       validation400,
+      idempotencyConflict,
     ],
   },
   {
@@ -172,6 +188,7 @@ export const OPERATIONS: readonly OasOperation[] = [
       },
       validation400,
       slugConflict,
+      idempotencyConflict,
     ],
   },
   {
@@ -202,6 +219,7 @@ export const OPERATIONS: readonly OasOperation[] = [
       validation400,
       communityNotFound,
       membershipConflict,
+      idempotencyConflict,
     ],
   },
   {
@@ -247,6 +265,7 @@ export const OPERATIONS: readonly OasOperation[] = [
       },
       validation400,
       userNotFound,
+      idempotencyConflict,
     ],
   },
   {
@@ -290,6 +309,9 @@ export const OPERATIONS: readonly OasOperation[] = [
           memberships: [{ community_id: EXAMPLE_COMMUNITY_ID, role: 'member' }],
         },
       },
+      // Undocumented-400 fuzz finding (gauntlet phase 6): the strict body schema rejects unknown
+      // properties as a validation 400, which the spec never declared (200/401 only).
+      validation400,
       ticketInvalid,
     ],
   },

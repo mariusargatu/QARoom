@@ -171,6 +171,10 @@ export const OPERATIONS: readonly OasOperation[] = [
           },
         },
       },
+      // Undocumented-400 fuzz finding (gauntlet phase 6, live webhooks): mutating subscription
+      // ops reject a missing/invalid Idempotency-Key or malformed params as a validation 400,
+      // which the spec never declared.
+      badRequest('The request params or Idempotency-Key header failed validation.'),
       notFound,
     ],
   },
@@ -192,6 +196,7 @@ export const OPERATIONS: readonly OasOperation[] = [
         example: { ...EXAMPLE_WEBHOOK_SUBSCRIPTION, status: 'Paused' },
         links: getLink,
       },
+      badRequest('The request params or Idempotency-Key header failed validation.'),
       illegalTransition,
       notFound,
     ],
@@ -213,6 +218,7 @@ export const OPERATIONS: readonly OasOperation[] = [
         example: EXAMPLE_WEBHOOK_SUBSCRIPTION,
         links: getLink,
       },
+      badRequest('The request params or Idempotency-Key header failed validation.'),
       illegalTransition,
       notFound,
     ],

@@ -23,7 +23,7 @@ paths:
                 title: Why deterministic clocks matter
                 body: A short note on testability.
                 score: 0
-                created_at: 2026-05-28T12:00:00.000Z
+                created_at: "2026-05-28T12:00:00.000Z"
           links:
             GetCreatedPost:
               operationId: getPost
@@ -45,6 +45,36 @@ paths:
                 retryable: false
                 next_actions: []
                 failure_domain: validation
+        "404":
+          description: The community or addressed resource does not exist.
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ProblemDetails"
+              example:
+                type: https://qaroom.dev/errors/resource-not-found
+                title: Resource not found
+                status: 404
+                detail: Resource not found.
+                instance: /api/communities/comm_01HZY0K7M3QF8VN2J5RX9TB4CD/feed
+                retryable: false
+                next_actions: []
+                failure_domain: not_found
+        "409":
+          description: This Idempotency-Key was already used for a request with a different body.
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ProblemDetails"
+              example:
+                type: https://qaroom.dev/errors/idempotency-key-conflict
+                title: Idempotency-Key reused with a different body
+                status: 409
+                detail: Idempotency-Key reused with a different body.
+                instance: /api/communities/comm_01HZY0K7M3QF8VN2J5RX9TB4CD/posts
+                retryable: false
+                next_actions: []
+                failure_domain: conflict
         "429":
           description: The per-principal rate limit was exceeded. Carries a Retry-After header.
           content:
@@ -130,6 +160,21 @@ paths:
                 retryable: false
                 next_actions: []
                 failure_domain: validation
+        "404":
+          description: The community or addressed resource does not exist.
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ProblemDetails"
+              example:
+                type: https://qaroom.dev/errors/resource-not-found
+                title: Resource not found
+                status: 404
+                detail: Resource not found.
+                instance: /api/communities/comm_01HZY0K7M3QF8VN2J5RX9TB4CD/feed
+                retryable: false
+                next_actions: []
+                failure_domain: not_found
         "429":
           description: The per-principal rate limit was exceeded. Carries a Retry-After header.
           content:
@@ -189,7 +234,7 @@ paths:
                 title: Why deterministic clocks matter
                 body: A short note on testability.
                 score: 0
-                created_at: 2026-05-28T12:00:00.000Z
+                created_at: "2026-05-28T12:00:00.000Z"
         "400":
           description: The request failed validation at the gateway edge.
           content:
@@ -312,6 +357,21 @@ paths:
                 retryable: false
                 next_actions: []
                 failure_domain: not_found
+        "409":
+          description: This Idempotency-Key was already used for a request with a different body.
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ProblemDetails"
+              example:
+                type: https://qaroom.dev/errors/idempotency-key-conflict
+                title: Idempotency-Key reused with a different body
+                status: 409
+                detail: Idempotency-Key reused with a different body.
+                instance: /api/communities/comm_01HZY0K7M3QF8VN2J5RX9TB4CD/posts
+                retryable: false
+                next_actions: []
+                failure_domain: conflict
         "429":
           description: The per-principal rate limit was exceeded. Carries a Retry-After header.
           content:
@@ -388,8 +448,8 @@ paths:
                 amount_cents: 2500
                 currency: USD
                 status: Captured
-                created_at: 2026-05-28T12:00:00.000Z
-                updated_at: 2026-05-28T12:00:00.000Z
+                created_at: "2026-05-28T12:00:00.000Z"
+                updated_at: "2026-05-28T12:00:00.000Z"
           links:
             GetCreatedDonation:
               operationId: getDonation
@@ -412,6 +472,21 @@ paths:
                 retryable: false
                 next_actions: []
                 failure_domain: validation
+        "404":
+          description: The community or addressed resource does not exist.
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ProblemDetails"
+              example:
+                type: https://qaroom.dev/errors/resource-not-found
+                title: Resource not found
+                status: 404
+                detail: Resource not found.
+                instance: /api/communities/comm_01HZY0K7M3QF8VN2J5RX9TB4CD/feed
+                retryable: false
+                next_actions: []
+                failure_domain: not_found
         "409":
           description: The donations feature flag has not reached Enabled for this community.
           content:
@@ -505,8 +580,8 @@ paths:
                     amount_cents: 2500
                     currency: USD
                     status: Captured
-                    created_at: 2026-05-28T12:00:00.000Z
-                    updated_at: 2026-05-28T12:00:00.000Z
+                    created_at: "2026-05-28T12:00:00.000Z"
+                    updated_at: "2026-05-28T12:00:00.000Z"
         "400":
           description: The request failed validation at the gateway edge.
           content:
@@ -522,6 +597,21 @@ paths:
                 retryable: false
                 next_actions: []
                 failure_domain: validation
+        "404":
+          description: The community or addressed resource does not exist.
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ProblemDetails"
+              example:
+                type: https://qaroom.dev/errors/resource-not-found
+                title: Resource not found
+                status: 404
+                detail: Resource not found.
+                instance: /api/communities/comm_01HZY0K7M3QF8VN2J5RX9TB4CD/feed
+                retryable: false
+                next_actions: []
+                failure_domain: not_found
         "429":
           description: The per-principal rate limit was exceeded. Carries a Retry-After header.
           content:
@@ -581,8 +671,8 @@ paths:
                 amount_cents: 2500
                 currency: USD
                 status: Captured
-                created_at: 2026-05-28T12:00:00.000Z
-                updated_at: 2026-05-28T12:00:00.000Z
+                created_at: "2026-05-28T12:00:00.000Z"
+                updated_at: "2026-05-28T12:00:00.000Z"
         "400":
           description: The request failed validation at the gateway edge.
           content:
@@ -680,7 +770,7 @@ paths:
                 as_of:
                   snapshot_id: snap_01HZY0K7M3QF8VN2J5RX9TB4CL
                   lamport: 7
-                  wall_clock: 2026-05-28T12:00:00.000Z
+                  wall_clock: "2026-05-28T12:00:00.000Z"
         "400":
           description: The request failed validation at the gateway edge.
           content:
@@ -696,6 +786,21 @@ paths:
                 retryable: false
                 next_actions: []
                 failure_domain: validation
+        "404":
+          description: The community or addressed resource does not exist.
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ProblemDetails"
+              example:
+                type: https://qaroom.dev/errors/resource-not-found
+                title: Resource not found
+                status: 404
+                detail: Resource not found.
+                instance: /api/communities/comm_01HZY0K7M3QF8VN2J5RX9TB4CD/feed
+                retryable: false
+                next_actions: []
+                failure_domain: not_found
         "429":
           description: The per-principal rate limit was exceeded. Carries a Retry-After header.
           content:
@@ -765,11 +870,11 @@ paths:
                     as_of:
                       snapshot_id: snap_01HZY0K7M3QF8VN2J5RX9TB4CL
                       lamport: 7
-                      wall_clock: 2026-05-28T12:00:00.000Z
+                      wall_clock: "2026-05-28T12:00:00.000Z"
                 as_of:
                   snapshot_id: snap_01HZY0K7M3QF8VN2J5RX9TB4CL
                   lamport: 7
-                  wall_clock: 2026-05-28T12:00:00.000Z
+                  wall_clock: "2026-05-28T12:00:00.000Z"
         "400":
           description: The request failed validation at the gateway edge.
           content:
@@ -785,6 +890,21 @@ paths:
                 retryable: false
                 next_actions: []
                 failure_domain: validation
+        "404":
+          description: The community or addressed resource does not exist.
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ProblemDetails"
+              example:
+                type: https://qaroom.dev/errors/resource-not-found
+                title: Resource not found
+                status: 404
+                detail: Resource not found.
+                instance: /api/communities/comm_01HZY0K7M3QF8VN2J5RX9TB4CD/feed
+                retryable: false
+                next_actions: []
+                failure_domain: not_found
         "429":
           description: The per-principal rate limit was exceeded. Carries a Retry-After header.
           content:
@@ -845,7 +965,7 @@ paths:
                 as_of:
                   snapshot_id: snap_01HZY0K7M3QF8VN2J5RX9TB4CL
                   lamport: 7
-                  wall_clock: 2026-05-28T12:00:00.000Z
+                  wall_clock: "2026-05-28T12:00:00.000Z"
           links:
             ResolveAdvancedFlag:
               operationId: resolveFlag
@@ -868,6 +988,21 @@ paths:
                 retryable: false
                 next_actions: []
                 failure_domain: validation
+        "404":
+          description: The community or addressed resource does not exist.
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ProblemDetails"
+              example:
+                type: https://qaroom.dev/errors/resource-not-found
+                title: Resource not found
+                status: 404
+                detail: Resource not found.
+                instance: /api/communities/comm_01HZY0K7M3QF8VN2J5RX9TB4CD/feed
+                retryable: false
+                next_actions: []
+                failure_domain: not_found
         "409":
           description: The requested event is not a legal transition from the flag’s current state.
           content:
@@ -973,6 +1108,21 @@ paths:
                 retryable: false
                 next_actions: []
                 failure_domain: validation
+        "404":
+          description: The community or addressed resource does not exist.
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ProblemDetails"
+              example:
+                type: https://qaroom.dev/errors/resource-not-found
+                title: Resource not found
+                status: 404
+                detail: Resource not found.
+                instance: /api/communities/comm_01HZY0K7M3QF8VN2J5RX9TB4CD/feed
+                retryable: false
+                next_actions: []
+                failure_domain: not_found
         "429":
           description: The per-principal rate limit was exceeded. Carries a Retry-After header.
           content:
@@ -1025,8 +1175,8 @@ paths:
                   - post.created
                   - donation.state.changed
                 status: Active
-                created_at: 2026-05-28T12:00:00.000Z
-                updated_at: 2026-05-28T12:00:00.000Z
+                created_at: "2026-05-28T12:00:00.000Z"
+                updated_at: "2026-05-28T12:00:00.000Z"
                 secret: whsec_…
           links:
             GetWebhook:
@@ -1050,6 +1200,21 @@ paths:
                 retryable: false
                 next_actions: []
                 failure_domain: validation
+        "404":
+          description: The community or addressed resource does not exist.
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ProblemDetails"
+              example:
+                type: https://qaroom.dev/errors/resource-not-found
+                title: Resource not found
+                status: 404
+                detail: Resource not found.
+                instance: /api/communities/comm_01HZY0K7M3QF8VN2J5RX9TB4CD/feed
+                retryable: false
+                next_actions: []
+                failure_domain: not_found
         "409":
           description: This Idempotency-Key was already used for a request with a different body.
           content:
@@ -1080,6 +1245,21 @@ paths:
                 retryable: false
                 next_actions: []
                 failure_domain: validation
+        "429":
+          description: The per-principal rate limit was exceeded. Carries a Retry-After header.
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ProblemDetails"
+              example:
+                type: https://qaroom.dev/errors/rate-limited
+                title: Too many requests
+                status: 429
+                detail: Too many requests.
+                instance: /api/posts/post_01HZY0K7M3QF8VN2J5RX9TB4CE
+                retryable: true
+                next_actions: []
+                failure_domain: rate_limit
         "502":
           description: webhooks-service is unreachable, timed out, or the gateway circuit breaker is open.
           content:
@@ -1144,8 +1324,8 @@ paths:
                       - post.created
                       - donation.state.changed
                     status: Active
-                    created_at: 2026-05-28T12:00:00.000Z
-                    updated_at: 2026-05-28T12:00:00.000Z
+                    created_at: "2026-05-28T12:00:00.000Z"
+                    updated_at: "2026-05-28T12:00:00.000Z"
         "400":
           description: The request failed validation at the gateway edge.
           content:
@@ -1161,6 +1341,36 @@ paths:
                 retryable: false
                 next_actions: []
                 failure_domain: validation
+        "404":
+          description: The community or addressed resource does not exist.
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ProblemDetails"
+              example:
+                type: https://qaroom.dev/errors/resource-not-found
+                title: Resource not found
+                status: 404
+                detail: Resource not found.
+                instance: /api/communities/comm_01HZY0K7M3QF8VN2J5RX9TB4CD/feed
+                retryable: false
+                next_actions: []
+                failure_domain: not_found
+        "429":
+          description: The per-principal rate limit was exceeded. Carries a Retry-After header.
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ProblemDetails"
+              example:
+                type: https://qaroom.dev/errors/rate-limited
+                title: Too many requests
+                status: 429
+                detail: Too many requests.
+                instance: /api/posts/post_01HZY0K7M3QF8VN2J5RX9TB4CE
+                retryable: true
+                next_actions: []
+                failure_domain: rate_limit
         "502":
           description: webhooks-service is unreachable, timed out, or the gateway circuit breaker is open.
           content:
@@ -1206,8 +1416,23 @@ paths:
                   - post.created
                   - donation.state.changed
                 status: Active
-                created_at: 2026-05-28T12:00:00.000Z
-                updated_at: 2026-05-28T12:00:00.000Z
+                created_at: "2026-05-28T12:00:00.000Z"
+                updated_at: "2026-05-28T12:00:00.000Z"
+        "400":
+          description: The request failed validation at the gateway edge.
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ProblemDetails"
+              example:
+                type: https://qaroom.dev/errors/validation-failed
+                title: Request failed validation
+                status: 400
+                detail: Request failed validation.
+                instance: /api/posts/post_01HZY0K7M3QF8VN2J5RX9TB4CE
+                retryable: false
+                next_actions: []
+                failure_domain: validation
         "404":
           description: No subscription with that id exists in this community.
           content:
@@ -1223,6 +1448,21 @@ paths:
                 retryable: false
                 next_actions: []
                 failure_domain: not_found
+        "429":
+          description: The per-principal rate limit was exceeded. Carries a Retry-After header.
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ProblemDetails"
+              example:
+                type: https://qaroom.dev/errors/rate-limited
+                title: Too many requests
+                status: 429
+                detail: Too many requests.
+                instance: /api/posts/post_01HZY0K7M3QF8VN2J5RX9TB4CE
+                retryable: true
+                next_actions: []
+                failure_domain: rate_limit
         "502":
           description: webhooks-service is unreachable, timed out, or the gateway circuit breaker is open.
           content:
@@ -1268,6 +1508,21 @@ paths:
               parameters:
                 communityId: $request.path.communityId
               description: List the remaining subscriptions.
+        "400":
+          description: The request failed validation at the gateway edge.
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ProblemDetails"
+              example:
+                type: https://qaroom.dev/errors/validation-failed
+                title: Request failed validation
+                status: 400
+                detail: Request failed validation.
+                instance: /api/posts/post_01HZY0K7M3QF8VN2J5RX9TB4CE
+                retryable: false
+                next_actions: []
+                failure_domain: validation
         "404":
           description: No subscription with that id exists in this community.
           content:
@@ -1283,6 +1538,36 @@ paths:
                 retryable: false
                 next_actions: []
                 failure_domain: not_found
+        "409":
+          description: This Idempotency-Key was already used for a request with a different body.
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ProblemDetails"
+              example:
+                type: https://qaroom.dev/errors/idempotency-key-conflict
+                title: Idempotency-Key reused with a different body
+                status: 409
+                detail: Idempotency-Key reused with a different body.
+                instance: /api/communities/comm_01HZY0K7M3QF8VN2J5RX9TB4CD/posts
+                retryable: false
+                next_actions: []
+                failure_domain: conflict
+        "429":
+          description: The per-principal rate limit was exceeded. Carries a Retry-After header.
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ProblemDetails"
+              example:
+                type: https://qaroom.dev/errors/rate-limited
+                title: Too many requests
+                status: 429
+                detail: Too many requests.
+                instance: /api/posts/post_01HZY0K7M3QF8VN2J5RX9TB4CE
+                retryable: true
+                next_actions: []
+                failure_domain: rate_limit
         "502":
           description: webhooks-service is unreachable, timed out, or the gateway circuit breaker is open.
           content:
@@ -1343,8 +1628,8 @@ paths:
                   - post.created
                   - donation.state.changed
                 status: Paused
-                created_at: 2026-05-28T12:00:00.000Z
-                updated_at: 2026-05-28T12:00:00.000Z
+                created_at: "2026-05-28T12:00:00.000Z"
+                updated_at: "2026-05-28T12:00:00.000Z"
           links:
             GetWebhook:
               operationId: getWebhook
@@ -1352,6 +1637,21 @@ paths:
                 communityId: $response.body#/community_id
                 subscriptionId: $response.body#/id
               description: Fetch the affected subscription.
+        "400":
+          description: The request failed validation at the gateway edge.
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ProblemDetails"
+              example:
+                type: https://qaroom.dev/errors/validation-failed
+                title: Request failed validation
+                status: 400
+                detail: Request failed validation.
+                instance: /api/posts/post_01HZY0K7M3QF8VN2J5RX9TB4CE
+                retryable: false
+                next_actions: []
+                failure_domain: validation
         "404":
           description: No subscription with that id exists in this community.
           content:
@@ -1382,6 +1682,21 @@ paths:
                 retryable: false
                 next_actions: []
                 failure_domain: conflict
+        "429":
+          description: The per-principal rate limit was exceeded. Carries a Retry-After header.
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ProblemDetails"
+              example:
+                type: https://qaroom.dev/errors/rate-limited
+                title: Too many requests
+                status: 429
+                detail: Too many requests.
+                instance: /api/posts/post_01HZY0K7M3QF8VN2J5RX9TB4CE
+                retryable: true
+                next_actions: []
+                failure_domain: rate_limit
         "502":
           description: webhooks-service is unreachable, timed out, or the gateway circuit breaker is open.
           content:
@@ -1442,8 +1757,8 @@ paths:
                   - post.created
                   - donation.state.changed
                 status: Active
-                created_at: 2026-05-28T12:00:00.000Z
-                updated_at: 2026-05-28T12:00:00.000Z
+                created_at: "2026-05-28T12:00:00.000Z"
+                updated_at: "2026-05-28T12:00:00.000Z"
           links:
             GetWebhook:
               operationId: getWebhook
@@ -1451,6 +1766,21 @@ paths:
                 communityId: $response.body#/community_id
                 subscriptionId: $response.body#/id
               description: Fetch the affected subscription.
+        "400":
+          description: The request failed validation at the gateway edge.
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ProblemDetails"
+              example:
+                type: https://qaroom.dev/errors/validation-failed
+                title: Request failed validation
+                status: 400
+                detail: Request failed validation.
+                instance: /api/posts/post_01HZY0K7M3QF8VN2J5RX9TB4CE
+                retryable: false
+                next_actions: []
+                failure_domain: validation
         "404":
           description: No subscription with that id exists in this community.
           content:
@@ -1481,6 +1811,21 @@ paths:
                 retryable: false
                 next_actions: []
                 failure_domain: conflict
+        "429":
+          description: The per-principal rate limit was exceeded. Carries a Retry-After header.
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ProblemDetails"
+              example:
+                type: https://qaroom.dev/errors/rate-limited
+                title: Too many requests
+                status: 429
+                detail: Too many requests.
+                instance: /api/posts/post_01HZY0K7M3QF8VN2J5RX9TB4CE
+                retryable: true
+                next_actions: []
+                failure_domain: rate_limit
         "502":
           description: webhooks-service is unreachable, timed out, or the gateway circuit breaker is open.
           content:
@@ -1545,8 +1890,23 @@ paths:
                     attempt: 1
                     next_attempt_at: null
                     last_status_code: 200
-                    created_at: 2026-05-28T12:00:00.000Z
-                    updated_at: 2026-05-28T12:00:00.000Z
+                    created_at: "2026-05-28T12:00:00.000Z"
+                    updated_at: "2026-05-28T12:00:00.000Z"
+        "400":
+          description: The request failed validation at the gateway edge.
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ProblemDetails"
+              example:
+                type: https://qaroom.dev/errors/validation-failed
+                title: Request failed validation
+                status: 400
+                detail: Request failed validation.
+                instance: /api/posts/post_01HZY0K7M3QF8VN2J5RX9TB4CE
+                retryable: false
+                next_actions: []
+                failure_domain: validation
         "404":
           description: No subscription with that id exists in this community.
           content:
@@ -1562,6 +1922,21 @@ paths:
                 retryable: false
                 next_actions: []
                 failure_domain: not_found
+        "429":
+          description: The per-principal rate limit was exceeded. Carries a Retry-After header.
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ProblemDetails"
+              example:
+                type: https://qaroom.dev/errors/rate-limited
+                title: Too many requests
+                status: 429
+                detail: Too many requests.
+                instance: /api/posts/post_01HZY0K7M3QF8VN2J5RX9TB4CE
+                retryable: true
+                next_actions: []
+                failure_domain: rate_limit
         "502":
           description: webhooks-service is unreachable, timed out, or the gateway circuit breaker is open.
           content:
@@ -1610,7 +1985,7 @@ paths:
                 id: user_01HZY0K7M3QF8VN2J5RX9TB4CF
                 handle: ada
                 display_name: Ada Lovelace
-                created_at: 2026-05-28T12:00:00.000Z
+                created_at: "2026-05-28T12:00:00.000Z"
           links:
             GetCreatedUser:
               operationId: getUser
@@ -1632,6 +2007,36 @@ paths:
                 retryable: false
                 next_actions: []
                 failure_domain: validation
+        "409":
+          description: This Idempotency-Key was already used for a request with a different body.
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ProblemDetails"
+              example:
+                type: https://qaroom.dev/errors/idempotency-key-conflict
+                title: Idempotency-Key reused with a different body
+                status: 409
+                detail: Idempotency-Key reused with a different body.
+                instance: /api/communities/comm_01HZY0K7M3QF8VN2J5RX9TB4CD/posts
+                retryable: false
+                next_actions: []
+                failure_domain: conflict
+        "429":
+          description: The per-principal rate limit was exceeded. Carries a Retry-After header.
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ProblemDetails"
+              example:
+                type: https://qaroom.dev/errors/rate-limited
+                title: Too many requests
+                status: 429
+                detail: Too many requests.
+                instance: /api/posts/post_01HZY0K7M3QF8VN2J5RX9TB4CE
+                retryable: true
+                next_actions: []
+                failure_domain: rate_limit
         "502":
           description: identity-service is unreachable or timed out.
           content:
@@ -1683,7 +2088,7 @@ paths:
                 id: user_01HZY0K7M3QF8VN2J5RX9TB4CF
                 handle: ada
                 display_name: Ada Lovelace
-                created_at: 2026-05-28T12:00:00.000Z
+                created_at: "2026-05-28T12:00:00.000Z"
         "400":
           description: The request failed validation at the gateway edge.
           content:
@@ -1714,6 +2119,21 @@ paths:
                 retryable: false
                 next_actions: []
                 failure_domain: not_found
+        "429":
+          description: The per-principal rate limit was exceeded. Carries a Retry-After header.
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ProblemDetails"
+              example:
+                type: https://qaroom.dev/errors/rate-limited
+                title: Too many requests
+                status: 429
+                detail: Too many requests.
+                instance: /api/posts/post_01HZY0K7M3QF8VN2J5RX9TB4CE
+                retryable: true
+                next_actions: []
+                failure_domain: rate_limit
         "502":
           description: identity-service is unreachable or timed out.
           content:
@@ -1755,7 +2175,7 @@ paths:
                 id: comm_01HZY0K7M3QF8VN2J5RX9TB4CD
                 slug: general
                 name: General
-                created_at: 2026-05-28T12:00:00.000Z
+                created_at: "2026-05-28T12:00:00.000Z"
           links:
             AddFirstMember:
               operationId: addMembership
@@ -1797,6 +2217,21 @@ paths:
                 retryable: false
                 next_actions: []
                 failure_domain: conflict
+        "429":
+          description: The per-principal rate limit was exceeded. Carries a Retry-After header.
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ProblemDetails"
+              example:
+                type: https://qaroom.dev/errors/rate-limited
+                title: Too many requests
+                status: 429
+                detail: Too many requests.
+                instance: /api/posts/post_01HZY0K7M3QF8VN2J5RX9TB4CE
+                retryable: true
+                next_actions: []
+                failure_domain: rate_limit
         "502":
           description: identity-service is unreachable or timed out.
           content:
@@ -1848,7 +2283,7 @@ paths:
                 user_id: user_01HZY0K7M3QF8VN2J5RX9TB4CF
                 community_id: comm_01HZY0K7M3QF8VN2J5RX9TB4CD
                 role: member
-                joined_at: 2026-05-28T12:00:00.000Z
+                joined_at: "2026-05-28T12:00:00.000Z"
           links:
             ListMembers:
               operationId: listMembers
@@ -1870,6 +2305,21 @@ paths:
                 retryable: false
                 next_actions: []
                 failure_domain: validation
+        "404":
+          description: The community or addressed resource does not exist.
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ProblemDetails"
+              example:
+                type: https://qaroom.dev/errors/resource-not-found
+                title: Resource not found
+                status: 404
+                detail: Resource not found.
+                instance: /api/communities/comm_01HZY0K7M3QF8VN2J5RX9TB4CD/feed
+                retryable: false
+                next_actions: []
+                failure_domain: not_found
         "409":
           description: The user already has a membership in this community.
           content:
@@ -1885,6 +2335,21 @@ paths:
                 retryable: false
                 next_actions: []
                 failure_domain: conflict
+        "429":
+          description: The per-principal rate limit was exceeded. Carries a Retry-After header.
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ProblemDetails"
+              example:
+                type: https://qaroom.dev/errors/rate-limited
+                title: Too many requests
+                status: 429
+                detail: Too many requests.
+                instance: /api/posts/post_01HZY0K7M3QF8VN2J5RX9TB4CE
+                retryable: true
+                next_actions: []
+                failure_domain: rate_limit
         "502":
           description: identity-service is unreachable or timed out.
           content:
@@ -1944,11 +2409,11 @@ paths:
                   - user_id: user_01HZY0K7M3QF8VN2J5RX9TB4CF
                     community_id: comm_01HZY0K7M3QF8VN2J5RX9TB4CD
                     role: member
-                    joined_at: 2026-05-28T12:00:00.000Z
+                    joined_at: "2026-05-28T12:00:00.000Z"
                 as_of:
                   snapshot_id: snap_01HZY0K7M3QF8VN2J5RX9TB4CL
                   lamport: 7
-                  wall_clock: 2026-05-28T12:00:00.000Z
+                  wall_clock: "2026-05-28T12:00:00.000Z"
         "400":
           description: The request failed validation at the gateway edge.
           content:
@@ -1964,6 +2429,36 @@ paths:
                 retryable: false
                 next_actions: []
                 failure_domain: validation
+        "404":
+          description: The community or addressed resource does not exist.
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ProblemDetails"
+              example:
+                type: https://qaroom.dev/errors/resource-not-found
+                title: Resource not found
+                status: 404
+                detail: Resource not found.
+                instance: /api/communities/comm_01HZY0K7M3QF8VN2J5RX9TB4CD/feed
+                retryable: false
+                next_actions: []
+                failure_domain: not_found
+        "429":
+          description: The per-principal rate limit was exceeded. Carries a Retry-After header.
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ProblemDetails"
+              example:
+                type: https://qaroom.dev/errors/rate-limited
+                title: Too many requests
+                status: 429
+                detail: Too many requests.
+                instance: /api/posts/post_01HZY0K7M3QF8VN2J5RX9TB4CE
+                retryable: true
+                next_actions: []
+                failure_domain: rate_limit
         "502":
           description: identity-service is unreachable or timed out.
           content:
@@ -2005,7 +2500,7 @@ paths:
                 session_id: sess_01HZY0K7M3QF8VN2J5RX9TB4CG
                 access_token: eyJhbGciOiJFUzI1NiIsImtpZCI6Imtl…
                 token_type: Bearer
-                expires_at: 2026-05-28T12:00:00.000Z
+                expires_at: "2026-05-28T12:00:00.000Z"
                 kid: key_01HZY0K7M3QF8VN2J5RX9TB4CH
           links:
             MintWsTicket:
@@ -2041,6 +2536,36 @@ paths:
                 retryable: false
                 next_actions: []
                 failure_domain: not_found
+        "409":
+          description: This Idempotency-Key was already used for a request with a different body.
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ProblemDetails"
+              example:
+                type: https://qaroom.dev/errors/idempotency-key-conflict
+                title: Idempotency-Key reused with a different body
+                status: 409
+                detail: Idempotency-Key reused with a different body.
+                instance: /api/communities/comm_01HZY0K7M3QF8VN2J5RX9TB4CD/posts
+                retryable: false
+                next_actions: []
+                failure_domain: conflict
+        "429":
+          description: The per-principal rate limit was exceeded. Carries a Retry-After header.
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ProblemDetails"
+              example:
+                type: https://qaroom.dev/errors/rate-limited
+                title: Too many requests
+                status: 429
+                detail: Too many requests.
+                instance: /api/posts/post_01HZY0K7M3QF8VN2J5RX9TB4CE
+                retryable: true
+                next_actions: []
+                failure_domain: rate_limit
         "502":
           description: identity-service is unreachable or timed out.
           content:
@@ -2160,11 +2685,11 @@ paths:
                     rationale: No policy rule matched; the post is clearly within the community guidelines.
                     confidence: 0.97
                     model: openai:gpt-5.5-2026-04-23
-                    created_at: 2026-05-28T12:00:00.000Z
+                    created_at: "2026-05-28T12:00:00.000Z"
                 as_of:
                   snapshot_id: snap_01HZY0K7M3QF8VN2J5RX9TB4CL
                   lamport: 7
-                  wall_clock: 2026-05-28T12:00:00.000Z
+                  wall_clock: "2026-05-28T12:00:00.000Z"
         "400":
           description: The request failed validation at the gateway edge.
           content:
@@ -2180,6 +2705,36 @@ paths:
                 retryable: false
                 next_actions: []
                 failure_domain: validation
+        "404":
+          description: The community or addressed resource does not exist.
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ProblemDetails"
+              example:
+                type: https://qaroom.dev/errors/resource-not-found
+                title: Resource not found
+                status: 404
+                detail: Resource not found.
+                instance: /api/communities/comm_01HZY0K7M3QF8VN2J5RX9TB4CD/feed
+                retryable: false
+                next_actions: []
+                failure_domain: not_found
+        "429":
+          description: The per-principal rate limit was exceeded. Carries a Retry-After header.
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ProblemDetails"
+              example:
+                type: https://qaroom.dev/errors/rate-limited
+                title: Too many requests
+                status: 429
+                detail: Too many requests.
+                instance: /api/posts/post_01HZY0K7M3QF8VN2J5RX9TB4CE
+                retryable: true
+                next_actions: []
+                failure_domain: rate_limit
         "502":
           description: moderator-agent is unreachable or timed out.
           content:
@@ -2230,7 +2785,7 @@ paths:
                 rationale: No policy rule matched; the post is clearly within the community guidelines.
                 confidence: 0.97
                 model: openai:gpt-5.5-2026-04-23
-                created_at: 2026-05-28T12:00:00.000Z
+                created_at: "2026-05-28T12:00:00.000Z"
         "400":
           description: The request failed validation at the gateway edge.
           content:
@@ -2261,6 +2816,21 @@ paths:
                 retryable: false
                 next_actions: []
                 failure_domain: not_found
+        "429":
+          description: The per-principal rate limit was exceeded. Carries a Retry-After header.
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ProblemDetails"
+              example:
+                type: https://qaroom.dev/errors/rate-limited
+                title: Too many requests
+                status: 429
+                detail: Too many requests.
+                instance: /api/posts/post_01HZY0K7M3QF8VN2J5RX9TB4CE
+                retryable: true
+                next_actions: []
+                failure_domain: rate_limit
         "502":
           description: moderator-agent is unreachable or timed out.
           content:
@@ -2767,7 +3337,7 @@ components:
     FlagState:
       type: string
       enum:
-        - Off
+        - "Off"
         - Enabling
         - Canary
         - Enabled

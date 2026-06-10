@@ -24,7 +24,7 @@ paths:
                 as_of:
                   snapshot_id: snap_01HZY0K7M3QF8VN2J5RX9TB4CL
                   lamport: 7
-                  wall_clock: 2026-05-28T12:00:00.000Z
+                  wall_clock: "2026-05-28T12:00:00.000Z"
         "400":
           description: The community id or flag key in the path is malformed.
           content:
@@ -79,11 +79,11 @@ paths:
                     as_of:
                       snapshot_id: snap_01HZY0K7M3QF8VN2J5RX9TB4CL
                       lamport: 7
-                      wall_clock: 2026-05-28T12:00:00.000Z
+                      wall_clock: "2026-05-28T12:00:00.000Z"
                 as_of:
                   snapshot_id: snap_01HZY0K7M3QF8VN2J5RX9TB4CL
                   lamport: 7
-                  wall_clock: 2026-05-28T12:00:00.000Z
+                  wall_clock: "2026-05-28T12:00:00.000Z"
         "400":
           description: The community id in the path is malformed.
           content:
@@ -129,7 +129,7 @@ paths:
                 as_of:
                   snapshot_id: snap_01HZY0K7M3QF8VN2J5RX9TB4CL
                   lamport: 7
-                  wall_clock: 2026-05-28T12:00:00.000Z
+                  wall_clock: "2026-05-28T12:00:00.000Z"
           links:
             ResolveFlag:
               operationId: resolveFlag
@@ -364,7 +364,7 @@ components:
     FlagState:
       type: string
       enum:
-        - Off
+        - "Off"
         - Enabling
         - Canary
         - Enabled

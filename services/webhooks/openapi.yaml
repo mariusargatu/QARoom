@@ -24,8 +24,8 @@ paths:
                   - post.created
                   - donation.state.changed
                 status: Active
-                created_at: 2026-05-28T12:00:00.000Z
-                updated_at: 2026-05-28T12:00:00.000Z
+                created_at: "2026-05-28T12:00:00.000Z"
+                updated_at: "2026-05-28T12:00:00.000Z"
                 secret: whsec_…
           links:
             GetWebhook:
@@ -129,8 +129,8 @@ paths:
                       - post.created
                       - donation.state.changed
                     status: Active
-                    created_at: 2026-05-28T12:00:00.000Z
-                    updated_at: 2026-05-28T12:00:00.000Z
+                    created_at: "2026-05-28T12:00:00.000Z"
+                    updated_at: "2026-05-28T12:00:00.000Z"
         "400":
           description: The community id in the path is malformed.
           content:
@@ -176,8 +176,8 @@ paths:
                   - post.created
                   - donation.state.changed
                 status: Active
-                created_at: 2026-05-28T12:00:00.000Z
-                updated_at: 2026-05-28T12:00:00.000Z
+                created_at: "2026-05-28T12:00:00.000Z"
+                updated_at: "2026-05-28T12:00:00.000Z"
         "400":
           description: The community id or subscription id in the path is malformed.
           content:
@@ -238,6 +238,21 @@ paths:
               parameters:
                 communityId: $request.path.communityId
               description: List the remaining subscriptions.
+        "400":
+          description: The request params or Idempotency-Key header failed validation.
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ProblemDetails"
+              example:
+                type: https://qaroom.dev/errors/validation-failed
+                title: Request failed validation
+                status: 400
+                detail: Request failed validation.
+                instance: /api/communities/comm_01HZY0K7M3QF8VN2J5RX9TB4CD/webhook-subscriptions
+                retryable: false
+                next_actions: []
+                failure_domain: validation
         "404":
           description: No subscription with that id exists in this community.
           content:
@@ -298,8 +313,8 @@ paths:
                   - post.created
                   - donation.state.changed
                 status: Paused
-                created_at: 2026-05-28T12:00:00.000Z
-                updated_at: 2026-05-28T12:00:00.000Z
+                created_at: "2026-05-28T12:00:00.000Z"
+                updated_at: "2026-05-28T12:00:00.000Z"
           links:
             GetWebhook:
               operationId: getWebhook
@@ -307,6 +322,21 @@ paths:
                 communityId: $response.body#/community_id
                 subscriptionId: $response.body#/id
               description: Fetch the affected subscription.
+        "400":
+          description: The request params or Idempotency-Key header failed validation.
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ProblemDetails"
+              example:
+                type: https://qaroom.dev/errors/validation-failed
+                title: Request failed validation
+                status: 400
+                detail: Request failed validation.
+                instance: /api/communities/comm_01HZY0K7M3QF8VN2J5RX9TB4CD/webhook-subscriptions
+                retryable: false
+                next_actions: []
+                failure_domain: validation
         "404":
           description: No subscription with that id exists in this community.
           content:
@@ -382,8 +412,8 @@ paths:
                   - post.created
                   - donation.state.changed
                 status: Active
-                created_at: 2026-05-28T12:00:00.000Z
-                updated_at: 2026-05-28T12:00:00.000Z
+                created_at: "2026-05-28T12:00:00.000Z"
+                updated_at: "2026-05-28T12:00:00.000Z"
           links:
             GetWebhook:
               operationId: getWebhook
@@ -391,6 +421,21 @@ paths:
                 communityId: $response.body#/community_id
                 subscriptionId: $response.body#/id
               description: Fetch the affected subscription.
+        "400":
+          description: The request params or Idempotency-Key header failed validation.
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ProblemDetails"
+              example:
+                type: https://qaroom.dev/errors/validation-failed
+                title: Request failed validation
+                status: 400
+                detail: Request failed validation.
+                instance: /api/communities/comm_01HZY0K7M3QF8VN2J5RX9TB4CD/webhook-subscriptions
+                retryable: false
+                next_actions: []
+                failure_domain: validation
         "404":
           description: No subscription with that id exists in this community.
           content:
@@ -470,8 +515,8 @@ paths:
                     attempt: 1
                     next_attempt_at: null
                     last_status_code: 200
-                    created_at: 2026-05-28T12:00:00.000Z
-                    updated_at: 2026-05-28T12:00:00.000Z
+                    created_at: "2026-05-28T12:00:00.000Z"
+                    updated_at: "2026-05-28T12:00:00.000Z"
         "400":
           description: The community id or subscription id in the path is malformed.
           content:

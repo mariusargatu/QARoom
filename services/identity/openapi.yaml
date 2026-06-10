@@ -20,7 +20,7 @@ paths:
                 id: user_01HZY0K7M3QF8VN2J5RX9TB4CF
                 handle: ada
                 display_name: Ada Lovelace
-                created_at: 2026-05-28T12:00:00.000Z
+                created_at: "2026-05-28T12:00:00.000Z"
           links:
             GetCreatedUser:
               operationId: getUser
@@ -42,6 +42,21 @@ paths:
                 retryable: false
                 next_actions: []
                 failure_domain: validation
+        "409":
+          description: This Idempotency-Key was already used for a request with a different body.
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ProblemDetails"
+              example:
+                type: https://qaroom.dev/errors/idempotency-key-conflict
+                title: Idempotency-Key reused with a different body
+                status: 409
+                detail: Idempotency-Key reused with a different body.
+                instance: /api/users
+                retryable: false
+                next_actions: []
+                failure_domain: conflict
       tags:
         - users
       parameters:
@@ -78,7 +93,7 @@ paths:
                 id: user_01HZY0K7M3QF8VN2J5RX9TB4CF
                 handle: ada
                 display_name: Ada Lovelace
-                created_at: 2026-05-28T12:00:00.000Z
+                created_at: "2026-05-28T12:00:00.000Z"
         "400":
           description: The request body or headers failed validation.
           content:
@@ -135,7 +150,7 @@ paths:
                 id: comm_01HZY0K7M3QF8VN2J5RX9TB4CD
                 slug: general
                 name: General
-                created_at: 2026-05-28T12:00:00.000Z
+                created_at: "2026-05-28T12:00:00.000Z"
           links:
             ListCommunityMembers:
               operationId: listMembers
@@ -158,17 +173,17 @@ paths:
                 next_actions: []
                 failure_domain: validation
         "409":
-          description: A community with that slug already exists.
+          description: This Idempotency-Key was already used for a request with a different body.
           content:
             application/problem+json:
               schema:
                 $ref: "#/components/schemas/ProblemDetails"
               example:
-                type: https://qaroom.dev/errors/community-slug-taken
-                title: Community slug already taken
+                type: https://qaroom.dev/errors/idempotency-key-conflict
+                title: Idempotency-Key reused with a different body
                 status: 409
-                detail: Community slug already taken.
-                instance: /api/communities
+                detail: Idempotency-Key reused with a different body.
+                instance: /api/users
                 retryable: false
                 next_actions: []
                 failure_domain: conflict
@@ -208,7 +223,7 @@ paths:
                 user_id: user_01HZY0K7M3QF8VN2J5RX9TB4CF
                 community_id: comm_01HZY0K7M3QF8VN2J5RX9TB4CD
                 role: member
-                joined_at: 2026-05-28T12:00:00.000Z
+                joined_at: "2026-05-28T12:00:00.000Z"
           links:
             ListCommunityMembers:
               operationId: listMembers
@@ -246,17 +261,17 @@ paths:
                 next_actions: []
                 failure_domain: tenant_resolution
         "409":
-          description: That user already belongs to the community.
+          description: This Idempotency-Key was already used for a request with a different body.
           content:
             application/problem+json:
               schema:
                 $ref: "#/components/schemas/ProblemDetails"
               example:
-                type: https://qaroom.dev/errors/membership-exists
-                title: Membership already exists
+                type: https://qaroom.dev/errors/idempotency-key-conflict
+                title: Idempotency-Key reused with a different body
                 status: 409
-                detail: Membership already exists.
-                instance: /api/communities/comm_01HZY0K7M3QF8VN2J5RX9TB4CD/members
+                detail: Idempotency-Key reused with a different body.
+                instance: /api/users
                 retryable: false
                 next_actions: []
                 failure_domain: conflict
@@ -354,7 +369,7 @@ paths:
                 session_id: sess_01HZY0K7M3QF8VN2J5RX9TB4CG
                 access_token: eyJhbGciOiJFUzI1NiIsImtpZCI6ImtleV8wMSJ9.eyJzdWIiOiJ1c2VyXzAxIn0.sig
                 token_type: Bearer
-                expires_at: 2026-05-28T12:00:00.000Z
+                expires_at: "2026-05-28T12:00:00.000Z"
                 kid: key_01HZY0K7M3QF8VN2J5RX9TB4CH
           links:
             FetchJwks:
@@ -390,6 +405,21 @@ paths:
                 retryable: false
                 next_actions: []
                 failure_domain: not_found
+        "409":
+          description: This Idempotency-Key was already used for a request with a different body.
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ProblemDetails"
+              example:
+                type: https://qaroom.dev/errors/idempotency-key-conflict
+                title: Idempotency-Key reused with a different body
+                status: 409
+                detail: Idempotency-Key reused with a different body.
+                instance: /api/users
+                retryable: false
+                next_actions: []
+                failure_domain: conflict
       tags:
         - sessions
       parameters:
@@ -466,6 +496,21 @@ paths:
                 memberships:
                   - community_id: comm_01HZY0K7M3QF8VN2J5RX9TB4CD
                     role: member
+        "400":
+          description: The request body or headers failed validation.
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ProblemDetails"
+              example:
+                type: https://qaroom.dev/errors/validation-failed
+                title: Request failed validation
+                status: 400
+                detail: Request failed validation.
+                instance: /api/users/user_01HZY0K7M3QF8VN2J5RX9TB4CF
+                retryable: false
+                next_actions: []
+                failure_domain: validation
         "401":
           description: The ticket is unknown, expired, or already redeemed.
           content:
@@ -508,7 +553,7 @@ paths:
                   - kty: EC
                     crv: P-256
                     x: MKBCTNIcKUSDii11ySs3526iDZ8AiTo7Tu6KPAqv7D4
-                    y: 4Etl6SRW2YiLUrN5vfvVHuhp7x8PxltmWWlbbM4IFyM
+                    "y": 4Etl6SRW2YiLUrN5vfvVHuhp7x8PxltmWWlbbM4IFyM
                     kid: key_01HZY0K7M3QF8VN2J5RX9TB4CH
                     use: sig
                     alg: ES256
@@ -745,7 +790,7 @@ components:
             - P-256
         x:
           type: string
-        y:
+        "y":
           type: string
         kid:
           type: string
@@ -761,7 +806,7 @@ components:
         - kty
         - crv
         - x
-        - y
+        - "y"
         - kid
         - use
         - alg

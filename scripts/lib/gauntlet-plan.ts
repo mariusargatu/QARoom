@@ -207,6 +207,12 @@ export function buildPlan(ctx: PreflightCtx, opts: GauntletOpts): GauntletStep[]
     step(4, 'race-probe', 'gate', 'bash', ['scripts/live-rollout-race-probe.sh'], {
       skipReason: noCluster,
     }),
+    // The rollout-transition def sends EnableRequested (legal only from Off); reset first so the
+    // suite is idempotent across reruns — without this, repeated runs park the machine where the
+    // def's event 409s and it fails on MISSING spans (gauntlet finding, 2026-06-10).
+    sh(4, 'rollout-reset', 'gate',
+      `${PF} flags:18083:80 -- bash scripts/reset-rollout.sh http://localhost:18083`,
+      { skipReason: noCluster }),
     sh(4, 'tracetest-suite', 'gate', `${PF} ${TRACETEST_FWD} -- pnpm tracetest:results`, {
       env: TRACETEST_ENV,
       timeoutMs: 20 * 60_000,
@@ -262,7 +268,9 @@ export function buildPlan(ctx: PreflightCtx, opts: GauntletOpts): GauntletStep[]
       'gate',
       `${PF} gateway:18090:80,identity:18082:80,webhooks:18087:80 -- pnpm schemathesis:results gateway:services/gateway:http://host.docker.internal:18090 identity:services/identity:http://host.docker.internal:18082 webhooks:services/webhooks:http://host.docker.internal:18087`,
       {
-        env: { SCHEMATHESIS_MAX_EXAMPLES: '50' },
+        // Paced under the gateway limiter's 10/s refill — at full speed the fuzzer drains the
+        // bucket and the conformance checks misread its own 429s as contract violations.
+        env: { SCHEMATHESIS_MAX_EXAMPLES: '50', SCHEMATHESIS_RATE_LIMIT: '8/s' },
         timeoutMs: 40 * 60_000,
         skipReason: noCluster,
       },
@@ -328,6 +336,9 @@ export function buildPlan(ctx: PreflightCtx, opts: GauntletOpts): GauntletStep[]
     step(8, 'replay-regression', 'gate', 'pnpm', ['replay:regression'], {
       timeoutMs: 20 * 60_000,
     }),
+    sh(8, 'rollout-reset-recovery', 'gate',
+      `${PF} flags:18083:80 -- bash scripts/reset-rollout.sh http://localhost:18083`,
+      { skipReason: noCluster }),
     sh(8, 'tracetest-recovery', 'gate', `${PF} ${TRACETEST_FWD} -- pnpm tracetest:results`, {
       env: TRACETEST_ENV,
       timeoutMs: 20 * 60_000,

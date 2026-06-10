@@ -177,7 +177,7 @@ components:
     FlagState:
       type: string
       enum:
-        - Off
+        - "Off"
         - Enabling
         - Canary
         - Enabled
