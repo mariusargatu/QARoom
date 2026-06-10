@@ -1,12 +1,13 @@
 name: CI
 
+# Manual-trigger only (2026-06-10). Auto-runs on push / pull_request / schedule are intentionally
+# OFF — this is a build-in-public repo on a fresh private remote with no secrets/quota/cluster wired,
+# so an automatic CI storm buys nothing. Run on demand from the Actions tab. The heavy jobs below
+# still carry their `if: github.event_name == 'push'/'schedule'` gates, so a plain manual dispatch
+# runs the LIGHT verification lane (verify, contracts, fuzz, web-stories, moderator, claims); the
+# cluster/chaos/load tiers stay dormant and are exercised locally via `pnpm gauntlet`.
 on:
-  push:
-    branches: [main, master]
-  pull_request:
-  schedule:
-    # Nightly chaos tier (ADR-0014): chaos experiments exceed the PR-fast budget.
-    - cron: '0 4 * * *'
+  workflow_dispatch:
 
 jobs:
   verify:
@@ -53,6 +54,44 @@ jobs:
           name: test-results-summary
           path: test-results/summary.json
           if-no-files-found: warn
+
+  # Falsifiable-claims gate: prove the claim manifest cannot decay into theater. Needs BOTH pnpm
+  # (webhook-claim teeth = vitest) AND uv (moderator-claim teeth = pytest) — without uv, a moderator
+  # `prove --break` would error-out and read as a false RED (theater the gate exists to catch). So it
+  # regenerates the in-proc summary here (the runners the claims' evidence points at), then runs
+  # claims:verify (evidence + wired + teeth + README block drift) and the matrix census. Live-tier
+  # claims (tenant-spans, k6) skip their teeth — no cluster in this job — and resolve STALE-not-fatal.
+  claims:
+    runs-on: ubuntu-latest
+    services:
+      moderator-pg:
+        image: pgvector/pgvector:pg18
+        env:
+          POSTGRES_USER: qaroom
+          POSTGRES_PASSWORD: qaroom
+          POSTGRES_DB: qaroom_moderator
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U qaroom" --health-interval 5s --health-timeout 5s --health-retries 10
+    steps:
+      - uses: actions/checkout@v4
+      - uses: ./.github/actions/setup-workspace
+      - uses: astral-sh/setup-uv@v5
+        with:
+          version: "0.8.15"
+      - name: Aggregate the in-proc summary (the runners the claims' evidence resolves against)
+        run: pnpm test-results:generate && pnpm mbt:results
+      - name: Fold the moderator runner (moderator-abstain + input-guard evidence)
+        env:
+          QAROOM_TEST_DATABASE_URL: postgresql://qaroom:qaroom@localhost:5432/qaroom_moderator
+        run: |
+          (cd services/moderator-agent && uv run pytest -q)
+          pnpm moderator:results
+      - name: claims:verify (evidence + wired + teeth + README drift)
+        run: pnpm claims:verify
+      - name: Detection-matrix census (every toggle is read in source; claims ⊆ manifest)
+        run: pnpm exec tsx scripts/detection-matrix.ts --verify
 
   # Consumer-driven contract verification: each provider verifies every pact under
   # services/*/pacts that names it, against a real Postgres (Testcontainers).
