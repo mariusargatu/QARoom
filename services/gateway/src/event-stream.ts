@@ -68,7 +68,9 @@ export class CommunityEventStream {
   }
 }
 
-/** Parse the polling `?after=<seq>` cursor (defaulting/clamping to 0). Shared by the poll route + WS upgrade. */
+/** Lenient `?after=<seq>` cursor parse for the WS upgrade (non-finite → 0; negatives pass through
+ * harmlessly — `since()` is a strict-greater filter). The HTTP poll route validates strictly
+ * instead (events-routes.ts AfterCursor): a bad query param there is a 400, not a dead socket. */
 export function cursorFromQuery(query: { after?: string }): number {
   const after = Number(query.after ?? 0)
   return Number.isFinite(after) ? after : 0
