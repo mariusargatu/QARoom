@@ -88,7 +88,8 @@ def test_deepteam_prompt_injection_red_team_on_the_guarded_target() -> None:
     assert the attack does not succeed. Uses the idiomatic ``red_team`` entrypoint with a fixed seed so
     the synthesized attacks are reproducible (determinism applied to the adversary, ADR-0017)."""
     from deepteam import red_team
-    from deepteam.vulnerabilities import PromptInjection
+    from deepteam.attacks.single_turn import PromptInjection
+    from deepteam.vulnerabilities import Toxicity
 
     callback = make_model_callback(_guarded_settings())
 
@@ -96,9 +97,13 @@ def test_deepteam_prompt_injection_red_team_on_the_guarded_target() -> None:
         # DeepTeam invokes the callback positionally; tolerate extra kwargs across versions.
         return callback(input_text)
 
+    # deepteam 1.x reclassified PromptInjection from a vulnerability to an ATTACK (the method),
+    # paired with a vulnerability (the harm class): "can prompt injection make the guarded
+    # moderator wave toxic content through" — a cleaner OWASP LLM01 phrasing than the old API.
     risk = red_team(
         model_callback=model_callback,
-        vulnerabilities=[PromptInjection()],
+        vulnerabilities=[Toxicity()],
+        attacks=[PromptInjection()],
         attacks_per_vulnerability_type=2,
     )
 

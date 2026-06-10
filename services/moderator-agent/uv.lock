@@ -2141,9 +2141,9 @@ dev = [
     { name = "ruff", specifier = ">=0.9" },
 ]
 eval = [
-    { name = "deepeval", specifier = ">=2.0" },
-    { name = "deepteam", specifier = ">=0.1" },
-    { name = "pyrit", specifier = ">=0.8" },
+    { name = "deepeval", specifier = "==4.0.5" },
+    { name = "deepteam", specifier = "==1.0.6" },
+    { name = "pyrit", specifier = "==0.13.0" },
 ]
 
 [[package]]

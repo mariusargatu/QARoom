@@ -17,8 +17,10 @@ in-memory stores seeded from the versioned corpus, so no Postgres/NATS is needed
 from __future__ import annotations
 
 import asyncio
-from collections.abc import Callable
+from collections.abc import Callable, Coroutine
+from concurrent.futures import ThreadPoolExecutor
 from pathlib import Path
+from typing import Any
 
 from moderator_agent.config import Settings
 from moderator_agent.determinism import seeded_trio
@@ -98,6 +100,21 @@ def _verdict_text(decision: ModerationDecision | None) -> str:
     )
 
 
+def _run_sync[T](coro: Coroutine[Any, Any, T]) -> T:
+    """``asyncio.run``, tolerant of an already-running loop.
+
+    deepeval 4.x's pytest plugin (auto-loaded once the eval group is installed) executes tests
+    under an active event loop, where a bare ``asyncio.run`` raises ``RuntimeError``. Fall back to
+    a fresh loop on a worker thread — the workflow run stays synchronous from the caller's view.
+    """
+    try:
+        asyncio.get_running_loop()
+    except RuntimeError:
+        return asyncio.run(coro)
+    with ThreadPoolExecutor(max_workers=1) as pool:
+        return pool.submit(asyncio.run, coro).result()
+
+
 def make_model_callback(settings: Settings) -> Callable[[str], str]:
     """Build a ``model_callback(input_text) -> str`` over a workflow with the given settings.
 
@@ -111,7 +128,7 @@ def make_model_callback(settings: Settings) -> Callable[[str], str]:
     def model_callback(input_text: str) -> str:
         counter["n"] += 1
         event = _event(input_text, idx=counter["n"])
-        decision = asyncio.run(build_workflow(settings).run(event))
+        decision = _run_sync(build_workflow(settings).run(event))
         return _verdict_text(decision)
 
     return model_callback
@@ -124,4 +141,4 @@ def run_post(body: str, *, settings: Settings) -> ModerationDecision | None:
     directly on the disposition, proving the guard changes the outcome on an injection payload.
     """
     workflow = build_workflow(settings)
-    return asyncio.run(workflow.run(_event(body)))
+    return _run_sync(workflow.run(_event(body)))
