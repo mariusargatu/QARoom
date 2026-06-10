@@ -54,6 +54,9 @@ export const MatrixBaseline = z.object({
   fastcheck_seed: z.number().optional(),
   /** Files red WITHOUT any toggle (same commit/seed) — excluded from every verdict. */
   standing_reds: z.array(z.string()),
+  /** Set once the key-gated eval groups have run clean (their reds merge into standing_reds);
+   *  the llm tier refuses to verdict before this exists — eval spend deserves a real diff base. */
+  llm_recorded_at: z.string().optional(),
 })
 export type MatrixBaseline = z.infer<typeof MatrixBaseline>
 
