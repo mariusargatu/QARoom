@@ -1,4 +1,5 @@
 import { spawnSync } from 'node:child_process'
+import { writeFileSync } from 'node:fs'
 import { resolve } from 'node:path'
 import { foldRunner } from './lib/fold-runner'
 
@@ -60,17 +61,20 @@ if (serverUrl) {
 
 const runId = process.env.TRACETEST_RUN_ID ?? String(Date.now())
 
+// Tracetest CLI ≥1.x: runs WAIT by default (--wait-for-result is gone; -W skips waiting) and
+// --vars takes a variable-set FILE, not key=value pairs — the ci.yml invocation this script
+// originally lifted is older-CLI syntax and breaks on a current install. The varset is written
+// fresh per invocation so the unique runId keeps dodging idempotent replay.
+const varsPath = resolve(ROOT, 'test-results/tracetest-vars.yaml')
+writeFileSync(
+  varsPath,
+  `type: VariableSet\nspec:\n  id: gauntlet-vars\n  name: gauntlet-vars\n  values:\n    - key: runId\n      value: "${runId}"\n`,
+)
+
 const results = defs.map((def) => {
   process.stdout.write(`▶ tracetest run ${def.file}\n`)
   const started = Date.now()
-  const args = [
-    'run',
-    'test',
-    '-f',
-    def.file,
-    ...(def.needsRunId ? ['--vars', `runId=${runId}`] : []),
-    '--wait-for-result',
-  ]
+  const args = ['run', 'test', '-f', def.file, ...(def.needsRunId ? ['--vars', varsPath] : [])]
   const run = spawnSync('tracetest', args, { cwd: ROOT, encoding: 'utf8' })
   const duration_ms = Date.now() - started
   const passed = run.status === 0

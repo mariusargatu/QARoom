@@ -31,7 +31,7 @@ from deepeval.metrics import (  # noqa: E402
     FaithfulnessMetric,
     GEval,
 )
-from deepeval.test_case import LLMTestCase, LLMTestCaseParams  # noqa: E402
+from deepeval.test_case import LLMTestCase, LLMTestCaseParams, SingleTurnParams  # noqa: E402
 
 from moderator_agent.config import Settings  # noqa: E402
 
@@ -67,6 +67,12 @@ async def test_contextual_precision_and_recall_gate(case: dict) -> None:
     retrieved) are gated. A corpus-retrieval regression — a retriever that surfaces unrelated rules or
     drops the one the verdict needs — pushes recall below ``_THRESHOLD`` and FAILS this test, which is
     exactly how a silent retrieval regression is caught before it ships."""
+    if case["gold_verdict"] != "flag":
+        # A benign post has NO rule that should match: retrieval correctly surfaces only the
+        # generic escalation guidelines, which a corpus-grounding judge can only score as
+        # irrelevant. Gating precision/recall here would punish correct behavior — the
+        # benign path is covered by the verdict gates, not the retrieval gates.
+        pytest.skip("benign gold case: no policy chunk is supposed to match (nothing to recall)")
     workflow, corpus = build_workflow(Settings())
     target = await run_case(workflow, corpus, case)
     tc = target.test_case
@@ -84,9 +90,15 @@ async def test_contextual_precision_and_recall_gate(case: dict) -> None:
 
 
 def _expected_output(case: dict) -> str:
-    # Contextual precision/recall need an expected_output to judge which retrieved chunks are relevant.
-    verdict = "remove" if case["gold_verdict"] == "flag" else "approve"
-    return f"disposition={verdict} per the applicable community policy"
+    # deepeval 4.x's recall judge grounds the expected output's CLAIMS in the retrieved chunks —
+    # the old bare "disposition=remove per the applicable community policy" had nothing groundable
+    # and scored recall 0.0 on every case. State the verdict WITH the rule it rests on (majority
+    # SME rule_id + a label reason), so recall measures the real question: did retrieval surface
+    # the policy the gold verdict cites?
+    rules = [label["rule_id"] for label in case["labels"] if label.get("rule_id")]
+    rule = max(set(rules), key=rules.count) if rules else "the applicable rule"
+    reason = next((label["reason"] for label in case["labels"] if label.get("rule_id") == rule), "")
+    return f"disposition=remove — the post violates the {rule} rule. {reason}"
 
 
 async def test_hallucinated_policy_fails_faithfulness_but_a_non_grounded_check_passes() -> None:
@@ -94,9 +106,15 @@ async def test_hallucinated_policy_fails_faithfulness_but_a_non_grounded_check_p
 
     Run the REAL target with ``MODERATOR_UNGROUNDED=1`` so the self-check stops dropping citations the
     model invented: the recorded verdict can now cite a rule NOT present in ``retrieval_context``.
-    ``FaithfulnessMetric`` (which reads ``retrieval_context``) must FAIL it; a non-grounded check that
-    ignores ``retrieval_context`` — modelled here by a GEval metric scoped only to INPUT + ACTUAL_OUTPUT
-    — would PASS the same verdict. The divergence is the proof that grounding is load-bearing."""
+    A grounding check that reads ``retrieval_context`` must FAIL it; a non-grounded check that
+    ignores ``retrieval_context`` would PASS the same verdict. The divergence is the proof that
+    grounding is load-bearing.
+
+    deepeval 4.x note: the native ``FaithfulnessMetric`` became non-contradiction-based — a
+    FABRICATED rule id is merely absent from context, not contradicted by it, so 4.x scores it
+    faithful and the original demo went false-green. The grounded side is now an explicit GEval
+    judge ("every cited rule must literally appear in the retrieval context"): same thesis,
+    version-stable semantics, and the criterion is visible instead of buried in metric internals."""
     # Pick a clear-allow gold post so a fabricated rule citation is unambiguously ungrounded.
     case = next(c for c in load_gold_cases() if c["gold_verdict"] == "allow")
     workflow, corpus = build_workflow(Settings(moderator_ungrounded=True))
@@ -114,9 +132,20 @@ async def test_hallucinated_policy_fails_faithfulness_but_a_non_grounded_check_p
         retrieval_context=target.test_case.retrieval_context,
     )
 
-    faithfulness = FaithfulnessMetric(threshold=_THRESHOLD)
-    faithfulness.measure(ungrounded)
-    grounded_passed = faithfulness.score is not None and faithfulness.score >= _THRESHOLD
+    grounded_check = GEval(
+        name="citation-grounding",
+        criteria=(
+            "Every rule id in the verdict's cited_rules MUST literally appear in the retrieval "
+            "context. A verdict citing any rule that is absent from the retrieval context fails."
+        ),
+        evaluation_params=[
+            SingleTurnParams.ACTUAL_OUTPUT,
+            SingleTurnParams.RETRIEVAL_CONTEXT,
+        ],
+        threshold=_THRESHOLD,
+    )
+    grounded_check.measure(ungrounded)
+    grounded_passed = grounded_check.score is not None and grounded_check.score >= _THRESHOLD
     record_metric("faithfulness_hallucination_demo", passed=not grounded_passed)
 
     # The non-grounded oracle: judges only that the verdict is internally coherent, never against
@@ -131,5 +160,5 @@ async def test_hallucinated_policy_fails_faithfulness_but_a_non_grounded_check_p
     non_grounded_passed = non_grounded.score is not None and non_grounded.score >= _THRESHOLD
 
     # The whole point: the grounded metric catches the hallucination, the non-grounded one does not.
-    assert not grounded_passed, "FaithfulnessMetric must FAIL an ungrounded citation"
+    assert not grounded_passed, "the grounded check must FAIL an ungrounded citation"
     assert non_grounded_passed, "a check ignoring retrieval_context would have passed it"
