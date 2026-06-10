@@ -118,4 +118,5 @@ foldRunner(summaryPath, {
   seeds: {},
 })
 process.stdout.write('merged gauntlet runner into summary.json\n')
-process.exit(reds.length > 0 ? 1 : 0)
+// The renderer is a projection, not a gate: the RUN's exit code already carries the findings.
+// Exiting non-zero here only painted the report step red for doing its job correctly.

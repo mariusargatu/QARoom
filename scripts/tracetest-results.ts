@@ -20,32 +20,18 @@ import { foldRunner } from './lib/fold-runner'
 const ROOT = process.cwd()
 const summaryPath = resolve(ROOT, 'test-results/summary.json')
 
-interface Def {
-  file: string
-  needsRunId: boolean
-}
-
-// The committed suite (mirrors ci.yml). rollout/donation defs take a unique per-run id so their
-// Idempotency-Key (`tt-${var:runId}`) does not hit idempotent replay and suppress the transition.
-const DEFAULT_DEFS: Def[] = [
-  { file: 'services/content/tests/tracetest/post-created-publish.yaml', needsRunId: false },
-  { file: 'services/content/tests/tracetest/feed-read.yaml', needsRunId: false },
-  {
-    file: 'services/content/tests/tracetest/create-missing-idempotency-key.yaml',
-    needsRunId: false,
-  },
-  { file: 'services/flags/tests/tracetest/rollout-transition.yaml', needsRunId: true },
-  { file: 'services/donations/tests/tracetest/donation-create-publish.yaml', needsRunId: true },
+// The committed suite (mirrors ci.yml). Defs with `${var:runId}` need a unique per-run id so
+// their Idempotency-Key does not hit idempotent replay and suppress the transition.
+const DEFAULT_DEFS: string[] = [
+  'services/content/tests/tracetest/post-created-publish.yaml',
+  'services/content/tests/tracetest/feed-read.yaml',
+  'services/content/tests/tracetest/create-missing-idempotency-key.yaml',
+  'services/flags/tests/tracetest/rollout-transition.yaml',
+  'services/donations/tests/tracetest/donation-create-publish.yaml',
 ]
 
 const cli = process.argv.slice(2)
-const defs: Def[] =
-  cli.length > 0
-    ? cli.map((file) => ({
-        file,
-        needsRunId: DEFAULT_DEFS.find((d) => d.file === file)?.needsRunId ?? false,
-      }))
-    : DEFAULT_DEFS
+const defs: string[] = cli.length > 0 ? cli : DEFAULT_DEFS
 
 const serverUrl = process.env.TRACETEST_SERVER_URL
 if (serverUrl) {
@@ -71,10 +57,14 @@ writeFileSync(
   `type: VariableSet\nspec:\n  id: gauntlet-vars\n  name: gauntlet-vars\n  values:\n    - key: runId\n      value: "${runId}"\n`,
 )
 
-const results = defs.map((def) => {
-  process.stdout.write(`▶ tracetest run ${def.file}\n`)
+const results = defs.map((file) => {
+  process.stdout.write(`▶ tracetest run ${file}\n`)
   const started = Date.now()
-  const args = ['run', 'test', '-f', def.file, ...(def.needsRunId ? ['--vars', varsPath] : [])]
+  // --vars goes to EVERY def (harmless when unused): the new CLI PROMPTS interactively for any
+  // required-but-unsupplied variable, and a non-TTY run then spins forever redrawing the prompt
+  // — the exit-null/giant-output failure mode the gauntlet hit on post-created-publish (which
+  // also references ${var:runId}, unlike the old ci.yml invocation assumed).
+  const args = ['run', 'test', '-f', file, '--vars', varsPath]
   const run = spawnSync('tracetest', args, { cwd: ROOT, encoding: 'utf8' })
   const duration_ms = Date.now() - started
   const passed = run.status === 0
@@ -82,8 +72,8 @@ const results = defs.map((def) => {
     .split('\n')
     .filter((l) => l.trim().length > 0)
     .slice(-6)
-  if (!passed) process.stderr.write(`✗ ${def.file} red (exit ${run.status})\n`)
-  return { file: def.file, passed, exit: run.status, duration_ms, tail }
+  if (!passed) process.stderr.write(`✗ ${file} red (exit ${run.status})\n`)
+  return { file, passed, exit: run.status, duration_ms, tail }
 })
 
 const failed = results.filter((r) => !r.passed).length

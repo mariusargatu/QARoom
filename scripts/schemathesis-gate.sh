@@ -16,6 +16,17 @@ BASE_URL="${2:-http://host.docker.internal:8080}"
 # local exploration via the 3rd positional arg.
 MAX_EXAMPLES="${3:-12}"
 
+# Optional pacing (gauntlet finding, 2026-06-10): fuzzing THROUGH the gateway's rate limiter
+# at a broad budget drains the token bucket, and the positive/negative conformance checks then
+# misread the fuzzer's own 429s as contract violations (valid → "rejected schema-compliant",
+# invalid → throttled before validation → "accepted schema-violating"). Set
+# SCHEMATHESIS_RATE_LIMIT (e.g. 8/s, under the documented 10/s refill) for limiter-guarded
+# targets; direct-service targets don't need it.
+RATE_ARGS=()
+if [[ -n "${SCHEMATHESIS_RATE_LIMIT:-}" ]]; then
+  RATE_ARGS=(--rate-limit "${SCHEMATHESIS_RATE_LIMIT}")
+fi
+
 # Phases are explicit so the gate's intent is legible (Spike 2, docs/spikes/02): besides
 # `fuzzing`, the `stateful` phase FOLLOWS the OAS `links` the generator emits on every
 # mutating endpoint (createPost→getPost, castVote→getPost). Link-following is
@@ -36,4 +47,4 @@ docker run --rm --add-host=host.docker.internal:host-gateway -v "$(pwd)/${SPEC_D
   --exclude-checks unsupported_method \
   --phases examples,coverage,fuzzing,stateful \
   --header "Idempotency-Key: schemathesis-gate" \
-  --max-examples "${MAX_EXAMPLES}"
+  --max-examples "${MAX_EXAMPLES}" ${RATE_ARGS[@]+"${RATE_ARGS[@]}"}

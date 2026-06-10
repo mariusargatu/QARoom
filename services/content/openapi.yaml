@@ -23,7 +23,7 @@ paths:
                 title: Why deterministic clocks matter
                 body: A short note on testability.
                 score: 0
-                created_at: 2026-05-28T12:00:00.000Z
+                created_at: "2026-05-28T12:00:00.000Z"
           links:
             GetCreatedPost:
               operationId: getPost
@@ -144,7 +144,7 @@ paths:
                 title: Why deterministic clocks matter
                 body: A short note on testability.
                 score: 0
-                created_at: 2026-05-28T12:00:00.000Z
+                created_at: "2026-05-28T12:00:00.000Z"
         "400":
           description: The post id in the path is malformed.
           content:

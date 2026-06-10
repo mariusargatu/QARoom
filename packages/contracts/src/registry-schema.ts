@@ -61,7 +61,18 @@ export function reachableSchemas(rootIds: readonly string[]): Record<string, Jso
   return schemas
 }
 
-/** Deterministic YAML serialization of a contract document (stable key order, no anchors). */
+/** Deterministic YAML serialization of a contract document (stable key order, no anchors).
+ *
+ * `compat: 'yaml-1.1'` is load-bearing (gauntlet fuzz finding, 2026-06-10): this library writes
+ * YAML 1.2, where `Off` is a plain string — but Python tooling (PyYAML, so Schemathesis and
+ * most of the ecosystem) reads YAML 1.1, where unquoted `Off` is the boolean false. The
+ * FlagState enum's `Off` round-tripped as `false` for every 1.1 consumer of the committed
+ * specs. The compat option quotes every 1.1-ambiguous scalar (y/n/yes/no/on/off/...). */
 export function stringifyDoc(doc: JsonSchema): string {
-  return stringify(doc, { sortMapEntries: false, lineWidth: 0, aliasDuplicateObjects: false })
+  return stringify(doc, {
+    sortMapEntries: false,
+    lineWidth: 0,
+    aliasDuplicateObjects: false,
+    compat: 'yaml-1.1',
+  })
 }

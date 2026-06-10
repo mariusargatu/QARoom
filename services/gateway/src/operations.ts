@@ -105,7 +105,7 @@ const EXAMPLE_FLAG_LIST = {
   as_of: EXAMPLE_AS_OF,
 }
 
-export const OPERATIONS: readonly OasOperation[] = [
+const RAW_OPERATIONS: readonly OasOperation[] = [
   {
     operationId: 'createPost',
     method: 'post',
@@ -419,3 +419,36 @@ export const OPERATIONS: readonly OasOperation[] = [
     responses: [{ code: 200, description: 'Current rate-limit usage.', bodyRef: 'SystemLimits' }],
   },
 ]
+
+// Cross-cutting gateway behaviors, declared uniformly (gauntlet phase-6 fuzz findings: live
+// fuzzing surfaced 429/400/404/409 responses the per-op lists under-mirrored). Every /api/*
+// route passes the SAME edge middleware, so the contract is stamped, not hand-maintained:
+//   429 — the per-principal rate limiter (M1) guards all /api/* (exempt: /system, /ws)
+//   400 — edge validation rejects malformed params/bodies/headers before proxying
+//   404 — any path-parameterized route can miss (tenant resolution or resource)
+//   409 — every mutating route shares the Idempotency-Key middleware (key reuse, new body)
+const genericNotFound404 = problemResponse(404, 'resource-not-found', 'Resource not found', 'not_found', {
+  description: 'The community or addressed resource does not exist.',
+  instance: '/api/communities/comm_01HZY0K7M3QF8VN2J5RX9TB4CD/feed',
+})
+const idempotencyConflict409 = problemResponse(
+  409,
+  'idempotency-key-conflict',
+  'Idempotency-Key reused with a different body',
+  'conflict',
+  {
+    description: 'This Idempotency-Key was already used for a request with a different body.',
+    instance: '/api/communities/comm_01HZY0K7M3QF8VN2J5RX9TB4CD/posts',
+  },
+)
+export const OPERATIONS: readonly OasOperation[] = RAW_OPERATIONS.map((op) => {
+  if (!op.path.startsWith('/api/')) return op
+  const responses = [...op.responses]
+  if (!responses.some((r) => r.code === 429)) responses.push(rateLimited429)
+  if (!responses.some((r) => r.code === 400)) responses.push(validation400)
+  if (op.path.includes('{') && !responses.some((r) => r.code === 404)) {
+    responses.push(genericNotFound404)
+  }
+  if (op.mutating && !responses.some((r) => r.code === 409)) responses.push(idempotencyConflict409)
+  return { ...op, responses }
+})

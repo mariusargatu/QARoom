@@ -40,6 +40,13 @@ heal() {
 }
 trap heal EXIT
 
+# Stash the clean run's summary before k6 overwrites the fixed handleSummary filename.
+CLEAN_BACKUP=""
+if [[ -f "test-results/k6-${SCRIPT}.json" ]]; then
+  CLEAN_BACKUP="test-results/.k6-${SCRIPT}.clean.bak"
+  cp "test-results/k6-${SCRIPT}.json" "$CLEAN_BACKUP"
+fi
+
 echo "→ injecting ${EXPERIMENT}"
 kubectl apply -f "$MANIFEST"
 # Wait for the operator to accept the experiment (same jsonpath probe as chaos.sh smoke; the
@@ -63,11 +70,17 @@ bash scripts/with-port-forward.sh "${SVC}:${LPORT}:80" -- \
   -e "${BASE_ENV}=http://host.docker.internal:${LPORT}" -e "K6_SLO_MULTIPLIER=${MULTIPLIER}"
 K6_EXIT=$?
 
-# Chaos-tag the summary so the clean artifact is never overwritten; k6-results.ts folds it as
-# its own script entry ("<script>-<experiment-nn>") in the k6 runner.
+# Chaos-tag the summary so it folds as its own entry ("<script>-chaos<NN>") in the k6 runner,
+# and RESTORE the clean run's artifact — k6's handleSummary writes a fixed filename, so the
+# chaos run just overwrote whatever the clean phase produced (learned the hard way: the first
+# gauntlet run lost its clean vote-cast baseline this way).
 TAG="${EXPERIMENT%%-*}"
 if [[ -f "test-results/k6-${SCRIPT}.json" ]]; then
   mv "test-results/k6-${SCRIPT}.json" "test-results/k6-${SCRIPT}-chaos${TAG}.json"
   echo "✓ summary: test-results/k6-${SCRIPT}-chaos${TAG}.json (k6 exit ${K6_EXIT})"
+fi
+if [[ -f "${CLEAN_BACKUP:-}" ]]; then
+  mv "$CLEAN_BACKUP" "test-results/k6-${SCRIPT}.json"
+  echo "✓ clean baseline artifact restored"
 fi
 exit "$K6_EXIT"
