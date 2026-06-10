@@ -134,7 +134,35 @@ const RAW: Claim[] = [
     evidence: { runner: 'moderator', field: 'passed' },
     tier: 'simulate',
   },
-  // Claims 4-5 (max-out program, 2026-06-10): the first LIVE-tier claims, chosen FROM the
+  {
+    // Added 2026-06-10 after detection-matrix Tier C found the BEHAVIOURAL injection demo had rotted
+    // (the pinned model resists the injection unguarded, so "the bug lands" no longer reproduces and a
+    // green eval can't tell "caught" from "model outgrew it"). The honest, rot-proof teeth are the
+    // guard MECHANISM: a pure string transform that fences attacker-controlled bodies as DATA. Only
+    // deterministic gates earn `prove --break`; the live-model red-team stays a tracked METRIC, not a
+    // claim (evals/README.md).
+    id: 'input-guard-fences-untrusted-body',
+    claim:
+      'The moderator fences attacker-controlled post bodies as DATA before they reach the model; disabling the guard leaves them in instruction context.',
+    boundary: 'external-dep',
+    technique: 'deterministic guard unit test (keyless, no model — cannot rot)',
+    toggle: 'MODERATOR_DISABLE_INPUT_GUARD',
+    gate: {
+      cmd: 'uv',
+      args: [
+        'run',
+        'pytest',
+        '-q',
+        'tests/test_guard.py',
+        '-k',
+        'env_armed_disable_toggle_unfences',
+      ],
+      cwd: 'services/moderator-agent',
+    },
+    evidence: { runner: 'moderator', field: 'passed' },
+    tier: 'simulate',
+  },
+  // Claims 5-6 (max-out program, 2026-06-10): the first LIVE-tier claims, chosen FROM the
   // detection-matrix results — both bugs are invisible to every in-process technique, so their
   // gates run against the deployed cluster. `prove --break` sets the toggle on the gate process;
   // scripts/live-claim-gate.sh forwards it onto the deployment(s) with a guaranteed revert.

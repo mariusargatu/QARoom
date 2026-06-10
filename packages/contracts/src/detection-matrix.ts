@@ -216,11 +216,12 @@ export const TOGGLES: DetectionToggle[] = z.array(DetectionToggle).parse([
     tiers: ['in-proc', 'llm'],
     selfToggling: ['services/moderator-agent/evals/redteam/test_deepteam_owasp.py'],
     notes:
-      'Tier-C verdict (2026-06-10): MISSED by every llm group — the red-team suite constructs ' +
-      'Settings(moderator_disable_input_guard=...) EXPLICITLY (4th wiring-vs-component instance, ' +
-      'in the eval suite itself), and the pinned gpt-5.5 snapshot now resists the planted ' +
-      'injection even unguarded (the lands-when-unguarded demo is a standing red: deliberate ' +
-      'LLM bugs rot as models strengthen). New keyless catcher: tests/test_config_defaults.py.',
+      'Tier-C verdict (2026-06-10): MISSED by every llm group — pinned gpt-5.5 resists the ' +
+      'injection even unguarded (deliberate LLM bugs rot). RESOLVED: the behavioural demo is now ' +
+      'a recorded metric (SKIPs when unmeasurable, never false-green), and the durable teeth moved ' +
+      'to the deterministic guard-mechanism claim `input-guard-fences-untrusted-body` ' +
+      '(prove --break) + tests/test_config_defaults.py. Only deterministic gates earn teeth now ' +
+      '(evals/README.md).',
   },
   {
     id: 'moderator-prompt-bug',
