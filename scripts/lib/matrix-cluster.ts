@@ -42,14 +42,24 @@ const k6Step = (script: string, svc: string, port: number, baseEnv: string): Bat
 })
 const schemathesisStep = (spec: string, svc: string, port: number): BatteryStep => ({
   technique: 'schemathesis',
-  cmd: `${PF} ${svc}:${port}:80 -- bash scripts/schemathesis-gate.sh ${spec} http://host.docker.internal:${port} 25`,
+  // Paced under the gateway limiter's refill — unpaced, the fuzzer's own 429s read as failures
+  // (the gauntlet's interference finding) and every gateway-target cell would false-catch.
+  cmd: `${PF} ${svc}:${port}:80 -- env SCHEMATHESIS_RATE_LIMIT=8/s bash scripts/schemathesis-gate.sh ${spec} http://host.docker.internal:${port} 25`,
   timeoutMs: 20 * 60_000,
 })
-const tracetestStep = (...defs: string[]): BatteryStep => ({
-  technique: 'tracetest',
-  cmd: `${PF} observability/qaroom-tracetest:11633:11633 -- env ${TT} pnpm tracetest:results ${defs.join(' ')}`,
-  timeoutMs: 15 * 60_000,
-})
+const tracetestStep = (...defs: string[]): BatteryStep => {
+  // The rollout-transition def consumes one machine edge per run — reset to Off first or a row
+  // late in the sweep red-flags on edge exhaustion (a 409'd trigger → missing spans), not on
+  // its toggle. The reset rides the same cell so per-cell exit semantics stay one command.
+  const reset = defs.some((d) => d.includes('rollout-transition'))
+    ? `${PF} flags:18083:80 -- bash scripts/reset-rollout.sh http://localhost:18083 && `
+    : ''
+  return {
+    technique: 'tracetest',
+    cmd: `${reset}${PF} observability/qaroom-tracetest:11633:11633 -- env ${TT} pnpm tracetest:results ${defs.join(' ')}`,
+    timeoutMs: 15 * 60_000,
+  }
+}
 
 /** The battery each cluster-tier toggle row runs. Bespoke per row — the techniques that could
  *  plausibly see the bug run as cells; knowably-irrelevant ones are blindness probes on purpose. */

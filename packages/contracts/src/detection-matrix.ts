@@ -99,10 +99,10 @@ export const TOGGLES: DetectionToggle[] = z.array(DetectionToggle).parse([
     tiers: ['cluster'],
     selfToggling: [],
     notes:
-      'The composition-only bug (failure-modes.md#02, demo previously documented-unbuilt): lives ' +
-      'in live-only wiring, a no-op burden on a healthy broker — green in-proc, green under chaos ' +
-      'alone, green under load alone; red ONLY under chaos+load. Candidate permanent claim: ' +
-      'outbox-isolates-broker-latency.',
+      'Tier-B verdict (2026-06-10), prediction FALSIFIED the good way: plain k6 catches it on a ' +
+      'HEALTHY broker (exit 99) — the per-request outbox drain alone breaches the vote SLO; chaos ' +
+      'multiplies the magnitude. Not composition-ONLY at gate sensitivity, so the claim gate can ' +
+      'be plain k6. Candidate permanent claim: outbox-isolates-broker-latency.',
   },
   // ── flags ──
   {
@@ -114,8 +114,9 @@ export const TOGGLES: DetectionToggle[] = z.array(DetectionToggle).parse([
     tiers: ['in-proc', 'cluster'],
     selfToggling: [],
     notes:
-      'Guarded by NODE_ENV !== "production" — a cluster row only works if the deployed pod is not ' +
-      'NODE_ENV=production; check the image env before counting a miss.',
+      'Tier-B verdict (2026-06-10): the deployed pods run NODE_ENV=production, so the toggle is ' +
+      'INERT live — cluster cells are n/a, not misses (the first row run false-caught on rollout ' +
+      'state pollution before the reset fix). In-proc integration+MBT are the real detectors.',
   },
   // ── gateway ──
   {
@@ -192,8 +193,10 @@ export const TOGGLES: DetectionToggle[] = z.array(DetectionToggle).parse([
     tiers: ['in-proc', 'cluster'],
     selfToggling: ['services/webhooks/tests/reverse-conformance.spec.ts'],
     notes:
-      'H7 probe: the cluster tier (Tracetest span-edge assertion) vs the in-proc ' +
-      'reverse-conformance spec — does live detection ADD anything beyond environmental realism?',
+      'H7 answered (2026-06-10): live tracetest MISSED — the committed def asserts the CREATE ' +
+      'trace and the illegal transition lives in the delivery WORKER, which that trigger never ' +
+      'exercises. The in-proc reverse-conformance spec is load-bearing; the live tier added ' +
+      'environmental realism, zero detection.',
   },
   // ── moderator-agent (Python; env → pydantic Settings at load) ──
   {
