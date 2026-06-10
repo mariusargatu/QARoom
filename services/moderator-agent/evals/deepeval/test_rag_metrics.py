@@ -143,6 +143,9 @@ async def test_hallucinated_policy_fails_faithfulness_but_a_non_grounded_check_p
             SingleTurnParams.RETRIEVAL_CONTEXT,
         ],
         threshold=_THRESHOLD,
+        # Binary criterion needs binary scoring: without strict_mode GEval scores continuously
+        # and a fabricated citation inside an otherwise-plausible verdict floated above 0.5.
+        strict_mode=True,
     )
     grounded_check.measure(ungrounded)
     grounded_passed = grounded_check.score is not None and grounded_check.score >= _THRESHOLD
@@ -150,10 +153,19 @@ async def test_hallucinated_policy_fails_faithfulness_but_a_non_grounded_check_p
 
     # The non-grounded oracle: judges only that the verdict is internally coherent, never against
     # retrieval_context — so it cannot tell the cited rule was fabricated.
+    # Output-ONLY on purpose: with INPUT in scope a strong judge notices that removing a benign
+    # post is incoherent and catches the bug WITHOUT retrieval context (observed live 2026-06-10
+    # — gpt-5.5 failed the original input+output coherence check on the planted verdict). The
+    # naive oracle this demo contrasts against must be genuinely blind: a well-formed verdict
+    # whose rationale matches its own disposition.
     non_grounded = GEval(
         name="internal-coherence",
-        criteria="Is the verdict internally coherent — a disposition with a plausible rationale?",
-        evaluation_params=[LLMTestCaseParams.INPUT, LLMTestCaseParams.ACTUAL_OUTPUT],
+        criteria=(
+            "Judge ONLY the verdict text itself: is it well-formed — a disposition with a "
+            "rationale that supports that disposition? Do not judge whether the decision is "
+            "correct for any particular post."
+        ),
+        evaluation_params=[LLMTestCaseParams.ACTUAL_OUTPUT],
         threshold=_THRESHOLD,
     )
     non_grounded.measure(ungrounded)
