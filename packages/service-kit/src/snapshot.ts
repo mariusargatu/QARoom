@@ -54,7 +54,25 @@ export function registerSnapshotRoutes(app: FastifyInstance, opts: SnapshotRoute
     { bodyLimit: 64 * 1024 * 1024 },
     async (req, reply) => {
       const snapshot = ServiceSnapshot.parse(req.body)
-      await store.restore(snapshot.tables)
+      try {
+        await store.restore(snapshot.tables)
+      } catch (err) {
+        // De-swallow: the generic handler turns a restore failure into an opaque
+        // "An unexpected error occurred" 500, which is useless for the operator of a dev-affordance
+        // restore (ADR-0009). Surface the real cause (schema skew, a constraint, a serialization
+        // fault) in the Problem detail so a failed replay says WHY. Found via seam A, 2026-06-10.
+        reply.code(422).send({
+          type: 'https://qaroom.dev/errors/snapshot-restore-failed',
+          title: 'Snapshot restore failed',
+          status: 422,
+          detail: err instanceof Error ? err.message : String(err),
+          instance: '/system/snapshot',
+          retryable: false,
+          next_actions: [],
+          failure_domain: 'validation',
+        })
+        return
+      }
       opts.lamport.restore(snapshot.lamport)
       reply.code(200).send({ restored: true, service: opts.service, lamport: snapshot.lamport })
     },
