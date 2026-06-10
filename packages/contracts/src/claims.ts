@@ -134,6 +134,64 @@ const RAW: Claim[] = [
     evidence: { runner: 'moderator', field: 'passed' },
     tier: 'simulate',
   },
+  // Claims 4-5 (max-out program, 2026-06-10): the first LIVE-tier claims, chosen FROM the
+  // detection-matrix results — both bugs are invisible to every in-process technique, so their
+  // gates run against the deployed cluster. `prove --break` sets the toggle on the gate process;
+  // scripts/live-claim-gate.sh forwards it onto the deployment(s) with a guaranteed revert.
+  {
+    id: 'tenant-span-everywhere',
+    claim:
+      'Every span the deployed system emits carries tenant.id (Commitment 9); a dropped stamp is caught by the live Jaeger audit.',
+    boundary: 'observability',
+    technique: 'live trace audit (Jaeger query over every service)',
+    toggle: 'CHAOS_TENANT_SPAN_DROP',
+    gate: {
+      cmd: 'bash',
+      args: [
+        'scripts/live-claim-gate.sh',
+        'content,gateway,identity,flags,donations,webhooks',
+        'CHAOS_TENANT_SPAN_DROP',
+        '--',
+        'bash',
+        'scripts/with-port-forward.sh',
+        'observability/qaroom-jaeger:16686:16686',
+        '--',
+        'env',
+        'JAEGER_QUERY_URL=http://localhost:16686',
+        'TENANT_SPAN_LOOKBACK=15m',
+        'pnpm',
+        'check:tenant-spans',
+      ],
+    },
+    evidence: { runner: 'tenant-spans', field: 'passed' },
+    tier: 'live',
+  },
+  {
+    id: 'outbox-isolates-broker-latency',
+    claim:
+      'The transactional outbox keeps mutating HTTP latency independent of the broker: publishing on the request path breaches the vote SLO even on a healthy broker.',
+    boundary: 'process-async',
+    technique: 'k6 latency SLO gate against the deployed content-service',
+    toggle: 'CHAOS_SYNC_PUBLISH',
+    gate: {
+      cmd: 'bash',
+      args: [
+        'scripts/live-claim-gate.sh',
+        'content',
+        'CHAOS_SYNC_PUBLISH',
+        '--',
+        'bash',
+        'scripts/with-port-forward.sh',
+        'content:18081:80',
+        '--',
+        'bash',
+        '-c',
+        'docker run --rm -v "$PWD":/work -w /work grafana/k6 run load-tests/vote-cast.js -e CONTENT_BASE_URL=http://host.docker.internal:18081 -e K6_SLO_MULTIPLIER=3',
+      ],
+    },
+    evidence: { runner: 'k6', field: 'passed' },
+    tier: 'live',
+  },
 ]
 
 /** The validated manifest. Throws at import if any claim violates the schema. */
