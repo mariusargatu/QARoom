@@ -34,6 +34,11 @@ for (const rel of packageJsonPaths) {
   const dir = resolve(ROOT, dirname(rel))
   const pkg = JSON.parse(readFileSync(resolve(dir, 'package.json'), 'utf8'))
   if (!pkg.scripts || typeof pkg.scripts.test !== 'string') continue
+  // Only vitest suites belong to this sweep. The moderator-agent's `test` script is pytest
+  // (ADR-0018 turbo passthrough); spawning vitest in that Python package finds zero test files,
+  // writes an empty success:false report, and false-reds the whole aggregate while the printed
+  // totals still say "0 failed". Its suite is folded separately by scripts/moderator-results.ts.
+  if (!pkg.scripts.test.includes('vitest')) continue
 
   const outRel = 'test-results/vitest.json'
   try {

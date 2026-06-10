@@ -15,7 +15,9 @@ import { CoverageReport } from 'monocart-coverage-reports'
 const report = new CoverageReport({
   name: 'QARoom web — unified coverage',
   outputDir: resolve('coverage/merged'),
-  reports: ['console-summary', 'lcovonly', 'json'],
+  // json-summary feeds scripts/coverage-results.ts (root), which folds the merged totals into
+  // test-results/summary.json — the raw 'json' report has no summary block to read.
+  reports: ['console-summary', 'lcovonly', 'json', 'json-summary'],
   sourceFilter: (path: string) =>
     path.includes('/src/') &&
     !path.includes('node_modules') &&
