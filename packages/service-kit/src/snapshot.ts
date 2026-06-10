@@ -45,12 +45,20 @@ export function registerSnapshotRoutes(app: FastifyInstance, opts: SnapshotRoute
     )
   })
 
-  app.post('/system/snapshot', async (req, reply) => {
-    const snapshot = ServiceSnapshot.parse(req.body)
-    await store.restore(snapshot.tables)
-    opts.lamport.restore(snapshot.lamport)
-    reply.code(200).send({ restored: true, service: opts.service, lamport: snapshot.lamport })
-  })
+  app.post(
+    '/system/snapshot',
+    // A real captured snapshot is the WHOLE table set as JSON — easily past Fastify's 1MB body
+    // default (a busy content-service ran 6MB during the gauntlet, 413-ing restore). The capture
+    // side already emitted it; restore must accept what capture produces. 64MB is generous for a
+    // dev-affordance route (ADR-0009) and still bounded against an unbounded-body DoS.
+    { bodyLimit: 64 * 1024 * 1024 },
+    async (req, reply) => {
+      const snapshot = ServiceSnapshot.parse(req.body)
+      await store.restore(snapshot.tables)
+      opts.lamport.restore(snapshot.lamport)
+      reply.code(200).send({ restored: true, service: opts.service, lamport: snapshot.lamport })
+    },
+  )
 }
 
 /**
