@@ -50,8 +50,10 @@ export const TOGGLES: DetectionToggle[] = z.array(DetectionToggle).parse([
     tiers: ['in-proc', 'cluster'],
     selfToggling: [],
     notes:
-      'No test file references the env — consumers exercising processEvent through the real ' +
-      'subscribe path hit it; the catcher set is purely empirical.',
+      'Tier-A: caught by unit+integration+property (widest in-proc blast radius, H6). Tier-B ' +
+      '(2026-06-10, reset+paced battery): all live cells MISSED on calm traffic as predicted — ' +
+      'dedup loss needs REDELIVERY, i.e. the chaos 03 experiment; the first sweep\'s tracetest ' +
+      '\'catch\' was rollout-state pollution, withdrawn.',
   },
   {
     id: 'tenant-span-drop',
@@ -128,10 +130,12 @@ export const TOGGLES: DetectionToggle[] = z.array(DetectionToggle).parse([
     tiers: ['in-proc', 'cluster'],
     selfToggling: [],
     notes:
-      'Tier-A verdict (2026-06-10): ALL MISSED in-proc, structurally — the designated spec ' +
-      'constructs new CircuitBreaker(...) directly, while the toggle disables the WIRING in ' +
-      'server.ts, which no in-proc test executes. Component tests cannot see wiring bugs; ' +
-      'detection is live-tier only.',
+      'Tier-A: ALL MISSED in-proc, structurally — the designated spec constructs new ' +
+      'CircuitBreaker(...) directly while the toggle disables the WIRING in server.ts. Tier-B ' +
+      '(2026-06-10): caught live by PACED Schemathesis — its traffic through the known-sick ' +
+      'donations upstream (Microcks /charges 404 → 502) makes the missing breaker leak naked ' +
+      '500s. Emergent detection: fuzz × an accidentally sick upstream; with healthy upstreams ' +
+      'this too would be invisible.',
   },
   {
     id: 'upstream-timeout',
@@ -142,8 +146,9 @@ export const TOGGLES: DetectionToggle[] = z.array(DetectionToggle).parse([
     tiers: ['in-proc', 'cluster'],
     selfToggling: [],
     notes:
-      'A far-too-high timeout only bites when an upstream actually hangs — predicted in-proc ' +
-      'all-miss; the chaos partition experiment is what exposes it.',
+      'In-proc and Tier-B (paced) both ALL MISSED as predicted — a far-too-high timeout only ' +
+      'bites when an upstream actually hangs; the chaos 07 partition experiment is the sole ' +
+      'detector. The first sweep\'s schemathesis \'catch\' was unpaced-429 noise, withdrawn.',
   },
   // ── webhooks (Milestone 11 — each property file self-arms its demo describe) ──
   {
@@ -209,7 +214,13 @@ export const TOGGLES: DetectionToggle[] = z.array(DetectionToggle).parse([
     },
     designatedCatcher: 'services/moderator-agent/evals/redteam/test_deepteam_owasp.py',
     tiers: ['in-proc', 'llm'],
-    selfToggling: [],
+    selfToggling: ['services/moderator-agent/evals/redteam/test_deepteam_owasp.py'],
+    notes:
+      'Tier-C verdict (2026-06-10): MISSED by every llm group — the red-team suite constructs ' +
+      'Settings(moderator_disable_input_guard=...) EXPLICITLY (4th wiring-vs-component instance, ' +
+      'in the eval suite itself), and the pinned gpt-5.5 snapshot now resists the planted ' +
+      'injection even unguarded (the lands-when-unguarded demo is a standing red: deliberate ' +
+      'LLM bugs rot as models strengthen). New keyless catcher: tests/test_config_defaults.py.',
   },
   {
     id: 'moderator-prompt-bug',
@@ -235,7 +246,12 @@ export const TOGGLES: DetectionToggle[] = z.array(DetectionToggle).parse([
     },
     designatedCatcher: 'services/moderator-agent/evals/deepeval/test_rag_metrics.py (faithfulness)',
     tiers: ['in-proc', 'llm'],
-    selfToggling: [],
+    selfToggling: ['services/moderator-agent/evals/deepeval/test_rag_metrics.py'],
+    notes:
+      'Tier-C verdict (2026-06-10): MISSED — the hallucination demo self-arms (explicit ' +
+      'Settings(moderator_ungrounded=True)), and on gold cases the model cites real retrieved ' +
+      'rules even with the grounding check off: the guard is a safety net under a model that ' +
+      'rarely needs it. New keyless catcher: tests/test_config_defaults.py.',
   },
   {
     id: 'moderator-disable-abstain',
@@ -248,7 +264,12 @@ export const TOGGLES: DetectionToggle[] = z.array(DetectionToggle).parse([
     designatedCatcher: 'services/moderator-agent/tests/test_selfcheck.py',
     claimId: 'moderator-abstain',
     tiers: ['in-proc', 'llm'],
-    selfToggling: [],
+    selfToggling: ['services/moderator-agent/tests/test_selfcheck.py'],
+    notes:
+      'Tier-A: caught by py-conformance (test_workflow_decision builds the graph from bare ' +
+      'Settings — the one moderator test that sees env). Tier-C (2026-06-10): MISSED — gold ' +
+      'cases are unanimous, abstain never fires on them, so disabling it changes nothing the ' +
+      'metrics see. New keyless catcher: tests/test_config_defaults.py.',
   },
   {
     id: 'moderator-rerank-bug',
