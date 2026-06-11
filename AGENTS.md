@@ -71,7 +71,6 @@ Reach for a repo-map or code graph only if cross-service scale ever makes agenti
 - `chaos-experiments/`: Chaos Mesh and Litmus YAML (Milestone 6 onwards).
 - `scripts/`: orchestration scripts. `bootstrap-k3d.sh`/`teardown-k3d.sh`, `smoke.sh`, `check-tenant-spans.ts`, `aggregate-test-results.ts`.
 - `.claude/`: agent definitions and skills. `.claude/skills/journey-log/` captures per-decision entries into `docs/journey/`; raw material for blog/LinkedIn.
-- `.well-known/llms.txt`: agent-discovery affordance.
 
 ## Conventions you must follow
 
@@ -107,7 +106,6 @@ For any non-trivial change:
 - `docs/adr/0001-foundational-decisions.md`: immutable. Any change here requires a new superseding ADR.
 - `services/*/openapi.v*.yaml`: frozen specs at release boundaries. Backward compatibility is verified against them.
 - `packages/contracts/test-results-schema.ts`: the schema for `test-results/summary.json` is frozen.
-- `.well-known/llms.txt`: change requires a docs review.
 - `chaos-experiments/*.yaml`: each is paired with a documented expected-behavior assertion in `docs/failure-modes.md`. Change both or neither.
 
 ## Where state lives
