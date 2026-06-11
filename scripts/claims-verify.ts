@@ -1,7 +1,9 @@
 import { spawnSync } from 'node:child_process'
 import { existsSync, readFileSync } from 'node:fs'
 import { resolve } from 'node:path'
+import { BOUNDARY_REGISTRY } from '@qaroom/contracts/boundary-registry'
 import { CLAIMS, type Claim } from '@qaroom/contracts/claims'
+import { BOUNDARIES_END, BOUNDARIES_START, renderBoundariesBlock } from './render-boundaries'
 import { README_END, README_START, renderReadmeBlock } from './render-claims'
 import { renderStatsBlock, STATS_END, STATS_START } from './render-stats'
 
@@ -86,6 +88,26 @@ function checkEvidence(claim: Claim): Result {
   }
 }
 
+// One boundary vocabulary everywhere: the claim's reader-facing row must exist in the registry,
+// and its gate lane must be one the registry row actually maps (the 2026-06-11 critique caught
+// webhook-signing shown as `trust` while the breadth table put HMAC at the delivery edge).
+function checkTaxonomy(claim: Claim): Result {
+  const row = BOUNDARY_REGISTRY.find((b) => b.id === claim.registryRow)
+  if (!row) {
+    return {
+      ok: false,
+      detail: `registryRow '${claim.registryRow}' is not in boundary-registry.ts`,
+    }
+  }
+  if (!row.lanes.includes(claim.boundary)) {
+    return {
+      ok: false,
+      detail: `lane '${claim.boundary}' is not mapped by registry row '${claim.registryRow}' (lanes: ${row.lanes.join(', ') || 'none'})`,
+    }
+  }
+  return { ok: true, detail: `row '${claim.registryRow}' maps lane '${claim.boundary}'` }
+}
+
 function checkWired(claim: Claim): Result {
   // The toggle is read either as the literal env var (TS: process.env.CHAOS_WEBHOOK_…) or via a
   // settings field whose name is the lower-snake of the var (pydantic-settings auto-maps it).
@@ -125,22 +147,51 @@ function checkTeeth(claim: Claim): Result {
     : { ok: false, detail: 'gate stayed GREEN with the toggle set: THEATER' }
 }
 
-// Each README projection (claims block, stats block) is a STABLE rendering of source truth, so the
-// committed block must be byte-identical to its generator. This is the root fix for the stale-front-
-// door weak axis: a block cannot drift from source without this gate going red. The stats block
-// excludes summary.json's volatile generated_at/commit, so it only changes when a real count changes.
-function checkReadmeBlock(name: string, start: string, end: string, render: () => string): Result {
-  const path = resolve(ROOT, 'README.md')
-  if (!existsSync(path)) return { ok: false, detail: 'README.md missing' }
-  const readme = readFileSync(path, 'utf8')
-  const a = readme.indexOf(start)
-  const b = readme.indexOf(end)
+// Each front-door projection (README claims/stats blocks) is a STABLE rendering of source truth,
+// so the committed block must be byte-identical to its generator. This is the root fix for the
+// stale-front-door weak axis: a block cannot drift from source without this gate going red. The
+// blocks exclude summary.json's volatile generated_at/commit, so they only change when a real
+// count changes.
+function checkBlock(
+  file: string,
+  name: string,
+  start: string,
+  end: string,
+  render: () => string,
+): Result {
+  const path = resolve(ROOT, file)
+  if (!existsSync(path)) return { ok: false, detail: `${file} missing` }
+  const text = readFileSync(path, 'utf8')
+  const a = text.indexOf(start)
+  const b = text.indexOf(end)
   if (a === -1 || b === -1) {
-    return { ok: false, detail: `${name} block markers absent: paste the generator output` }
+    return {
+      ok: false,
+      detail: `${name} block markers absent in ${file}: paste the generator output`,
+    }
   }
-  return readme.slice(a, b + end.length) === render()
+  return text.slice(a, b + end.length) === render()
     ? { ok: true, detail: `${name} block matches source` }
-    : { ok: false, detail: `${name} block is STALE: re-run the renderer and paste it` }
+    : { ok: false, detail: `${name} block in ${file} is STALE: re-run the renderer and paste it` }
+}
+
+// claims.md carries LIVE numbers (verdicts off summary.json), so byte-gating it would be flaky
+// across environments (the exact volatility render-stats.ts documents). Gate the STABLE fact
+// instead: the rendered page must agree with the manifest's claim COUNT. This is the failure
+// mode that rotted once (a projection said 3 claims while the manifest had 6) unnoticed.
+function checkClaimsPage(): Result {
+  const mdPath = resolve(ROOT, 'docs/claims.md')
+  if (!existsSync(mdPath)) {
+    return { ok: false, detail: 'docs/claims.md missing: run pnpm claims:render' }
+  }
+  const mdRows = (readFileSync(mdPath, 'utf8').match(/`pnpm prove /g) ?? []).length
+  if (mdRows !== CLAIMS.length) {
+    return {
+      ok: false,
+      detail: `claims.md renders ${mdRows} claims, manifest has ${CLAIMS.length}: run pnpm claims:render`,
+    }
+  }
+  return { ok: true, detail: `claims.md agrees with the manifest (${CLAIMS.length} claims)` }
 }
 
 function main(): void {
@@ -148,6 +199,7 @@ function main(): void {
   let failed = 0
   for (const claim of CLAIMS) {
     const checks: [string, Result][] = [
+      ['taxonomy', checkTaxonomy(claim)],
       ['evidence', checkEvidence(claim)],
       ['wired', checkWired(claim)],
       ['teeth', checkTeeth(claim)],
@@ -156,7 +208,7 @@ function main(): void {
     const warns = checks.filter(([, r]) => r.ok && r.warn)
     if (bad.length === 0) {
       const note = warns.length > 0 ? ` (${warns.map(([n]) => `${n}: stale`).join(', ')})` : ''
-      process.stdout.write(`  ✓ ${claim.id}: schema, evidence, wired, teeth${note}\n`)
+      process.stdout.write(`  ✓ ${claim.id}: schema, taxonomy, evidence, wired, teeth${note}\n`)
       for (const [name, r] of warns) process.stdout.write(`      ⚠ ${name}: ${r.detail}\n`)
     } else {
       failed += 1
@@ -165,15 +217,29 @@ function main(): void {
     }
   }
   const blocks: [string, Result][] = [
-    ['claims', checkReadmeBlock('claims', README_START, README_END, renderReadmeBlock)],
-    ['stats', checkReadmeBlock('stats', STATS_START, STATS_END, renderStatsBlock)],
+    [
+      'README claims',
+      checkBlock('README.md', 'claims', README_START, README_END, renderReadmeBlock),
+    ],
+    ['README stats', checkBlock('README.md', 'stats', STATS_START, STATS_END, renderStatsBlock)],
+    [
+      'README boundaries',
+      checkBlock(
+        'README.md',
+        'boundaries',
+        BOUNDARIES_START,
+        BOUNDARIES_END,
+        renderBoundariesBlock,
+      ),
+    ],
+    ['claims page', checkClaimsPage()],
   ]
   for (const [name, r] of blocks) {
     if (r.ok) {
-      process.stdout.write(`  ✓ README ${name} block: ${r.detail}\n`)
+      process.stdout.write(`  ✓ ${name}: ${r.detail}\n`)
     } else {
       failed += 1
-      process.stdout.write(`  ✗ README ${name} block\n      drift: ${r.detail}\n`)
+      process.stdout.write(`  ✗ ${name}\n      drift: ${r.detail}\n`)
     }
   }
 

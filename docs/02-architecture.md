@@ -16,11 +16,11 @@ These are immutable for the lifetime of v1. Changes require an ADR superseding t
 8. **Scoped scenario replay.** Per-service `GET/POST /system/snapshot` endpoints support capture and restore of database state plus observable state plus the current clock value. A `qaroom-replay` CLI orchestrates capture across services and reload into a Docker Compose environment. Documented limits: no in-flight HTTP request capture, no JetStream stream restore, no WebSocket session state.
 9. **Communities are tenants.** Each community is an isolated tenant with its own data partition. Tenancy is implemented as a shared schema with a `community_id` discriminator column. Cross-community data leakage is impossible by enforcement at the service layer and verified by property-based isolation tests.
 10. **Donations are the first feature gated by a per-community state machine.** The donation rollout state machine has explicit states (`DonationsOff`, `DonationsEnabling`, `DonationsOn`, `DonationsDisabling`) with documented observable behavior in each. Per-community feature flags drive the transitions.
-11. **WebSockets for server push, with a polling fallback.** Light commitment: notifications and live feed updates. Not collaborative real-time. Every WebSocket-delivered event is also retrievable via a polling endpoint so agents without WebSocket support can consume it.
+11. **WebSockets for server push, with a polling fallback.** Light commitment: notifications and live feed updates, not collaborative real-time. Every WebSocket-delivered event is also retrievable via a polling endpoint so agents without WebSocket support can consume it.
 12. **OpenTelemetry across all services, with GenAI semantic conventions opted in.** Manual trace propagation through NATS message headers via a shared `@qaroom/messaging` SDK. Every span carries `tenant.id`. Errors carry RFC 7807 Problem Details attributes.
 13. **All errors follow RFC 7807 Problem Details, extended for agents.** Three extensions to the base envelope: `retryable: boolean`, `next_actions: Array<{verb, href, description}>`, `failure_domain: string`. Enforced by Zod schemas and verified in CI by Schemathesis.
 14. **Test outputs are machine-readable.** Every test runner in CI emits structured JSON or JUnit XML. A `test-results/summary.json` artifact with a frozen schema aggregates all results per PR. This is the contract that future agentic CI consumes.
-15. **The substrate is agent-hospitable from day one.** Required filesystem affordances: `/AGENTS.md` at the repo root with `/CLAUDE.md` as a symlink to it, per-service `AGENTS.md`, `/.well-known/llms.txt` per service, `.claude/agents/` and `.claude/skills/` directories present (canonical skill location), `scripts/spin-up-ephemeral.sh` script for namespaced ephemeral environments. No agentic features are built in v1; the affordances exist so they can be added without rework.
+15. **The substrate is agent-hospitable from day one.** Required filesystem affordances: `/AGENTS.md` at the repo root with `/CLAUDE.md` as a symlink to it, per-service `AGENTS.md`, `.claude/agents/` and `.claude/skills/` directories present (canonical skill location), `scripts/spin-up-ephemeral.sh` script for namespaced ephemeral environments. No agentic features are built in v1; the affordances exist so they can be added without rework. (The original `/.well-known/llms.txt` clause was superseded by ADR-0023: thirteen milestones produced zero consumers, and `AGENTS.md` plus `GET /system/capabilities` plus the qaroom-mcp surface won that role.)
 16. **The repo is monorepo, pnpm workspaces, Turborepo.** One commit can change a service, its contracts, its tests, and the consumers of its contracts atomically.
 17. **At-least-once async with explicit dedup.** Publishers set `Nats-Msg-Id` per event from the injected `IdGenerator`; JetStream streams configured with `duplicate_window: 5m`; transactional-outbox pattern on the publish side; consumers idempotent via a per-subscription `processed_events` table (schema housed in `@qaroom/messaging`) or pure-function semantics. Property-tested in CI.
 
@@ -35,7 +35,8 @@ QARoom matures to a set of core services plus supporting infrastructure. Each se
 | `content-service` | Posts, comments, votes; score aggregation; feed assembly | Property-based testing of voting invariants and tenant isolation; load testing |
 | `flags-service` | Feature flag definitions; per-community flag resolution; donation rollout state machine | Model-based testing (XState); chaos engineering of cache invalidation |
 | `donations-service` | Donation transactions; integration with the mocked payment provider | Schema validation (strict, untrusted external boundary); chaos engineering (external dependency failure) |
-| `moderator-agent` *(Milestone 9, Python/LangGraph)* | Subscribes to `post.created`; judges posts against per-community rules; records a moderation decision (proposes, does not enforce) and emits it | LLM evaluation (Promptfoo) + metamorphic paraphrase-invariance; LangGraph reverse-conformance; structured-output contract |
+| `web` *(Milestone 5, React + Vite)* | Frontend: atomic-design component library, donations-rollout dashboard, WebSocket live updates with polling parity | Storybook play() + a11y and Playwright Component Tests sharing Screenplay Tasks; model-based E2E through the same XState rollout machine the server drives |
+| `moderator-agent` *(Milestone 9, Python/LangGraph; retrieval-grounded RAG v2 in Milestone 12)* | Subscribes to `post.created`; judges posts against the per-community policy corpus; records a citation-bearing disposition (proposes, does not enforce) and emits it | LLM evaluation: DeepEval (RAG, agentic, G-Eval quality) + DeepTeam (OWASP LLM Top 10) + PyRIT (multi-turn red-team) + metamorphic paraphrase-invariance; LangGraph reverse-conformance; structured-output contract (ADR-0020) |
 | `webhooks-service` *(Milestone 11)* | Consumes all five event channels; delivers them to external subscribers (at-least-once, deterministic retry/backoff, HMAC signing, SSRF guard); subscription CRUD gateway-proxied | Delivery-guarantee + retry-contract property testing; XState reverse-conformance of the delivery lifecycle; HMAC/SSRF property tests; chaos of a flaky receiver |
 
 Supporting infrastructure deployed alongside:
@@ -47,55 +48,55 @@ Supporting infrastructure deployed alongside:
 - **Tracetest** for trace-based assertions in CI.
 - **Chaos Mesh** + **LitmusChaos** (Litmus for HTTP-level chaos that Chaos Mesh struggles with on k3d's flannel CNI).
 
-## Container view (text form)
+## Container view
 
+```mermaid
+flowchart TB
+    accTitle: QARoom container view at maturity
+    accDescr: web calls gateway over HTTPS and WebSocket. gateway routes to content-service, identity-service, flags-service, and donations-service; proxies webhook subscription CRUD to webhooks-service; and fronts moderator-agent decision reads per ADR-0022. content-service, flags-service, donations-service, and moderator-agent publish events to NATS JetStream; moderator-agent and webhooks-service consume from it. webhooks-service delivers outbound HTTP to external subscribers. donations-service calls the Microcks payment-provider mock over REST. packages/qaroom-mcp exposes a read-first MCP tool surface over the services' capabilities, through the gateway. Every service sends OpenTelemetry spans to the OTel Collector, which feeds Jaeger and Prometheus.
+
+    Web["web<br>(React + Vite)"]
+    MCP["packages/qaroom-mcp<br>(read-first MCP tool surface)"]
+
+    subgraph Cluster["Services (Postgres per service)"]
+        Gateway["gateway<br>(Fastify, OTel orchestrator,<br>RFC 7807 errors)"]
+        Content["content-service<br>(posts, comments, votes, feed)"]
+        Identity["identity-service<br>(users, sessions, memberships, JWT)"]
+        Flags["flags-service<br>(per-community flags +<br>donation rollout XState)"]
+        Donations["donations-service<br>(strict schema validation;<br>chaos target)"]
+        Moderator["moderator-agent<br>(Python, LangGraph, RAG)"]
+        Webhooks["webhooks-service<br>(outbound delivery edge)"]
+    end
+
+    NATS[("NATS JetStream")]
+    Microcks["Microcks<br>(payment provider mock,<br>OpenAPI-driven)"]
+    Subscribers(["external subscribers"])
+    Collector["OTel Collector"]
+    Jaeger["Jaeger"]
+    Prometheus["Prometheus"]
+
+    Web -->|"HTTPS + WebSocket"| Gateway
+    MCP -.->|"read tools over<br>/system/capabilities"| Gateway
+    Gateway --> Content
+    Gateway --> Identity
+    Gateway --> Flags
+    Gateway --> Donations
+    Gateway -->|"subscription CRUD"| Webhooks
+    Gateway -->|"moderation reads<br>(ADR-0022)"| Moderator
+    Content -->|"publish"| NATS
+    Flags -->|"publish"| NATS
+    Donations -->|"publish"| NATS
+    Moderator -->|"publish"| NATS
+    NATS -->|"consume: post.created"| Moderator
+    NATS -->|"consume: all five channels"| Webhooks
+    Webhooks -->|"outbound HTTP<br>(HMAC-signed, SSRF-guarded)"| Subscribers
+    Donations -->|"REST"| Microcks
+    Cluster -->|"OTel spans,<br>tenant.id on every span"| Collector
+    Collector --> Jaeger
+    Collector --> Prometheus
 ```
-                           ┌────────────────┐
-                           │   Web App      │  React + Vite, Tailwind
-                           │   (Milestone 5)    │  Atomic component structure
-                           └───────┬────────┘
-                                   │ HTTPS + WebSocket
-                           ┌───────▼────────┐
-                           │    Gateway     │  Fastify, OTel orchestrator
-                           │                │  RFC 7807 errors, Pact consumer
-                           └───┬───────┬───┬┘
-                               │       │   │
-                       REST    │       │   │   REST + WebSocket
-              ┌────────────────┘       │   └─────────────────────────┐
-              │                        │                             │
-    ┌─────────▼─────────┐    ┌─────────▼─────────┐         ┌─────────▼──────────┐
-    │ identity-service  │    │  content-service  │         │   flags-service    │
-    │                   │    │                   │         │                    │
-    │ Users, sessions,  │    │ Posts, comments,  │         │ Per-community      │
-    │ memberships, JWT  │    │ votes, feed       │         │ flags + donation   │
-    │                   │    │                   │         │ rollout XState     │
-    └─────────┬─────────┘    └─────────┬─────────┘         └─────────┬──────────┘
-              │                        │                             │
-              │   ┌────────────────────┴──── async events ───────────┘
-              │   │                                                  
-              │   │   NATS JetStream                                  
-              ▼   ▼                                                  
-            ┌─────────────────┐                ┌─────────────────────┐
-            │  Postgres per   │                │  donations-service  │
-            │     service     │◄───────────────┤                     │
-            └─────────────────┘                │  Strict schema      │
-                                               │  validation; chaos  │
-                                               │  target             │
-                                               └──────────┬──────────┘
-                                                          │ REST
-                                               ┌──────────▼──────────┐
-                                               │     Microcks        │
-                                               │ (payment provider   │
-                                               │  mock, OpenAPI-     │
-                                               │  driven)            │
-                                               └─────────────────────┘
-                                               
-[Milestone 9 only]
-            ┌────────────────────────────────────┐
-            │       moderator-agent (Python)      │  Subscribes to
-            │       LangGraph + Promptfoo evals   │  NATS events
-            └────────────────────────────────────┘
-```
+
+In prose: web -> gateway -> {content, identity, flags, donations}, with the gateway also proxying webhook subscription CRUD and moderation reads (ADR-0022); content, flags, donations, and the moderator publish to NATS JetStream, where the moderator-agent and webhooks-service consume; webhooks delivers outbound HTTP to external subscribers; donations calls the Microcks payment mock; packages/qaroom-mcp is the read-first MCP surface over the services' capabilities; and every service's OTel spans flow to the collector, then to Jaeger and Prometheus.
 
 This is the maturity view. Earlier milestones have only a subset of services; see `docs/04-roadmap.md` for which services exist in which milestone.
 
@@ -103,19 +104,21 @@ This is the maturity view. Earlier milestones have only a subset of services; se
 
 Service boundaries are not architectural noise; they are where bugs live and where testing techniques apply. QARoom has the following categories of boundary, each with its assigned defender:
 
-| Boundary | Example | Testing technique |
+| Boundary | What breaks here | Testing technique |
 |---|---|---|
-| **Trust boundary** | Client -> gateway | Schemathesis fuzzing; RFC 7807 conformance |
-| **Process boundaries** | gateway -> identity-service, gateway -> content-service, etc. | Pact v4 REST contract tests |
-| **Async message boundaries** | content-service emits -> flags-service consumes | Pact v4 message contract tests; OpenTelemetry trace propagation tests |
-| **Tenancy boundary (logical)** | Community A's data vs Community B's data | fast-check property-based isolation tests |
-| **Temporal boundary** | Donation rollout state transitions | XState model-based testing via @xstate/graph and Playwright |
-| **External dependency boundary** | donations-service -> payment provider (mocked via Microcks) | Strict schema validation; chaos engineering via Toxiproxy or Chaos Mesh HTTPChaos (with Litmus fallback) |
-| **Observability boundary** | What a trace shows vs what the system did | Tracetest assertions against OpenTelemetry traces |
-| **WebSocket boundary** | Server push of notifications / live feed updates | AsyncAPI schema + Microcks-async mock + Playwright WS assertions + parity test vs polling endpoint |
-| **Identity issuance boundary** | identity-service signs JWT consumed by gateway | JWT property tests (issuance, kid lookup, expiry, rotation, revocation); JWKS contract test |
-| **AI / model boundary** | post content -> LLM moderation verdict | Golden-set evaluation (Promptfoo) + metamorphic paraphrase-invariance; structured-output validation as a contract; LangGraph reverse-conformance (ADR-0017) |
-| **Outbound delivery boundary** *(Milestone 11)* | webhooks-service -> external subscriber URL | Delivery-guarantee property tests (at-least-once + receiver dedup); deterministic retry-contract tests; HMAC signing + SSRF property tests; chaos of a flaky receiver (ADR-0019) |
+| **Trust (client to gateway)** | Malformed or hostile input | Schemathesis fuzzing; RFC 7807 errors |
+| **Process (service to service)** | A contract drifts between two services (gateway -> identity-service, gateway -> content-service, etc.) | Pact v4 contracts, cross-checked against the published OpenAPI |
+| **Async (events over NATS)** | A lost, duplicated, or reordered event (content-service emits -> flags-service consumes) | Typed events, outbox, dedup, async Pact, Tracetest |
+| **State (rollouts, webhook delivery, migration)** | An illegal state transition (the donation rollout is the canonical case) | XState machines, reverse-conformance, model-based testing via @xstate/graph and Playwright |
+| **Temporal** | Logic that depends on the wall clock | An injected `Clock`; no real time in non-test code |
+| **Tenancy (communities as tenants)** | One tenant reads another tenant's data (Community A's data vs Community B's) | Property-based isolation tests (fast-check) |
+| **Identity issuance (JWT and JWKS)** | A token signed with a retired key; a rotation that strands sessions (identity-service signs, gateway consumes) | JWKS contract tests; rotation as a state machine; JWT property tests (issuance, kid lookup, expiry, rotation, revocation) |
+| **WebSocket push** | A stale socket, an unauthorized subscription, push/poll divergence | One-use ticket auth; polling-parity tests; AsyncAPI schema + Microcks-async mock + Playwright WS assertions |
+| **Observability** | A span without its tenant; a trace that breaks (what a trace shows vs what the system did) | Every span carries `tenant.id`, checked live; Tracetest assertions against OpenTelemetry traces |
+| **External dependency (the LLM moderator)** | A hallucinated or overconfident decision (post content -> moderation disposition) | Retrieval grounding, eval, red-team, an abstain path: DeepEval (RAG, agentic, G-Eval) + DeepTeam (OWASP LLM Top 10) + PyRIT (multi-turn) + metamorphic paraphrase-invariance; structured-output validation as a contract; LangGraph reverse-conformance (ADR-0017, ADR-0020) |
+| **Delivery edge (outbound webhooks)** | A replayed, dropped, or unsafe delivery (webhooks-service -> external subscriber URL) | HMAC signing, SSRF guard, at-least-once with retries, each property-tested (delivery guarantee includes receiver dedup); deterministic retry-contract tests; chaos of a flaky receiver (ADR-0019) |
+
+The source of truth for these rows is `packages/contracts/src/boundary-registry.ts`; the README breadth table is rendered from it (`pnpm boundaries:render`), and this table is synced against it by review. One edge lives outside the registry: donations-service -> the payment provider (mocked via Microcks), defended by strict schema validation at an untrusted external boundary plus chaos engineering via Toxiproxy or Chaos Mesh HTTPChaos (with Litmus fallback).
 
 These boundary types are the contract between architecture and testing: every service must respect the ones it touches.
 
@@ -146,17 +149,17 @@ Implementation-level choices (specific library versions, configuration details, 
 
 These omissions are part of the architectural contract:
 
-- **No service mesh** (Istio, Linkerd). Chaos Mesh + Litmus + manual OTel propagation are enough. A service mesh would bury the testing story under wiring.
-- **No multi-region deployment.** Everything is single-region.
+- **No service mesh** (Istio, Linkerd). Chaos Mesh + Litmus + manual OTel propagation cover the same ground, and a mesh would bury the testing story under wiring.
+- **No multi-region deployment.** Everything runs in a single region.
 - **No real OAuth or federated identity.** JWT issued by identity-service is sufficient.
 - **No real payments.** The payment provider is mocked via Microcks.
-- **No internationalization.** English only.
+- **No internationalization.** QARoom is English-only.
 - **No production-grade security testing** (SAST/DAST/dependency scanning). Mentioned in conventions; not enforced as a milestone.
 - **No accessibility testing** as a milestone. UI is functional, not accessibility-certified.
 - **No visual regression testing** in v1. Could be added in Milestone 5 as a sidebar.
 - **No MCP servers per service in v1.** Designed-for-later; the architecture leaves the seam (Commitment 7's `/system/capabilities`).
 
-Each omission has a reason. None of them are accidental.
+Each omission is deliberate, and the reason for each is recorded in the list above.
 
 ## What this architecture is designed to make easy later
 

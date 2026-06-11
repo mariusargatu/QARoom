@@ -1,6 +1,6 @@
 # QARoom: Roadmap
 
-Ten milestones. Each milestone introduces a small, sharply-defined set of testing techniques applied to the architectural boundary where they belong. Each milestone ships a working artifact, a blog post draft, and at least one ADR. Each milestone has explicit exit criteria so "done" is unambiguous.
+Thirteen milestones (0-12), plus a deferred continuous-testing 13th. Each milestone introduces a small, sharply-defined set of testing techniques applied to the architectural boundary where they belong. Each milestone ships a working artifact, a blog post draft, and at least one ADR. Each milestone has explicit exit criteria so "done" is unambiguous.
 
 Milestones are sized to be demonstrable, not to a fixed schedule. A milestone is done when its exit criteria are met; the elapsed wall-clock time is whatever it is.
 

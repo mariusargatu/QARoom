@@ -1,10 +1,11 @@
 import { existsSync, readdirSync } from 'node:fs'
 import { resolve } from 'node:path'
 import { pathToFileURL } from 'node:url'
-import { BOUNDARIES, CLAIMS } from '@qaroom/contracts/claims'
+import { BOUNDARY_REGISTRY } from '@qaroom/contracts/boundary-registry'
+import { CLAIMS } from '@qaroom/contracts/claims'
 
 /**
- * Render the QARoom "stats" projection: a single drift-gated README/llms.txt line whose every number
+ * Render the QARoom "stats" projection: a single drift-gated README line whose every number
  * is DERIVED from a machine-readable source, never hand-typed. The root fix for the stale-front-door
  * weak axis (README said "ten milestones / 214 tests / 3 services / 11 ADRs" while reality is 13
  * milestones / 8 services / 20 ADRs). Mirrors scripts/render-claims.ts: a side-effect-free renderer +
@@ -42,8 +43,9 @@ export function renderStatsBlock(): string {
   const services = countWorkspace('services')
   const packages = countWorkspace('packages')
   const helm = existsSync(resolve(ROOT, 'packages/helm-template')) ? ' + 1 helm chart' : ''
-  // The named boundaries (the manifest BOUNDARIES enum minus its "meta" lane).
-  const boundaries = BOUNDARIES.filter((b) => b !== 'meta').length
+  // The documented boundaries (the registry that renders the README breadth table), so the stats
+  // line and the table can never disagree on the count.
+  const boundaries = BOUNDARY_REGISTRY.length
   // Deliberately NO live test-totals here. The pass/fail/skip count is environment-dependent (key
   // present? pgvector present? gauntlet folds present?), so byte-gating it makes claims:verify flaky
   // across CI vs local vs gauntlet. The front-door block carries only STABLE architecture-shape
@@ -54,7 +56,7 @@ export function renderStatsBlock(): string {
   return `${STATS_START}
 ${services.count} services · ${packages.count} packages${helm} · ${adrCount()} ADRs · ${boundaries} boundaries · ${CLAIMS.length} falsifiable claims
 
-<sub>These counts are read from the source (the manifest + the folders on disk), not typed by hand. \`pnpm stats:render\` writes this line and \`pnpm claims:verify\` fails the build if it drifts. Live test totals are in \`test-results/summary.json\`.</sub>
+<sub>These counts are read from the source (the manifest + the folders on disk), not typed by hand. \`pnpm stats:render\` writes this line and \`pnpm claims:verify\` fails the build if it drifts. Live test totals come from a CI run's \`test-results/summary.json\` artifact (gitignored here); \`pnpm prove\` reads them locally.</sub>
 ${STATS_END}`
 }
 

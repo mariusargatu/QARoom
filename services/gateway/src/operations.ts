@@ -427,10 +427,16 @@ const RAW_OPERATIONS: readonly OasOperation[] = [
 //   400 — edge validation rejects malformed params/bodies/headers before proxying
 //   404 — any path-parameterized route can miss (tenant resolution or resource)
 //   409 — every mutating route shares the Idempotency-Key middleware (key reuse, new body)
-const genericNotFound404 = problemResponse(404, 'resource-not-found', 'Resource not found', 'not_found', {
-  description: 'The community or addressed resource does not exist.',
-  instance: '/api/communities/comm_01HZY0K7M3QF8VN2J5RX9TB4CD/feed',
-})
+const genericNotFound404 = problemResponse(
+  404,
+  'resource-not-found',
+  'Resource not found',
+  'not_found',
+  {
+    description: 'The community or addressed resource does not exist.',
+    instance: '/api/communities/comm_01HZY0K7M3QF8VN2J5RX9TB4CD/feed',
+  },
+)
 const idempotencyConflict409 = problemResponse(
   409,
   'idempotency-key-conflict',

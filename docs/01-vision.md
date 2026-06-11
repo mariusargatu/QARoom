@@ -1,5 +1,7 @@
 # QARoom: Vision
 
+*Written before Milestone 0 and preserved as the original thesis. The plan said ten milestones; the build grew to thirteen (0-12), webhooks became a shipped service, and some tools changed along the way. The living state is the [README](../README.md) and [docs/04-roadmap.md](04-roadmap.md).*
+
 *The Testable Stack, Volume I: building a modern microservices system from a testing lens.*
 
 ---
@@ -16,13 +18,9 @@ Across ten milestones I will build this system, with each milestone introducing 
 
 ## Who this is for
 
-Senior engineers and architects who already know how to write tests, but want a sharper way to think about *what* to test, *where* the boundaries belong, and *why* the architecture itself determines which testing techniques work and which collapse. This is not a tutorial on Vitest or Playwright. It is a long-form argument about how to think.
+Senior engineers and architects who already know how to write tests, but want a sharper way to think about *what* to test, *where* the boundaries belong, and *why* the architecture itself determines which testing techniques work and which collapse. This is a long-form argument about how to think, not a tutorial on Vitest or Playwright.
 
-If you have shipped microservices and felt that your testing was a portfolio of disconnected practices loosely organized around the test pyramid: this series is for you.
-
-If you have read about contract testing, property-based testing, chaos engineering, model-based testing, and mutation testing in separate posts and wondered how they actually compose into a coherent strategy: this series is for you.
-
-If you want to see a single developer using Claude Code to build a substantial microservices system across ten milestones, with explicit architectural reasoning published alongside the code: this series is for you.
+This series is for you if you have shipped microservices and felt that your testing was a portfolio of disconnected practices loosely organized around the test pyramid; if you have read about contract testing, property-based testing, chaos engineering, model-based testing, and mutation testing in separate posts and wondered how they actually compose into a coherent strategy; or if you want to see a single developer using Claude Code to build a substantial microservices system across ten milestones, with explicit architectural reasoning published alongside the code.
 
 ## What is locked, what is discovered
 
@@ -45,16 +43,16 @@ Future milestones add: a real-time notification layer over WebSockets, a chaos-t
 Six principles drive the design. Each is the locked answer to a question that most projects answer implicitly and badly.
 
 **1. Testability is an architectural property, not a quality of test code.**
-The reason most teams' testing is mediocre is not that they write bad tests; it is that their architecture makes good testing impossible. Boundaries that don't exist cannot be contract-tested. State that isn't observable cannot be model-checked. Behavior that isn't deterministic cannot be replayed. We will design with these constraints in mind, and the testing techniques will fall out naturally.
+The reason most teams' testing is mediocre is not that they write bad tests; it is that their architecture makes good testing impossible. Boundaries that don't exist cannot be contract-tested. State that isn't observable cannot be model-checked. And you cannot replay behavior that was never deterministic. We will design with these constraints in mind, and the testing techniques will fall out naturally.
 
 **2. Boundaries are where bugs hide; every boundary in QARoom has a named testing technique that defends it.**
-Service boundaries get contract tests (Pact). Tenant boundaries get property-based isolation tests (fast-check). Temporal boundaries (state transitions, gradual rollouts) get model-based tests (XState). External dependency boundaries get schema validation and chaos tests. The system is not a uniform field with tests sprinkled on top; it is a structured graph of boundaries, each with its own defender.
+Service boundaries get contract tests (Pact). Tenant boundaries get property-based isolation tests (fast-check). Temporal boundaries (state transitions, gradual rollouts) get model-based tests (XState). External dependency boundaries get schema validation and chaos tests. The system is a structured graph of boundaries, each with its own defender, not a uniform field with tests sprinkled on top.
 
 **3. The model is the source of truth, not documentation.**
 Every stateful flow in QARoom is modeled as a graph: XState for TypeScript flows, LangGraph for Python flows that come later. The model is hand-authored, lives in its own package, and is the contract that the production code and the tests both consult. If they disagree, the code is wrong, not the model. Drift between model and reality is impossible by construction. Or, more honestly, by enforcement.
 
 **4. Determinism is non-negotiable.**
-Every service injects a `Clock`, `IdGenerator`, and `Randomness` interface. Production uses real implementations; tests use seeded, deterministic ones. This is not a convenience; it is the precondition for several of the techniques the series demonstrates, from property-based testing to scoped scenario replay. Leakage of non-determinism is treated as a P0 defect.
+Every service injects a `Clock`, `IdGenerator`, and `Randomness` interface. Production uses real implementations; tests use seeded, deterministic ones. More than a convenience, this is the precondition for several of the techniques the series demonstrates, from property-based testing to scoped scenario replay. Leakage of non-determinism is treated as a P0 defect.
 
 **5. Triangulation defends against silent drift.**
 Schema-first contracts via Zod with generated OpenAPI committed alongside, drift-gated by oasdiff in CI, with consumer-authored Pact files as the second independent source of truth, and conformance tests that verify the running system matches its specs. No artifact is generated by an opaque process from another artifact such that a developer can update both with one edit. Disagreement between artifacts is loud, not silent. *Bidirectional verification* in practice is unidirectional generation plus diff-gated change review, but it is rigorous, and it works.
@@ -71,7 +69,7 @@ Across the ten milestones, QARoom demonstrates the following techniques, each in
 - **Schema validation** with Zod and OpenAPI, gated by oasdiff for drift detection.
 - **Consumer-driven contract testing** with Pact v4, for both REST and async NATS messages.
 - **Property-based API exploration** with Schemathesis, for fuzzing services against their OpenAPI specs.
-- **Search-based fuzzing** with EvoMaster v3, for evolutionary discovery of uncovered code paths.
+- **Search-based fuzzing** with EvoMaster, for evolutionary discovery of uncovered code paths.
 - **Service virtualization** with Microcks, for mocking external dependencies from their schemas.
 - **Model-based end-to-end testing** with XState and Playwright, for state-machine-driven test generation.
 - **Distributed tracing as a testable surface** with OpenTelemetry, Jaeger, and Tracetest.
@@ -88,7 +86,7 @@ Two of these techniques, Pact and Schemathesis, overlap in surface (both generat
 
 Multi-region deployments. Real OAuth or federation. Real payments. Internationalization. Production-grade security testing. Visual regression. Accessibility testing. Webhooks (deferred to a future series). Each of these is a real, legitimate concern; none of them are needed to demonstrate the architectural lens I am writing about, and including them would dilute the message. The deliberate exclusions are part of the contract with the reader.
 
-## The journey, not the destination
+## What I expect to get wrong
 
 A confession: I do not know whether all ten milestones will land equally well. Some techniques (model-based testing, chaos engineering, scoped scenario replay) have headline potential. Others (mutation testing, search-based fuzzing) are quieter. Some of my locked commitments will prove harder than I expect; some will prove easier. The series is the journey of finding out, narrated honestly as it happens.
 

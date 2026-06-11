@@ -1,4 +1,4 @@
-# Service Level Objectives
+# Service-level objectives
 
 This document mirrors the SLO table in `docs/03-testing-strategy.md` §12 and is the
 single place to look up an endpoint's performance target. The numbers are introduced as

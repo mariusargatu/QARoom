@@ -4,65 +4,62 @@ The conventions in this document are enforced by lint where possible and by revi
 
 ## 1. Repository layout
 
-```
+```text
 /
-├── README.md                          # Entry point
-├── AGENTS.md                          # Agent-specific quick reference
-├── CLAUDE.md                          # Symlink to AGENTS.md (Claude Code compat)
-├── package.json                       # Root package, defines workspaces
+├── README.md  # Entry point
+├── AGENTS.md  # Agent-specific quick reference
+├── CLAUDE.md  # Symlink to AGENTS.md (Claude Code compat)
+├── package.json  # Root package, defines workspaces
 ├── pnpm-workspace.yaml
 ├── turbo.json
-├── .well-known/
-│   └── llms.txt                       # Repo-level agent affordance
 ├── .claude/
 │   ├── settings.json
-│   ├── agents/                        # Subagent definitions (empty in v1)
-│   └── skills/                        # Skills (canonical location; empty in v1)
+│   ├── agents/  # Subagent definitions (empty in v1)
+│   └── skills/  # Skills (canonical location; empty in v1)
 ├── docs/
 │   ├── 01-vision.md
 │   ├── 02-architecture.md
 │   ├── 03-testing-strategy.md
 │   ├── 04-roadmap.md
 │   ├── 05-conventions.md
-│   ├── adr/                           # Architecture decision records (immutable)
+│   ├── adr/  # Architecture decision records (immutable)
 │   │   └── 0001-foundational-decisions.md
-│   ├── journey/                       # Per-decision journey log (append-only); raw material for blog/LinkedIn
+│   ├── journey/  # Per-decision log (append-only); blog/LinkedIn raw material
 │   │   └── README.md
-│   ├── retrospectives/                # Per-milestone retrospectives (composed from journey/)
-│   └── failure-modes.md               # Begins in Milestone 6
+│   └── failure-modes.md  # Begins in M6
 ├── packages/
-│   ├── contracts/                     # Zod schemas, OpenAPI, XState machines
-│   ├── messaging/                     # Shared NATS + OTel SDK (Milestone 4)
-│   ├── testing-utils/                 # Fixtures, generators, harnesses, matchers, Screenplay
-│   │   ├── screenplay/                # Actors, Abilities, Tasks, Questions (Milestone 5)
-│   │   ├── screenplay-system/         # System Ability bindings (Milestone 5)
-│   │   ├── screenplay-ct/             # CT Ability bindings + portable-story helpers (Milestone 8)
-│   │   └── contract-crosscheck/       # Pact ↔ OpenAPI wrapper (Milestone 1)
-│   └── helm-template/                 # Shared Helm chart template (Milestone 3)
+│   ├── contracts/  # Zod schemas, OpenAPI, XState machines
+│   ├── messaging/  # Shared NATS + OTel SDK (M4)
+│   ├── testing-utils/  # Fixtures, generators, harnesses, matchers, Screenplay
+│   │   ├── screenplay/  # Actors, Abilities, Tasks, Questions (M5)
+│   │   ├── screenplay-system/  # System Ability bindings (M5)
+│   │   ├── screenplay-ct/  # CT Ability bindings + portable-story helpers (M8)
+│   │   └── contract-crosscheck/  # Pact ↔ OpenAPI wrapper (M1)
+│   └── helm-template/  # Shared Helm chart template (M3)
 ├── services/
 │   ├── gateway/
-│   │   ├── AGENTS.md                  # Per-service agent reference
-│   │   ├── openapi.yaml               # Generated, committed
+│   │   ├── AGENTS.md  # Per-service agent reference
+│   │   ├── openapi.yaml  # Generated, committed
 │   │   ├── src/
-│   │   ├── tests/                     # Co-located *.test.ts files preferred
+│   │   ├── tests/  # Co-located *.test.ts files preferred
 │   │   ├── Dockerfile
-│   │   └── chart/                     # Helm chart
+│   │   └── chart/  # Helm chart
 │   ├── content/
 │   ├── identity/
 │   ├── flags/
 │   ├── donations/
-│   ├── moderator-agent/               # Python; Milestone 9
-│   └── web/                           # React + Vite frontend; Milestone 5
-├── chaos-experiments/                 # Begins in Milestone 6
+│   ├── moderator-agent/  # Python; M9
+│   └── web/  # React + Vite frontend; M5
+├── chaos-experiments/  # Begins in M6
 │   ├── *.yaml
 ├── scripts/
-│   ├── spin-up-ephemeral.sh           # Namespaced env provisioner
-│   ├── aggregate-test-results.ts      # Produces test-results/summary.json
-│   └── qaroom-replay/                 # The CLI; Milestone 7
+│   ├── spin-up-ephemeral.sh  # Namespaced env provisioner
+│   ├── aggregate-test-results.ts  # Produces test-results/summary.json
+│   └── qaroom-replay/  # The CLI; M7
 ├── Tiltfile
 ├── k3d-cluster.yaml
 └── .github/
-    └── workflows/                     # CI definitions
+    └── workflows/  # CI definitions
 ```
 
 Things that are conventions:
@@ -125,7 +122,7 @@ export type UserId = z.infer<typeof UserId>;
 
 Event subjects encode the tenant explicitly so wildcard subscribers cannot leak across tenants by mistake. Subject grammar:
 
-```
+```text
 qaroom.<service>.<entity>.<community_id>.<event>
 ```
 
@@ -245,6 +242,7 @@ These are detailed in `docs/03-testing-strategy.md`. The conventions enforced as
 
 - One ADR per architectural decision. Format: title, status, context, decision, consequences, rejected alternatives.
 - ADRs are numbered sequentially: `0001-`, `0002-`, ...
+- ADR titles use the form `ADR NNNN: Title`; ADR-0001 predates the rule and stays as the documented exception.
 - ADRs are immutable once accepted. Superseding an ADR is a new ADR that explicitly references the old one.
 
 ### In-code documentation
@@ -258,6 +256,7 @@ These are detailed in `docs/03-testing-strategy.md`. The conventions enforced as
 - Mermaid for diagrams that live in markdown.
 - For diagrams complex enough to need a tool (state machines), use Stately Studio's URL embedded in the doc.
 - ASCII diagrams allowed when they're clearer than Mermaid (e.g., the container view in `02-architecture.md`).
+- Prose docs use ASCII `->` for flow arrows, never `→`.
 
 ## 7. Commit and PR conventions
 

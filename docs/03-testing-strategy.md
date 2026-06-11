@@ -1,6 +1,24 @@
 # QARoom: Testing Strategy
 
+*The strategy as designed: where it describes CI cadence it describes the designed loops, while the current reality is manual-dispatch CI (see the README's "Rules the build enforces"). The living state is the [README](../README.md) and [docs/04-roadmap.md](04-roadmap.md).*
+
 This document is the keystone of the project. The architecture exists to enable this strategy; the strategy exists because the architecture was designed to admit it. Reading this document standalone should tell you what we test, where we test it, why we test it that way, and what we deliberately do not test.
+
+Contents:
+
+- [1. Goals and non-goals](#1-goals-and-non-goals)
+- [2. The complexity constraint](#2-the-complexity-constraint)
+- [3. The risk model](#3-the-risk-model)
+- [4. The portfolio: layers and their unique value](#4-the-portfolio-layers-and-their-unique-value)
+- [5. The technique-to-boundary map](#5-the-technique-to-boundary-map)
+- [6. Triangulation: defending against silent drift](#6-triangulation-defending-against-silent-drift)
+- [7. Determinism and observability: the strategy preconditions](#7-determinism-and-observability-the-strategy-preconditions)
+- [8. Feedback architecture](#8-feedback-architecture)
+- [9. The test code as a system](#9-the-test-code-as-a-system)
+- [10. The learning loop](#10-the-learning-loop)
+- [11. Explicit exclusions](#11-explicit-exclusions)
+- [12. Service-level objectives (demo-grade)](#12-service-level-objectives-demo-grade)
+- [13. Map back to the architecture](#13-map-back-to-the-architecture)
 
 ## 1. Goals and non-goals
 
@@ -52,7 +70,7 @@ The risk this strategy is most exposed to is **technique-overlap confusion**: tw
 | **Async contract** | Pact v4 message | Mismatched message shapes between publisher and subscriber | NATS-specific delivery semantics (durability, redelivery) | PR CI |
 | **API schema fuzzing** | Schemathesis | Server crashes on edge-case inputs; schema-violating responses; stateful workflow errors (with `--stateful=links`) | Bugs that require domain knowledge to trigger | Nightly; on schema change |
 | **Search-based fuzzing** | EvoMaster v6 | Code paths and edge cases that schema-driven tools haven't reached | Bugs requiring application semantics beyond the schema | Nightly |
-| **Integration** | Vitest + Testcontainers (Postgres, NATS) | Database queries, real-driver behavior, transactional semantics | Cross-service interaction (covered by contract + E2E) | PR CI per service |
+| **Integration** | Vitest + in-process PGlite (no Docker); Testcontainers only where Pact provider verification needs a real Postgres | Database queries, real-driver behavior, transactional semantics | Cross-service interaction (covered by contract + E2E) | PR CI per service |
 | **Component** | Storybook portable stories + Playwright CT + Screenplay | Rendering bugs, prop contracts, interaction logic in isolated components | Bugs that only manifest with real backend data or cross-component routing | PR CI (changed components); nightly (full) |
 | **Model-based E2E** | XState + @xstate/graph + Playwright + Screenplay | State transitions, sequence-dependent bugs, donations rollout edge cases | Bugs in non-modeled flows | PR CI (shortest paths); nightly (simple paths) |
 | **Trace-based** | Tracetest | Silent degradation: unexpected service calls, async ordering violations, missing spans | Bugs that don't manifest in trace structure | PR CI for critical flows; nightly broadly |
@@ -61,35 +79,39 @@ The risk this strategy is most exposed to is **technique-overlap confusion**: tw
 | **Load** | k6 | Performance characteristics under realistic load; SLO violations | Functional bugs | Merge-to-main; nightly |
 | **Mutation** | Stryker | Tests that pass even when the code is broken | Code that is broken in ways the tests don't cover at all | Weekly; on critical-module changes |
 | **Scenario replay** | Custom `qaroom-replay` CLI | Bugs that intermittently surface; bugs that require specific state to reproduce | Bugs that need in-flight state we don't capture | Manual; triggered from failure artifacts |
-| **LLM evaluation** *(Milestone 9)* | Promptfoo golden set + metamorphic paraphrase-invariance + LangGraph reverse-conformance | Agent behavior drift; phrasing-sensitivity regressions a golden eval misses; off-model transitions; structured-output contract breaks | Non-LLM behaviors; bit-exact model output | Cost-guarded; push/schedule, key-gated (ADR-0017) |
+| **LLM evaluation** *(Milestone 9; re-tooled Milestone 12)* | DeepEval (RAG, agentic, G-Eval quality) + DeepTeam (OWASP LLM Top 10) + PyRIT (multi-turn red-team) + metamorphic paraphrase-invariance + LangGraph reverse-conformance | Agent behavior drift; phrasing-sensitivity regressions a golden eval misses; off-model transitions; structured-output contract breaks | Non-LLM behaviors; bit-exact model output | Cost-guarded; push/schedule, key-gated (ADR-0017, ADR-0020) |
 
 Each layer has a *responsibility* and an *explicit non-responsibility*. Without the non-responsibilities, layers overlap, costs balloon, and bugs fall through gaps.
 
 ## 5. The technique-to-boundary map
 
-This is the central artifact of the strategy. Every architectural boundary in QARoom has a named testing technique that defends it. Looking at this map, an engineer should understand why each technique exists where it does.
+This is the central artifact of the strategy. Every architectural boundary in QARoom has a named testing technique that defends it. Looking at this map, an engineer should understand why each technique exists where it does. The eleven rows mirror `packages/contracts/src/boundary-registry.ts`, the registry the README breadth table is rendered from: same entries, same order.
 
 | Boundary | Where it lives in QARoom | Technique that defends it | What that technique catches uniquely |
 |---|---|---|---|
-| **Trust boundary** | Client -> gateway | Schemathesis fuzzing + RFC 7807 conformance test | Server crashes on malformed input; spec-violating error responses |
-| **Process boundary (REST)** | gateway ↔ each backend service | Pact v4 + Schemathesis on the provider side | Consumer-perceived contract breakage; spec-violating provider behavior |
-| **Process boundary (async)** | content-service emits, flags-service / future moderator consume | Pact v4 message contracts + OTel trace propagation tests | Message shape drift between publisher and subscriber |
-| **Tenancy boundary** | Community A's data vs Community B's data | fast-check generated operation sequences, asserting no cross-tenant leakage | Isolation bugs the developer never wrote an example for |
-| **Temporal boundary** | Donation rollout state transitions | XState model + @xstate/graph + Playwright MBT | Mid-transition bugs (e.g., request arrives during state change) |
-| **External dependency boundary** | donations-service ↔ payment provider (Microcks-mocked) | Strict Zod schema validation + Chaos Mesh / Litmus HTTPChaos | Behavior when external service is slow, returning errors, or returning unexpected shapes |
-| **Observability boundary** | What traces show vs what the system did | Tracetest assertions on trace structure | Unexpected service calls; missing spans; silent degradation that "works" but does extra work |
-| **WebSocket boundary** | Server -> client push (notifications, live feed) | AsyncAPI schema + Microcks-async mock + Playwright WS assertions; parity test against polling endpoint | Drift between WS events and the polling-fallback view; protocol-level shape regressions |
-| **Identity issuance boundary** | identity-service issues JWT consumed by gateway and downstream | JWT property tests (issuance, validation, kid lookup, expiry, revocation); contract test for `JWKS` endpoint | Signing-key rotation drift; kid mismatches; expired-token acceptance |
+| **Trust (client to gateway)** | Client -> gateway | Schemathesis fuzzing + RFC 7807 conformance test | Server crashes on malformed input; spec-violating error responses |
+| **Process (service to service)** | gateway <-> each backend service | Pact v4 + Schemathesis on the provider side, cross-checked against the published OpenAPI | Consumer-perceived contract breakage; spec-violating provider behavior |
+| **Async (events over NATS)** | content-service and peers publish; flags-service, moderator-agent, and webhooks consume | Typed Zod events + outbox + `processed_events` dedup + Pact v4 message contracts + Tracetest propagation assertions | Message shape drift between publisher and subscriber; lost, duplicated, or reordered deliveries |
+| **State (rollouts, webhook delivery, migration)** | Donations rollout, webhook delivery, and identity key migration machines | Hand-authored XState models + @xstate/graph + Playwright MBT; reverse-conformance on `xstate.transition` spans | Sequence-dependent and mid-transition bugs (e.g., request arrives during state change); off-model transitions |
+| **Temporal** | Anywhere logic reads the clock: TTLs, expiries, retry backoff | Injected `Clock`; `FakeClock` advanced explicitly in tests; lint bans `new Date()` in non-test code | Wall-clock-dependent bugs reproduced deterministically, without sleeps or flake |
+| **Tenancy (communities as tenants)** | Community A's data vs Community B's data | fast-check generated operation sequences, asserting no cross-tenant leakage | Isolation bugs the developer never wrote an example for |
+| **Identity issuance (JWT and JWKS)** | identity-service issues JWT consumed by gateway and downstream | JWT property tests (issuance, validation, kid lookup, expiry, revocation); contract test for `JWKS` endpoint | Signing-key rotation drift; kid mismatches; expired-token acceptance |
+| **WebSocket push** | Server -> client push (notifications, live feed) | AsyncAPI schema + Microcks-async mock + Playwright WS assertions; parity test against polling endpoint | Drift between WS events and the polling-fallback view; protocol-level shape regressions |
+| **Observability** | What traces show vs what the system did | Tracetest assertions on trace structure | Unexpected service calls; missing spans; silent degradation that "works" but does extra work |
+| **External dependency (the LLM moderator)** | moderator-agent <-> the model behind it (ADR-0020) | Retrieval grounding in the per-community policy corpus; DeepEval / DeepTeam / PyRIT evals; an abstain path (`escalate_to_human`) | Hallucinated or overconfident dispositions; phrasing-sensitivity regressions; injection and OWASP-LLM failures no deterministic layer sees |
+| **Delivery edge (outbound webhooks)** | webhooks-service -> external receiver endpoints (ADR-0019) | HMAC-SHA256 signing with the timestamp bound in; SSRF guard; at-least-once delivery under the deterministic capped-jittered retry contract; webhook-delivery XState machine + MBT | Replayed or forged deliveries; callbacks aimed at internal addresses; dropped deliveries and retry-schedule drift |
+
+The donations-service <-> payment provider hop (Microcks-mocked, Zod-validated, perturbed with Chaos Mesh / Litmus HTTPChaos) was this map's original external dependency; the registry now reserves that row for the LLM, and the payment hop stays defended by the §4 service-virtualization and chaos layers.
 
 Three of these mappings deserve particular emphasis:
 
-**The tenancy boundary is the property-based testing crown jewel.** Multi-tenant systems have one categorical bug, cross-tenant leakage, that example-based tests will rarely catch and that, in production, is catastrophic. fast-check generating arbitrary operation sequences across multiple tenants and asserting "no read from tenant A returns data created by tenant B" is the only technique that catches this class systematically. Milestone 2 demonstrates exactly this.
+**Tenant isolation is the one class of bug only property-based testing catches systematically.** Cross-tenant leakage is categorical: example-based tests will rarely catch it, and in production it is catastrophic. fast-check generates arbitrary operation sequences across multiple tenants and asserts "no read from tenant A returns data created by tenant B". Milestone 2 demonstrates exactly this.
 
-**The temporal boundary is the model-based testing crown jewel.** A donation request that arrives in the middle of a flag transition has nondeterministic outcomes that no example-based test will exhaustively cover. The XState model enumerates valid states; @xstate/graph enumerates paths through them; Playwright drives the UI through each path and asserts the documented observable behavior at each state. Milestone 5 demonstrates this.
+**The rollout machine is where model-based testing earns its keep.** A donation request that arrives in the middle of a flag transition has nondeterministic outcomes that no example-based test will exhaustively cover. The XState model enumerates valid states; @xstate/graph enumerates paths through them; Playwright drives the UI through each path and asserts the documented observable behavior at each state. Milestone 5 demonstrates this.
 
 **Reverse conformance**, the guarantee that the running system never enters a state outside the model, is enforced separately from path-based MBT. Every XState actor emits an OpenTelemetry span (`xstate.transition`, attributes: `from`, `to`, `event`, `actor`) on every transition. The instrumentation wrapper lives in `packages/contracts/instrumentation/` and is the only entry point through which actors are created in production code. A Tracetest assertion in CI verifies that for every observed transition span, both `from` and `to` belong to the model's `states` set and `(from, event, to)` is a legal transition in the model. Drift between code and model is detected by a tracing-time check, not by an assumed correspondence.
 
-**The observability boundary is the secret weapon.** Most teams use OpenTelemetry as a debugging aid. QARoom uses it as a *testing surface*: Tracetest asserts on the structure of traces, catching bugs where the system "works" by external API standards but is doing something wrong internally (calling a service it shouldn't, in an order it shouldn't, with spans missing). This is the demonstration that the OTel investment pays off in testing, not just in debugging.
+**OpenTelemetry is a testing surface here, not a debugging aid.** Most teams stop at the debugging use; QARoom adds Tracetest assertions on the structure of traces, catching bugs where the system "works" by external API standards but is doing something wrong internally (calling a service it shouldn't, in an order it shouldn't, with spans missing). This is the demonstration that the OTel investment pays off in testing, not just in debugging.
 
 ## 6. Triangulation: defending against silent drift
 
@@ -174,7 +196,7 @@ These are not optional. A service that does not expose them is incomplete. They 
 
 ## 8. Feedback architecture
 
-When tests run determines what they catch and what they cost. The strategy assigns each layer to a feedback loop with a latency budget.
+When tests run determines what they catch and what they cost. The strategy assigns each layer to a feedback loop with a latency budget. These are the designed lanes: CI currently runs on manual dispatch, and the same gates and more run locally via `pnpm gauntlet`.
 
 | Loop | Latency budget | Flake budget | What runs |
 |---|---|---|---|
@@ -184,9 +206,9 @@ When tests run determines what they catch and what they cost. The strategy assig
 | **PR CI, full** | < 25 min | < 2% | Above + async contract + MBT shortest paths + Schemathesis (changed services) + Pact ↔ OpenAPI cross-check |
 | **Merge to main** | < 45 min | < 3% | Above + MBT simple paths + load tests against SLOs + Tracetest broad assertions |
 | **Nightly** | Unbounded | < 5% | Above + Schemathesis broad + EvoMaster v6 + chaos experiments + Stryker on critical modules |
-| **Weekly** | Unbounded | n/a | Above + Stryker full + Promptfoo evals *(Milestone 9)* |
+| **Weekly** | Unbounded | n/a | Above + Stryker full + DeepEval / DeepTeam / PyRIT evals *(Milestones 9 and 12, key-gated)* |
 
-**Flake budgets are intentional and emulate a real project.** Pre-commit and on-save use the developer machine and tolerate zero / < 0.5% because the loop is tight; CI loops carry small but realistic budgets to reflect KinD spin-up, shared-runner contention, and Testcontainers warm-up: sources of flake that no amount of test-code discipline will fully eliminate. A test that flakes more than its layer's budget is quarantined (skipped with a tracking issue) and treated as a bug: non-determinism (P0), an unreachable external service (wrong layer), or a layer-mismatch problem.
+**Flake budgets are intentional and emulate a real project.** Pre-commit and on-save use the developer machine and tolerate zero / < 0.5% because the loop is tight; CI loops are budgeted for KinD spin-up, shared-runner contention, and Testcontainers warm-up: sources of flake that no amount of test-code discipline will fully eliminate. A test that flakes more than its layer's budget is quarantined (skipped with a tracking issue) and treated as a bug: non-determinism (P0), an unreachable external service (wrong layer), or a layer-mismatch problem.
 
 ### How failures are localized
 
@@ -213,7 +235,7 @@ Test code is a first-class codebase. It has its own internal architecture, conve
 
 ### Internal architecture
 
-```
+```text
 packages/
   testing-utils/
     fixtures/             # Factory functions for domain objects, seeded
@@ -244,7 +266,7 @@ These conventions are enforced by lint rules, not by review.
 
 ## 10. The learning loop
 
-The strategy itself evolves. Each milestone post includes a retrospective: what did the techniques catch, what did they miss, what was the cost, what would we do differently. These retrospectives accumulate in `docs/retrospectives/` and inform the next milestone.
+The strategy itself evolves. Each milestone is meant to close with a retrospective: what the techniques caught, what they missed, the cost, what changes next. Through Milestone 12 the raw journey log carried that weight and no standalone retro was written; the `journey-log` skill's retro mode creates `docs/retrospectives/` the day one lands.
 
 Retrospectives are *composed*, not freshly written. The raw material is `docs/journey/`: the per-decision journey log captured at the moment things happened, via the `journey-log` skill. The skill spec and templates live in `.claude/skills/journey-log/`. The journey log is also the source for LinkedIn threads and the long-form blog posts that ship with each milestone.
 

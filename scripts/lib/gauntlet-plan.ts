@@ -210,9 +210,13 @@ export function buildPlan(ctx: PreflightCtx, opts: GauntletOpts): GauntletStep[]
     // The rollout-transition def sends EnableRequested (legal only from Off); reset first so the
     // suite is idempotent across reruns — without this, repeated runs park the machine where the
     // def's event 409s and it fails on MISSING spans (gauntlet finding, 2026-06-10).
-    sh(4, 'rollout-reset', 'gate',
+    sh(
+      4,
+      'rollout-reset',
+      'gate',
       `${PF} flags:18083:80 -- bash scripts/reset-rollout.sh http://localhost:18083`,
-      { skipReason: noCluster }),
+      { skipReason: noCluster },
+    ),
     sh(4, 'tracetest-suite', 'gate', `${PF} ${TRACETEST_FWD} -- pnpm tracetest:results`, {
       env: TRACETEST_ENV,
       timeoutMs: 20 * 60_000,
@@ -336,9 +340,13 @@ export function buildPlan(ctx: PreflightCtx, opts: GauntletOpts): GauntletStep[]
     step(8, 'replay-regression', 'gate', 'pnpm', ['replay:regression'], {
       timeoutMs: 20 * 60_000,
     }),
-    sh(8, 'rollout-reset-recovery', 'gate',
+    sh(
+      8,
+      'rollout-reset-recovery',
+      'gate',
       `${PF} flags:18083:80 -- bash scripts/reset-rollout.sh http://localhost:18083`,
-      { skipReason: noCluster }),
+      { skipReason: noCluster },
+    ),
     sh(8, 'tracetest-recovery', 'gate', `${PF} ${TRACETEST_FWD} -- pnpm tracetest:results`, {
       env: TRACETEST_ENV,
       timeoutMs: 20 * 60_000,

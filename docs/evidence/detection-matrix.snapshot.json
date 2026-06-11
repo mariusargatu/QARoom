@@ -1,0 +1,832 @@
+{
+  "generated_at": "2026-06-10T16:25:48.193Z",
+  "baseline": {
+    "commit": "475c7ac4df22ab0a52cd1640f7c4912dc88d610c",
+    "fastcheck_seed": 12648430,
+    "standing_reds": 1
+  },
+  "counts": {
+    "caught": 27,
+    "missed": 104,
+    "measured": 131
+  },
+  "artifact_sha256": "0707dbf271552a3581806af6f32456ad61c3f85f83201e6be36f46c7c591c2ab",
+  "cells": [
+    {
+      "toggle": "canary-misroutes",
+      "technique": "mbt-live",
+      "tier": "cluster",
+      "status": "missed"
+    },
+    {
+      "toggle": "canary-misroutes",
+      "technique": "smoke",
+      "tier": "cluster",
+      "status": "missed"
+    },
+    {
+      "toggle": "canary-misroutes",
+      "technique": "tracetest",
+      "tier": "cluster",
+      "status": "caught"
+    },
+    {
+      "toggle": "canary-misroutes",
+      "technique": "integration",
+      "tier": "in-proc",
+      "status": "caught"
+    },
+    {
+      "toggle": "canary-misroutes",
+      "technique": "mbt",
+      "tier": "in-proc",
+      "status": "caught"
+    },
+    {
+      "toggle": "canary-misroutes",
+      "technique": "pact",
+      "tier": "in-proc",
+      "status": "missed"
+    },
+    {
+      "toggle": "canary-misroutes",
+      "technique": "pact-oas-crosscheck",
+      "tier": "in-proc",
+      "status": "missed"
+    },
+    {
+      "toggle": "canary-misroutes",
+      "technique": "property",
+      "tier": "in-proc",
+      "status": "missed"
+    },
+    {
+      "toggle": "canary-misroutes",
+      "technique": "reverse-conformance",
+      "tier": "in-proc",
+      "status": "missed"
+    },
+    {
+      "toggle": "canary-misroutes",
+      "technique": "unit",
+      "tier": "in-proc",
+      "status": "missed"
+    },
+    {
+      "toggle": "disable-circuit-breaker",
+      "technique": "schemathesis",
+      "tier": "cluster",
+      "status": "caught"
+    },
+    {
+      "toggle": "disable-circuit-breaker",
+      "technique": "smoke",
+      "tier": "cluster",
+      "status": "missed"
+    },
+    {
+      "toggle": "disable-circuit-breaker",
+      "technique": "integration",
+      "tier": "in-proc",
+      "status": "missed"
+    },
+    {
+      "toggle": "disable-circuit-breaker",
+      "technique": "mbt",
+      "tier": "in-proc",
+      "status": "missed"
+    },
+    {
+      "toggle": "disable-circuit-breaker",
+      "technique": "pact",
+      "tier": "in-proc",
+      "status": "missed"
+    },
+    {
+      "toggle": "disable-circuit-breaker",
+      "technique": "pact-oas-crosscheck",
+      "tier": "in-proc",
+      "status": "missed"
+    },
+    {
+      "toggle": "disable-circuit-breaker",
+      "technique": "property",
+      "tier": "in-proc",
+      "status": "missed"
+    },
+    {
+      "toggle": "disable-circuit-breaker",
+      "technique": "reverse-conformance",
+      "tier": "in-proc",
+      "status": "missed"
+    },
+    {
+      "toggle": "disable-circuit-breaker",
+      "technique": "unit",
+      "tier": "in-proc",
+      "status": "missed"
+    },
+    {
+      "toggle": "feed-reversed",
+      "technique": "k6",
+      "tier": "cluster",
+      "status": "missed"
+    },
+    {
+      "toggle": "feed-reversed",
+      "technique": "schemathesis",
+      "tier": "cluster",
+      "status": "missed"
+    },
+    {
+      "toggle": "feed-reversed",
+      "technique": "smoke",
+      "tier": "cluster",
+      "status": "missed"
+    },
+    {
+      "toggle": "feed-reversed",
+      "technique": "tracetest",
+      "tier": "cluster",
+      "status": "missed"
+    },
+    {
+      "toggle": "feed-reversed",
+      "technique": "integration",
+      "tier": "in-proc",
+      "status": "caught"
+    },
+    {
+      "toggle": "feed-reversed",
+      "technique": "mbt",
+      "tier": "in-proc",
+      "status": "missed"
+    },
+    {
+      "toggle": "feed-reversed",
+      "technique": "pact",
+      "tier": "in-proc",
+      "status": "missed"
+    },
+    {
+      "toggle": "feed-reversed",
+      "technique": "pact-oas-crosscheck",
+      "tier": "in-proc",
+      "status": "missed"
+    },
+    {
+      "toggle": "feed-reversed",
+      "technique": "property",
+      "tier": "in-proc",
+      "status": "missed"
+    },
+    {
+      "toggle": "feed-reversed",
+      "technique": "reverse-conformance",
+      "tier": "in-proc",
+      "status": "missed"
+    },
+    {
+      "toggle": "feed-reversed",
+      "technique": "unit",
+      "tier": "in-proc",
+      "status": "missed"
+    },
+    {
+      "toggle": "moderator-disable-abstain",
+      "technique": "metamorphic",
+      "tier": "in-proc",
+      "status": "missed"
+    },
+    {
+      "toggle": "moderator-disable-abstain",
+      "technique": "py-conformance",
+      "tier": "in-proc",
+      "status": "caught"
+    },
+    {
+      "toggle": "moderator-disable-abstain",
+      "technique": "py-unit",
+      "tier": "in-proc",
+      "status": "caught"
+    },
+    {
+      "toggle": "moderator-disable-abstain",
+      "technique": "deepeval",
+      "tier": "llm",
+      "status": "missed"
+    },
+    {
+      "toggle": "moderator-disable-abstain",
+      "technique": "metamorphic",
+      "tier": "llm",
+      "status": "unstable"
+    },
+    {
+      "toggle": "moderator-disable-abstain",
+      "technique": "redteam",
+      "tier": "llm",
+      "status": "missed"
+    },
+    {
+      "toggle": "moderator-disable-input-guard",
+      "technique": "metamorphic",
+      "tier": "in-proc",
+      "status": "missed"
+    },
+    {
+      "toggle": "moderator-disable-input-guard",
+      "technique": "py-conformance",
+      "tier": "in-proc",
+      "status": "missed"
+    },
+    {
+      "toggle": "moderator-disable-input-guard",
+      "technique": "py-unit",
+      "tier": "in-proc",
+      "status": "caught"
+    },
+    {
+      "toggle": "moderator-disable-input-guard",
+      "technique": "deepeval",
+      "tier": "llm",
+      "status": "missed"
+    },
+    {
+      "toggle": "moderator-disable-input-guard",
+      "technique": "metamorphic",
+      "tier": "llm",
+      "status": "unstable"
+    },
+    {
+      "toggle": "moderator-disable-input-guard",
+      "technique": "redteam",
+      "tier": "llm",
+      "status": "missed"
+    },
+    {
+      "toggle": "moderator-prompt-bug",
+      "technique": "metamorphic",
+      "tier": "in-proc",
+      "status": "missed"
+    },
+    {
+      "toggle": "moderator-prompt-bug",
+      "technique": "py-conformance",
+      "tier": "in-proc",
+      "status": "missed"
+    },
+    {
+      "toggle": "moderator-prompt-bug",
+      "technique": "py-unit",
+      "tier": "in-proc",
+      "status": "caught"
+    },
+    {
+      "toggle": "moderator-prompt-bug",
+      "technique": "deepeval",
+      "tier": "llm",
+      "status": "missed"
+    },
+    {
+      "toggle": "moderator-prompt-bug",
+      "technique": "metamorphic",
+      "tier": "llm",
+      "status": "unstable"
+    },
+    {
+      "toggle": "moderator-prompt-bug",
+      "technique": "redteam",
+      "tier": "llm",
+      "status": "missed"
+    },
+    {
+      "toggle": "moderator-rerank-bug",
+      "technique": "metamorphic",
+      "tier": "in-proc",
+      "status": "missed"
+    },
+    {
+      "toggle": "moderator-rerank-bug",
+      "technique": "py-conformance",
+      "tier": "in-proc",
+      "status": "missed"
+    },
+    {
+      "toggle": "moderator-rerank-bug",
+      "technique": "py-unit",
+      "tier": "in-proc",
+      "status": "caught"
+    },
+    {
+      "toggle": "moderator-rerank-bug",
+      "technique": "deepeval",
+      "tier": "llm",
+      "status": "missed"
+    },
+    {
+      "toggle": "moderator-rerank-bug",
+      "technique": "metamorphic",
+      "tier": "llm",
+      "status": "unstable"
+    },
+    {
+      "toggle": "moderator-rerank-bug",
+      "technique": "redteam",
+      "tier": "llm",
+      "status": "missed"
+    },
+    {
+      "toggle": "moderator-ungrounded",
+      "technique": "metamorphic",
+      "tier": "in-proc",
+      "status": "missed"
+    },
+    {
+      "toggle": "moderator-ungrounded",
+      "technique": "py-conformance",
+      "tier": "in-proc",
+      "status": "missed"
+    },
+    {
+      "toggle": "moderator-ungrounded",
+      "technique": "py-unit",
+      "tier": "in-proc",
+      "status": "caught"
+    },
+    {
+      "toggle": "moderator-ungrounded",
+      "technique": "deepeval",
+      "tier": "llm",
+      "status": "missed"
+    },
+    {
+      "toggle": "moderator-ungrounded",
+      "technique": "metamorphic",
+      "tier": "llm",
+      "status": "unstable"
+    },
+    {
+      "toggle": "moderator-ungrounded",
+      "technique": "redteam",
+      "tier": "llm",
+      "status": "missed"
+    },
+    {
+      "toggle": "skip-dedup",
+      "technique": "smoke",
+      "tier": "cluster",
+      "status": "missed"
+    },
+    {
+      "toggle": "skip-dedup",
+      "technique": "tracetest",
+      "tier": "cluster",
+      "status": "caught"
+    },
+    {
+      "toggle": "skip-dedup",
+      "technique": "integration",
+      "tier": "in-proc",
+      "status": "caught"
+    },
+    {
+      "toggle": "skip-dedup",
+      "technique": "mbt",
+      "tier": "in-proc",
+      "status": "missed"
+    },
+    {
+      "toggle": "skip-dedup",
+      "technique": "pact",
+      "tier": "in-proc",
+      "status": "missed"
+    },
+    {
+      "toggle": "skip-dedup",
+      "technique": "pact-oas-crosscheck",
+      "tier": "in-proc",
+      "status": "missed"
+    },
+    {
+      "toggle": "skip-dedup",
+      "technique": "property",
+      "tier": "in-proc",
+      "status": "caught"
+    },
+    {
+      "toggle": "skip-dedup",
+      "technique": "reverse-conformance",
+      "tier": "in-proc",
+      "status": "missed"
+    },
+    {
+      "toggle": "skip-dedup",
+      "technique": "unit",
+      "tier": "in-proc",
+      "status": "caught"
+    },
+    {
+      "toggle": "sync-publish",
+      "technique": "chaos",
+      "tier": "cluster",
+      "status": "caught"
+    },
+    {
+      "toggle": "sync-publish",
+      "technique": "k6",
+      "tier": "cluster",
+      "status": "caught"
+    },
+    {
+      "toggle": "tenant-span-drop",
+      "technique": "smoke",
+      "tier": "cluster",
+      "status": "missed"
+    },
+    {
+      "toggle": "tenant-span-drop",
+      "technique": "tenant-spans",
+      "tier": "cluster",
+      "status": "caught"
+    },
+    {
+      "toggle": "tenant-span-drop",
+      "technique": "tracetest",
+      "tier": "cluster",
+      "status": "missed"
+    },
+    {
+      "toggle": "tenant-span-drop",
+      "technique": "integration",
+      "tier": "in-proc",
+      "status": "missed"
+    },
+    {
+      "toggle": "tenant-span-drop",
+      "technique": "mbt",
+      "tier": "in-proc",
+      "status": "missed"
+    },
+    {
+      "toggle": "tenant-span-drop",
+      "technique": "pact",
+      "tier": "in-proc",
+      "status": "missed"
+    },
+    {
+      "toggle": "tenant-span-drop",
+      "technique": "pact-oas-crosscheck",
+      "tier": "in-proc",
+      "status": "missed"
+    },
+    {
+      "toggle": "tenant-span-drop",
+      "technique": "property",
+      "tier": "in-proc",
+      "status": "missed"
+    },
+    {
+      "toggle": "tenant-span-drop",
+      "technique": "reverse-conformance",
+      "tier": "in-proc",
+      "status": "missed"
+    },
+    {
+      "toggle": "tenant-span-drop",
+      "technique": "unit",
+      "tier": "in-proc",
+      "status": "caught"
+    },
+    {
+      "toggle": "upstream-timeout",
+      "technique": "schemathesis",
+      "tier": "cluster",
+      "status": "caught"
+    },
+    {
+      "toggle": "upstream-timeout",
+      "technique": "smoke",
+      "tier": "cluster",
+      "status": "missed"
+    },
+    {
+      "toggle": "upstream-timeout",
+      "technique": "integration",
+      "tier": "in-proc",
+      "status": "missed"
+    },
+    {
+      "toggle": "upstream-timeout",
+      "technique": "mbt",
+      "tier": "in-proc",
+      "status": "missed"
+    },
+    {
+      "toggle": "upstream-timeout",
+      "technique": "pact",
+      "tier": "in-proc",
+      "status": "missed"
+    },
+    {
+      "toggle": "upstream-timeout",
+      "technique": "pact-oas-crosscheck",
+      "tier": "in-proc",
+      "status": "missed"
+    },
+    {
+      "toggle": "upstream-timeout",
+      "technique": "property",
+      "tier": "in-proc",
+      "status": "missed"
+    },
+    {
+      "toggle": "upstream-timeout",
+      "technique": "reverse-conformance",
+      "tier": "in-proc",
+      "status": "missed"
+    },
+    {
+      "toggle": "upstream-timeout",
+      "technique": "unit",
+      "tier": "in-proc",
+      "status": "missed"
+    },
+    {
+      "toggle": "vote-slow",
+      "technique": "k6",
+      "tier": "cluster",
+      "status": "caught"
+    },
+    {
+      "toggle": "vote-slow",
+      "technique": "smoke",
+      "tier": "cluster",
+      "status": "missed"
+    },
+    {
+      "toggle": "vote-slow",
+      "technique": "integration",
+      "tier": "in-proc",
+      "status": "missed"
+    },
+    {
+      "toggle": "vote-slow",
+      "technique": "mbt",
+      "tier": "in-proc",
+      "status": "missed"
+    },
+    {
+      "toggle": "vote-slow",
+      "technique": "pact",
+      "tier": "in-proc",
+      "status": "missed"
+    },
+    {
+      "toggle": "vote-slow",
+      "technique": "pact-oas-crosscheck",
+      "tier": "in-proc",
+      "status": "missed"
+    },
+    {
+      "toggle": "vote-slow",
+      "technique": "property",
+      "tier": "in-proc",
+      "status": "missed"
+    },
+    {
+      "toggle": "vote-slow",
+      "technique": "reverse-conformance",
+      "tier": "in-proc",
+      "status": "missed"
+    },
+    {
+      "toggle": "vote-slow",
+      "technique": "unit",
+      "tier": "in-proc",
+      "status": "missed"
+    },
+    {
+      "toggle": "webhook-drop-on-fail",
+      "technique": "integration",
+      "tier": "in-proc",
+      "status": "caught"
+    },
+    {
+      "toggle": "webhook-drop-on-fail",
+      "technique": "mbt",
+      "tier": "in-proc",
+      "status": "missed"
+    },
+    {
+      "toggle": "webhook-drop-on-fail",
+      "technique": "pact",
+      "tier": "in-proc",
+      "status": "missed"
+    },
+    {
+      "toggle": "webhook-drop-on-fail",
+      "technique": "pact-oas-crosscheck",
+      "tier": "in-proc",
+      "status": "missed"
+    },
+    {
+      "toggle": "webhook-drop-on-fail",
+      "technique": "property",
+      "tier": "in-proc",
+      "status": "caught"
+    },
+    {
+      "toggle": "webhook-drop-on-fail",
+      "technique": "reverse-conformance",
+      "tier": "in-proc",
+      "status": "missed"
+    },
+    {
+      "toggle": "webhook-drop-on-fail",
+      "technique": "unit",
+      "tier": "in-proc",
+      "status": "missed"
+    },
+    {
+      "toggle": "webhook-illegal-transition",
+      "technique": "smoke",
+      "tier": "cluster",
+      "status": "missed"
+    },
+    {
+      "toggle": "webhook-illegal-transition",
+      "technique": "tracetest",
+      "tier": "cluster",
+      "status": "missed"
+    },
+    {
+      "toggle": "webhook-illegal-transition",
+      "technique": "integration",
+      "tier": "in-proc",
+      "status": "missed"
+    },
+    {
+      "toggle": "webhook-illegal-transition",
+      "technique": "mbt",
+      "tier": "in-proc",
+      "status": "missed"
+    },
+    {
+      "toggle": "webhook-illegal-transition",
+      "technique": "pact",
+      "tier": "in-proc",
+      "status": "missed"
+    },
+    {
+      "toggle": "webhook-illegal-transition",
+      "technique": "pact-oas-crosscheck",
+      "tier": "in-proc",
+      "status": "missed"
+    },
+    {
+      "toggle": "webhook-illegal-transition",
+      "technique": "property",
+      "tier": "in-proc",
+      "status": "missed"
+    },
+    {
+      "toggle": "webhook-illegal-transition",
+      "technique": "reverse-conformance",
+      "tier": "in-proc",
+      "status": "caught"
+    },
+    {
+      "toggle": "webhook-illegal-transition",
+      "technique": "unit",
+      "tier": "in-proc",
+      "status": "missed"
+    },
+    {
+      "toggle": "webhook-no-cap",
+      "technique": "integration",
+      "tier": "in-proc",
+      "status": "missed"
+    },
+    {
+      "toggle": "webhook-no-cap",
+      "technique": "mbt",
+      "tier": "in-proc",
+      "status": "missed"
+    },
+    {
+      "toggle": "webhook-no-cap",
+      "technique": "pact",
+      "tier": "in-proc",
+      "status": "missed"
+    },
+    {
+      "toggle": "webhook-no-cap",
+      "technique": "pact-oas-crosscheck",
+      "tier": "in-proc",
+      "status": "missed"
+    },
+    {
+      "toggle": "webhook-no-cap",
+      "technique": "property",
+      "tier": "in-proc",
+      "status": "caught"
+    },
+    {
+      "toggle": "webhook-no-cap",
+      "technique": "reverse-conformance",
+      "tier": "in-proc",
+      "status": "missed"
+    },
+    {
+      "toggle": "webhook-no-cap",
+      "technique": "unit",
+      "tier": "in-proc",
+      "status": "missed"
+    },
+    {
+      "toggle": "webhook-sign-body-only",
+      "technique": "integration",
+      "tier": "in-proc",
+      "status": "missed"
+    },
+    {
+      "toggle": "webhook-sign-body-only",
+      "technique": "mbt",
+      "tier": "in-proc",
+      "status": "missed"
+    },
+    {
+      "toggle": "webhook-sign-body-only",
+      "technique": "pact",
+      "tier": "in-proc",
+      "status": "missed"
+    },
+    {
+      "toggle": "webhook-sign-body-only",
+      "technique": "pact-oas-crosscheck",
+      "tier": "in-proc",
+      "status": "missed"
+    },
+    {
+      "toggle": "webhook-sign-body-only",
+      "technique": "property",
+      "tier": "in-proc",
+      "status": "caught"
+    },
+    {
+      "toggle": "webhook-sign-body-only",
+      "technique": "reverse-conformance",
+      "tier": "in-proc",
+      "status": "missed"
+    },
+    {
+      "toggle": "webhook-sign-body-only",
+      "technique": "unit",
+      "tier": "in-proc",
+      "status": "missed"
+    },
+    {
+      "toggle": "webhook-unstable-delivery-id",
+      "technique": "integration",
+      "tier": "in-proc",
+      "status": "missed"
+    },
+    {
+      "toggle": "webhook-unstable-delivery-id",
+      "technique": "mbt",
+      "tier": "in-proc",
+      "status": "missed"
+    },
+    {
+      "toggle": "webhook-unstable-delivery-id",
+      "technique": "pact",
+      "tier": "in-proc",
+      "status": "missed"
+    },
+    {
+      "toggle": "webhook-unstable-delivery-id",
+      "technique": "pact-oas-crosscheck",
+      "tier": "in-proc",
+      "status": "missed"
+    },
+    {
+      "toggle": "webhook-unstable-delivery-id",
+      "technique": "property",
+      "tier": "in-proc",
+      "status": "caught"
+    },
+    {
+      "toggle": "webhook-unstable-delivery-id",
+      "technique": "reverse-conformance",
+      "tier": "in-proc",
+      "status": "missed"
+    },
+    {
+      "toggle": "webhook-unstable-delivery-id",
+      "technique": "unit",
+      "tier": "in-proc",
+      "status": "missed"
+    }
+  ]
+}
