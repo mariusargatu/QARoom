@@ -70,7 +70,7 @@ Reach for a repo-map or code graph only if cross-service scale ever makes agenti
 - `docs/`: architecture, strategy, roadmap, conventions, ADRs. Read in numbered order.
 - `chaos-experiments/`: Chaos Mesh and Litmus YAML (Milestone 6 onwards).
 - `scripts/`: orchestration scripts. `bootstrap-k3d.sh`/`teardown-k3d.sh`, `smoke.sh`, `check-tenant-spans.ts`, `aggregate-test-results.ts`.
-- `.claude/`: agent definitions and skills. `.claude/skills/journey-log/` captures per-decision entries into `docs/journey/`; raw material for blog/LinkedIn.
+- `.claude/`: agent definitions and skills.
 
 ## Conventions you must follow
 
@@ -176,8 +176,7 @@ These apply specifically to Claude Code. Other agents may skip.
 - `CLAUDE.md` is a symlink to this file. Do not edit `CLAUDE.md` directly; edit `AGENTS.md`.
 - Use `claude --worktree` for any non-trivial feature work; worktree isolation prevents file conflicts.
 - From Milestone 3 onwards, each worktree should provision its own ephemeral namespace via `scripts/spin-up-ephemeral.sh <worktree-name>`. Pre-Milestone-3 the cluster does not yet exist; use git worktrees alone.
-- `.claude/skills/` is the canonical location for skills. `journey-log` ships in v1; more skills land milestone by milestone as patterns emerge.
-- Use `/journey-log` after any architectural choice, technique demonstration, pivot, or surprise: the skill captures a structured entry under `docs/journey/`. Do not commit on the user's behalf; let them review and stage with the matching code change.
+- `.claude/skills/` is the canonical location for skills; more land milestone by milestone as patterns emerge.
 - When you author a skill: the `description` field in YAML frontmatter determines activation: be specific and signal-dense. Keep body under 500 lines; reference external files for anything longer. Prefer scripts over prose.
 
 ### Locked vs open
