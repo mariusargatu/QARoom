@@ -47,6 +47,9 @@ jobs:
       - name: Verify MCP tool manifest (drift + breaking-change classifier)
         run: pnpm mcp:verify
 
+      - name: Verify code-tour anchors (every cited file:line still says what the tour says)
+        run: pnpm tour:verify
+
       - name: Upload test-results summary
         if: always()
         uses: actions/upload-artifact@v4
@@ -380,10 +383,11 @@ jobs:
           path: test-results/summary.json
           if-no-files-found: warn
 
-  # LLM evals (ADR-0017). The pre-flight cost guard runs always; the Promptfoo golden-set eval hits
-  # real OpenAI and runs only on push/schedule AND only when the OPENAI_API_KEY secret is present
-  # (decision: roadmap-literal real-OpenAI evals). The metamorphic deliberate-bug demo lives in the
-  # pytest `llm` test, run the same way.
+  # LLM evals (ADR-0017, ADR-0020). Mirrors the gauntlet's phase-2 LLM lane. The pre-flight cost
+  # guard runs always (keyless); the golden-set + metamorphic pytest lane, the DeepEval quality
+  # suite, and the DeepTeam red-team hit real OpenAI and run only on push/schedule AND only when
+  # the OPENAI_API_KEY secret is present. PyRIT (longest, most spend) stays gauntlet-only
+  # (`pnpm gauntlet --pyrit`). Promptfoo was dropped in Milestone 12 (ADR-0020).
   moderator-evals:
     if: github.event_name == 'push' || github.event_name == 'schedule'
     runs-on: ubuntu-latest
@@ -398,20 +402,35 @@ jobs:
       - name: Pre-flight cost guard (estimate vs MODERATOR_EVAL_BUDGET_TOKENS)
         working-directory: services/moderator-agent
         run: uv run python -m moderator_agent.eval_cost_guard
-      - name: Promptfoo golden-set eval (real OpenAI)
-        if: env.OPENAI_API_KEY != ''
-        working-directory: services/moderator-agent
-        run: npx -y promptfoo@latest eval -c evals/promptfooconfig.yaml -o evals/promptfoo-output.json --no-cache
-      - name: Metamorphic paraphrase-invariance test (real OpenAI)
+      - name: Golden-set + metamorphic paraphrase-invariance (real OpenAI)
         if: env.OPENAI_API_KEY != ''
         working-directory: services/moderator-agent
         run: uv run pytest -q -m llm
-      - name: Fold promptfoo runner into summary.json
+      - name: Fold the golden runner into summary.json
         if: env.OPENAI_API_KEY != ''
-        run: pnpm promptfoo:results
-      - name: Note when the eval is skipped
+        run: pnpm golden:results
+      - name: DeepEval quality suite (RAG + agentic + G-Eval, real OpenAI)
+        if: env.OPENAI_API_KEY != ''
+        run: pnpm --filter @qaroom/moderator-agent run eval:deepeval
+      - name: Fold the deepeval runner into summary.json
+        if: env.OPENAI_API_KEY != ''
+        run: pnpm deepeval:results
+      - name: DeepTeam red-team (OWASP LLM Top 10 subset, real OpenAI)
+        if: env.OPENAI_API_KEY != ''
+        run: pnpm --filter @qaroom/moderator-agent run eval:deepteam
+      - name: Fold the deepteam runner into summary.json
+        if: env.OPENAI_API_KEY != ''
+        run: pnpm deepteam:results
+      - name: Note when the evals are skipped
         if: env.OPENAI_API_KEY == ''
-        run: echo "OPENAI_API_KEY not set — golden-set + metamorphic evals skipped (cost guard still ran)."
+        run: 'echo "OPENAI_API_KEY not set: eval suites skipped (cost guard still ran)."'
+      - name: Upload eval summary
+        if: always() && env.OPENAI_API_KEY != ''
+        uses: actions/upload-artifact@v4
+        with:
+          name: eval-summary
+          path: test-results/summary.json
+          if-no-files-found: warn
 
   # Cheap per-PR gate: the shared Helm chart + observability manifests lint and validate
   # against the Kubernetes schemas (kubeconform) — catches malformed manifests in seconds.
