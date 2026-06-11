@@ -3,7 +3,7 @@ import { z } from 'zod'
 /**
  * The falsifiable-claim manifest — the ONE new source of truth for QARoom's demoability (see
  * docs/adr when committed). Every audience surface (the `pnpm prove` CLI, the skimmer matrix, the
- * README badge, llms.txt) is a drift-gated PROJECTION of this array — the repo's own
+ * README badge) is a drift-gated PROJECTION of this array — the repo's own
  * one-source→many-projections pattern, dogfooded onto its own story.
  *
  * The atom is a FALSIFIABLE CLAIM in one grammar:
@@ -51,6 +51,14 @@ export const Claim = z
     /** The one-sentence assertion. */
     claim: z.string().min(1),
     boundary: z.enum(BOUNDARIES),
+    /**
+     * The boundary-registry row this claim belongs to on documentation surfaces. `boundary` is the
+     * gate LANE (the enum above); this is the reader-facing taxonomy (one vocabulary everywhere:
+     * the 2026-06-11 critique caught webhook-signing labelled `trust` while the breadth table put
+     * HMAC at the delivery edge). Validated against boundary-registry.ts by `claims:verify`
+     * (a direct schema import would be a cycle: the registry imports BOUNDARIES from this file).
+     */
+    registryRow: z.string().regex(/^[a-z0-9-]+$/),
     technique: z.string().min(1),
     /** EXACT deliberate-bug env var. `claims:verify` confirms a real service reads it. */
     toggle: z.string().regex(/^[A-Z0-9_]+$/),
@@ -73,6 +81,7 @@ const RAW: Claim[] = [
     claim:
       'A webhook signature binds the timestamp, so a captured (body, signature) pair cannot be replayed.',
     boundary: 'trust',
+    registryRow: 'delivery-edge',
     technique: 'property test (HMAC-SHA256, timestamp-bound)',
     toggle: 'CHAOS_WEBHOOK_SIGN_BODY_ONLY',
     gate: {
@@ -95,6 +104,7 @@ const RAW: Claim[] = [
     claim:
       'Every webhook delivery reaches a terminal state; a failed send is retried, never silently dropped.',
     boundary: 'process-async',
+    registryRow: 'delivery-edge',
     technique: 'property test over generated receiver-failure sequences',
     toggle: 'CHAOS_WEBHOOK_DROP_ON_FAIL',
     gate: {
@@ -117,6 +127,7 @@ const RAW: Claim[] = [
     claim:
       'The moderator escalates to a human on a low-confidence verdict instead of guessing (FR5 calibration).',
     boundary: 'external-dep',
+    registryRow: 'external-dep',
     technique: 'deterministic workflow test (no LLM, no cluster)',
     toggle: 'MODERATOR_DISABLE_ABSTAIN',
     gate: {
@@ -145,6 +156,7 @@ const RAW: Claim[] = [
     claim:
       'The moderator fences attacker-controlled post bodies as DATA before they reach the model; disabling the guard leaves them in instruction context.',
     boundary: 'external-dep',
+    registryRow: 'external-dep',
     technique: 'deterministic guard unit test (keyless, no model — cannot rot)',
     toggle: 'MODERATOR_DISABLE_INPUT_GUARD',
     gate: {
@@ -171,6 +183,7 @@ const RAW: Claim[] = [
     claim:
       'Every span the deployed system emits carries tenant.id (Commitment 9); a dropped stamp is caught by the live Jaeger audit.',
     boundary: 'observability',
+    registryRow: 'observability',
     technique: 'live trace audit (Jaeger query over every service)',
     toggle: 'CHAOS_TENANT_SPAN_DROP',
     gate: {
@@ -199,6 +212,7 @@ const RAW: Claim[] = [
     claim:
       'The transactional outbox keeps mutating HTTP latency independent of the broker: publishing on the request path breaches the vote SLO even on a healthy broker.',
     boundary: 'process-async',
+    registryRow: 'process-async',
     technique: 'k6 latency SLO gate against the deployed content-service',
     toggle: 'CHAOS_SYNC_PUBLISH',
     gate: {
