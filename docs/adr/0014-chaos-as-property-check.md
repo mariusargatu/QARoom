@@ -63,6 +63,13 @@ assertion language embedded in CRDs would fight that grain.
    socket `/run/k3s/containerd/containerd.sock`. Operators install via `pnpm chaos:install`,
    **never** under `pnpm dev`; chaos runs nightly, and the inner loop pays nothing for it.
 
+> **Note (Milestone 11, non-normative).** This ADR's M6 enumeration is `01–05` and `07` (Chaos Mesh)
+> plus `06` (Litmus). Milestone 11 added experiment `08` (webhook-receiver HTTP 500), which follows
+> decision 3's Litmus-for-HTTP pattern unchanged: its steady state is proven in-process
+> (`services/webhooks/src/delivery-guarantee.property.test.ts`) with live Litmus injection nightly,
+> exactly as experiment 06. No part of the decision changes; the chaos count is gated by
+> `pnpm chaos:verify`.
+
 ## Consequences
 
 ### Positive

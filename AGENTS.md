@@ -121,7 +121,7 @@ QARoom is a *deliberately* multi-state system. When you need to find the truth a
 
 ## Milestone awareness
 
-QARoom is built across 12 milestones. The current milestone determines what services and capabilities exist.
+QARoom is built across 12 milestones (M1-M12) on an M0 foundation; the table below is M0-M12. The current milestone determines what services and capabilities exist.
 
 | Milestone | New | What's not yet built |
 |---|---|---|

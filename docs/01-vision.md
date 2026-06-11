@@ -1,6 +1,6 @@
 # QARoom: Vision
 
-*Written before Milestone 0 and preserved as the original thesis. The plan said ten milestones; the build grew to thirteen (0-12), webhooks became a shipped service, and some tools changed along the way. The living state is the [README](../README.md) and [docs/04-roadmap.md](04-roadmap.md).*
+*Written before Milestone 0 and preserved as the original thesis. The plan said ten milestones; the build grew to twelve (M1-M12) on an M0 foundation, webhooks became a shipped service, and some tools changed along the way. The living state is the [README](../README.md) and [docs/04-roadmap.md](04-roadmap.md).*
 
 *The Testable Stack, Volume I: building a modern microservices system from a testing lens.*
 

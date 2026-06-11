@@ -9,7 +9,7 @@ demo** that turns the assertion red when the documented mitigation is taken away
 
 ```bash
 pnpm chaos:install          # Chaos Mesh (helm, pinned) into the cluster, opt-in, not in `pnpm dev`
-pnpm chaos:install:litmus   # LitmusChaos operator: only needed for experiment 06 (HTTP chaos)
+pnpm chaos:install:litmus   # LitmusChaos operator: only needed for experiments 06 and 08 (HTTP chaos)
 pnpm chaos:smoke            # prove injection works against a throwaway pod
 pnpm chaos:run              # the TS steady-state harness: apply manifest -> assert -> tear down
 pnpm chaos:uninstall        # remove operators (leaves qaroom/observability alone)
@@ -20,7 +20,7 @@ The harness lives in `packages/testing-utils/src/chaos/`; the per-experiment hyp
 self-contained and committed, so a run replays from the manifest alone. Milestone 7's snapshot
 bundle captures these verbatim into its `chaos_manifests` array.
 
-## The seven experiments
+## The experiments
 
 Each row binds four things that must change together (the "change both or neither" rule extends
 to all four): the **manifest** here, the **assertion** in `tests/chaos/`, the **demo toggle**, and
@@ -35,5 +35,6 @@ the **`docs/failure-modes.md` anchor**.
 | 5 | `05-time-clock-skew.yaml` | Chaos Mesh TimeChaos | gateway stays bounded though skew degrades donations (**finding:** skew poisons the PG pool) | gateway timeout; Lamport (not wall-clock) ordering | `GATEWAY_UPSTREAM_TIMEOUT_MS` widened | ✅ verified live, gated `CHAOS_TIMECHAOS=1` |
 | 6 | `06-http-gateway-500-donations.yaml` | Litmus HTTPChaos | donations endpoint degrades to a typed retryable 502, never a naked 500 | circuit breaker | `CHAOS_DISABLE_CIRCUIT_BREAKER` | ✅ property proven in-process (`gateway/tests/circuit-breaker.spec.ts`); live Litmus injection nightly |
 | 7 | `07-net-partition-gateway-donations.yaml` | Chaos Mesh NetworkChaos (partition) | partition -> prompt 502 `dependency_failure`; p99 bounded | upstream `AbortSignal.timeout` | `GATEWAY_UPSTREAM_TIMEOUT_MS` widened | ✅ verified live (green->red->green demo) |
+| 8 | `08-http-receiver-500-webhooks.yaml` | Litmus HTTPChaos | failing receiver -> every due delivery retried on capped jittered backoff, then succeeds or `DeadLettered`; never lost, never double-applied; CRUD + consume paths stay responsive | durable delivery ledger + deterministic retry contract + bounded attempt budget | `CHAOS_WEBHOOK_DROP_ON_FAIL` | ✅ property proven in-process (`services/webhooks/src/delivery-guarantee.property.test.ts`); live Litmus injection nightly |
 
 See `docs/failure-modes.md` for the full expected-behaviour write-up of each.

@@ -62,6 +62,7 @@
     "boundaries:render": "tsx scripts/render-boundaries.ts",
     "claims:verify": "tsx scripts/claims-verify.ts",
     "tour:verify": "tsx scripts/verify-tour-anchors.ts",
+    "chaos:verify": "tsx scripts/chaos-verify.ts",
     "moderator:results": "tsx scripts/moderator-results.ts",
     "deepeval:results": "tsx scripts/deepeval-results.ts",
     "deepteam:results": "tsx scripts/deepteam-results.ts",

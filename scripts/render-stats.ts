@@ -7,8 +7,8 @@ import { CLAIMS } from '@qaroom/contracts/claims'
 /**
  * Render the QARoom "stats" projection: a single drift-gated README line whose every number
  * is DERIVED from a machine-readable source, never hand-typed. The root fix for the stale-front-door
- * weak axis (README said "ten milestones / 214 tests / 3 services / 11 ADRs" while reality is 13
- * milestones / 8 services / 20 ADRs). Mirrors scripts/render-claims.ts: a side-effect-free renderer +
+ * weak axis (README said "ten milestones / 214 tests / 3 services / 11 ADRs" while reality is 12
+ * milestones / 8 services / 23 ADRs). Mirrors scripts/render-claims.ts: a side-effect-free renderer +
  * markers, byte-gated by scripts/claims-verify.ts. Excludes summary.json's volatile generated_at /
  * commit so the block stays byte-stable until a COUNT actually changes (then re-run + commit).
  *
