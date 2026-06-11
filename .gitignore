@@ -21,6 +21,9 @@ pglite-data/
 # Decision log — raw build-in-public capture, kept local (not versioned).
 docs/journey/
 
+# Agent browser-session artifacts (Playwright MCP snapshots/console logs)
+.playwright-mcp/
+
 # Editors / IDEs
 .vscode/
 .idea/
