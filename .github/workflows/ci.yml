@@ -50,6 +50,9 @@ jobs:
       - name: Verify code-tour anchors (every cited file:line still says what the tour says)
         run: pnpm tour:verify
 
+      - name: Verify chaos experiments (every manifest has exactly one README table row)
+        run: pnpm chaos:verify
+
       - name: Upload test-results summary
         if: always()
         uses: actions/upload-artifact@v4

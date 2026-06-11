@@ -1,6 +1,7 @@
 import { writeFileSync } from 'node:fs'
 import { resolve } from 'node:path'
 import { pathToFileURL } from 'node:url'
+import { BOUNDARY_REGISTRY } from '@qaroom/contracts/boundary-registry'
 import { CLAIMS } from '@qaroom/contracts/claims'
 import { loadSummary, resolveEvidence } from './lib/claim-evidence'
 
@@ -31,7 +32,7 @@ function verdict(): { line: string; verified: number; stale: number } {
   const boundaries = new Set(CLAIMS.map((c) => c.registryRow)).size
   const staleNote = stale > 0 ? ` (${stale} stale until summary.json is regenerated in CI)` : ''
   return {
-    line: `${CLAIMS.length} falsifiable claims across ${boundaries} boundaries. ${verified} verified${staleNote}`,
+    line: `${CLAIMS.length} falsifiable claims across ${boundaries} of the ${BOUNDARY_REGISTRY.length} documented boundaries. ${verified} verified${staleNote}`,
     verified,
     stale,
   }

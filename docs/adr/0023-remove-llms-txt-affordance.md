@@ -17,7 +17,7 @@ Commitment 15 required `/.well-known/llms.txt` at the repo root and per service 
 future agentic features, explicitly building none in v1: "the affordances exist so they can be
 added without rework."
 
-Thirteen milestones later, the file has had zero consumers. No service serves it over HTTP. No
+Twelve milestones later, the file has had zero consumers. No service serves it over HTTP. No
 script, test, or agent reads it. The root copy froze at Milestone 0 and stayed twelve milestones
 stale (1 of 8 services, "10 milestones", "TypeScript end-to-end" after the Python moderator
 shipped); its first reader ever was the 2026-06-10 docs audit that caught it lying. The
