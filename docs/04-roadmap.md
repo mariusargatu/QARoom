@@ -1,6 +1,6 @@
 # QARoom: Roadmap
 
-Thirteen milestones (0-12), plus a deferred continuous-testing 13th. Each milestone introduces a small, sharply-defined set of testing techniques applied to the architectural boundary where they belong. Each milestone ships a working artifact, a blog post draft, and at least one ADR. Each milestone has explicit exit criteria so "done" is unambiguous.
+Thirteen milestones (0-12), plus a deferred continuous-testing 13th. Each milestone introduces a small, sharply-defined set of testing techniques applied to the architectural boundary where they belong. Each milestone ships a working artifact and at least one ADR. Each milestone has explicit exit criteria so "done" is unambiguous.
 
 Milestones are sized to be demonstrable, not to a fixed schedule. A milestone is done when its exit criteria are met; the elapsed wall-clock time is whatever it is.
 
@@ -10,7 +10,6 @@ Milestones are sized to be demonstrable, not to a fixed schedule. A milestone is
 - **Scope (built)**: what code, services, and infrastructure exist by the end of this milestone but not before.
 - **Testing techniques introduced**: the techniques whose stories are told by this milestone.
 - **Exit criteria**: observable conditions that must hold for the milestone to be considered complete.
-- **Blog post angle**: the framing of the public artifact.
 - **Risk and mitigation**: what is most likely to overflow the week, and the plan for that.
 
 ---
@@ -69,8 +68,6 @@ Milestones are sized to be demonstrable, not to a fixed schedule. A milestone is
 - `test-results/summary.json` is produced by CI and validates against its schema (carries `schema_version: 1`).
 - The six Milestone 0 spikes have either confirmed feasibility or produced an ADR amending the affected later milestone.
 
-**Blog post angle.** *"Testability primitives for TypeScript backends: the boring foundation that makes everything else possible."*
-
 **Risk and mitigation.** Risk is over-engineering Milestone 0 because the agent-substrate adds new artifacts. Mitigation: scope the substrate (AGENTS.md, llms.txt, summary.json schema) to the minimum that satisfies exit criteria; if it grows, defer non-blocking additions to Milestone 1.
 
 ---
@@ -87,7 +84,7 @@ Milestones are sized to be demonstrable, not to a fixed schedule. A milestone is
 - **Rate limiting at the gateway**: per-IP and per-authenticated-principal token bucket via a Fastify plugin (in-memory in Milestone 1, swappable for Redis in a later milestone if needed). Exceeded limits return RFC 7807 Problem Details with `failure_domain: "rate_limit"`, `retryable: true`, and `next_actions: [{verb:"GET", href:"/system/limits", description:"Inspect your current usage"}]`.
 - `GET /system/limits` introspection endpoint on the gateway (per-principal current usage and reset time).
 - **Pact provider verification** runs against a Testcontainers-booted content-service with a real Postgres container (`@pact-foundation/pact` provider verifier). Document the pattern; later providers reuse it.
-- **Pact discovery**: `pnpm pact:verify --provider <name>` scans `services/*/pacts/` for files referencing the named provider. No external broker; the monorepo is the broker. This is an intentional teaching point (documented in the Milestone 1 blog post).
+- **Pact discovery**: `pnpm pact:verify --provider <name>` scans `services/*/pacts/` for files referencing the named provider. No external broker; the monorepo is the broker. This is an intentional teaching point.
 
 **Testing techniques introduced.**
 - Consumer-driven contract testing (Pact)
@@ -100,9 +97,7 @@ Milestones are sized to be demonstrable, not to a fixed schedule. A milestone is
 - A deliberately bad schema change is caught by Schemathesis (server returns 500 on a generated input).
 - The Pact ↔ OpenAPI cross-check fails when a Pact interaction references an OAS operation that does not exist or violates the OAS request/response schema.
 - A property test catches a regression where the rate limiter under-counts (allows more than capacity) or returns the wrong `failure_domain`.
-- The blog post can explicitly name what each of the two tools catches that the other does not.
-
-**Blog post angle.** *"Two philosophies of API testing: when Pact and Schemathesis each earn their place."*
+- What each of the two tools catches that the other does not is named explicitly.
 
 **Risk and mitigation.** Risk: Pact ↔ OpenAPI cross-check has no first-class OSS tool (PactFlow's BDCT is SaaS-only). Mitigation: ship a thin custom check in `packages/testing-utils/contract-crosscheck/` that loads OAS via `@apidevtools/swagger-parser`, parses Pact JSON, and asserts each Pact interaction is a subset of an OAS operation. Limit acknowledged: validates Pact->OAS direction only; OAS->Pact gaps are caught by Schemathesis instead.
 
@@ -139,8 +134,6 @@ Milestones are sized to be demonstrable, not to a fixed schedule. A milestone is
 - ADR: "Communities-as-tenants and the shared-schema discriminator pattern."
 - ADR: "JWT signing-key model and rotation contract."
 
-**Blog post angle.** *"Property-based testing for multi-tenant correctness: when one test catches what a hundred examples can't."*
-
 **Risk and mitigation.** Risk is overscoping the migration story (we said earlier we'd defer it). Mitigation: keep the migration to a single forward step: adding the `community_id` column and backfilling. The full migration narrative is a future series.
 
 ---
@@ -172,8 +165,6 @@ Milestones are sized to be demonstrable, not to a fixed schedule. A milestone is
 - Every span carries `tenant.id`; a span missing the attribute fails a CI check that scans recent traces.
 - ADR: "Why Kubernetes, and how we keep dev fast."
 
-**Blog post angle.** *"I migrated my project to Kubernetes and my tests held the line."*
-
 **Risk and mitigation.** Risk: Helm chart authoring per service consumes more time than expected. Mitigation: a single `qaroom-service` Helm chart template authored before Milestone 0 begins, reused across all services. This is one of the small upfront investments worth making.
 
 ---
@@ -198,7 +189,7 @@ Milestones are sized to be demonstrable, not to a fixed schedule. A milestone is
 - `Idempotency-Key` middleware on all HTTP mutations, backed by the `idempotency_responses` table.
 - **TTL/GC for dedup tables.** Scheduled job (`pnpm jobs:gc-dedup`) deletes `idempotency_responses` and `processed_events` rows older than 24h. Runs hourly in dev, daily in CI smoke. Convention: do not rely on it for correctness: `Nats-Msg-Id` window + handler idempotency are the contract; GC is hygiene.
 - **NATS subject literal lint rule** (`qaroom/no-raw-nats-subject`): bans string literals matching `qaroom\.` outside `packages/contracts/subjects.ts`. Devs must use the builders.
-- **Async-fuzz portfolio gap, explicit.** Schemathesis is REST-only. AsyncAPI stateful fuzzing has no mature OSS tool. The async story stops at contract + dedup + drift; the Milestone 4 blog post names this gap as intellectual honesty rather than papering over with a half-tool.
+- **Async-fuzz portfolio gap, explicit.** Schemathesis is REST-only. AsyncAPI stateful fuzzing has no mature OSS tool. The async story stops at contract + dedup + drift; the gap is named as intellectual honesty rather than papered over with a half-tool.
 - Single-writer-per-resource enforcement at the persistence layer: `pg_advisory_xact_lock(hashtextextended(resource_id, 0))` + `SELECT … FOR UPDATE` on the resource row.
 - Tracetest comes online with assertions on the cross-service async flows. **Tracetest assertions run in PR full (<25min) and merge-to-main loops, not PR fast**: Tracetest infra (collector + assertion service in cluster) does not fit the <10min fast budget.
 
@@ -219,8 +210,6 @@ Milestones are sized to be demonstrable, not to a fixed schedule. A milestone is
 - A breaking AsyncAPI change is caught by CI before merge.
 - ADR: "Sync vs async: where each lives and why; the OTel propagation contract."
 - ADR: "Async dedup: outbox, Msg-Id, and processed_events."
-
-**Blog post angle.** *"Contract testing your async messages: the bug Pact catches that you didn't know existed."*
 
 **Risk and mitigation.** Risk: trace context propagation through NATS is fiddly and there's no official OTel auto-instrumentation. Mitigation: the `@qaroom/messaging` SDK is the single point of investment; every service uses it; the contract test in Pact asserts the trace context is present in the metadata.
 
@@ -266,8 +255,6 @@ Milestones are sized to be demonstrable, not to a fixed schedule. A milestone is
 - The WS endpoint and the polling endpoint return the same events for the same window (parity test passes).
 - The web frontend's atomic structure is documented in `services/web/docs/atomic-structure.md`.
 
-**Blog post angle.** *"Model-based testing in practice: how I caught a bug nobody would have written a test for."*
-
 **Risk and mitigation.** XState + Playwright MBT is in the author's wheelhouse, so the risk here is lower than it would otherwise be. Remaining risk: the breadth of services touched (flags, donations, web, Microcks). Mitigation: the state machine and tests are the core deliverable; the web UI can be intentionally bare; Microcks setup is well-documented.
 
 ---
@@ -300,8 +287,6 @@ Milestones are sized to be demonstrable, not to a fixed schedule. A milestone is
 - Each of the 7 experiments has its own deliberate-mitigation-removal demo recorded.
 - ADR: "Chaos as a property check, not a stunt; why Chaos Mesh and Litmus together."
 
-**Blog post angle.** *"Chaos Mesh and LitmusChaos, but with a hypothesis: how to do chaos engineering that teaches you something."*
-
 **Risk and mitigation.** Risk: HTTPChaos on k3d is documented as broken with flannel CNI. Mitigation: Litmus pre-installed and used for HTTP chaos from the start; no surprise discovery mid-milestone. Risk: `TimeChaos` requires `SYS_TIME` and `SYS_BOOT` capabilities, which k3d does not grant by default. Mitigation: the k3d cluster config grants both caps to the chaos namespace via the `--k3s-arg "--kubelet-arg=allowed-unsafe-sysctls=*"` flag and a privileged `chaos-daemon` DaemonSet; the cluster bootstrap script (`scripts/bootstrap-k3d.sh`, added in Milestone 3) sets this up so Milestone 6 inherits a chaos-ready cluster. Every chaos experiment YAML is captured into the snapshot artifact (Commitment 6), making the chaos run replayable from the manifest alone.
 
 ---
@@ -329,8 +314,6 @@ Milestones are sized to be demonstrable, not to a fixed schedule. A milestone is
 - A captured scenario from CI can be loaded locally and reproduces the failure.
 - At least three regression scenarios from previous milestones are in the catalog and run on every PR.
 - ADR: "Scenarios as first-class testing artifacts; the limits of replay without a hypervisor."
-
-**Blog post angle.** *"Reproducing distributed system bugs without writing a hypervisor: a scoped scenario replay for TypeScript microservices."*
 
 **Risk and mitigation.** Risk: the scope is ambitious. Mitigation: the minimum deliverable is "one scenario captured, one scenario replayed, documented limits." Over-deliver opportunistically.
 
@@ -367,8 +350,6 @@ Milestones are sized to be demonstrable, not to a fixed schedule. A milestone is
 - ADR: "Testing your tests: when to invest in mutation testing and search-based fuzzing."
 - The frontend testing stack (portable stories + Playwright CT + Screenplay + XState MBT, one vocabulary two contexts) is recorded in [ADR-0005](adr/0005-frontend-testing-stack.md).
 
-**Blog post angle.** *"Testing your tests: load, mutation, and search-based fuzzing as the closing arguments."*
-
 **Risk and mitigation.** Risk: EvoMaster v3 against TS Fastify is unverified. Mitigation: the compatibility spike is moved to Milestone 0 (see Milestone 0 spikes); if the spike fails, EvoMaster is dropped from Milestone 8 and the technique is replaced by a deeper Schemathesis stateful-links story. Note: EvoMaster-generated files commonly exceed 500 lines; they ship with the `// @generated` marker (Doc 05) and are exempt from the line-limit lint. The baseline limit itself is a starting point and may be raised when concrete examples justify.
 
 ---
@@ -400,8 +381,6 @@ Milestones are sized to be demonstrable, not to a fixed schedule. A milestone is
 - A deliberately introduced regression in the moderation prompt fails an eval.
 - A paraphrase of a known-good input still produces the same moderation decision.
 - ADR: "Testing AI-integrated systems: the techniques that don't fit the traditional pyramid."
-
-**Blog post angle.** *"An LLM agent on rails: how the architecture made it possible to add an AI feature without rethinking anything."*
 
 **Risk and mitigation.** Risk: this is genuinely the most complex milestone and the most novel territory. Mitigation: scope reductions if needed: the agent only needs to demonstrate one workflow (auto-flag posts that violate documented community rules), not be a full moderator.
 
@@ -471,7 +450,6 @@ delivery guarantees** and the **retry/backoff contract**, the two problems the r
   on recovery (failure-modes §08); removing the retry mitigation breaks convergence.
 - The new service's OpenAPI / AsyncAPI / MCP-manifest drift gates are green; ADR-0019 committed.
 
-**Blog post angle.** *"At-least-once is a promise to someone else's server: testing webhook delivery
 guarantees and the retry contract."*
 
 **Risk and mitigation.** Risk: scope creep into a full delivery platform (dead-letter UI, secret
@@ -510,8 +488,6 @@ Post-v1, built. Re-scopes the Milestone 9 moderator from a prompt-baked classifi
 - A prompt-injection-in-post-body attack is caught by DeepTeam; removing the input-guard mitigation breaks it.
 - `deepeval` + `deepteam` runners land in `summary.json` with no schema change, key-gated + cost-guarded.
 - ADR-0020 committed.
-
-**Blog post angle.** *"Eval the model, red-team the agent: testing a retrieval-grounded moderator with DeepEval + DeepTeam, and why RAGAS didn't earn a separate seat."*
 
 **Dependencies.** Extends the Milestone 9 moderator (LangGraph / pgvector / OpenAI), the metamorphic + reverse-conformance discipline (ADR-0017), and the `summary.json` runner-fold mechanism (Commitment 14).
 

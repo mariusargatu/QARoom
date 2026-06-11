@@ -24,7 +24,6 @@ The conventions in this document are enforced by lint where possible and by revi
 │   ├── 05-conventions.md
 │   ├── adr/  # Architecture decision records (immutable)
 │   │   └── 0001-foundational-decisions.md
-│   ├── journey/  # Per-decision log (append-only); blog/LinkedIn raw material
 │   │   └── README.md
 │   └── failure-modes.md  # Begins in M6
 ├── packages/
@@ -176,7 +175,7 @@ Rules:
 - Consumer tests author Pact files; they are committed to `services/<consumer>/pacts/`.
 - A change to a Pact file shows up as a diff in PR review.
 - The Pact ↔ OpenAPI cross-check test runs in PR CI.
-- **No Pact Broker in v1.** The monorepo is the exchange surface: provider verification runs `pnpm pact:verify --provider <name>`, which scans `services/*/pacts/` for files referencing the named provider. This trades the broker workflow for atomic monorepo commits; the trade-off is intentional and explained in the Milestone 1 blog post.
+- **No Pact Broker in v1.** The monorepo is the exchange surface: provider verification runs `pnpm pact:verify --provider <name>`, which scans `services/*/pacts/` for files referencing the named provider. This trades the broker workflow for atomic monorepo commits; the trade-off is intentional.
 - Provider verification runs against a Testcontainers-booted instance of the provider service (real Postgres, real Fastify), not a mocked stub.
 
 ### Idempotency

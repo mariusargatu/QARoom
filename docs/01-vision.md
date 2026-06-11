@@ -14,13 +14,13 @@ This series inverts that. I am going to design and build a system where testing 
 
 The system is QARoom: a Reddit-shaped social platform with multi-tenant communities and a gradually-rolled-out donations feature. The product is deliberately modest: I have no ambition to ship a social network. The architecture is deliberately rich: it is sized exactly to demonstrate, in their natural habitats, a portfolio of testing techniques most engineers either don't know exist or have only ever seen in isolated tutorials.
 
-Across ten milestones I will build this system, with each milestone introducing a small, sharply-defined testing technique applied to the architectural boundary that needs it. Every milestone ships a working artifact, a blog post, and an architecture decision record. Milestones are sized to be demonstrable, not to a fixed schedule. They ship when they ship. The goal is not to finish on a timeline; the goal is to demonstrate.
+Across ten milestones I will build this system, with each milestone introducing a small, sharply-defined testing technique applied to the architectural boundary that needs it. Every milestone ships a working artifact and an architecture decision record. Milestones are sized to be demonstrable, not to a fixed schedule. They ship when they ship. The goal is not to finish on a timeline; the goal is to demonstrate.
 
 ## Who this is for
 
 Senior engineers and architects who already know how to write tests, but want a sharper way to think about *what* to test, *where* the boundaries belong, and *why* the architecture itself determines which testing techniques work and which collapse. This is a long-form argument about how to think, not a tutorial on Vitest or Playwright.
 
-This series is for you if you have shipped microservices and felt that your testing was a portfolio of disconnected practices loosely organized around the test pyramid; if you have read about contract testing, property-based testing, chaos engineering, model-based testing, and mutation testing in separate posts and wondered how they actually compose into a coherent strategy; or if you want to see a single developer using Claude Code to build a substantial microservices system across ten milestones, with explicit architectural reasoning published alongside the code.
+This series is for you if you have shipped microservices and felt that your testing was a portfolio of disconnected practices loosely organized around the test pyramid; if you have read about contract testing, property-based testing, chaos engineering, model-based testing, and mutation testing in separate posts and wondered how they actually compose into a coherent strategy; or if you want to see a single developer using Claude Code to build a substantial microservices system across ten milestones, with explicit architectural reasoning recorded alongside the code.
 
 ## What is locked, what is discovered
 

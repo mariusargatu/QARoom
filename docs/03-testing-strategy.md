@@ -266,9 +266,7 @@ These conventions are enforced by lint rules, not by review.
 
 ## 10. The learning loop
 
-The strategy itself evolves. Each milestone is meant to close with a retrospective: what the techniques caught, what they missed, the cost, what changes next. Through Milestone 12 the raw journey log carried that weight and no standalone retro was written; the `journey-log` skill's retro mode creates `docs/retrospectives/` the day one lands.
-
-Retrospectives are *composed*, not freshly written. The raw material is `docs/journey/`: the per-decision journey log captured at the moment things happened, via the `journey-log` skill. The skill spec and templates live in `.claude/skills/journey-log/`. The journey log is also the source for LinkedIn threads and the long-form blog posts that ship with each milestone.
+The strategy itself evolves. Each milestone is meant to close with a retrospective: what the techniques caught, what they missed, the cost, what changes next. Through Milestone 12 no standalone retro was written; `docs/retrospectives/` is created the day one lands.
 
 Specific metrics tracked:
 - **Layer-by-layer bug counts.** When a bug surfaces, which layer caught it? Which layers should have but didn't?
