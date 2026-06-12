@@ -45,6 +45,8 @@
     "chaos:uninstall": "bash scripts/chaos.sh uninstall",
     "chaos:run": "vitest run --config tests/chaos/vitest.config.ts",
     "chaos:results": "tsx scripts/chaos-results.ts",
+    "journey:run": "vitest run --config tests/journey/vitest.config.ts",
+    "journey:results": "tsx scripts/journey-results.ts",
     "replay:capture": "tsx scripts/qaroom-replay.ts capture",
     "replay:load": "tsx scripts/qaroom-replay.ts load",
     "replay:regression": "pnpm --filter @qaroom/content exec tsx tests/snapshot-replay.verify.ts",
