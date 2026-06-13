@@ -1,7 +1,14 @@
 import {
   AccessTokenResponse,
+  type AddMembershipRequest,
+  type CastVoteRequest,
   CastVoteResponse,
   Community,
+  type CreateCommunityRequest,
+  type CreateDonationRequest,
+  type CreatePostRequest,
+  type CreateUserRequest,
+  type CreateWebhookRequest,
   Donation,
   DonationList,
   EventPage,
@@ -13,13 +20,10 @@ import {
   ModerationDecision,
   ModerationDecisionList,
   Post,
-  type Role,
   type RolloutEventName,
   TicketResponse,
   User,
-  type VoteValue,
   WebhookDeliveryList,
-  type WebhookEventType,
   WebhookSubscription,
   WebhookSubscriptionList,
   WebhookSubscriptionWithSecret,
@@ -27,36 +31,21 @@ import {
 import type { IdGenerator } from '@qaroom/determinism'
 import { createHttp } from './http'
 
-export interface CreateUserBody {
-  handle: string
-  display_name: string
-}
-export interface CreateCommunityBody {
-  slug: string
-  name: string
-}
-export interface AddMembershipBody {
-  user_id: string
-  role: Role
-}
-export interface CreatePostBody {
-  author_id: string
-  title: string
-  body: string
-}
-export interface CastVoteBody {
-  voter_id: string
-  value: VoteValue
-}
-export interface CreateDonationBody {
-  donor_id: string
-  amount_cents: number
-  currency: string
-}
-export interface CreateWebhookBody {
-  url: string
-  event_types: WebhookEventType[]
-}
+/**
+ * Request bodies, sourced straight from the matching `@qaroom/contracts` request schemas instead of
+ * hand-duplicated here: a field added or renamed in a gateway contract now propagates to the web
+ * client for free, and that shared-Zod shape is the consumer-direction defender of the web→gateway
+ * boundary (C10). These are type aliases only — runtime behavior (response parsing, headers) is
+ * unchanged. The branded id/url fields (`UserId`, `WebhookUrl`) accept the plain strings the call
+ * sites pass: Zod brands are one-way, so an unbranded `string` still flows into a branded field.
+ */
+export type CreateUserBody = CreateUserRequest
+export type CreateCommunityBody = CreateCommunityRequest
+export type AddMembershipBody = AddMembershipRequest
+export type CreatePostBody = CreatePostRequest
+export type CastVoteBody = CastVoteRequest
+export type CreateDonationBody = CreateDonationRequest
+export type CreateWebhookBody = CreateWebhookRequest
 
 /**
  * The browser's single gateway client (ADR-0022 surfaces identity + moderation same-origin). Every

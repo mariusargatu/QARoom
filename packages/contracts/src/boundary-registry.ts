@@ -29,7 +29,8 @@ const RAW: BoundaryEntry[] = [
     id: 'trust',
     label: 'Trust (client to gateway)',
     breaks: 'malformed or hostile input',
-    leadTechnique: 'Schemathesis fuzzing, RFC 7807 errors',
+    leadTechnique:
+      'Schemathesis fuzzing, RFC 7807 errors; on the web→gateway consumer side, the shared-Zod contract and the golden-journey harness (run via the gauntlet)',
     lanes: ['trust'],
   },
   {

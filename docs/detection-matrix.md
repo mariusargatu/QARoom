@@ -14,7 +14,7 @@ Every deliberate-bug toggle in the repo, armed one at a time, against the whole 
 
 Abbreviated columns: pact-oas = pact-oas-crosscheck, rev-conf = reverse-conformance, py-conf = py-conformance.
 
-**Totals: 27 caught, 104 missed, 131 cells measured** (117 grid positions not applicable or not yet run). Baseline: `475c7ac4df22` (1 standing red, fast-check seed 12648430). Last render: 2026-06-10T16:25:48.193Z. A frozen, hash-stamped snapshot of every cell is committed at [docs/evidence/detection-matrix.snapshot.json](evidence/detection-matrix.snapshot.json), so the grid is verifiable without cloning the gitignored artifact.
+**Totals: 27 caught, 104 missed, 131 cells measured** (144 grid positions not applicable or not yet run). Baseline: `475c7ac4df22` (1 standing red, fast-check seed 12648430). Last render: 2026-06-10T16:25:48.193Z. A frozen, hash-stamped snapshot of every cell is committed at [docs/evidence/detection-matrix.snapshot.json](evidence/detection-matrix.snapshot.json), so the grid is verifiable without cloning the gitignored artifact.
 
 ## In-proc tier (Tier A)
 
@@ -24,9 +24,11 @@ Abbreviated columns: pact-oas = pact-oas-crosscheck, rev-conf = reverse-conforma
 | `tenant-span-drop` | ✓ | ✗ | ✗ | ✗ | ✗ | ✗ | ✗ | n/a | n/a | n/a |
 | `feed-reversed` | ✗ | ✓ | ✗ | ✗ | ✗ | ✗ | ✗ | n/a | n/a | n/a |
 | `vote-slow` | ✗ | ✗ | ✗ | ✗ | ✗ | ✗ | ✗ | n/a | n/a | n/a |
+| `tenant-leak` | n/r | n/r | n/r | n/r | n/r | n/r | n/r | n/a | n/a | n/a |
 | `canary-misroutes` | ✗ | ✓ | ✗ | ✓ | ✗ | ✗ | ✗ | n/a | n/a | n/a |
 | `disable-circuit-breaker` | ✗ | ✗ | ✗ | ✗ | ✗ | ✗ | ✗ | n/a | n/a | n/a |
 | `upstream-timeout` | ✗ | ✗ | ✗ | ✗ | ✗ | ✗ | ✗ | n/a | n/a | n/a |
+| `contract-drift` | n/r | n/r | n/r | n/r | n/r | n/r | n/r | n/a | n/a | n/a |
 | `webhook-sign-body-only` | ✗ | ✗ | ✓ | ✗ | ✗ | ✗ | ✗ | n/a | n/a | n/a |
 | `webhook-unstable-delivery-id` | ✗ | ✗ | ✓ | ✗ | ✗ | ✗ | ✗ | n/a | n/a | n/a |
 | `webhook-drop-on-fail` | ✗ | ✓ | ✓ | ✗ | ✗ | ✗ | ✗ | n/a | n/a | n/a |
@@ -50,6 +52,7 @@ Abbreviated columns: pact-oas = pact-oas-crosscheck, rev-conf = reverse-conforma
 | `canary-misroutes` | ✗ | n/r | ✗ | n/r | ✓ | n/r | n/r |
 | `disable-circuit-breaker` | ✗ | n/r | n/r | ✓ | n/r | n/r | n/r |
 | `upstream-timeout` | ✗ | n/r | n/r | ✓ | n/r | n/r | n/r |
+| `contract-drift` | n/r | n/r | n/r | n/r | n/r | n/r | n/r |
 | `webhook-illegal-transition` | ✗ | n/r | n/r | n/r | ✗ | n/r | n/r |
 
 ## LLM tier (Tier C, cost-recorded)
@@ -102,6 +105,14 @@ Abbreviated columns: pact-oas = pact-oas-crosscheck, rev-conf = reverse-conforma
   - `live:k6 (exit 99)`
 - notes: H3 probe: predicted MISSED by every functional technique in-proc (suites get slower, not redder) and caught only by the k6 SLO threshold: performance bugs need a performance gate.
 
+### `tenant-leak`: `CONTENT_BUG_TENANT_LEAK=1`
+
+- component: content; read at services/content/src/repository.ts (call-time)
+- designated catcher: services/content/src/tenancy.property.test.ts (property-based isolation)
+- permanent claim: `tenant-isolation` (pnpm prove tenant-isolation --break)
+- not run yet
+- notes: Loosens listFeed's per-community WHERE to an always-true predicate, so every tenant's feed returns all posts (Commitment 9). Designated catcher is the three-tenant interleave property; backs the permanent `tenant-isolation` claim (pnpm prove tenant-isolation --break).
+
 ### `sync-publish`: `CHAOS_SYNC_PUBLISH=1`
 
 - component: content; read at services/content/src/server.ts (construction-time)
@@ -139,6 +150,13 @@ Abbreviated columns: pact-oas = pact-oas-crosscheck, rev-conf = reverse-conforma
 - **caught by 1 group(s)** (schemathesis@cluster); detection breadth 1, blast radius 1 file(s):
   - `live:schemathesis (exit 1)`
 - notes: In-proc and Tier-B (paced) both ALL MISSED as predicted: a far-too-high timeout only bites when an upstream actually hangs; the chaos 07 partition experiment is the sole detector. The first sweep's schemathesis 'catch' was unpaced-429 noise, withdrawn.
+
+### `contract-drift`: `GATEWAY_BUG_DROP_EVENT_CURSOR=1`
+
+- component: gateway; read at services/gateway/src/events-routes.ts (call-time)
+- designated catcher: scripts/schemathesis-gate.sh (gateway response-schema validation vs the published openapi.yaml)
+- not run yet
+- notes: Drops the required `cursor` field from the EventPage the gateway shapes on GET /api/communities/:id/events — response-contract drift on a read endpoint. The contract layer is what is designed to catch it (Pact + Pact-OAS in-proc, Schemathesis response validation live against openapi.yaml, where `cursor` is required and additionalProperties is false); the polling-parity integration test asserts only the events array, not the cursor.
 
 ### `webhook-sign-body-only`: `CHAOS_WEBHOOK_SIGN_BODY_ONLY=1`
 
