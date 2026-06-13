@@ -13,6 +13,8 @@ from __future__ import annotations
 
 import asyncio
 import contextlib
+from collections.abc import Awaitable, Callable
+from typing import Protocol
 
 from opentelemetry import context as otel_context
 from opentelemetry.propagate import extract
@@ -29,6 +31,27 @@ POST_CREATED_SUBJECT = posts_created_any_community()
 # so the moderator may start first. Wait up to ~60s for it before giving up to a crash-loop restart.
 _STREAM_WAIT_ATTEMPTS = 30
 _STREAM_WAIT_INTERVAL_S = 2.0
+
+# Poison backstop: the durable's delivery budget (mirrors webhooks' WEBHOOK_FANOUT_MAX_DELIVERIES).
+# Even if a message is MISCLASSIFIED as transient and keeps being `nak`-ed, JetStream dead-letters it
+# after this many delivery attempts, so one un-processable event cannot wedge the consumer forever.
+_MAX_DELIVER = 5
+# A transient failure is `nak`-ed WITH this delay (seconds), not a bare `nak`: redelivery backs off
+# instead of hot-looping a still-unavailable dependency (LLM/DB blip) at full speed.
+_NAK_DELAY_S = 5.0
+
+
+class _DeliveredMessage(Protocol):
+    """The slice of a NATS ``Msg`` the consume loop settles against (payload + how to ack/term/nak).
+    A real ``nats.aio.msg.Msg`` satisfies it structurally; tests pass a minimal double."""
+
+    data: bytes
+    headers: dict[str, str] | None
+    subject: str
+
+    async def ack(self) -> None: ...
+    async def term(self) -> None: ...
+    async def nak(self, delay: float | None = None) -> None: ...
 
 
 async def handle_post_event(
@@ -61,29 +84,56 @@ class PostEventConsumer:
         self._sub: object = None
 
     async def start(self) -> None:
+        # Create the durable WITH its delivery budget (max_deliver) up front, then bind a pull
+        # subscription to it. Splitting create-then-bind (rather than letting `pull_subscribe`
+        # auto-create an unbounded durable) is what lets the durable carry the poison backstop.
+        await self._with_stream_wait(self._ensure_durable)
         self._sub = await self._subscribe_with_retry()
         self._task = asyncio.create_task(self._loop())
 
-    async def _subscribe_with_retry(self) -> object:
-        """Subscribe to the shared ``qaroom`` stream, tolerating the boot race where no Node service has
-        yet created it (the stream is owned by ``@qaroom/messaging``'s ``ensureStream``, not by the
-        moderator). Without this the moderator hard-crashes with ``stream not found`` and crash-loops
-        until a publisher comes up; instead we retry with a short backoff, then surface the error if it
-        never appears."""
+    async def _with_stream_wait(self, op: Callable[[], Awaitable[object]]) -> object:
+        """Run a JetStream op, tolerating the boot race where no Node service has yet created the shared
+        ``qaroom`` stream (owned by ``@qaroom/messaging``'s ``ensureStream``, not the moderator).
+        Without this the moderator hard-crashes with ``stream not found`` and crash-loops until a
+        publisher comes up; instead we retry with a short backoff, then surface the error if it never
+        appears."""
         from nats.js.errors import NotFoundError
 
         for attempt in range(_STREAM_WAIT_ATTEMPTS):
             try:
-                return await self._js.pull_subscribe(  # type: ignore[attr-defined]
-                    POST_CREATED_SUBJECT,
-                    durable=self._settings.moderator_subscription,
-                    stream=self._settings.nats_stream,
-                )
+                return await op()
             except NotFoundError:
                 if attempt == _STREAM_WAIT_ATTEMPTS - 1:
                     raise
                 await asyncio.sleep(_STREAM_WAIT_INTERVAL_S)
         raise AssertionError("unreachable")  # pragma: no cover
+
+    async def _ensure_durable(self) -> object:
+        """Create (idempotently) the durable pull consumer with a bounded ``max_deliver`` so a poison
+        message that keeps failing is dead-lettered after ``_MAX_DELIVER`` attempts instead of being
+        redelivered forever — the delivery-count backstop behind the per-message classification."""
+        from nats.js.api import AckPolicy, ConsumerConfig
+
+        return await self._js.add_consumer(  # type: ignore[attr-defined]
+            self._settings.nats_stream,
+            config=ConsumerConfig(
+                durable_name=self._settings.moderator_subscription,
+                filter_subject=POST_CREATED_SUBJECT,
+                ack_policy=AckPolicy.EXPLICIT,
+                max_deliver=_MAX_DELIVER,
+            ),
+        )
+
+    async def _subscribe_with_retry(self) -> object:
+        """Bind a pull subscription to the durable created by ``_ensure_durable`` (tolerating the same
+        stream boot race). Kept as a named seam so the retry is unit-testable with a fake JetStream."""
+        return await self._with_stream_wait(
+            lambda: self._js.pull_subscribe(  # type: ignore[attr-defined]
+                POST_CREATED_SUBJECT,
+                durable=self._settings.moderator_subscription,
+                stream=self._settings.nats_stream,
+            )
+        )
 
     async def _loop(self) -> None:
         from nats.errors import TimeoutError as NatsTimeout
@@ -94,19 +144,31 @@ class PostEventConsumer:
             except NatsTimeout:
                 continue
             for msg in messages:
-                try:
-                    await handle_post_event(
-                        self._workflow,
-                        data=msg.data,
-                        headers=dict(msg.headers or {}),
-                        subject=msg.subject,
-                    )
-                    await msg.ack()
-                except Exception:
-                    # Malformed or transient: nak for redelivery. A recorded `Failed` decision (LLM
-                    # down) does not raise — it acks (at-least-once + checkpointer dedup), and is
-                    # visible in /system/state for manual replay (ADR-0018 limitation).
-                    await msg.nak()
+                await self._settle_one(msg)
+
+    async def _settle_one(self, msg: _DeliveredMessage) -> None:
+        """Process and settle ONE delivered message.
+
+        Ack on success. A malformed or cross-tenant message raises ``ValueError`` (pydantic's
+        ``ValidationError`` is a ``ValueError`` subclass; the tenant-leak guard raises ``ValueError``
+        directly) — redelivery can never make it succeed, so ``term`` (dead-letter) it: one poison
+        message cannot wedge the durable consumer forever (mirrors webhooks' poison→term). Any other
+        failure is transient (LLM/DB/broker blip) — ``nak`` WITH a delay so redelivery backs off; the
+        durable's ``max_deliver`` budget dead-letters it if it never recovers. A recorded ``Failed``
+        decision (LLM down) does NOT raise — it acks (at-least-once + checkpointer dedup) and stays
+        visible in ``/system/state`` for manual replay (ADR-0018 limitation)."""
+        try:
+            await handle_post_event(
+                self._workflow,
+                data=msg.data,
+                headers=dict(msg.headers or {}),
+                subject=msg.subject,
+            )
+            await msg.ack()
+        except ValueError:
+            await msg.term()
+        except Exception:
+            await msg.nak(delay=_NAK_DELAY_S)
 
     async def stop(self) -> None:
         self._stop.set()
