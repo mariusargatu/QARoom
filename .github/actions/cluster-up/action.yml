@@ -1,0 +1,101 @@
+name: Bring up the KinD cluster
+description: >-
+  Bring the full QARoom stack up on a fresh KinD cluster for the heavier merge/schedule jobs
+  (cluster-smoke, tracetest, chaos): create the cluster, apply deploy/observability/, build+load
+  each service image, and helm-install the services from the shared qaroom-service chart. Self-
+  contained like setup-workspace — it sets up Helm and creates the KinD cluster itself, so the
+  calling job must NOT also run azure/setup-helm or helm/kind-action. Assumes only that the repo
+  is already checked out (a local composite action cannot run before the repo exists); Node/pnpm
+  (setup-workspace) and the post-bring-up steps (smoke.sh, the Tracetest CLI, pnpm chaos:*) stay
+  in the job. Reclaims runner disk first (8 service images + `kind load` overflow the ~14GB
+  default) and applies a 'core' observability subset by default (langfuse's 7-pod ClickHouse
+  stack is LLM tracing none of the cluster jobs need, and it does not fit a standard runner).
+
+inputs:
+  services:
+    description: >-
+      Space-separated service subset to build+load and helm-install. Each name must have a
+      services/<svc>/Dockerfile and a deploy/<svc>/values.yaml. Default is the full set derived
+      from deploy/*/values.yaml.
+    default: content donations flags gateway identity moderator-agent web webhooks
+  wait-observability:
+    description: >-
+      When 'true', block on `kubectl wait --for=condition=available deploy --all -n observability`
+      (300s) after applying deploy/observability/ — needed by jobs that talk to OTel/Jaeger/NATS/
+      Tracetest (tracetest, chaos). cluster-smoke passes 'false' (it only needs the qaroom pods).
+    default: "true"
+  pod-wait-timeout:
+    description: >-
+      Timeout passed to `kubectl wait --for=condition=ready pod --all -n qaroom`. More services
+      means a longer wait; the current jobs use 180s (cluster-smoke), 240s (tracetest), 300s (chaos).
+    default: 300s
+  observability:
+    description: >-
+      'core' (default) applies deploy/observability/ EXCEPT langfuse — its ClickHouse/MinIO/Redis/
+      web/worker stack (7 pods, up to ~5.5Gi of limits + ~1.5GB of images) is LLM tracing that
+      cluster-smoke/tracetest/chaos do not use and that overflows a standard runner. 'full' applies
+      everything (use only on a larger runner).
+    default: core
+
+runs:
+  using: composite
+  steps:
+    - name: Reclaim runner disk
+      shell: bash
+      run: |
+        # 8 service images + `kind load` (each copied again into the node's containerd) overflow the
+        # runner's ~14GB free disk → DiskPressure → unschedulable pods. Drop preinstalled toolchains
+        # this repo never uses (Android ~9GB, .NET ~2GB, Haskell ~5GB). Leave /opt/hostedtoolcache
+        # intact: setup-workspace's Node lives there and the post-bring-up pnpm steps still need it.
+        sudo rm -rf /usr/local/lib/android /usr/share/dotnet /opt/ghc /usr/local/.ghcup 2>/dev/null || true
+        df -h /
+
+    - name: Install Helm
+      uses: azure/setup-helm@v4
+      with:
+        version: v4.1.1
+
+    - name: Create the KinD cluster
+      uses: helm/kind-action@v1
+      with:
+        cluster_name: qaroom
+
+    - name: Build + load service images
+      shell: bash
+      run: |
+        for svc in ${{ inputs.services }}; do
+          docker build -f services/$svc/Dockerfile -t qaroom/$svc:latest .
+          kind load docker-image qaroom/$svc:latest --name qaroom
+        done
+
+    - name: Namespaces + observability
+      shell: bash
+      run: |
+        kubectl create namespace qaroom
+        kubectl create namespace observability
+        if [ "${{ inputs.observability }}" = "full" ]; then
+          kubectl apply -f deploy/observability/
+        else
+          # core: everything except langfuse (the ClickHouse/MinIO/Redis/web/worker stack)
+          for f in deploy/observability/*.yaml; do
+            [ "$(basename "$f")" = langfuse.yaml ] && continue
+            kubectl apply -f "$f"
+          done
+        fi
+
+    - name: Wait for observability deployments
+      if: inputs.wait-observability == 'true'
+      shell: bash
+      run: kubectl wait --for=condition=available deploy --all -n observability --timeout=300s
+
+    - name: Install services (images pulled locally via kind load)
+      shell: bash
+      run: |
+        for svc in ${{ inputs.services }}; do
+          helm install $svc packages/helm-template -n qaroom \
+            -f deploy/$svc/values.yaml --set image.pullPolicy=Never
+        done
+
+    - name: Wait for pod readiness
+      shell: bash
+      run: kubectl wait --for=condition=ready pod --all -n qaroom --timeout=${{ inputs.pod-wait-timeout }}
