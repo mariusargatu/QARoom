@@ -1,8 +1,8 @@
 import { execFileSync } from 'node:child_process'
 import { readFileSync } from 'node:fs'
 import { resolve } from 'node:path'
-import { breakingManifestChanges } from '../packages/qaroom-mcp/src/manifest/diff'
-import { McpManifest } from '../packages/qaroom-mcp/src/schema/mcp'
+import { breakingManifestChanges } from '../services/qaroom-mcp/src/manifest/diff'
+import { McpManifest } from '../services/qaroom-mcp/src/schema/mcp'
 
 /**
  * The MCP tool-manifest gate (ADR-0006), mirroring `openapi-verify.ts`:
@@ -12,7 +12,7 @@ import { McpManifest } from '../packages/qaroom-mcp/src/schema/mcp'
  *       manifest AND fails for a deliberately removed tool (the self-test that the gate works).
  */
 const ROOT = process.cwd()
-const manifestPath = resolve(ROOT, 'packages/qaroom-mcp/mcp-manifest.json')
+const manifestPath = resolve(ROOT, 'services/qaroom-mcp/mcp-manifest.json')
 
 const before = readFileSync(manifestPath, 'utf8')
 execFileSync('pnpm', ['--filter', '@qaroom/qaroom-mcp', 'mcp:generate'], {
@@ -22,7 +22,7 @@ execFileSync('pnpm', ['--filter', '@qaroom/qaroom-mcp', 'mcp:generate'], {
 const after = readFileSync(manifestPath, 'utf8')
 if (before !== after) {
   process.stderr.write(
-    'MCP manifest drift: committed packages/qaroom-mcp/mcp-manifest.json was stale. It has been regenerated — commit the result.\n',
+    'MCP manifest drift: committed services/qaroom-mcp/mcp-manifest.json was stale. It has been regenerated — commit the result.\n',
   )
   process.exit(1)
 }

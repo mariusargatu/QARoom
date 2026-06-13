@@ -30,7 +30,7 @@ Meanwhile, everything the insurance was bought for got built, better:
   milestone, and is the convention that won for git repositories.
 - **`GET /system/capabilities`** is the live, machine-readable, MCP-tool-shaped surface, and it
   is tested.
-- **`packages/qaroom-mcp`** (ADR-0006) is a first-class tested MCP server over those
+- **`services/qaroom-mcp`** (ADR-0006) is a first-class tested MCP server over those
   capabilities, with four typed gates.
 
 The llms.txt spec itself targets served websites (`https://site/llms.txt`), not repository file

@@ -1,6 +1,6 @@
 # Agentic CI/CD demonstration (Milestone 10, movement 2)
 
-Movement 1 of Milestone 10 built `packages/qaroom-mcp`: a *tested* tool surface. Movement 2
+Movement 1 of Milestone 10 built `services/qaroom-mcp`: a *tested* tool surface. Movement 2
 is the payoff: autonomous agents acting on QARoom act **through** that surface, and a tested
 surface is the difference between reliable and trust-me (ADR-0006).
 
