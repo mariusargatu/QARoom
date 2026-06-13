@@ -194,6 +194,37 @@ function checkClaimsPage(): Result {
   return { ok: true, detail: `claims.md agrees with the manifest (${CLAIMS.length} claims)` }
 }
 
+// Root AGENTS.md is the agent front door, and its Commands block rots the same way the README
+// once did (a renamed script leaves a dead `pnpm <x>` that every agent then walks into). Census:
+// every `pnpm <script>` named in the fenced Commands block must exist in root package.json
+// scripts. `pnpm --filter <pkg> …` forms are per-package scripts outside the root census and
+// never match (the captured token must start with a letter); pnpm builtins are allowlisted.
+const PNPM_BUILTINS = new Set(['install', 'add', 'exec', 'run', 'dlx'])
+
+function checkCommandsCensus(): Result {
+  const agentsPath = resolve(ROOT, 'AGENTS.md')
+  if (!existsSync(agentsPath)) return { ok: false, detail: 'AGENTS.md missing' }
+  const block = readFileSync(agentsPath, 'utf8').match(/## Commands\n+```bash\n([\s\S]*?)```/)
+  const body = block?.[1]
+  if (body === undefined) {
+    return { ok: false, detail: 'no ```bash fenced block under ## Commands in AGENTS.md' }
+  }
+  const pkg = JSON.parse(readFileSync(resolve(ROOT, 'package.json'), 'utf8')) as {
+    scripts: Record<string, string>
+  }
+  const tokens = [...body.matchAll(/pnpm\s+([a-z][a-z0-9:_-]*)/g)]
+    .map((m) => m[1])
+    .filter((name): name is string => name !== undefined)
+  const named = [...new Set(tokens)]
+  const missing = named.filter((name) => !PNPM_BUILTINS.has(name) && !(name in pkg.scripts))
+  return missing.length === 0
+    ? { ok: true, detail: `${named.length} commands named, all resolve to root scripts` }
+    : {
+        ok: false,
+        detail: `AGENTS.md Commands block names script(s) missing from package.json: ${missing.join(', ')}`,
+      }
+}
+
 function main(): void {
   process.stdout.write(`claims:verify: ${CLAIMS.length} claims\n`)
   let failed = 0
@@ -233,6 +264,7 @@ function main(): void {
       ),
     ],
     ['claims page', checkClaimsPage()],
+    ['AGENTS.md commands census', checkCommandsCensus()],
   ]
   for (const [name, r] of blocks) {
     if (r.ok) {

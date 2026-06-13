@@ -11,13 +11,25 @@ pnpm install
 # build all services
 pnpm build
 
-# test (all layers, watch mode for affected packages)
+# test (all layers; concurrency capped at 50% of cores — full-fan-out starves the
+# PGlite-heavy property suites past their timeouts)
 pnpm test
 pnpm test --filter <service-or-package>
 
 # lint and format
 pnpm lint
 pnpm format
+
+# umbrella gates
+pnpm check          # smoke: gauntlet phase 1 only (needs a running Docker daemon — Pact lane)
+pnpm verify         # CI's verify job locally: lint + typecheck + results fold + every drift gate
+pnpm gauntlet       # every technique, one orchestrated run (--only <phase>, --from <phase>)
+
+# falsifiable claims + detection matrix
+pnpm prove          # list claim cards; `pnpm prove <id> --break` must turn the named gate red
+pnpm claims:verify  # every claim resolves + is falsifiable; README projections + commands census
+pnpm matrix         # run the bug x technique detection matrix
+pnpm matrix:verify  # matrix census + rendered-matrix drift gate
 
 # generate OpenAPI from Zod for all services
 pnpm openapi:generate
@@ -65,7 +77,7 @@ Reach for a repo-map or code graph only if cross-service scale ever makes agenti
 ## Repository layout
 
 - `services/`: one directory per microservice (`content`, `gateway`, `identity`, `flags`, `donations`, and the React/Vite `web` frontend as of Milestone 5; the Python `moderator-agent` as of Milestone 9; `webhooks` as of Milestone 11). Each backend has its own `AGENTS.md`, `openapi.yaml`, `src/`, and `Dockerfile`; `web` adds an atomic-design component library (see `services/web/docs/atomic-structure.md`). `moderator-agent` is the one Python service: `uv`/FastAPI/LangGraph, not pnpm/tsx (ADR-0018). (The per-service `chart/` sketch was superseded in Milestone 3 by the shared `packages/helm-template/` + `deploy/<service>/values.yaml`.)
-- `packages/`: shared code: `contracts/` (Zod, OpenAPI, XState, hand-authored machines in `contracts/src/machines/`, invoke-free + context-free), `otel/` (OpenTelemetry SDK, `tenant.id` span processor, propagation primitives, Milestone 3; M4's `messaging/` will build the NATS layer on it), `service-kit/`, `testing-utils/` (fixtures, generators, harness, `contract-crosscheck/`), `helm-template/` (the shared `qaroom-service` chart), and `qaroom-mcp/` (the cross-service MCP server as a first-class tested service, Milestone 10, ADR-0006; read-first tool surface generated from the operation registries, four typed gates).
+- `packages/`: shared code, eight packages: `contracts/` (the Zod schema authority: OpenAPI/AsyncAPI generated from it, hand-authored XState machines in `contracts/src/machines/` (invoke-free + context-free), branded IDs, the boundary registry + falsifiable-claims manifest), `determinism/` (the injectable `Clock`/`IdGenerator`/`Randomness` interfaces + production implementations, Commitment 6), `otel/` (OpenTelemetry SDK wiring, `tenant.id` span processor, propagation primitives), `messaging/` (the NATS JetStream layer on `otel`: outbox, `processed_events` dedup, `idempotency_responses`, `subjects.ts` builders, relay), `service-kit/` (the shared Fastify service runtime: Problem Details, health + `/system/*` routes, capabilities, DB, env, idempotency), `testing-utils/` (fixtures, generators, matchers, harness, `contract-crosscheck/`), `helm-template/` (the shared `qaroom-service` chart), and `qaroom-mcp/` (the cross-service MCP server as a first-class tested service, Milestone 10, ADR-0006; read-first tool surface generated from the operation registries, four typed gates).
 - `deploy/`: per-service Helm values (`<service>/values.yaml`) and `observability/` manifests (OTel Collector, Jaeger, Prometheus, Grafana). `Tiltfile` at the repo root drives the local cluster.
 - `docs/`: architecture, strategy, roadmap, conventions, ADRs. Read in numbered order.
 - `chaos-experiments/`: Chaos Mesh and Litmus YAML (Milestone 6 onwards).
@@ -137,7 +149,7 @@ QARoom is built across 12 milestones (M1-M12) on an M0 foundation; the table bel
 | 9 | moderator-agent (Python `uv`/FastAPI/LangGraph + pgvector), structured outputs (Pydantic↔Zod cross-language gate), Promptfoo golden-set evals (OpenAI), metamorphic paraphrase-invariance + deliberate prompt-bug demo, LangGraph reverse-conformance (xstate.transition spans), per-run cost guard, ADR-0017, ADR-0018 | - |
 | 10 | `packages/qaroom-mcp`: the cross-service MCP server as a first-class tested service (ADR-0006). Read-first tool surface (capabilities proxy + RFC 7807 tool errors + read resources + conventions oracle), both transports (in-memory + JSON-RPC/Fastify), four typed gates (manifest drift + breaking-change classifier, RFC 7807 property tests, determinism-trio golden transcript, property + metamorphic tool I/O cross-checked vs `/system/capabilities` + `openapi.yaml`). Movement 2 (agentic-CI demonstration) documented in `docs/agentic-ci-demo.md`. Mutating `callTool` deferred to a second pass. | - |
 | 11 | `services/webhooks`, outbound delivery edge (ADR-0019): pure consumer of all five NATS channels, subscription CRUD (gateway-proxied), durable delivery ledger + relay-shaped worker, hand-authored webhook-delivery XState machine + reverse-conformance + MBT, deterministic capped-jittered retry contract, HMAC-SHA256 signing (timestamp bound in), SSRF guard, at-least-once + receiver dedup. Six env-toggled deliberate-bug demos. | - |
-| 12 | moderator v2, retrieval-grounded RAG agent (ADR-0020): per-community policy corpus in pgvector, 5-node trajectory (retrieve->gather_precedent->draft->self_check->record), citation-bearing `disposition ∈ {approve,remove,escalate_to_human}` (`cited_rules`/`precedents`/`departs_from_precedent`/`rationale`) + abstain/escalate path, prompt-injection input guard (`guard.py`, failure-modes). DeepEval (RAG + agentic + G-Eval) / DeepTeam (OWASP LLM Top 10) / PyRIT eval+red-team stack, key-gated; **Promptfoo dropped**. Breaking event v2 (verdict->disposition). | - |
+| 12 | moderator v2, retrieval-grounded RAG agent (ADR-0020): per-community policy corpus in pgvector, 6-node trajectory (retrieve->rerank->gather_precedent->draft->self_check->record; two-stage retrieval, ADR-0021), citation-bearing `disposition ∈ {approve,remove,escalate_to_human}` (`cited_rules`/`precedents`/`departs_from_precedent`/`rationale`) + abstain/escalate path, prompt-injection input guard (`guard.py`, failure-modes). DeepEval (RAG + agentic + G-Eval) / DeepTeam (OWASP LLM Top 10) / PyRIT eval+red-team stack, key-gated; **Promptfoo dropped**. Breaking event v2 (verdict->disposition). | - |
 
 Always check the current milestone before introducing infrastructure that doesn't yet exist. The roadmap in `docs/04-roadmap.md` has full exit criteria per milestone.
 

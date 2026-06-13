@@ -2,8 +2,9 @@
 
 Every QARoom service — TypeScript or Python — reads time, ids, and randomness through injected
 interfaces, never globals. Production wires the real implementations; tests wire seeded doubles, so
-a moderation run is reproducible. The LLM is the one genuinely stochastic dependency; it is pinned
-(`temperature=0`, `seed`) and injected like everything else (see ``llm.py``). A full record/replay
+a moderation run is reproducible. The LLM is the one genuinely stochastic dependency; it is bounded
+via ``reasoning_effort`` (gpt-5.x reasoning models drop ``seed``/``temperature``, so it cannot be
+pinned outright) and injected like everything else (see ``llm.py``). A full record/replay
 ``ModelClient`` seam is deferred to Milestone 14 (ADR-0018); here the LLM is plain DI so unit tests
 stay deterministic without a network call.
 """

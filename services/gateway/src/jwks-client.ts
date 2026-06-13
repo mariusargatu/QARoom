@@ -1,10 +1,12 @@
 /**
  * Thin JWKS client the gateway uses to fetch identity-service's public verification
- * keys. This is the **Pact consumer** for the identity-issuance boundary (Milestone 2):
+ * keys. This is the **Pact consumer** for the identity-issuance boundary:
  * `tests/contracts/identity.consumer.spec.ts` exercises this client against a Pact mock
  * and emits `services/gateway/pacts/gateway-identity.json`, which identity verifies as the
- * provider. Token *verification/enforcement* at the gateway is deferred to a later
- * milestone; this milestone consumes the JWKS contract. Keep it a thin, injectable seam.
+ * provider. Token *verification/enforcement* at the gateway is deliberately omitted
+ * (ADR-0022: the gateway fronts identity unauthenticated; real edge credentials are the
+ * parked Milestone 13, which would supersede ADR-0022). The gateway consumes the JWKS
+ * contract only and never decodes tokens. Keep it a thin, injectable seam.
  */
 export interface JwksResponse {
   status: number

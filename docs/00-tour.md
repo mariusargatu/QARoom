@@ -17,7 +17,7 @@ Both `app.ts` files read the same shape: build a Fastify instance purely from in
 A client `POST`s a new post. The gateway fronts content-service; content owns the data. Each hop is a boundary crossing.
 
 1. **trust boundary** · Request hits the gateway; a per-principal token bucket is consumed; over-limit -> 429 `rate_limit` problem.
-   - code: [`rate-limit.ts:21`](../services/gateway/src/rate-limit.ts#L21) (`limiter.consume`); the bucket is [`rate-limiter.ts:28`](../services/gateway/src/rate-limiter.ts#L28) (`RateLimiter`)
+   - code: [`rate-limit.ts:23`](../services/gateway/src/rate-limit.ts#L23) (`limiter.consume`); the bucket is [`rate-limiter.ts:28`](../services/gateway/src/rate-limiter.ts#L28) (`RateLimiter`)
    - technique: **property test** [`rate-limiter.property.test.ts:9`](../services/gateway/src/rate-limiter.property.test.ts#L9) (`never allows more than capacity requests`)
 2. **trust boundary** · The gateway validates at the edge: brands the path id, parses the body.
    - code: [`proxy-routes.ts:17`](../services/gateway/src/proxy-routes.ts#L17) (`CommunityId.parse`); [`proxy-routes.ts:19`](../services/gateway/src/proxy-routes.ts#L19) (`CreatePostRequest.parse`)

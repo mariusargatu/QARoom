@@ -24,8 +24,11 @@ runServer(
 
     if (!replaying) {
       // Transactional-outbox relay (Commitment 17): drain committed flag-changed events to
-      // JetStream. The HTTP path only writes the outbox row, so it serves even if NATS is briefly
-      // down; the relay's per-row retry catches up when the broker returns.
+      // JetStream. Once booted, the HTTP path only writes the outbox row, so a broker outage
+      // degrades publishing, not serving; the relay's per-row retry catches up when the broker
+      // returns. At boot, though, connectNats has no retry: NATS down means crash-and-restart —
+      // the intended posture (k8s restart semantics). Only webhooks fail-softs its broker
+      // wiring at boot.
       const nats = await connectNats(natsUrl)
       createRelay({ db, publisher: natsPublisher(nats.js), clock: deps.clock }).start(
         RELAY_INTERVAL_MS,
