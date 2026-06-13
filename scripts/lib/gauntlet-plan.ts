@@ -186,6 +186,21 @@ export function buildPlan(ctx: PreflightCtx, opts: GauntletOpts): GauntletStep[]
     }),
     step(3, 'chaos-smoke', 'gate', 'pnpm', ['chaos:smoke'], { skipReason: noCluster }),
     step(3, 'cluster-smoke', 'gate', 'pnpm', ['smoke'], { skipReason: noCluster }),
+    // Model-based E2E through the INGRESS, not a port-forward: the rollout spec creates its
+    // community from the browser via a same-origin `/api` fetch, which only routes to the gateway
+    // under qaroom.localhost (Chromium resolves *.localhost; Traefik routes /api + /ws to the
+    // gateway there). A port-forward to svc/web would serve the SPA but not proxy /api — the spec
+    // would fail. The k3d cluster maps host ports 80/443, so the ingress needs no PF wrapper.
+    step(3, 'web-e2e', 'gate', 'pnpm', ['--filter', '@qaroom/web', 'run', 'e2e'], {
+      env: { WEB_BASE_URL: 'http://qaroom.localhost' },
+      timeoutMs: 20 * 60_000,
+      skipReason: noCluster,
+    }),
+    // Folds a `web-e2e` runner into summary.json from test-results/e2e.json (the `e2e:results`
+    // script is owned by the e2e-fold session; it will exist by merge).
+    step(3, 'web-e2e-fold', 'gate', 'pnpm', ['--filter', '@qaroom/web', 'run', 'e2e:results'], {
+      skipReason: noCluster,
+    }),
   ]
 
   const phase4: GauntletStep[] = [
@@ -201,6 +216,19 @@ export function buildPlan(ctx: PreflightCtx, opts: GauntletOpts): GauntletStep[]
       `${PF} ${SNAPSHOT_FORWARDS} -- pnpm replay:capture gauntlet-baseline`,
       { skipReason: noCluster },
     ),
+    // The golden journey walks every service THROUGH the gateway on the clean post-baseline
+    // cluster, then asserts Commitment 9 (tenant.id, against live Jaeger) + RFC 7807 on the traffic
+    // it produced. Gated on the OPENAI key in addition to the cluster: the main walk's
+    // moderation-decision assertion is UNCONDITIONAL and the keyless in-cluster moderator records no
+    // decision, so the whole walk reds without a key — there is no self-skipping moderation leg.
+    step(4, 'journey-run', 'gate', 'pnpm', ['journey:run'], {
+      timeoutMs: 15 * 60_000,
+      skipReason: noCluster ?? noKey,
+    }),
+    // Folds a `journey` runner into test-results/summary.json (mirrors the run step's gate).
+    step(4, 'journey-results', 'gate', 'pnpm', ['journey:results'], {
+      skipReason: noCluster ?? noKey,
+    }),
     step(4, 'rollout-tour', 'gate', 'bash', ['scripts/live-rollout-tour.sh'], {
       skipReason: noCluster,
     }),
