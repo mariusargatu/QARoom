@@ -44,8 +44,3 @@ pnpm --filter @qaroom/content openapi:generate  # regenerate openapi.yaml from Z
 1. Edit the Zod schema in `@qaroom/contracts` and/or the operation in `src/operations.ts`.
 2. `pnpm --filter @qaroom/content openapi:generate`; commit `openapi.yaml` alongside the code.
 3. CI re-generates and runs the round-trip + `oasdiff` gate: undeclared breaking changes fail the PR.
-
-## Limits (Milestone 0)
-
-- Tests run on embedded pglite; true concurrent-writer serialization tests land in Milestone 1 (Testcontainers).
-- No comments, no communities service yet, no auth. Those arrive in later milestones.

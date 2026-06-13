@@ -3,9 +3,11 @@ import type { FastifyInstance, FastifyRequest } from 'fastify'
 import type { RateLimiter } from './rate-limiter'
 
 /**
- * Principal identity for rate limiting. Milestone 1 has no JWT, so the principal is
- * the `X-Principal-Id` header, falling back to the client IP. Swaps to the JWT
- * `sub` claim in Milestone 2 with no change to the limiter.
+ * Principal identity for rate limiting. The gateway REST plane is unauthenticated by
+ * design (ADR-0022: the gateway fronts identity; edge auth is deliberately omitted), so
+ * the principal is the `X-Principal-Id` header, falling back to the client IP. Keying on
+ * an authenticated JWT `sub` belongs to the parked Milestone 13 (real edge credentials,
+ * superseding ADR-0022) and needs no change to the limiter itself.
  */
 export function principalKey(req: FastifyRequest): string {
   const header = req.headers['x-principal-id']

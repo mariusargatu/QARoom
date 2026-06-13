@@ -22,7 +22,7 @@ These are immutable for the lifetime of v1. Changes require an ADR superseding t
 14. **Test outputs are machine-readable.** Every test runner in CI emits structured JSON or JUnit XML. A `test-results/summary.json` artifact with a frozen schema aggregates all results per PR. This is the contract that future agentic CI consumes.
 15. **The substrate is agent-hospitable from day one.** Required filesystem affordances: `/AGENTS.md` at the repo root with `/CLAUDE.md` as a symlink to it, per-service `AGENTS.md`, `.claude/agents/` and `.claude/skills/` directories present (canonical skill location), `scripts/spin-up-ephemeral.sh` script for namespaced ephemeral environments. No agentic features are built in v1; the affordances exist so they can be added without rework. (The original `/.well-known/llms.txt` clause was superseded by ADR-0023: twelve milestones produced zero consumers, and `AGENTS.md` plus `GET /system/capabilities` plus the qaroom-mcp surface won that role.)
 16. **The repo is monorepo, pnpm workspaces, Turborepo.** One commit can change a service, its contracts, its tests, and the consumers of its contracts atomically.
-17. **At-least-once async with explicit dedup.** Publishers set `Nats-Msg-Id` per event from the injected `IdGenerator`; JetStream streams configured with `duplicate_window: 5m`; transactional-outbox pattern on the publish side; consumers idempotent via a per-subscription `processed_events` table (schema housed in `@qaroom/messaging`) or pure-function semantics. Property-tested in CI.
+17. **At-least-once async with explicit dedup.** Publishers set `Nats-Msg-Id` per event from the injected `IdGenerator`; JetStream streams configured with `duplicate_window: 5m`; transactional-outbox pattern on the publish side; consumers idempotent via a per-subscription `processed_events` table (schema housed in `@qaroom/messaging`) or pure-function semantics. Property-tested in CI. If NATS is unreachable at boot, a service crashes and lets Kubernetes restart it: crash-and-restart is the intended posture; webhooks-service's fail-soft boot (HTTP surface up, delivery engine degraded with a logged fault) is the deliberate exception, not the rule.
 
 ## Service inventory at maturity
 
@@ -152,6 +152,7 @@ These omissions are part of the architectural contract:
 - **No service mesh** (Istio, Linkerd). Chaos Mesh + Litmus + manual OTel propagation cover the same ground, and a mesh would bury the testing story under wiring.
 - **No multi-region deployment.** Everything runs in a single region.
 - **No real OAuth or federated identity.** JWT issued by identity-service is sufficient.
+- **No edge authentication at the gateway.** The gateway routes and proxies (including the identity and moderation-read passthroughs of ADR-0022) without enforcing JWTs on inbound requests; rate limiting keys on a caller-supplied principal header or IP. Planned supersession: the parked M13 (real edge credentials: signup/login, JWT enforcement at the gateway, rate limiting keyed on authenticated identity; see `docs/04-roadmap.md`).
 - **No real payments.** The payment provider is mocked via Microcks.
 - **No internationalization.** QARoom is English-only.
 - **No production-grade security testing** (SAST/DAST/dependency scanning). Mentioned in conventions; not enforced as a milestone.
@@ -165,10 +166,10 @@ Each omission is deliberate, and the reason for each is recorded in the list abo
 
 These are the seams left deliberately in place for future work:
 
-- **MCP servers per service**: `/system/capabilities` returns MCP-tool-shaped JSON; FastMCP or Stainless can wrap each service when needed. ADR-0006 realizes a single cross-service variant as a first-class tested service (Milestone-10 candidate).
-- **Agentic community moderator**: NATS event stream already exposes everything an agent needs; LangGraph slot reserved.
+- **MCP servers per service**: `/system/capabilities` returns MCP-tool-shaped JSON; FastMCP or Stainless can wrap each service when needed. The cross-service variant is *realized in Milestone 10* (ADR-0006): `packages/qaroom-mcp`, a first-class tested service; per-service wrappers remain the open seam.
+- **Agentic community moderator**, *realized in Milestone 9 and re-scoped to retrieval-grounded RAG in Milestone 12* (ADR-0018, ADR-0020): the `moderator-agent` consumes the NATS event stream and fills the reserved LangGraph slot.
 - **Per-agent ephemeral environments**: `scripts/spin-up-ephemeral.sh` provisions namespaces; agents get one each when needed.
-- **Agentic CI/CD demonstration**: `test-results/summary.json` schema is frozen; future agents consume the artifact.
+- **Agentic CI/CD demonstration**, *realized in Milestone 10, movement 2* (`docs/agentic-ci-demo.md`): Claude Code subagents work goals through the tested MCP tool surface and consume the frozen `test-results/summary.json` artifact.
 - **Webhooks**, *realized in Milestone 11* (ADR-0019): `webhooks-service` consumes the five NATS event topics and delivers them to external subscribers (at-least-once, deterministic retry/backoff, HMAC signing, SSRF guard). The seam paid off: it consumes the existing event bus and adds no new commitment.
 - **Continuous testing in production**: feature flag system, observability stack, and rollout state machine are the substrate.
 

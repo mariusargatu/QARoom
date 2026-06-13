@@ -8,7 +8,7 @@ vendor-objectivity caveat in ADR-0017. It also handles reasoning-vs-non-reasonin
 (gpt-5.x reasoning models drop ``seed``/``temperature`` in favour of ``reasoning_effort``).
 
 Unit tests wire the deterministic fakes so the workflow, persistence, and API are exercised without a
-network call; the REAL provider is exercised by the Promptfoo eval + metamorphic suite, which need
+network call; the REAL provider is exercised by the DeepEval suite + metamorphic suite, which need
 ``OPENAI_API_KEY`` (decision: roadmap-literal real-OpenAI-in-CI, ADR-0017). A full record/replay
 ``ModelClient`` seam (cassettes + scripted oracle + a lint rule) is deferred to Milestone 14; here the
 LLM is plain dependency injection behind the ``LlmClient`` Protocol (ADR-0018).

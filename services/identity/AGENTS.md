@@ -14,6 +14,8 @@ Read the repo-root `AGENTS.md` first, then `services/content/AGENTS.md` (the ser
 | POST | `/api/communities/{communityId}/members` | `addMembership` | mutating; 404 -> **`tenant_resolution`**; 409 `conflict` |
 | GET | `/api/communities/{communityId}/members` | `listMembers` | carries `as_of`; 404 -> **`tenant_resolution`** |
 | POST | `/api/sessions` | `createSession` | mutating; issues an ES256 access token |
+| POST | `/ws/tickets` | `createWsTicket` | one-use 30s WS handshake ticket; needs `Authorization: Bearer`; deliberately not idempotent (ADR-0013) |
+| POST | `/ws/tickets/redeem` | `redeemWsTicket` | internal (gateway -> identity); consumes a ticket exactly once; 401 if unknown/expired/redeemed |
 | GET | `/jwks.json` | `getJwks` | public keys (root path, not under `/api` or `/system`) |
 | GET | `/system/state` | `getSystemState` | counts + signing-key status (Commitment 7) |
 | GET | `/system/capabilities` | `getSystemCapabilities` | MCP-tool-shaped (Commitment 7) |
@@ -41,10 +43,12 @@ pnpm --filter @qaroom/identity dev               # tsx watch (needs Postgres on 
 pnpm --filter @qaroom/identity test              # vitest (unit + property + integration + migration)
 pnpm --filter @qaroom/identity typecheck
 pnpm --filter @qaroom/identity openapi:generate  # regenerate openapi.yaml from Zod + operations
-pnpm pact:verify --provider identity             # JWKS provider verification (needs Docker)
+pnpm pact:verify --provider identity             # gateway pact (JWKS + bootstrap/session) provider verification (needs Docker)
 ```
 
-## Limits (Milestone 2)
+## Limits
 
-- No password/credential auth: JWT *issuance* is the tested surface, not login.
-- Grace window: 24h production, 1h test config. Gateway JWT *enforcement* is deferred (it consumes JWKS only).
+- No password/credential auth: JWT *issuance* is the tested surface, not login. This is
+  deliberate (ADR-0022); real edge credentials are the parked Milestone 13.
+- Grace window: 24h production, 1h test config. Gateway JWT *enforcement* is deliberately
+  omitted (ADR-0022): the gateway consumes the JWKS contract and redeems WS tickets only.

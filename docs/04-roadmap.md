@@ -1,6 +1,6 @@
 # QARoom: Roadmap
 
-Twelve milestones (M1-M12) atop an M0 foundation (M0-M12), plus a deferred continuous-testing M13. Each milestone introduces a small, sharply-defined set of testing techniques applied to the architectural boundary where they belong. Each milestone ships a working artifact and at least one ADR. Each milestone has explicit exit criteria so "done" is unambiguous.
+Twelve milestones (M1-M12) atop an M0 foundation (M0-M12), all built; parked follow-up ideas live under "After Milestone 9" below. Each milestone introduces a small, sharply-defined set of testing techniques applied to the architectural boundary where they belong. Each milestone ships a working artifact and at least one ADR. Each milestone has explicit exit criteria so "done" is unambiguous.
 
 Milestones are sized to be demonstrable, not to a fixed schedule. A milestone is done when its exit criteria are met; the elapsed wall-clock time is whatever it is.
 
@@ -29,7 +29,7 @@ Milestones are sized to be demonstrable, not to a fixed schedule. A milestone is
 - Branded ID parsers (`UserId`, `PostId`, `CommunityId`, ...) via Zod `.brand()` with prefix-refinement.
 - AGENTS.md at repo root; CLAUDE.md as a symlink to AGENTS.md.
 - `services/content/AGENTS.md` (≤80 lines): first per-service agent reference, sets the template for later services.
-- `/.well-known/llms.txt`.
+- `/.well-known/llms.txt` (removed, ADR-0023).
 - `.claude/skills/` directory present (initially with a README explaining the convention).
 - `test-results/summary.json` schema with `schema_version: 1` field, extensible `runners[].output: Record<string, unknown>` per-runner payload, and `runners[].seeds: Record<string, unknown>` for property-test seeds and fuzzing seeds. Envelope frozen; per-runner payload extensible.
 - `LamportGate` primitive in `packages/contracts/lamport.ts`: all mutating paths funnel through it.
@@ -388,15 +388,14 @@ Milestones are sized to be demonstrable, not to a fixed schedule. A milestone is
 
 ## After Milestone 9
 
-Milestones beyond 9 are deliberately uncommitted. Candidate follow-ups, in rough order of interest:
+Milestones 10-12 all shipped: the tested MCP server (M10, ADR-0006), the webhooks delivery edge (M11, ADR-0019), and the retrieval-grounded moderator v2 (M12, ADR-0020). Anything beyond is parked: ideas on the shelf, not scheduled work.
 
-- **Milestone 10: The tested MCP server, and the agentic CI/CD demonstration.** Two movements. (1) A single **cross-service MCP server** (`packages/qaroom-mcp`) realizing the `/system/capabilities` seam as a *first-class tested service*: tool manifest drift-gated by the same Zod->OpenAPI->`oasdiff` pipeline as the services, RFC 7807 tool errors, determinism-trio golden transcripts, and property/metamorphic tool I/O. Read-first surface (capabilities proxy, state/limits/test-results resources, conventions oracle); mutating tools a second pass. The four gates and rejected alternatives are recorded in [ADR-0006](adr/0006-mcp-as-tested-service.md). (2) 10 parallel Claude Code subagents working on goals, each in its own ephemeral namespace, consuming that tested tool surface and the frozen `test-results/summary.json` schema as substrate. The server core depends only on Milestone-1 surfaces, so it *could* be pulled forward, but on dev-velocity grounds it does not yet earn its place (ADR-0006), which is why it sits here.
+- **Milestone 10: The tested MCP server, and the agentic CI/CD demonstration.** Two movements. (1) A single **cross-service MCP server** (`packages/qaroom-mcp`) realizing the `/system/capabilities` seam as a *first-class tested service*: tool manifest drift-gated by the same Zod->OpenAPI->`oasdiff` pipeline as the services, RFC 7807 tool errors, determinism-trio golden transcripts, and property/metamorphic tool I/O. Read-first surface (capabilities proxy, state/limits/test-results resources, conventions oracle); mutating tools a second pass. The four gates and rejected alternatives are recorded in [ADR-0006](adr/0006-mcp-as-tested-service.md). (2) 10 parallel Claude Code subagents working on goals, each in its own ephemeral namespace, consuming that tested tool surface and the frozen `test-results/summary.json` schema as substrate. **Built**: [ADR-0006](adr/0006-mcp-as-tested-service.md); movement 2 documented in `docs/agentic-ci-demo.md`.
 - **Milestone 11: Webhooks** with their unique testing problems (delivery guarantees, retry contracts). **Built**: full spec below; [ADR-0019](adr/0019-webhooks-as-a-tested-delivery-edge.md).
 - **Milestone 12: Moderator v2, retrieval-grounded RAG + the eval / red-team stack.** Re-scope the Milestone 9 moderator from a prompt-baked classifier into a genuine retrieval-grounded agent (policy corpus, citation-bearing verdict, precedent consistency, abstain/escalate) and realign LLM testing: **DeepEval** (RAG + agentic + custom metrics), **DeepTeam** (OWASP red-team), **Promptfoo dropped** (OpenAI-acquired, March 2026). RAGAS demonstrated via DeepEval's wrapper, not adopted as a separate framework. **Built**: full spec below; [ADR-0020](adr/0020-moderator-rag-and-eval-stack.md).
-- **Milestone 13: Continuous testing in production**: feature flags as the canary substrate. **Deferred**: parked, not currently planned.
-- **Milestone 14: Visual regression and accessibility testing**: for the frontend. **Deferred**: parked, not currently planned.
-
-These are future series. The v1 commitment ends with Milestone 9.
+- **Milestone 13: Real edge credentials**: supersede ADR-0022; signup/login, JWT enforcement at the gateway, rate limiting keyed on authenticated identity. **Deferred**: decided 2026-06-12, not scheduled.
+- **Milestone 14: Continuous testing in production**: feature flags as the canary substrate. **Deferred**: parked, not currently planned.
+- **Milestone 15: Visual regression and accessibility testing**: for the frontend. **Deferred**: parked, not currently planned.
 
 ---
 
@@ -449,8 +448,6 @@ delivery guarantees** and the **retry/backoff contract**, the two problems the r
 - A down/slow receiver chaos experiment shows deliveries retry on the documented backoff and converge
   on recovery (failure-modes §08); removing the retry mitigation breaks convergence.
 - The new service's OpenAPI / AsyncAPI / MCP-manifest drift gates are green; ADR-0019 committed.
-
-guarantees and the retry contract."*
 
 **Risk and mitigation.** Risk: scope creep into a full delivery platform (dead-letter UI, secret
 rotation, per-subscriber limits). Mitigation: v1 is one delivery path + the retry contract + HMAC +

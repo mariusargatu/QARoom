@@ -1,8 +1,10 @@
 # web
 
-The React + Vite frontend (Milestone 5): a **real atomic-design component library** + the
-donations-rollout dashboard. It is the substrate the Milestone-8 component tests exercise, not a
-placeholder. Read the repo-root `AGENTS.md` first, then `docs/atomic-structure.md` here.
+The React + Vite frontend (Milestone 5, extended to the full platform UI post-ADR-0022): a
+**real atomic-design component library** + pages for the feed, posts, donations, flag rollouts,
+identity/communities/members, webhooks, and the moderation dashboard, all against the gateway
+edge. It is the substrate the Milestone-8 component tests exercise, not a placeholder. Read the
+repo-root `AGENTS.md` first, then `docs/atomic-structure.md` here.
 
 ## Structure (import direction is downward only)
 
@@ -27,8 +29,10 @@ Tailwind 4 CSS-first `@theme` block: no `tailwind.config.js`, no hex literals. T
 
 - **Vitest** (`pnpm --filter @qaroom/web test`): api client + pure helpers (node env).
 - **Storybook**: every atom/molecule/organism has a story (the source of truth); `addon-a11y`.
-  One `play()` (`RolloutStepper.stories.tsx`) is the example headless interaction test, run via
-  `@storybook/addon-vitest` (M8; browser-required, no dangling script shipped).
+  Stories with `play()` interaction tests are whichever
+  `grep -rl "play:" src --include="*.stories.tsx"` lists (no hand-maintained count); they run
+  headlessly via `@storybook/addon-vitest` (`pnpm --filter @qaroom/web test:stories`, real
+  Chromium, M8).
 - **Playwright CT** (`.ct.tsx`): mounts the **raw component spread as static JSX**
   `mount(<Component {...story.args} />)` (a runtime `createElement` is rejected by CT); reads args
   with `composeStories`, never `mount()`s the composed story, enforced by the
@@ -50,7 +54,8 @@ Tailwind 4 CSS-first `@theme` block: no `tailwind.config.js`, no hex literals. T
 pnpm --filter @qaroom/web dev        # vite dev server
 pnpm --filter @qaroom/web build      # tsc + vite build
 pnpm --filter @qaroom/web typecheck
-pnpm --filter @qaroom/web test       # vitest
+pnpm --filter @qaroom/web test       # vitest (unit project, node)
+pnpm --filter @qaroom/web test:stories # headless story play() + a11y (real Chromium)
 pnpm --filter @qaroom/web storybook  # storybook dev (browser)
 pnpm --filter @qaroom/web ct         # playwright component tests (browser)
 pnpm --filter @qaroom/web ct:coverage # CT with Istanbul instrumentation (browser)
