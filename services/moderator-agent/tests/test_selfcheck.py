@@ -4,6 +4,7 @@ faithfulness + calibration metrics prove the same with a live model."""
 
 from __future__ import annotations
 
+from moderator_agent.config import Settings
 from moderator_agent.schemas import LlmVerdict
 from moderator_agent.workflow.selfcheck import (
     ground_cited_rules,
@@ -105,3 +106,39 @@ def test_departs_from_precedent_set_when_diverging() -> None:
 def test_no_departure_when_consistent_with_precedent() -> None:
     precedents = ["approve (no rule): a similar benign post was approved"]
     assert infer_departs_from_precedent("approve", precedents) is False
+
+
+# --- Safety invariant (FR-safety): never confidently approve flagged content ---
+
+_REMOVE_PRECEDENT = [
+    "remove (no-harassment): a near-identical harassing post was removed",
+    "remove (no-harassment): repeat offender, same target",
+]
+
+
+def test_safety_invariant_escalates_a_confident_approve_against_remove_precedent() -> None:
+    # A confident approve that diverges from majority-remove precedent must NOT auto-approve — it
+    # escalates. This is the moderator-no-confident-approve-of-flag claim's guarantee; with the env
+    # toggle MODERATOR_DISABLE_APPROVE_GUARD set, Settings() flips disable_approve_guard and this
+    # assertion goes RED (the falsifier `pnpm prove moderator-no-confident-approve-of-flag --break`).
+    settings = Settings()
+    out = self_check(
+        _draft(disposition="approve", cited_rules=[], confidence=0.9),
+        _RETRIEVED,
+        _REMOVE_PRECEDENT,
+        abstain_confidence=settings.moderator_abstain_confidence,
+        disable_approve_guard=settings.moderator_disable_approve_guard,
+    )
+    assert out.disposition == "escalate_to_human"
+
+
+def test_disable_approve_guard_lets_a_confident_approve_of_flagged_content_through() -> None:
+    # The deliberate bug: with the guard off, the confident approve ships as approve (the RED state).
+    out = self_check(
+        _draft(disposition="approve", cited_rules=[], confidence=0.9),
+        _RETRIEVED,
+        _REMOVE_PRECEDENT,
+        abstain_confidence=0.5,
+        disable_approve_guard=True,
+    )
+    assert out.disposition == "approve"

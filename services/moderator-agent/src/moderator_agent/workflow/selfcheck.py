@@ -1,7 +1,7 @@
 """The self-check stage — pure, deterministic validation of a drafted verdict (FR3/FR4/FR5, ADR-0020).
 
 This is the ``Drafted --DraftProduced--> SelfChecked`` node's logic, factored out so it is unit-testable
-WITHOUT an LLM or a key (the abstain/grounding exit criteria are proven here, keyless). It makes three
+WITHOUT an LLM or a key (the abstain/grounding exit criteria are proven here, keyless). It makes four
 guarantees, each defeatable by a deliberate-bug toggle so a test can prove it has teeth:
 
 1. **Grounding (FR3).** Drop any ``cited_rules`` the draft invented that were NOT in the retrieved
@@ -10,6 +10,11 @@ guarantees, each defeatable by a deliberate-bug toggle so a test can prove it ha
    set ``departs_from_precedent`` so the divergence is explicit, not silent.
 3. **Calibration / abstain (FR5).** Escalate to a human on low confidence, or on a ``remove`` that —
    after grounding — rests on no retrieved policy (an ungrounded removal). Defeated by ``disable_abstain``.
+4. **Safety invariant: never confidently approve flagged content (FR-safety).** An ``approve`` that
+   diverges from the majority retrieved precedent (precedent removes this kind of content) does NOT
+   auto-approve — it escalates to a human. The approve-side mirror of guarantee 3, and the bar that
+   lets a cheaper draft model stay safe: a confident-but-wrong approve is caught structurally, not
+   left to the model. Defeated by ``disable_approve_guard``.
 
 Returns a NEW ``LlmVerdict`` (no mutation — the draft is preserved in the run state for observability).
 """
@@ -58,6 +63,7 @@ def self_check(
     abstain_confidence: float,
     ungrounded: bool = False,
     disable_abstain: bool = False,
+    disable_approve_guard: bool = False,
 ) -> LlmVerdict:
     cited = (
         list(verdict.cited_rules)
@@ -75,6 +81,13 @@ def self_check(
         elif disposition == "remove" and not cited:
             # A removal that, after grounding, cites no retrieved policy — do not guess, escalate.
             disposition = "escalate_to_human"
+
+    if not disable_approve_guard and disposition == "approve" and departs:
+        # Safety invariant (FR-safety): never CONFIDENTLY approve content the retrieved precedent
+        # flags. An approve diverging from majority-remove precedent escalates instead of guessing —
+        # the approve-side mirror of the ungrounded-removal guard. This is the structural bar that
+        # makes a cheaper draft model safe: its confident-but-wrong approve is caught here, not shipped.
+        disposition = "escalate_to_human"
 
     rationale = verdict.rationale
     if disposition == "escalate_to_human" and verdict.disposition != "escalate_to_human":

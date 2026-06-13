@@ -336,6 +336,25 @@ export const TOGGLES: DetectionToggle[] = z.array(DetectionToggle).parse([
       'metrics see. New keyless catcher: tests/test_config_defaults.py.',
   },
   {
+    id: 'moderator-disable-approve-guard',
+    env: { name: 'MODERATOR_DISABLE_APPROVE_GUARD', value: '1' },
+    component: 'moderator',
+    readSite: {
+      file: 'services/moderator-agent/src/moderator_agent/config.py',
+      timing: 'settings-load',
+    },
+    guard: 'settings-load',
+    designatedCatcher: 'services/moderator-agent/tests/test_selfcheck.py',
+    claimId: 'moderator-no-confident-approve-of-flag',
+    tiers: ['in-proc'],
+    selfToggling: ['services/moderator-agent/tests/test_selfcheck.py'],
+    notes:
+      'The safety invariant (never confidently approve flagged content): the approve-side mirror of ' +
+      'disable-abstain. Deterministic, keyless teeth — self_check escalates a confident approve that ' +
+      'diverges from majority-remove precedent; the toggle ships it as approve. This is the bar that ' +
+      'lets the cheaper gpt-5-nano draft model stay safe (gold agreement is only a screen).',
+  },
+  {
     id: 'moderator-rerank-bug',
     env: { name: 'MODERATOR_RERANK_BUG', value: '1' },
     component: 'moderator',

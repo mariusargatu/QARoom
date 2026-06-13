@@ -14,7 +14,7 @@ Every deliberate-bug toggle in the repo, armed one at a time, against the whole 
 
 Abbreviated columns: pact-oas = pact-oas-crosscheck, rev-conf = reverse-conformance, py-conf = py-conformance.
 
-**Totals: 27 caught, 104 missed, 131 cells measured** (144 grid positions not applicable or not yet run). Baseline: `475c7ac4df22` (1 standing red, fast-check seed 12648430). Last render: 2026-06-10T16:25:48.193Z. A frozen, hash-stamped snapshot of every cell is committed at [docs/evidence/detection-matrix.snapshot.json](evidence/detection-matrix.snapshot.json), so the grid is verifiable without cloning the gitignored artifact.
+**Totals: 27 caught, 104 missed, 131 cells measured** (154 grid positions not applicable or not yet run). Baseline: `475c7ac4df22` (1 standing red, fast-check seed 12648430). Last render: 2026-06-10T16:25:48.193Z. A frozen, hash-stamped snapshot of every cell is committed at [docs/evidence/detection-matrix.snapshot.json](evidence/detection-matrix.snapshot.json), so the grid is verifiable without cloning the gitignored artifact.
 
 ## In-proc tier (Tier A)
 
@@ -38,6 +38,7 @@ Abbreviated columns: pact-oas = pact-oas-crosscheck, rev-conf = reverse-conforma
 | `moderator-prompt-bug` | n/a | n/a | n/a | n/a | n/a | n/a | n/a | ✓ | ✗ | ✗ |
 | `moderator-ungrounded` | n/a | n/a | n/a | n/a | n/a | n/a | n/a | ✓ | ✗ | ✗ |
 | `moderator-disable-abstain` | n/a | n/a | n/a | n/a | n/a | n/a | n/a | ✓ | ✓ | ✗ |
+| `moderator-disable-approve-guard` | n/a | n/a | n/a | n/a | n/a | n/a | n/a | n/r | n/r | n/r |
 | `moderator-rerank-bug` | n/a | n/a | n/a | n/a | n/a | n/a | n/a | ✓ | ✗ | ✗ |
 
 ## Cluster tier (Tier B)
@@ -240,6 +241,15 @@ Abbreviated columns: pact-oas = pact-oas-crosscheck, rev-conf = reverse-conforma
   - `services/moderator-agent/tests/test_workflow_decision.py`
 - self-toggling files (excluded from naive counting): `services/moderator-agent/tests/test_selfcheck.py`
 - notes: Tier-A: caught by py-conformance (test_workflow_decision builds the graph from bare Settings: the one moderator test that sees env). Tier-C (2026-06-10): MISSED: gold cases are unanimous, abstain never fires on them, so disabling it changes nothing the metrics see. New keyless catcher: tests/test_config_defaults.py.
+
+### `moderator-disable-approve-guard`: `MODERATOR_DISABLE_APPROVE_GUARD=1`
+
+- component: moderator; read at services/moderator-agent/src/moderator_agent/config.py (settings-load)
+- designated catcher: services/moderator-agent/tests/test_selfcheck.py
+- permanent claim: `moderator-no-confident-approve-of-flag` (pnpm prove moderator-no-confident-approve-of-flag --break)
+- not run yet
+- self-toggling files (excluded from naive counting): `services/moderator-agent/tests/test_selfcheck.py`
+- notes: The safety invariant (never confidently approve flagged content): the approve-side mirror of disable-abstain. Deterministic, keyless teeth — self_check escalates a confident approve that diverges from majority-remove precedent; the toggle ships it as approve. This is the bar that lets the cheaper gpt-5-nano draft model stay safe (gold agreement is only a screen).
 
 ### `moderator-rerank-bug`: `MODERATOR_RERANK_BUG=1`
 
