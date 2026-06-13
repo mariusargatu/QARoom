@@ -9,6 +9,7 @@ import {
   runSteadyState,
   waitForInjection,
 } from '@qaroom/testing-utils/chaos'
+import { GatewayClient } from '@qaroom/testing-utils/live-client'
 import { afterAll, beforeAll, describe, expect, it } from 'vitest'
 
 /**
@@ -28,7 +29,7 @@ const PROBE_BUDGET_MS = 6_000
 const CREATE_PATH = `/api/communities/${EXAMPLE_COMMUNITY_ID}/posts`
 
 let gateway: PortForward
-let counter = 0
+let client: GatewayClient
 
 beforeAll(async () => {
   gateway = await portForward({
@@ -37,20 +38,25 @@ beforeAll(async () => {
     localPort: 18083,
     remotePort: 80,
   })
+  client = new GatewayClient({
+    baseUrl: gateway.url,
+    requestBudgetMs: PROBE_BUDGET_MS,
+    idempotencySeed: 'chaos-03',
+  })
 }, 120_000)
 
 afterAll(() => gateway?.stop())
 
+// Each probe is a fresh write: the client derives a distinct Idempotency-Key per call from its seed
+// (no hand-rolled counter), and maps a timeout to a sentinel status 0 so a stall reads as not-ok.
 async function probeCreatePost(): Promise<ProbeResult> {
-  counter += 1
-  const status = await fetch(`${gateway.url}${CREATE_PATH}`, {
-    method: 'POST',
-    headers: { 'content-type': 'application/json', 'idempotency-key': `chaos-03-${counter}` },
-    body: JSON.stringify({ author_id: EXAMPLE_USER_ID, title: 'chaos 03', body: 'under loss' }),
-    signal: AbortSignal.timeout(PROBE_BUDGET_MS),
-  })
-    .then((r) => r.status)
-    .catch(() => 0)
+  const status = (
+    await client.post(CREATE_PATH, {
+      author_id: EXAMPLE_USER_ID,
+      title: 'chaos 03',
+      body: 'under loss',
+    })
+  ).status
   return { ok: status === 201 || status === 502, detail: `status ${status}` }
 }
 

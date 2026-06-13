@@ -13,6 +13,7 @@
     "./contract-crosscheck": "./src/contract-crosscheck/index.ts",
     "./async-diff": "./src/async-diff/index.ts",
     "./chaos": "./src/chaos/index.ts",
+    "./live-client": "./src/live-client/index.ts",
     "./screenplay": "./src/screenplay/index.ts",
     "./screenplay-ct": "./src/screenplay-ct/index.ts",
     "./mbt": "./src/screenplay/mbt/index.ts",

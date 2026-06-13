@@ -14,3 +14,9 @@ postgres:
 extraEnv:
   # Async messaging (Milestone 4): NATS JetStream client connection.
   NATS_URL: nats://qaroom-nats.observability.svc.cluster.local:4222
+gc:
+  enabled: true
+  package: "@qaroom/content"
+  # Restart-free alias of content's image (built plain in the Tiltfile), so Tilt's
+  # docker_build_with_restart cannot clobber the CronJob command.
+  image: qaroom/content-gc

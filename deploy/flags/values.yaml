@@ -13,3 +13,8 @@ postgres:
 extraEnv:
   # Async messaging (Milestone 5): NATS JetStream — flags publishes flag.state.changed.
   NATS_URL: nats://qaroom-nats.observability.svc.cluster.local:4222
+gc:
+  enabled: true
+  package: "@qaroom/flags"
+  # image defaults to qaroom/flags. For live Tilt, add a restart-free `qaroom/flags-gc`
+  # alias (Tiltfile) and set it here so docker_build_with_restart does not clobber `command`.

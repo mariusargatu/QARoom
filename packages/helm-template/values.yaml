@@ -59,6 +59,25 @@ probes:
     periodSeconds: 5
     failureThreshold: 6
 
+# Per-service TTL GC CronJob for the messaging substrate (aged published outbox rows + the
+# dedup tables). OFF by default; each service that has the messaging tables enables it in
+# deploy/<service>/values.yaml. DB isolation: the CronJob targets the service's own Postgres
+# via the same databaseUrl helper the Deployment uses.
+gc:
+  enabled: false
+  # The pnpm workspace package whose src/jobs/gc-dedup.ts runs (e.g. "@qaroom/content").
+  package: ""
+  # Image override; empty falls back to image.repository. Set a restart-free `-gc` alias
+  # under Tilt so docker_build_with_restart does not clobber the CronJob command.
+  image: ""
+  schedule: "0 * * * *"
+  backoffLimit: 1
+  successfulJobsHistoryLimit: 3
+  failedJobsHistoryLimit: 3
+  resources:
+    requests: { cpu: 50m, memory: 128Mi }
+    limits: { cpu: "500m", memory: 256Mi }
+
 # Prometheus pod-annotation scrape (off until per-service /metrics ships; the Collector's
 # prometheus exporter is the current metrics source).
 metrics:

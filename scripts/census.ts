@@ -16,6 +16,12 @@ import { resolve } from 'node:path'
  *                 docs/02-architecture.md, docs/adr/*.md) must exist on disk. This is the reverse
  *                 of the stale-reference class: scripts/spin-up-ephemeral.sh was cited for twelve
  *                 milestones before the file existed.
+ *   (b3) ID DRIFT every well-known community-id literal hard-copied into a live shell script
+ *                 (scripts/*.sh) must equal a canonical CommunityId declared in packages/contracts
+ *                 — COMM_GENERAL (src/ids.ts) or EXAMPLE_COMMUNITY_ID (src/examples.ts). The live
+ *                 rollout/seed/tour scripts paste these ids by hand (a generated env fragment was
+ *                 rejected as over-built); this grep pins each copy to its source, so changing the
+ *                 contract constant can no longer silently desync the shell harness.
  *
  * Exits non-zero on any violation, naming the file + the offending name.
  */
@@ -35,6 +41,12 @@ const ALLOWLIST: readonly AllowEntry[] = []
 const CI_PATH = '.github/workflows/ci.yml'
 const PLAN_PATH = 'scripts/lib/gauntlet-plan.ts'
 const PKG_PATH = 'package.json'
+
+// (b3) the canonical CommunityId literals live in these two contract modules; a community-id is
+// `comm_` + 26 Crockford-base32 chars (the ULID alphabet, ids.ts). Any such literal pasted into a
+// shell script must be one the contracts actually declare.
+const CONTRACT_ID_SOURCES = ['packages/contracts/src/ids.ts', 'packages/contracts/src/examples.ts']
+const COMMUNITY_ID_LITERAL = /comm_[0-9A-HJKMNP-TV-Z]{26}/g
 
 // A `scripts/<name>` reference in prose. Anchored on a known extension + a word boundary so the bare
 // `scripts/` directory and partial paths (e.g. `scripts/foo.tsx` against an .ts subject) don't match.
@@ -114,6 +126,32 @@ function missingFailures(): string[] {
   })
 }
 
+/** (b3): every `comm_<ulid>` literal in a live shell script must match a canonical contract id. */
+function idDriftFailures(): string[] {
+  const canonical = new Set(
+    CONTRACT_ID_SOURCES.flatMap((src) => read(src).match(COMMUNITY_ID_LITERAL) ?? []),
+  )
+  if (canonical.size === 0) {
+    return [
+      'ID DRIFT: no canonical CommunityId literal found in packages/contracts (ids.ts/examples.ts) — census cannot anchor the shell-script id check',
+    ]
+  }
+  const scriptsDir = resolve(ROOT, 'scripts')
+  const shellScripts = existsSync(scriptsDir)
+    ? readdirSync(scriptsDir).filter((f) => f.endsWith('.sh'))
+    : []
+
+  return shellScripts.flatMap((file) => {
+    const literals = [...new Set(read(`scripts/${file}`).match(COMMUNITY_ID_LITERAL) ?? [])]
+    return literals
+      .filter((lit) => !canonical.has(lit))
+      .map(
+        (lit) =>
+          `ID DRIFT: scripts/${file} hard-codes ${lit}, which is not a canonical CommunityId in packages/contracts (COMM_GENERAL/EXAMPLE_COMMUNITY_ID)`,
+      )
+  })
+}
+
 function main(): void {
   const failures: string[] = []
   const notes: string[] = []
@@ -134,20 +172,23 @@ function main(): void {
   const missing = missingFailures()
   for (const m of missing) failures.push(m)
 
+  const idDrift = idDriftFailures()
+  for (const d of idDrift) failures.push(d)
+
   process.stdout.write(
-    `census: ${subjects.length} fold/verify subject(s), ${missing.length} missing doc-cited script(s)\n`,
+    `census: ${subjects.length} fold/verify subject(s), ${missing.length} missing doc-cited script(s), ${idDrift.length} shell-script id-drift(s)\n`,
   )
   for (const note of notes) process.stdout.write(`  ⓘ ${note}\n`)
 
   if (failures.length > 0) {
     for (const f of failures) process.stderr.write(`  ✗ ${f}\n`)
     process.stderr.write(
-      `\ncensus FAILED: ${failures.length} violation(s); wire the orphan into a lane or add the missing script\n`,
+      `\ncensus FAILED: ${failures.length} violation(s); wire the orphan into a lane, add the missing script, or align the shell-script id\n`,
     )
     process.exit(1)
   }
   process.stdout.write(
-    'census ✓: every fold/verify subject is wired and every doc-cited script exists\n',
+    'census ✓: every fold/verify subject is wired, every doc-cited script exists, and every shell-script community-id matches a canonical contract id\n',
   )
 }
 

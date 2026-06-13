@@ -1,0 +1,50 @@
+{{- if .Values.gc.enabled }}
+# Per-service TTL GC for the messaging substrate (aged PUBLISHED outbox rows + processed_events
+# + idempotency_responses). HYGIENE ONLY — Commitment 17: correctness rests on the Nats-Msg-Id
+# dedup window + processed_events, NOT on GC timing. ONE values-driven shape across services
+# (no copy-pasted manifests); each release renders its OWN CronJob targeting its OWN Postgres
+# (DB isolation) via the same databaseUrl helper the Deployment uses. The entrypoint
+# (src/jobs/gc-dedup.ts) holds the determinism line — the TTL cutoff comes from the injected
+# clock, never new Date(). Default OFF; enabled per service in deploy/<service>/values.yaml.
+apiVersion: batch/v1
+kind: CronJob
+metadata:
+  name: {{ include "qaroom-service.fullname" . }}-gc-dedup
+  labels:
+    {{- include "qaroom-service.labels" . | nindent 4 }}
+    qaroom.io/component: gc-dedup
+spec:
+  schedule: {{ .Values.gc.schedule | quote }}
+  concurrencyPolicy: Forbid
+  successfulJobsHistoryLimit: {{ .Values.gc.successfulJobsHistoryLimit }}
+  failedJobsHistoryLimit: {{ .Values.gc.failedJobsHistoryLimit }}
+  jobTemplate:
+    spec:
+      backoffLimit: {{ .Values.gc.backoffLimit }}
+      template:
+        metadata:
+          labels:
+            {{- include "qaroom-service.selectorLabels" . | nindent 12 }}
+            qaroom.io/component: gc-dedup
+        spec:
+          restartPolicy: Never
+          serviceAccountName: {{ include "qaroom-service.serviceAccountName" . }}
+          containers:
+            - name: gc-dedup
+              # Defaults to the service image. Override gc.image with a restart-free `-gc`
+              # alias where Tilt's docker_build_with_restart would otherwise clobber `command`
+              # (CI loads plain images, so the override there is honored as-is).
+              image: "{{ .Values.gc.image | default .Values.image.repository }}:{{ .Values.image.tag }}"
+              imagePullPolicy: {{ .Values.image.pullPolicy }}
+              command: ["pnpm", "--filter", {{ .Values.gc.package | quote }}, "exec", "tsx", "src/jobs/gc-dedup.ts"]
+              env:
+                - name: NODE_ENV
+                  value: {{ .Values.nodeEnv | quote }}
+                {{- $dburl := include "qaroom-service.databaseUrl" . }}
+                {{- if $dburl }}
+                - name: DATABASE_URL
+                  value: {{ $dburl | quote }}
+                {{- end }}
+              resources:
+                {{- toYaml .Values.gc.resources | nindent 16 }}
+{{- end }}

@@ -1,5 +1,5 @@
 import { ProblemDetails } from '@qaroom/contracts'
-import type { JourneyResponse } from './client'
+import type { GatewayResponse } from '@qaroom/testing-utils/live-client'
 
 /**
  * Live commitment checks for the golden journey. Each returns a structured verdict
@@ -26,7 +26,7 @@ export interface Verdict {
  * closed `failure_domain` enum, the `next_actions` shape, and `retryable` — not just key presence.
  * Call it on responses the journey deliberately makes fail; a naked 500 or a bare `{error}` reds.
  */
-export function problemDetailsVerdict(res: JourneyResponse): Verdict {
+export function problemDetailsVerdict(res: GatewayResponse): Verdict {
   if (res.status >= 200 && res.status < 300) {
     return { ok: false, detail: `expected a non-2xx to inspect, got ${res.status}` }
   }

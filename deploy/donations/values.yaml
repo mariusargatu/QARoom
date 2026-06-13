@@ -15,3 +15,8 @@ extraEnv:
   NATS_URL: nats://qaroom-nats.observability.svc.cluster.local:4222
   # The (Microcks-mocked) payment provider, served from payment-provider.openapi.yaml.
   PAYMENT_PROVIDER_BASE_URL: http://qaroom-microcks.observability.svc.cluster.local:8080/rest/QARoom+Payment+Provider+%28mock%29/1.0.0
+gc:
+  enabled: true
+  package: "@qaroom/donations"
+  # image defaults to qaroom/donations. For live Tilt, add a restart-free `qaroom/donations-gc`
+  # alias (Tiltfile) and set it here so docker_build_with_restart does not clobber `command`.
