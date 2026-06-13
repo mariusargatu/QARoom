@@ -9,7 +9,9 @@
   },
   "scripts": {
     "build": "turbo run build",
-    "test": "turbo run test",
+    "test": "turbo run test --concurrency=50%",
+    "check": "tsx scripts/gauntlet.ts --only 1",
+    "verify": "pnpm lint && pnpm typecheck && pnpm test-results:generate && pnpm mbt:results && pnpm test-results:verify && pnpm openapi:verify && pnpm asyncapi:verify && pnpm mcp:verify && pnpm tour:verify && pnpm chaos:verify && pnpm matrix --verify",
     "typecheck": "turbo run typecheck",
     "lint": "biome check . && eslint .",
     "lint:fix": "biome check --write . && eslint . --fix",

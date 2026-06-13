@@ -7,7 +7,7 @@
     "lint": "uv run ruff check . && uv run ruff format --check .",
     "lint:fix": "uv run ruff check --fix . && uv run ruff format .",
     "typecheck": "uv run pyright",
-    "test": "uv run pytest -q",
+    "test": "bash scripts/uv-or-skip.sh pytest -q",
     "build": "uv sync --frozen",
     "openapi:generate": "uv run python -m moderator_agent.openapi_build",
     "asyncapi:generate": "uv run python -m moderator_agent.asyncapi_build",

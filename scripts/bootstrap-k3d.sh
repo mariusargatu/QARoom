@@ -3,6 +3,11 @@
 # `pnpm dev` calls it before `tilt up`.
 set -euo pipefail
 
+# Preflight: name the missing tool with an install hint instead of a mid-script command-not-found.
+for tool in "k3d:brew install k3d (https://k3d.io)" "kubectl:brew install kubectl"; do
+  command -v "${tool%%:*}" >/dev/null 2>&1 || { echo "✗ missing '${tool%%:*}' — install: ${tool#*:}" >&2; exit 1; }
+done
+
 CLUSTER=qaroom
 REGISTRY=qaroom-registry.localhost
 REGISTRY_PORT=5111
