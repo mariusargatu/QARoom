@@ -16,6 +16,7 @@
     "ct:coverage": "COVERAGE=true playwright test -c playwright-ct.config.ts",
     "ct:results": "tsx scripts/ct-results.ts",
     "e2e": "playwright test -c playwright.config.ts",
+    "e2e:results": "tsx scripts/e2e-results.ts",
     "coverage:merge": "tsx scripts/merge-coverage.ts"
   },
   "dependencies": {
