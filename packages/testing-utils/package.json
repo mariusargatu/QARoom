@@ -16,7 +16,8 @@
     "./screenplay": "./src/screenplay/index.ts",
     "./screenplay-ct": "./src/screenplay-ct/index.ts",
     "./mbt": "./src/screenplay/mbt/index.ts",
-    "./testids": "./src/screenplay/testids.ts"
+    "./testids": "./src/screenplay/testids.ts",
+    "./vitest-timeouts": "./src/vitest-timeouts.ts"
   },
   "scripts": {
     "build": "tsc -p tsconfig.json",
