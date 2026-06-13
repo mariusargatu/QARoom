@@ -1,4 +1,5 @@
 import { spawnSync } from 'node:child_process'
+import type { ToggleGuard } from '@qaroom/contracts/detection-matrix'
 import type { MatrixCell } from '@qaroom/contracts/detection-matrix-schema'
 
 /**
@@ -108,7 +109,9 @@ export const CLUSTER_ROWS: Record<string, ClusterRow> = {
       { technique: 'mbt-live', cmd: 'bash scripts/live-rollout-tour.sh', timeoutMs: 10 * 60_000 },
       tracetestStep('services/flags/tests/tracetest/rollout-transition.yaml'),
     ],
-    notes: 'NODE_ENV guard: verify the deployed pod is not NODE_ENV=production before counting.',
+    notes:
+      'node-env-gated (registry guard field): live cells auto-derive to n/a — deployed pods run ' +
+      'NODE_ENV=production, so the armed toggle is inert. The steps document what would run.',
   },
   'disable-circuit-breaker': {
     deployments: 'gateway',
@@ -150,6 +153,7 @@ export const CLUSTER_ROWS: Record<string, ClusterRow> = {
 export interface ClusterCellInput {
   toggleId: string
   env: { name: string; value: string }
+  guard: ToggleGuard
   commit: string
   recordedAt: string
 }
@@ -160,6 +164,29 @@ export interface ClusterCellInput {
 export function runClusterRow(root: string, input: ClusterCellInput): MatrixCell[] {
   const row = CLUSTER_ROWS[input.toggleId]
   if (!row) return []
+  // Auto-derived n/a: a node-env-gated read site ignores the env var when NODE_ENV=production,
+  // which every deployed pod runs — arming it live would burn rollouts on an inert toggle.
+  // Driven by the registry's census-verified guard field, never a per-row operator note.
+  if (input.guard === 'node-env-gated') {
+    process.stdout.write(
+      '    · node-env-gated — live cells derived n/a (toggle inert under NODE_ENV=production)\n',
+    )
+    return row.steps.map((step) => ({
+      toggle: input.toggleId,
+      technique: step.technique,
+      tier: 'cluster',
+      status: 'na',
+      commit: input.commit,
+      recorded_at: input.recordedAt,
+      duration_ms: 0,
+      evidence: {
+        newly_failing: [],
+        justification:
+          `node-env-gated read site: ${input.env.name} is ignored when NODE_ENV=production, ` +
+          'which the deployed pods run',
+      },
+    }))
+  }
   const cells: MatrixCell[] = []
   for (const step of row.steps) {
     process.stdout.write(`    · [${step.technique}] under ${input.env.name}=${input.env.value}\n`)

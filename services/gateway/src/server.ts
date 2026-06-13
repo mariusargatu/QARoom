@@ -33,14 +33,16 @@ runServer(
     await startWsFeed(nats, eventStream)
     const deps = createProductionDeps()
     const timeoutMs = upstreamTimeoutMs()
-    // The donations circuit breaker is the experiment-06 mitigation. CHAOS_DISABLE_CIRCUIT_BREAKER
+    // The donations circuit breaker is the experiment-06 mitigation. CHAOS_DISABLE_CIRCUIT_BREAKER=1
     // omits it so the deliberate-bug demo can show raw provider 5xx leaking through the gateway.
-    const breaker = process.env.CHAOS_DISABLE_CIRCUIT_BREAKER
-      ? undefined
-      : new CircuitBreaker(deps.clock, deps.randomness, {
-          threshold: BREAKER_THRESHOLD,
-          cooldownMs: BREAKER_COOLDOWN_MS,
-        })
+    // Strict === '1' like every other toggle read site: '0'/'false' must NOT disable the breaker.
+    const breaker =
+      process.env.CHAOS_DISABLE_CIRCUIT_BREAKER === '1'
+        ? undefined
+        : new CircuitBreaker(deps.clock, deps.randomness, {
+            threshold: BREAKER_THRESHOLD,
+            cooldownMs: BREAKER_COOLDOWN_MS,
+          })
     return buildGatewayApp({
       content: createContentClient(contentBaseUrl, { timeoutMs }),
       donations: createDonationsClient(donationsBaseUrl, { timeoutMs, breaker }),

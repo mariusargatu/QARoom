@@ -10,7 +10,8 @@ import { MatrixTier } from './detection-matrix-schema'
  *
  * The census rule: a toggle may only be listed if non-test code actually reads its env var
  * (`pnpm matrix --verify` greps each readSite, mirroring claims-verify's checkWired): the
- * manifest can never name a toggle nothing reads.
+ * manifest can never name a toggle nothing reads. The same census checks each declared
+ * `guard` against the read site, so guard metadata cannot drift from the code.
  */
 export const ToggleTiming = z.enum([
   /** Read on every call: external env injection is honored mid-process. */
@@ -22,11 +23,24 @@ export const ToggleTiming = z.enum([
 ])
 export type ToggleTiming = z.infer<typeof ToggleTiming>
 
+export const ToggleGuard = z.enum([
+  /** The read site honors the env var unconditionally: armable anywhere, including live pods. */
+  'unguarded',
+  /** Wrapped in NODE_ENV !== 'production': inert on deployed pods, so live-tier cells are n/a. */
+  'node-env-gated',
+  /** A pydantic Settings field (Python): armable wherever Settings() loads. */
+  'settings-load',
+])
+export type ToggleGuard = z.infer<typeof ToggleGuard>
+
 export const DetectionToggle = z.object({
   id: z.string(),
   env: z.object({ name: z.string(), value: z.string() }),
   component: z.string(),
   readSite: z.object({ file: z.string(), timing: ToggleTiming }),
+  /** What the read site does with the env var — census-verified against the code, never asserted.
+   *  node-env-gated drives the cluster tier's auto-n/a (the toggle is inert on live pods). */
+  guard: ToggleGuard,
   /** What the repo SAYS catches this (null = nothing references the env; purely empirical). */
   designatedCatcher: z.string().nullable(),
   /** Cross-ref into claims.ts when this toggle already backs a permanent claim. */
@@ -46,6 +60,7 @@ export const TOGGLES: DetectionToggle[] = z.array(DetectionToggle).parse([
     env: { name: 'CHAOS_SKIP_DEDUP', value: '1' },
     component: 'messaging',
     readSite: { file: 'packages/messaging/src/subscribe.ts', timing: 'call-time' },
+    guard: 'unguarded',
     designatedCatcher: null,
     tiers: ['in-proc', 'cluster'],
     selfToggling: [],
@@ -60,6 +75,7 @@ export const TOGGLES: DetectionToggle[] = z.array(DetectionToggle).parse([
     env: { name: 'CHAOS_TENANT_SPAN_DROP', value: '1' },
     component: 'otel',
     readSite: { file: 'packages/otel/src/tenant-span-processor.ts', timing: 'call-time' },
+    guard: 'unguarded',
     designatedCatcher: 'scripts/check-tenant-spans.ts (live Jaeger audit)',
     tiers: ['in-proc', 'cluster'],
     selfToggling: ['packages/otel/src/tenant-span-processor.test.ts'],
@@ -71,6 +87,7 @@ export const TOGGLES: DetectionToggle[] = z.array(DetectionToggle).parse([
     env: { name: 'CONTENT_BUG_FEED_REVERSED', value: '1' },
     component: 'content',
     readSite: { file: 'services/content/src/repository.ts', timing: 'call-time' },
+    guard: 'unguarded',
     designatedCatcher: null,
     tiers: ['in-proc', 'cluster'],
     selfToggling: ['services/content/tests/snapshot-replay.verify.ts'],
@@ -85,6 +102,7 @@ export const TOGGLES: DetectionToggle[] = z.array(DetectionToggle).parse([
     env: { name: 'CONTENT_BUG_VOTE_SLOW_MS', value: '800' },
     component: 'content',
     readSite: { file: 'services/content/src/repository.ts', timing: 'call-time' },
+    guard: 'unguarded',
     designatedCatcher: 'load-tests/vote-cast.js (k6 SLO gate, exit 99)',
     tiers: ['in-proc', 'cluster'],
     selfToggling: [],
@@ -97,6 +115,7 @@ export const TOGGLES: DetectionToggle[] = z.array(DetectionToggle).parse([
     env: { name: 'CHAOS_SYNC_PUBLISH', value: '1' },
     component: 'content',
     readSite: { file: 'services/content/src/server.ts', timing: 'construction-time' },
+    guard: 'unguarded',
     designatedCatcher: 'scripts/k6-under-chaos.sh 02-net-slow-nats vote-cast (chaos × load)',
     tiers: ['cluster'],
     selfToggling: [],
@@ -112,6 +131,7 @@ export const TOGGLES: DetectionToggle[] = z.array(DetectionToggle).parse([
     env: { name: 'FLAGS_BUG_CANARY_MISROUTES', value: '1' },
     component: 'flags',
     readSite: { file: 'services/flags/src/repository.ts', timing: 'call-time' },
+    guard: 'node-env-gated',
     designatedCatcher: null,
     tiers: ['in-proc', 'cluster'],
     selfToggling: [],
@@ -126,6 +146,7 @@ export const TOGGLES: DetectionToggle[] = z.array(DetectionToggle).parse([
     env: { name: 'CHAOS_DISABLE_CIRCUIT_BREAKER', value: '1' },
     component: 'gateway',
     readSite: { file: 'services/gateway/src/server.ts', timing: 'construction-time' },
+    guard: 'unguarded',
     designatedCatcher: 'services/gateway/tests/circuit-breaker.spec.ts',
     tiers: ['in-proc', 'cluster'],
     selfToggling: [],
@@ -142,6 +163,7 @@ export const TOGGLES: DetectionToggle[] = z.array(DetectionToggle).parse([
     env: { name: 'GATEWAY_UPSTREAM_TIMEOUT_MS', value: '600000' },
     component: 'gateway',
     readSite: { file: 'services/gateway/src/upstream-call.ts', timing: 'call-time' },
+    guard: 'unguarded',
     designatedCatcher: 'tests/chaos/07-net-partition-gateway-donations.test.ts (live partition)',
     tiers: ['in-proc', 'cluster'],
     selfToggling: [],
@@ -156,6 +178,7 @@ export const TOGGLES: DetectionToggle[] = z.array(DetectionToggle).parse([
     env: { name: 'CHAOS_WEBHOOK_SIGN_BODY_ONLY', value: '1' },
     component: 'webhooks',
     readSite: { file: 'services/webhooks/src/worker.ts', timing: 'call-time' },
+    guard: 'node-env-gated',
     designatedCatcher: 'services/webhooks/src/signing.property.test.ts',
     claimId: 'webhook-signing',
     tiers: ['in-proc'],
@@ -166,6 +189,7 @@ export const TOGGLES: DetectionToggle[] = z.array(DetectionToggle).parse([
     env: { name: 'CHAOS_WEBHOOK_UNSTABLE_DELIVERY_ID', value: '1' },
     component: 'webhooks',
     readSite: { file: 'services/webhooks/src/worker.ts', timing: 'call-time' },
+    guard: 'node-env-gated',
     designatedCatcher: 'services/webhooks/src/redelivery-dedup.property.test.ts',
     tiers: ['in-proc'],
     selfToggling: ['services/webhooks/src/redelivery-dedup.property.test.ts'],
@@ -175,6 +199,7 @@ export const TOGGLES: DetectionToggle[] = z.array(DetectionToggle).parse([
     env: { name: 'CHAOS_WEBHOOK_DROP_ON_FAIL', value: '1' },
     component: 'webhooks',
     readSite: { file: 'services/webhooks/src/worker.ts', timing: 'call-time' },
+    guard: 'node-env-gated',
     designatedCatcher: 'services/webhooks/src/delivery-guarantee.property.test.ts',
     claimId: 'webhook-at-least-once',
     tiers: ['in-proc'],
@@ -185,6 +210,7 @@ export const TOGGLES: DetectionToggle[] = z.array(DetectionToggle).parse([
     env: { name: 'CHAOS_WEBHOOK_NO_CAP', value: '1' },
     component: 'webhooks',
     readSite: { file: 'services/webhooks/src/worker.ts', timing: 'call-time' },
+    guard: 'node-env-gated',
     designatedCatcher: 'services/webhooks/src/retry-schedule.property.test.ts',
     tiers: ['in-proc'],
     selfToggling: ['services/webhooks/src/retry-schedule.property.test.ts'],
@@ -194,6 +220,7 @@ export const TOGGLES: DetectionToggle[] = z.array(DetectionToggle).parse([
     env: { name: 'CHAOS_WEBHOOK_ILLEGAL_TRANSITION', value: '1' },
     component: 'webhooks',
     readSite: { file: 'services/webhooks/src/worker.ts', timing: 'call-time' },
+    guard: 'node-env-gated',
     designatedCatcher: 'services/webhooks/tests/reverse-conformance.spec.ts',
     tiers: ['in-proc', 'cluster'],
     selfToggling: ['services/webhooks/tests/reverse-conformance.spec.ts'],
@@ -212,6 +239,7 @@ export const TOGGLES: DetectionToggle[] = z.array(DetectionToggle).parse([
       file: 'services/moderator-agent/src/moderator_agent/config.py',
       timing: 'settings-load',
     },
+    guard: 'settings-load',
     designatedCatcher: 'services/moderator-agent/evals/redteam/test_deepteam_owasp.py',
     tiers: ['in-proc', 'llm'],
     selfToggling: ['services/moderator-agent/evals/redteam/test_deepteam_owasp.py'],
@@ -231,6 +259,7 @@ export const TOGGLES: DetectionToggle[] = z.array(DetectionToggle).parse([
       file: 'services/moderator-agent/src/moderator_agent/config.py',
       timing: 'settings-load',
     },
+    guard: 'settings-load',
     designatedCatcher: 'services/moderator-agent/tests/test_metamorphic.py (llm-marked)',
     tiers: ['in-proc', 'llm'],
     selfToggling: [],
@@ -245,6 +274,7 @@ export const TOGGLES: DetectionToggle[] = z.array(DetectionToggle).parse([
       file: 'services/moderator-agent/src/moderator_agent/config.py',
       timing: 'settings-load',
     },
+    guard: 'settings-load',
     designatedCatcher: 'services/moderator-agent/evals/deepeval/test_rag_metrics.py (faithfulness)',
     tiers: ['in-proc', 'llm'],
     selfToggling: ['services/moderator-agent/evals/deepeval/test_rag_metrics.py'],
@@ -262,6 +292,7 @@ export const TOGGLES: DetectionToggle[] = z.array(DetectionToggle).parse([
       file: 'services/moderator-agent/src/moderator_agent/config.py',
       timing: 'settings-load',
     },
+    guard: 'settings-load',
     designatedCatcher: 'services/moderator-agent/tests/test_selfcheck.py',
     claimId: 'moderator-abstain',
     tiers: ['in-proc', 'llm'],
@@ -280,6 +311,7 @@ export const TOGGLES: DetectionToggle[] = z.array(DetectionToggle).parse([
       file: 'services/moderator-agent/src/moderator_agent/config.py',
       timing: 'settings-load',
     },
+    guard: 'settings-load',
     designatedCatcher: 'services/moderator-agent/tests/test_reranker.py',
     tiers: ['in-proc', 'llm'],
     selfToggling: [],

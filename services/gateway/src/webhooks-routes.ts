@@ -8,12 +8,12 @@ import type { WebhooksClient } from './webhooks-client'
 const WEBHOOKS: Upstream = {
   slug: 'webhooks-unreachable',
   title: 'Upstream webhooks-service unavailable',
-  detail: 'webhooks-service did not respond (timed out, refused, or the circuit is open).',
+  detail: 'webhooks-service did not respond (timed out or refused).',
 }
 
 const BASE = '/api/communities/:communityId/webhook-subscriptions'
 
-/** Proxy the webhooks CRUD surface, validated at the edge and forwarded through the breaker client. */
+/** Proxy the webhooks CRUD surface, validated at the edge and forwarded through the bounded-timeout client. */
 export function registerWebhooksRoutes(
   app: FastifyInstance,
   deps: GatewayRouteDeps,

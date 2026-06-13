@@ -1,11 +1,16 @@
-import { type CircuitBreaker, CircuitOpenError } from './circuit-breaker'
-import { type ClientResponse, upstreamCall, upstreamTimeoutMs } from './upstream-call'
+import {
+  type ClientResponse,
+  type UpstreamCallOptions,
+  upstreamCall,
+  upstreamTimeoutMs,
+} from './upstream-call'
 
 /**
  * The gateway's client for webhooks-service (Milestone 11). A thin seam — the Pact consumer for
- * the gateway→webhooks contract — guarded by a `CircuitBreaker` like the donations client: under
- * sustained webhooks-service failure the breaker opens and calls fail fast with `CircuitOpenError`
- * (→ a typed 502). Omit the breaker to disable the mitigation.
+ * the gateway→webhooks contract — bounded by the shared upstream timeout (see
+ * `upstream-call.ts`). No circuit breaker: production never wired one (the option was dead
+ * code), so the mitigation for an unreachable webhooks-service is the bounded timeout → typed
+ * 502, as for flags and identity.
  */
 export interface WebhooksClient {
   createWebhook(communityId: string, body: unknown, idempotencyKey: string): Promise<ClientResponse>
@@ -31,14 +36,6 @@ export interface WebhooksClient {
 
 export interface WebhooksClientOptions {
   timeoutMs?: number
-  breaker?: CircuitBreaker
-}
-
-/** A 5xx (other than 502) means webhooks-service itself is erroring → breaker failure; 2xx/3xx → success. */
-function breakerSignal(status: number): boolean | undefined {
-  if (status >= 500 && status !== 502) return false
-  if (status < 400) return true
-  return undefined
 }
 
 export function createWebhooksClient(
@@ -46,20 +43,7 @@ export function createWebhooksClient(
   options: WebhooksClientOptions = {},
 ): WebhooksClient {
   const timeoutMs = options.timeoutMs ?? upstreamTimeoutMs()
-  const { breaker } = options
-
-  async function call(opts: Parameters<typeof upstreamCall>[1]): Promise<ClientResponse> {
-    if (breaker && !breaker.allow()) throw new CircuitOpenError()
-    try {
-      const res = await upstreamCall(baseUrl, opts, timeoutMs)
-      const signal = breakerSignal(res.status)
-      if (signal !== undefined) breaker?.record(signal)
-      return res
-    } catch (err) {
-      breaker?.record(false)
-      throw err
-    }
-  }
+  const call = (opts: UpstreamCallOptions) => upstreamCall(baseUrl, opts, timeoutMs)
 
   const base = (communityId: string) => `/api/communities/${communityId}/webhook-subscriptions`
   return {
