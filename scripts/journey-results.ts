@@ -1,6 +1,6 @@
-import { existsSync, readFileSync } from 'node:fs'
+import { existsSync } from 'node:fs'
 import { resolve } from 'node:path'
-import { foldRunner } from './lib/fold-runner'
+import { foldVitestReport } from './lib/fold-runner'
 
 /**
  * Fold the golden-journey vitest run (test-results/journey.json) into the frozen
@@ -10,9 +10,10 @@ import { foldRunner } from './lib/fold-runner'
  *
  *   pnpm journey:run && pnpm journey:results
  *
- * Gates on `report.success` too, not just the failed count: a suite-level crash (a beforeAll
- * port-forward throw, an import error) yields numFailedTests:0 but success:false — keying only
- * on failed would exit 0 (false-green) even though no journey actually ran.
+ * Gates on the false-green-aware `success` (report.success AND >0 tests ran), not just the failed
+ * count: a suite-level crash (a beforeAll port-forward throw, an import error) yields
+ * numFailedTests:0 but success:false — keying only on failed would exit 0 (false-green) even though
+ * no journey actually ran.
  */
 const ROOT = process.cwd()
 const journeyPath = resolve(ROOT, 'test-results/journey.json')
@@ -23,35 +24,18 @@ if (!existsSync(journeyPath)) {
   process.exit(2)
 }
 
-const report = JSON.parse(readFileSync(journeyPath, 'utf8'))
-const fileDuration = (f: { startTime?: number; endTime?: number }) =>
-  (f.endTime ?? 0) - (f.startTime ?? 0)
-const durationMs = Math.round(
-  (report.testResults ?? []).reduce(
-    (sum: number, f: { startTime?: number; endTime?: number }) => sum + fileDuration(f),
-    0,
-  ),
-)
-
-const journeyRunner = {
+const { runner, success } = foldVitestReport(summaryPath, {
   name: 'journey',
-  passed: report.numPassedTests ?? 0,
-  failed: report.numFailedTests ?? 0,
-  skipped: (report.numPendingTests ?? 0) + (report.numTodoTests ?? 0),
-  duration_ms: durationMs,
-  output: {
-    runner: 'golden-journey-live',
-    success: report.success === true,
-    steps: (report.testResults ?? []).flatMap(
-      (f: { assertionResults?: { title?: string; status?: string }[] }) =>
-        (f.assertionResults ?? []).map((a) => ({ title: a.title, status: a.status })),
+  reportPath: journeyPath,
+  runnerLabel: 'golden-journey-live',
+  extraOutput: (report) => ({
+    steps: (report.testResults ?? []).flatMap((f) =>
+      (f.assertionResults ?? []).map((a) => ({ title: a.title, status: a.status })),
     ),
-  },
-}
+  }),
+})
 
-foldRunner(summaryPath, journeyRunner)
 process.stdout.write(
-  `merged journey runner into summary.json — ${journeyRunner.passed} passed, ${journeyRunner.failed} failed\n`,
+  `merged journey runner into summary.json — ${runner.passed} passed, ${runner.failed} failed\n`,
 )
-const passed = report.success === true && journeyRunner.failed === 0
-process.exit(passed ? 0 : 1)
+process.exit(success && runner.failed === 0 ? 0 : 1)

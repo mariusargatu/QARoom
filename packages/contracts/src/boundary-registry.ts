@@ -96,6 +96,14 @@ const RAW: BoundaryEntry[] = [
     lanes: ['external-dep'],
   },
   {
+    id: 'payment-edge',
+    label: 'External payment (donations to the payment provider)',
+    breaks: 'the payment provider faults, declines, or its REST contract drifts',
+    leadTechnique:
+      'a Microcks contract mock, an injectable payment-client seam, RFC 7807 `dependency_failure` on a fault',
+    lanes: ['external-dep', 'process-rest'],
+  },
+  {
     id: 'delivery-edge',
     label: 'Delivery edge (outbound webhooks)',
     breaks: 'a replayed, dropped, or unsafe delivery',
