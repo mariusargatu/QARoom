@@ -1,8 +1,6 @@
-import type { Consumer, JetStreamClient } from '@nats-io/jetstream'
 import type { Clock } from '@qaroom/determinism'
-import { context, extractTraceContext, traced, withTenant } from '@qaroom/otel'
+import { withTenant } from '@qaroom/otel'
 import { alreadyProcessed, markProcessed } from './dedup'
-import { headersToRecord, readEventHeaders } from './headers'
 import type { SqlExecutor, TxRunner } from './types'
 
 /** A consumer handler: applies an event's effects within the provided transaction. */
@@ -40,48 +38,4 @@ export async function processEvent(
     if (!skipDedup) await markProcessed(tx, subscriptionName, event.eventId, clock.now())
     return { skipped: false }
   })
-}
-
-/**
- * Subscribe a durable JetStream consumer and run `handler` for each message with the trace
- * context restored and dedup applied. FIRST DEPLOYED in Milestone 5 (flags-service); in
- * Milestone 4 only the dedup core (`processEvent`) is exercised, so this loop is integration
- * surface, not unit-tested. Returns a stop function.
- */
-export async function runConsumer(opts: {
-  js: JetStreamClient
-  stream: string
-  durable: string
-  subscriptionName: string
-  db: TxRunner
-  clock: Clock
-  handler: EventHandler
-}): Promise<() => Promise<void>> {
-  const consumer: Consumer = await opts.js.consumers.get(opts.stream, opts.durable)
-  const messages = await consumer.consume()
-
-  const loop = (async () => {
-    for await (const message of messages) {
-      const carrier = headersToRecord(message.headers)
-      const meta = readEventHeaders(carrier)
-      await context.with(extractTraceContext(carrier), () =>
-        traced('nats.process', async () => {
-          const payload = message.json<unknown>()
-          await processEvent(
-            opts.db,
-            opts.subscriptionName,
-            { eventId: meta.eventId, communityId: meta.communityId, payload },
-            opts.handler,
-            opts.clock,
-          )
-          message.ack()
-        }),
-      )
-    }
-  })()
-
-  return async () => {
-    messages.stop()
-    await loop
-  }
 }

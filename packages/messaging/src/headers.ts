@@ -4,8 +4,8 @@ import { HEADER } from './types'
 
 /**
  * Flatten a received NATS message's `MsgHdrs` into a plain string record — the form
- * `readEventHeaders`/`extractTraceContext` consume. Shared by `runConsumer` and any service
- * that drives the JetStream consume loop directly (e.g. the gateway's WS feed).
+ * `readEventHeaders`/`extractTraceContext` consume. Shared by every service that drives the
+ * JetStream consume loop via `runResilientConsume` (e.g. the gateway's WS feed).
  */
 export function headersToRecord(headers: MsgHdrs | undefined): Record<string, string> {
   const out: Record<string, string> = {}

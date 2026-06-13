@@ -42,8 +42,8 @@ export async function ensureStream(connection: NatsConnection): Promise<void> {
 
 /**
  * Idempotently ensure a durable consumer exists on the stream, optionally filtered to a subset
- * of subjects. `runConsumer` calls `consumers.get`, which requires a pre-created durable — so a
- * consuming service must `ensureConsumer` first. The filter keeps a service's own published
+ * of subjects. Consumers are fetched with `consumers.get`, which requires a pre-created durable —
+ * so a consuming service must `ensureConsumer` first. The filter keeps a service's own published
  * events out of a handler that only understands a sibling's events. Durable names cannot contain
  * a '.' (JetStream rejects it), so callers pass hyphenated names.
  */
@@ -62,7 +62,7 @@ export async function ensureConsumer(
   } catch (err) {
     // Tolerate "already exists"; surface anything else (e.g. missing stream, connection fault) —
     // a blanket `.catch(() => undefined)` would hide those and resurface them as a confusing
-    // `consumers.get` ConsumerNotFound in `runConsumer`.
+    // ConsumerNotFound at the caller's `consumers.get`.
     const existing = await jsm.consumers.info(opts.stream, opts.durable).catch(() => null)
     if (!existing) throw err
     // It exists — but if the committed filter drifted from the live consumer, warn loudly: a
