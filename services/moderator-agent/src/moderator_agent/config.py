@@ -26,11 +26,15 @@ class Settings(BaseSettings):
     nats_url: str = ""
 
     # LLM provider via LangChain's provider-agnostic init_chat_model / init_embeddings — the id is
-    # `<provider>:<model>` (ADR-0017/0018). gpt-5.5 is a REASONING model: no seed/temperature;
-    # determinism is bounded by `reasoning_effort`. Pinned to the exact dated snapshot (confirmed live
-    # 2026-06-05); the bare `gpt-5.5` alias would float to the newest snapshot.
+    # `<provider>:<model>` (ADR-0017/0018). gpt-5-nano is a REASONING model: no seed/temperature;
+    # determinism is bounded by `reasoning_effort`. Chosen for cost-effectiveness over gpt-5.5: the
+    # task is structured classification with retrieval grounding, not deep reasoning, and the
+    # deterministic self-check (incl. the never-confidently-approve-flagged guard) keeps a cheaper
+    # draft model safe (evals/model_compare.py: nano fails safe — escalates when unsure — where mini
+    # is confidently wrong; the safety invariant, not gold-set agreement, is the bar). Pinned to the
+    # dated snapshot; the bare `gpt-5-nano` alias would float to the newest snapshot.
     openai_api_key: str = ""
-    moderator_model: str = "openai:gpt-5.5-2026-04-23"
+    moderator_model: str = "openai:gpt-5-nano-2025-08-07"
     moderator_embedding_model: str = "openai:text-embedding-3-small"
     moderator_reasoning_effort: str = "low"
     moderator_max_post_chars: int = 8000
@@ -66,6 +70,10 @@ class Settings(BaseSettings):
     moderator_disable_input_guard: bool = False
     moderator_ungrounded: bool = False
     moderator_disable_abstain: bool = False
+    #   disable_approve_guard — self-check skips the never-confidently-approve-flagged safety guard →
+    #                         a confident approve that diverges from majority-remove precedent ships as
+    #                         approve instead of escalating (the moderator-no-confident-approve claim).
+    moderator_disable_approve_guard: bool = False
     moderator_disable_rerank: bool = False
     moderator_rerank_bug: bool = False
 

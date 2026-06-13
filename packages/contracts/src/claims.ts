@@ -146,6 +146,22 @@ const RAW: Claim[] = [
     tier: 'simulate',
   },
   {
+    id: 'moderator-no-confident-approve-of-flag',
+    claim:
+      'The moderator never confidently approves content the precedent flags: an approve that diverges from majority-remove precedent escalates to a human instead. The safety invariant, not gold-set agreement, is the bar — which is what lets the cheaper gpt-5-nano draft model stay safe (a confident-but-wrong approve is caught structurally, not shipped).',
+    boundary: 'external-dep',
+    registryRow: 'external-dep',
+    technique: 'deterministic self-check test (no LLM, no cluster)',
+    toggle: 'MODERATOR_DISABLE_APPROVE_GUARD',
+    gate: {
+      cmd: 'uv',
+      args: ['run', 'pytest', '-q', 'tests/test_selfcheck.py', '-k', 'safety_invariant_escalates'],
+      cwd: 'services/moderator-agent',
+    },
+    evidence: { runner: 'moderator', field: 'passed' },
+    tier: 'simulate',
+  },
+  {
     // Added 2026-06-10 after detection-matrix Tier C found the BEHAVIOURAL injection demo had rotted
     // (the pinned model resists the injection unguarded, so "the bug lands" no longer reproduces and a
     // green eval can't tell "caught" from "model outgrew it"). The honest, rot-proof teeth are the

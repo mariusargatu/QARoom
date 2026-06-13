@@ -268,6 +268,7 @@ class ModerationWorkflow:
             abstain_confidence=self._settings.moderator_abstain_confidence,
             ungrounded=self._settings.moderator_ungrounded,
             disable_abstain=self._settings.moderator_disable_abstain,
+            disable_approve_guard=self._settings.moderator_disable_approve_guard,
         )
         return self._advance(
             state,
