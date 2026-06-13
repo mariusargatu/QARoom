@@ -20,7 +20,9 @@ extraEnv:
   # the key is only used when classifying a post. Dev-only plaintext posture, like postgres.password (ADR-0009).
   OPENAI_API_KEY: ""
   # LangChain provider-prefixed id (ADR-0017/0018). Reasoning model — effort set in config default.
-  MODERATOR_MODEL: openai:gpt-5.5-2026-04-23
+  # gpt-5-nano: cost-effective draft model; the deterministic self-check (incl. the
+  # never-confidently-approve-flagged guard) keeps it safe (evals/model_compare.py).
+  MODERATOR_MODEL: openai:gpt-5-nano-2025-08-07
   # Dev/demo: enable the POST /review trigger so `scripts/seed-moderation.sh` can drive a review
   # on demand and populate Langfuse end-to-end. Production still sets this false (NATS-only, ADR-0018).
   MODERATOR_ENABLE_MANUAL_REVIEW: "true"

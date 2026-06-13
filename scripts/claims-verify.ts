@@ -5,6 +5,7 @@ import { BOUNDARY_REGISTRY } from '@qaroom/contracts/boundary-registry'
 import { CLAIMS, type Claim } from '@qaroom/contracts/claims'
 import { BOUNDARIES_END, BOUNDARIES_START, renderBoundariesBlock } from './render-boundaries'
 import { README_END, README_START, renderReadmeBlock } from './render-claims'
+import { COST_END, COST_START, renderCostBlock } from './render-cost'
 import { renderStatsBlock, STATS_END, STATS_START } from './render-stats'
 import { deriveFoldedRunnerNames } from './test-results-verify'
 
@@ -259,6 +260,7 @@ function main(): void {
       checkBlock('README.md', 'claims', README_START, README_END, renderReadmeBlock),
     ],
     ['README stats', checkBlock('README.md', 'stats', STATS_START, STATS_END, renderStatsBlock)],
+    ['README cost', checkBlock('README.md', 'cost', COST_START, COST_END, renderCostBlock)],
     [
       'README boundaries',
       checkBlock(
