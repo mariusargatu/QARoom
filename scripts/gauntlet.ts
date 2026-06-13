@@ -34,6 +34,12 @@ const opts: GauntletOpts = {
 
 const has = (tool: string): boolean => spawnSync('which', [tool], { encoding: 'utf8' }).status === 0
 
+// A docker binary on PATH is not a usable docker: probe the daemon (`docker info` exits non-zero
+// when it is down) so the gauntlet refuses up front instead of failing minutes into the pact lane
+// with Testcontainers' "no working container runtime strategy".
+const hasDockerDaemon = (): boolean =>
+  spawnSync('docker', ['info'], { encoding: 'utf8', timeout: 10_000 }).status === 0
+
 // The key lives in the moderator's own gitignored .env (the file pydantic-settings loads), but
 // DeepEval/DeepTeam gate on os.environ — so source it into THIS process's env for the spawned
 // steps to inherit. Local secret → local child processes, same trust domain; value never logged.
@@ -46,7 +52,7 @@ if (!process.env.OPENAI_API_KEY) {
 }
 
 const ctx: PreflightCtx = {
-  hasDocker: has('docker'),
+  hasDocker: hasDockerDaemon(),
   hasK3d: has('k3d'),
   hasTilt: has('tilt'),
   hasKubectl: has('kubectl'),
@@ -74,7 +80,9 @@ appendRecord(ROOT, {
 // Core deps abort up front; optional deps (java, key, uv, cluster tools) demote their steps to
 // honest skips inside buildPlan instead.
 if (!ctx.hasDocker) {
-  process.stderr.write('docker is required for the gauntlet (k6, Schemathesis, Testcontainers)\n')
+  process.stderr.write(
+    'a running docker daemon is required for the gauntlet (k6, Schemathesis, Testcontainers)\n',
+  )
   process.exit(2)
 }
 

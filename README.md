@@ -110,10 +110,19 @@ The unnumbered docs hold the evidence: the [matrix](docs/detection-matrix.md), t
 
 ## Run it
 
+### Prerequisites
+
+Three tiers, each adding to the previous:
+
+- **Tier 1 — tests + drift gates (no Docker):** Node 24+, pnpm, and [uv](https://docs.astral.sh/uv/). uv drives the Python moderator-agent suite inside `pnpm test`; without it that suite records a visible skip locally (CI hard-fails without uv). Enough for `pnpm test` and `pnpm verify` (the CI light lane as one command).
+- **Tier 2 — live cluster:** plus docker, k3d, kubectl, helm, tilt. Enough for `pnpm dev` and `pnpm smoke`.
+- **Tier 3 — full gauntlet:** plus Java 17+ (EvoMaster), the tracetest CLI, and `OPENAI_API_KEY` (LLM evals). The gauntlet records an honest skip for anything it cannot find.
+
 It runs with no Docker, because Postgres runs in-process with PGlite. So `pnpm test` is the quickest way to see it work:
 
 ```bash
 pnpm install
+pnpm check           # the gauntlet fast lane (phase 1): tests, folds, drift gates — needs Docker for the Pact lane
 pnpm test            # full suite, no Docker (in-process PGlite)
 pnpm lint            # Biome plus the custom qaroom ESLint rules
 pnpm openapi:verify  # Zod to OpenAPI drift + oasdiff breaking-change gate

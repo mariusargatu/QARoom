@@ -5,6 +5,11 @@
 # value (deploy/content/values.broken.yaml → targetPort 9999) makes this fail.
 set -euo pipefail
 
+# Preflight: name the missing tool with an install hint instead of a mid-script command-not-found.
+for tool in "kubectl:brew install kubectl" "curl:brew install curl (usually preinstalled)"; do
+  command -v "${tool%%:*}" >/dev/null 2>&1 || { echo "✗ missing '${tool%%:*}' — install: ${tool#*:}" >&2; exit 1; }
+done
+
 NS="${NS:-qaroom}"
 OBS_NS="${OBS_NS:-observability}"
 SERVICES="gateway:18080 content:18081 identity:18082"
