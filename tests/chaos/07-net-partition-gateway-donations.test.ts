@@ -10,6 +10,7 @@ import {
   runSteadyState,
   waitForInjection,
 } from '@qaroom/testing-utils/chaos'
+import { GatewayClient } from '@qaroom/testing-utils/live-client'
 import { afterAll, beforeAll, describe, expect, it } from 'vitest'
 
 /**
@@ -32,6 +33,7 @@ const PROBE_BUDGET_MS = 12_000
 const DONATIONS_PATH = `/api/communities/${EXAMPLE_COMMUNITY_ID}/donations`
 
 let gateway: PortForward
+let client: GatewayClient
 
 beforeAll(async () => {
   gateway = await portForward({
@@ -40,18 +42,19 @@ beforeAll(async () => {
     localPort: 18080,
     remotePort: 80,
   })
+  client = new GatewayClient({
+    baseUrl: gateway.url,
+    requestBudgetMs: PROBE_BUDGET_MS,
+    idempotencySeed: 'chaos-07',
+  })
 }, 120_000)
 
 afterAll(() => gateway?.stop())
 
 async function donationsStatus(): Promise<number> {
-  // status 0 = no response within the budget (i.e. a hang — the failure the mitigation prevents).
-  return fetch(`${gateway.url}${DONATIONS_PATH}`, {
-    headers: { accept: 'application/json' },
-    signal: AbortSignal.timeout(PROBE_BUDGET_MS),
-  })
-    .then((r) => r.status)
-    .catch(() => 0)
+  // status 0 = no response within the budget (i.e. a hang — the failure the mitigation prevents);
+  // the shared client returns that sentinel on a timeout/refused fetch.
+  return (await client.get(DONATIONS_PATH)).status
 }
 
 async function probeBounded(): Promise<ProbeResult> {

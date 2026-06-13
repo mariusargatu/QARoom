@@ -36,6 +36,18 @@
         "database": { "type": "string" },
         "storage": { "type": "string" }
       }
+    },
+    "gc": {
+      "type": "object",
+      "properties": {
+        "enabled": { "type": "boolean" },
+        "package": { "type": "string" },
+        "image": { "type": "string" },
+        "schedule": { "type": "string" },
+        "backoffLimit": { "type": "integer", "minimum": 0 },
+        "successfulJobsHistoryLimit": { "type": "integer", "minimum": 0 },
+        "failedJobsHistoryLimit": { "type": "integer", "minimum": 0 }
+      }
     }
   }
 }

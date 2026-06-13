@@ -1,33 +1,76 @@
+import { composeMigrations, type Migration } from '@qaroom/contracts'
 import { messagingMigration } from '@qaroom/messaging/migrations'
 import { sql } from 'drizzle-orm'
 import type { SqlExecutor } from './client'
 
-/** Idempotent DDL: donations + the per-community flag-enabled cache. */
-const MIGRATION_STATEMENTS: readonly string[] = [
-  `CREATE TABLE IF NOT EXISTS donations (
-    id text PRIMARY KEY,
-    community_id text NOT NULL,
-    donor_id text NOT NULL,
-    amount_cents integer NOT NULL,
-    currency text NOT NULL,
-    status text NOT NULL,
-    created_at timestamptz NOT NULL,
-    updated_at timestamptz NOT NULL
-  )`,
-  `CREATE INDEX IF NOT EXISTS donations_community_created_idx ON donations (community_id, created_at DESC)`,
-  `CREATE TABLE IF NOT EXISTS flag_cache (
-    community_id text NOT NULL,
-    flag_key text NOT NULL,
-    enabled boolean NOT NULL,
-    updated_at timestamptz NOT NULL,
-    PRIMARY KEY (community_id, flag_key)
-  )`,
-]
+/**
+ * The donations-service domain tables as reversible migration fragments so the up→down→up→up
+ * idempotency test (docs/05 migration discipline) covers them. Each `up` is idempotent
+ * (`IF NOT EXISTS`); the `down` drops in reverse (DROP TABLE takes the table's indexes with it).
+ */
+const donationsMigration: Migration<SqlExecutor> = {
+  name: 'donations',
+  async up(tx) {
+    await tx.execute(
+      sql.raw(`CREATE TABLE IF NOT EXISTS donations (
+        id text PRIMARY KEY,
+        community_id text NOT NULL,
+        donor_id text NOT NULL,
+        amount_cents integer NOT NULL,
+        currency text NOT NULL,
+        status text NOT NULL,
+        created_at timestamptz NOT NULL,
+        updated_at timestamptz NOT NULL
+      )`),
+    )
+    await tx.execute(
+      sql.raw(
+        `CREATE INDEX IF NOT EXISTS donations_community_created_idx ON donations (community_id, created_at DESC)`,
+      ),
+    )
+  },
+  async down(tx) {
+    await tx.execute(sql.raw(`DROP TABLE IF EXISTS donations`))
+  },
+}
+
+/** The per-community flag-enabled cache the donations gate reads. */
+const flagCacheMigration: Migration<SqlExecutor> = {
+  name: 'flag_cache',
+  async up(tx) {
+    await tx.execute(
+      sql.raw(`CREATE TABLE IF NOT EXISTS flag_cache (
+        community_id text NOT NULL,
+        flag_key text NOT NULL,
+        enabled boolean NOT NULL,
+        updated_at timestamptz NOT NULL,
+        PRIMARY KEY (community_id, flag_key)
+      )`),
+    )
+  },
+  async down(tx) {
+    await tx.execute(sql.raw(`DROP TABLE IF EXISTS flag_cache`))
+  },
+}
+
+/**
+ * The shared messaging substrate (outbox + processed_events + idempotency_responses) composed in
+ * as a named fragment, unchanged from the canonical @qaroom/messaging definition.
+ */
+const messagingFragment: Migration<SqlExecutor> = {
+  name: 'messaging',
+  up: (tx) => messagingMigration.up(tx),
+  down: (tx) => messagingMigration.down(tx),
+}
+
+/** The full donations-service schema: domain tables + the composed messaging substrate. */
+export const donationsMigrations = composeMigrations<SqlExecutor>([
+  donationsMigration,
+  flagCacheMigration,
+  messagingFragment,
+])
 
 /** Apply the donations-service schema. Idempotent; safe to call on every boot/test. */
 export async function ensureSchema(db: SqlExecutor): Promise<void> {
-  for (const stmt of MIGRATION_STATEMENTS) {
-    await db.execute(sql.raw(stmt))
-  }
-  await messagingMigration.up(db)
+  await donationsMigrations.up(db)
 }

@@ -9,6 +9,7 @@ import {
   runSteadyState,
   waitForInjection,
 } from '@qaroom/testing-utils/chaos'
+import { GatewayClient } from '@qaroom/testing-utils/live-client'
 import { afterAll, beforeAll, describe, expect, it } from 'vitest'
 
 /**
@@ -36,15 +37,12 @@ const PROBE_BUDGET_MS = 6_000
 const DONATIONS_PATH = `/api/communities/${EXAMPLE_COMMUNITY_ID}/donations`
 
 let gateway: PortForward
+let client: GatewayClient
 
 async function probeDonations(): Promise<ProbeResult> {
-  const status = await fetch(`${gateway.url}${DONATIONS_PATH}`, {
-    headers: { accept: 'application/json' },
-    signal: AbortSignal.timeout(PROBE_BUDGET_MS),
-  })
-    .then((r) => r.status)
-    .catch(() => 0)
-  // Bounded: 200 healthy, or a typed 502 when skew has degraded donations — never a hang (0).
+  // Bounded: 200 healthy, or a typed 502 when skew has degraded donations — never a hang (the
+  // client returns sentinel status 0 on timeout/refused, which this hypothesis rejects).
+  const status = (await client.get(DONATIONS_PATH)).status
   return { ok: status === 200 || status === 502, detail: `status ${status}` }
 }
 
@@ -57,6 +55,11 @@ describe.skipIf(!ENABLED)('chaos 05: clock skew', () => {
       target: 'svc/gateway',
       localPort: 18085,
       remotePort: 80,
+    })
+    client = new GatewayClient({
+      baseUrl: gateway.url,
+      requestBudgetMs: PROBE_BUDGET_MS,
+      idempotencySeed: 'chaos-05',
     })
   }, 120_000)
   afterAll(() => gateway?.stop())

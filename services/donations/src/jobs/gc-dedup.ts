@@ -4,14 +4,14 @@ import { drizzle } from 'drizzle-orm/postgres-js'
 import postgres from 'postgres'
 
 /**
- * The `jobs:gc-dedup` TTL job for content-service: shed messaging-substrate rows older than
+ * The `jobs:gc-dedup` TTL job for donations-service: shed messaging-substrate rows older than
  * 24h — aged PUBLISHED outbox rows (already relayed; an unbounded leak until swept) plus the
- * dedup tables. Hygiene only (Commitment 17). Run hourly in dev via the shared chart CronJob;
- * the cutoff comes from the injected clock, so the job holds the determinism line (no
- * `new Date()`). content has the full substrate, so every target is on.
+ * dedup tables. Hygiene only (Commitment 17). Run hourly via the shared chart CronJob; the
+ * cutoff comes from the injected clock, so the job holds the determinism line (no
+ * `new Date()`). donations has the full substrate, so every target is on.
  */
 const connectionString =
-  process.env.DATABASE_URL ?? 'postgres://qaroom:qaroom@localhost:5432/qaroom_content'
+  process.env.DATABASE_URL ?? 'postgres://qaroom:qaroom@localhost:5432/qaroom_donations'
 const TTL_MS = 24 * 60 * 60 * 1000
 
 async function main(): Promise<void> {
@@ -24,7 +24,7 @@ async function main(): Promise<void> {
     idempotencyResponses: true,
   })
   process.stdout.write(
-    `gc-dedup[content]: removed ${removed.outbox} outbox + ${removed.processedEvents} processed_events + ${removed.idempotencyResponses} idempotency_responses older than ${TTL_MS / 3_600_000}h\n`,
+    `gc-dedup[donations]: removed ${removed.outbox} outbox + ${removed.processedEvents} processed_events + ${removed.idempotencyResponses} idempotency_responses older than ${TTL_MS / 3_600_000}h\n`,
   )
   await client.end()
 }

@@ -8,6 +8,7 @@ import {
   portForward,
   runSteadyState,
 } from '@qaroom/testing-utils/chaos'
+import { GatewayClient } from '@qaroom/testing-utils/live-client'
 import { afterAll, beforeAll, describe, expect, it } from 'vitest'
 
 /**
@@ -34,14 +35,10 @@ const DONATIONS_PATH = `/api/communities/${EXAMPLE_COMMUNITY_ID}/donations`
 const WARMUP_REQUESTS = 8
 
 let gateway: PortForward
+let client: GatewayClient
 
 async function donationsStatus(): Promise<number> {
-  return fetch(`${gateway.url}${DONATIONS_PATH}`, {
-    headers: { accept: 'application/json' },
-    signal: AbortSignal.timeout(PROBE_BUDGET_MS),
-  })
-    .then((r) => r.status)
-    .catch(() => 0)
+  return (await client.get(DONATIONS_PATH)).status
 }
 
 async function probeDonations(): Promise<ProbeResult> {
@@ -59,6 +56,11 @@ describe.skipIf(!ENABLED)('chaos 06: gateway 500 for donations (Litmus)', () => 
       target: 'svc/gateway',
       localPort: 18086,
       remotePort: 80,
+    })
+    client = new GatewayClient({
+      baseUrl: gateway.url,
+      requestBudgetMs: PROBE_BUDGET_MS,
+      idempotencySeed: 'chaos-06',
     })
   }, 120_000)
   afterAll(() => gateway?.stop())

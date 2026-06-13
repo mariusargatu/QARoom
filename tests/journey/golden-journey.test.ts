@@ -1,6 +1,6 @@
 import { type PortForward, portForward } from '@qaroom/testing-utils/chaos'
+import { GatewayClient } from '@qaroom/testing-utils/live-client'
 import { afterAll, beforeAll, describe, expect, it } from 'vitest'
-import { JourneyClient } from './lib/client'
 import { problemDetailsVerdict, tenantSpansVerdict } from './lib/commitments'
 
 /**
@@ -39,7 +39,7 @@ const POLL = { withinMs: 30_000, everyMs: 1_000 } as const
 
 let gateway: PortForward
 let jaeger: PortForward
-let client: JourneyClient
+let client: GatewayClient
 
 beforeAll(async () => {
   gateway = await portForward({
@@ -54,7 +54,7 @@ beforeAll(async () => {
     localPort: 16686,
     remotePort: 16686,
   })
-  client = new JourneyClient({
+  client = new GatewayClient({
     baseUrl: gateway.url,
     requestBudgetMs: REQUEST_BUDGET_MS,
     idempotencySeed: `journey-${RUN_ID}`,

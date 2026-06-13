@@ -10,3 +10,8 @@ otel:
 postgres:
   enabled: true
   database: qaroom_identity
+gc:
+  enabled: true
+  package: "@qaroom/identity"
+  # identity has neither outbox nor processed_events; the job sweeps idempotency_responses only.
+  # image defaults to qaroom/identity. For live Tilt, add a restart-free `qaroom/identity-gc` alias.

@@ -1,25 +1,26 @@
 import { setTimeout as delay } from 'node:timers/promises'
 
 /**
- * A thin, typed HTTP client for the golden-journey harness. It talks to the live cluster
- * THROUGH the gateway (the same edge a real client hits), so the journey exercises the full
- * request path — Traefik/Service -> gateway proxy -> downstream service -> Postgres/NATS — not
- * an in-process mock. One client instance == one user's session.
+ * A thin, typed HTTP client for the live-cluster harnesses (the golden journey AND the chaos
+ * probes). It talks to the live cluster THROUGH the gateway (the same edge a real client hits),
+ * so a harness exercises the full request path — Traefik/Service -> gateway proxy -> downstream
+ * service -> Postgres/NATS — not an in-process mock. One client instance == one caller's session.
  *
- * It enforces two repo conventions at the call site so the journey can't accidentally violate
- * them: every mutating request carries an `Idempotency-Key` (single-writer-per-resource), and
- * the bearer token (once a session exists) rides every request. The client never asserts —
- * assertions live in the test and in `./commitments`. It only transports and records.
+ * It enforces two repo conventions at the call site so a harness can't accidentally violate them:
+ * every mutating request carries an `Idempotency-Key` (single-writer-per-resource), and the bearer
+ * token (once a session exists) rides every request. The client never asserts — assertions live in
+ * each harness (the journey's `commitments`, the chaos steady-state verdict). It only transports and
+ * records, which is why it is generic enough to share: it is gateway-oriented, not journey-specific.
  */
-export interface JourneyResponse {
+export interface GatewayResponse {
   readonly status: number
   readonly body: unknown
 }
 
-export interface JourneyClientConfig {
-  /** Base URL of the gateway, e.g. the local port-forward `http://localhost:18080`. */
+export interface GatewayClientConfig {
+  /** Base URL of the gateway, e.g. a local port-forward `http://localhost:18080`. */
   readonly baseUrl: string
-  /** Per-request budget. A journey step that exceeds it is a failure, never a hang. */
+  /** Per-request budget. A step that exceeds it is a failure, never a hang. */
   readonly requestBudgetMs: number
   /** Deterministic seed for Idempotency-Key generation (no Math.random in the harness). */
   readonly idempotencySeed: string
@@ -33,13 +34,13 @@ interface RequestOptions {
 /**
  * Immutable client. Each call returns a new response record; the client itself holds no
  * mutable per-request state beyond the monotonic idempotency counter, which is derived
- * deterministically from the seed so re-runs of the same journey produce the same keys.
+ * deterministically from the seed so re-runs of the same harness produce the same keys.
  */
-export class JourneyClient {
-  private readonly config: JourneyClientConfig
+export class GatewayClient {
+  private readonly config: GatewayClientConfig
   private counter = 0
 
-  constructor(config: JourneyClientConfig) {
+  constructor(config: GatewayClientConfig) {
     this.config = config
   }
 
@@ -49,12 +50,12 @@ export class JourneyClient {
     return `${this.config.idempotencySeed}-${n.toString().padStart(6, '0')}`
   }
 
-  async get(path: string, opts: RequestOptions = {}): Promise<JourneyResponse> {
+  async get(path: string, opts: RequestOptions = {}): Promise<GatewayResponse> {
     return this.send('GET', path, undefined, opts)
   }
 
   /** A mutating call. Auto-attaches an `Idempotency-Key` unless the caller pins one (replay). */
-  async post(path: string, body: unknown, opts: RequestOptions = {}): Promise<JourneyResponse> {
+  async post(path: string, body: unknown, opts: RequestOptions = {}): Promise<GatewayResponse> {
     const idempotencyKey = opts.idempotencyKey ?? this.nextIdempotencyKey()
     return this.send('POST', path, body, { ...opts, idempotencyKey })
   }
@@ -64,7 +65,7 @@ export class JourneyClient {
     path: string,
     body: unknown,
     opts: RequestOptions,
-  ): Promise<JourneyResponse> {
+  ): Promise<GatewayResponse> {
     const headers = new Headers({ accept: 'application/json' })
     if (body !== undefined) headers.set('content-type', 'application/json')
     if (opts.token) headers.set('authorization', `Bearer ${opts.token}`)
@@ -81,8 +82,8 @@ export class JourneyClient {
       const parsed = text.length > 0 ? safeJson(text) : null
       return { status: res.status, body: parsed }
     } catch (error) {
-      // A network-level failure (timeout, refused) is itself a journey failure: surface it as a
-      // sentinel 0-status response so the test asserts on it instead of throwing mid-walk.
+      // A network-level failure (timeout, refused) is itself a harness failure: surface it as a
+      // sentinel 0-status response so the caller asserts on it instead of throwing mid-walk.
       const detail = error instanceof Error ? error.message : String(error)
       return { status: 0, body: { transport_error: detail } }
     }
@@ -92,9 +93,9 @@ export class JourneyClient {
    * (a webhook delivery, a moderator disposition) that land asynchronously after a write. */
   async pollUntil(
     path: string,
-    predicate: (res: JourneyResponse) => boolean,
+    predicate: (res: GatewayResponse) => boolean,
     opts: RequestOptions & { readonly withinMs: number; readonly everyMs: number },
-  ): Promise<JourneyResponse> {
+  ): Promise<GatewayResponse> {
     const deadline = opts.withinMs
     let waited = 0
     let last = await this.get(path, opts)

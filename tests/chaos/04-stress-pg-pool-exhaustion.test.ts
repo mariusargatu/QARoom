@@ -9,6 +9,7 @@ import {
   runSteadyState,
   waitForInjection,
 } from '@qaroom/testing-utils/chaos'
+import { GatewayClient } from '@qaroom/testing-utils/live-client'
 import { afterAll, beforeAll, describe, expect, it } from 'vitest'
 
 /**
@@ -27,6 +28,7 @@ const PROBE_BUDGET_MS = 8_000
 const DONATIONS_PATH = `/api/communities/${EXAMPLE_COMMUNITY_ID}/donations`
 
 let gateway: PortForward
+let client: GatewayClient
 
 beforeAll(async () => {
   gateway = await portForward({
@@ -35,17 +37,19 @@ beforeAll(async () => {
     localPort: 18084,
     remotePort: 80,
   })
+  client = new GatewayClient({
+    baseUrl: gateway.url,
+    requestBudgetMs: PROBE_BUDGET_MS,
+    idempotencySeed: 'chaos-04',
+  })
 }, 120_000)
 
 afterAll(() => gateway?.stop())
 
+// The shared client maps a timeout/refused fetch to a sentinel status 0 (a hang), which the
+// bounded hypothesis rejects, so the probe needs no try/catch of its own.
 async function probeDonations(): Promise<ProbeResult> {
-  const status = await fetch(`${gateway.url}${DONATIONS_PATH}`, {
-    headers: { accept: 'application/json' },
-    signal: AbortSignal.timeout(PROBE_BUDGET_MS),
-  })
-    .then((r) => r.status)
-    .catch(() => 0)
+  const status = (await client.get(DONATIONS_PATH)).status
   return { ok: status === 200 || status === 502 || status === 503, detail: `status ${status}` }
 }
 
