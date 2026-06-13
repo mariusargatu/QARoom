@@ -111,6 +111,21 @@ export const TOGGLES: DetectionToggle[] = z.array(DetectionToggle).parse([
       'redder) and caught only by the k6 SLO threshold: performance bugs need a performance gate.',
   },
   {
+    id: 'tenant-leak',
+    env: { name: 'CONTENT_BUG_TENANT_LEAK', value: '1' },
+    component: 'content',
+    readSite: { file: 'services/content/src/repository.ts', timing: 'call-time' },
+    guard: 'unguarded',
+    designatedCatcher: 'services/content/src/tenancy.property.test.ts (property-based isolation)',
+    claimId: 'tenant-isolation',
+    tiers: ['in-proc'],
+    selfToggling: [],
+    notes:
+      "Loosens listFeed's per-community WHERE to an always-true predicate, so every tenant's feed " +
+      'returns all posts (Commitment 9). Designated catcher is the three-tenant interleave property; ' +
+      'backs the permanent `tenant-isolation` claim (pnpm prove tenant-isolation --break).',
+  },
+  {
     id: 'sync-publish',
     env: { name: 'CHAOS_SYNC_PUBLISH', value: '1' },
     component: 'content',
@@ -171,6 +186,23 @@ export const TOGGLES: DetectionToggle[] = z.array(DetectionToggle).parse([
       'In-proc and Tier-B (paced) both ALL MISSED as predicted: a far-too-high timeout only ' +
       'bites when an upstream actually hangs; the chaos 07 partition experiment is the sole ' +
       "detector. The first sweep's schemathesis 'catch' was unpaced-429 noise, withdrawn.",
+  },
+  {
+    id: 'contract-drift',
+    env: { name: 'GATEWAY_BUG_DROP_EVENT_CURSOR', value: '1' },
+    component: 'gateway',
+    readSite: { file: 'services/gateway/src/events-routes.ts', timing: 'call-time' },
+    guard: 'unguarded',
+    designatedCatcher:
+      'scripts/schemathesis-gate.sh (gateway response-schema validation vs the published openapi.yaml)',
+    tiers: ['in-proc', 'cluster'],
+    selfToggling: [],
+    notes:
+      'Drops the required `cursor` field from the EventPage the gateway shapes on GET ' +
+      '/api/communities/:id/events — response-contract drift on a read endpoint. The contract layer ' +
+      'is what is designed to catch it (Pact + Pact-OAS in-proc, Schemathesis response validation ' +
+      'live against openapi.yaml, where `cursor` is required and additionalProperties is false); the ' +
+      'polling-parity integration test asserts only the events array, not the cursor.',
   },
   // ── webhooks (Milestone 11: each property file self-arms its demo describe) ──
   {

@@ -174,6 +174,29 @@ const RAW: Claim[] = [
     evidence: { runner: 'moderator', field: 'passed' },
     tier: 'simulate',
   },
+  {
+    id: 'tenant-isolation',
+    claim:
+      "A community's feed contains exactly its own posts and never another tenant's, even under an arbitrary interleave of cross-community writes (Commitment 9).",
+    boundary: 'tenancy',
+    registryRow: 'tenancy',
+    technique: 'property-based isolation test (three-tenant interleave)',
+    toggle: 'CONTENT_BUG_TENANT_LEAK',
+    gate: {
+      cmd: 'pnpm',
+      args: [
+        '--filter',
+        '@qaroom/content',
+        'exec',
+        'vitest',
+        'run',
+        '-t',
+        'appear only in their own feed',
+      ],
+    },
+    evidence: { runner: '@qaroom/content', field: 'passed' },
+    tier: 'simulate',
+  },
   // Claims 5-6 (max-out program, 2026-06-10): the first LIVE-tier claims, chosen FROM the
   // detection-matrix results — both bugs are invisible to every in-process technique, so their
   // gates run against the deployed cluster. `prove --break` sets the toggle on the gate process;

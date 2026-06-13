@@ -23,7 +23,16 @@ export function registerEventsRoute(app: FastifyInstance, deps: GatewayRouteDeps
       const after = AfterCursor.parse((req.query as { after?: string }).after)
       const events = deps.eventStream.since(communityId, after)
       const cursor = events.length > 0 ? (events[events.length - 1]?.seq ?? after) : after
-      reply.code(200).send(EventPage.parse({ community_id: communityId, events, cursor }))
+      const page = EventPage.parse({ community_id: communityId, events, cursor })
+      // Deliberate contract-drift toggle: when set, the gateway drops the `cursor` field from the
+      // page it shapes here — response-contract drift on a read endpoint. `cursor` is required (and
+      // additionalProperties:false) in the gateway's published EventPage schema, so the drift is the
+      // bug the contract layer (Schemathesis response-schema validation, Pact/Pact-OAS) defends.
+      // Read per call. Off in normal use.
+      const contractDriftBug = process.env.GATEWAY_BUG_DROP_EVENT_CURSOR === '1'
+      reply
+        .code(200)
+        .send(contractDriftBug ? { community_id: page.community_id, events: page.events } : page)
     },
   )
 }

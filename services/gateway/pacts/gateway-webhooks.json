@@ -9,23 +9,35 @@
       "request": {
         "body": {
           "content": {
-            "event_types": ["post.created"],
+            "event_types": [
+              "post.created"
+            ],
             "url": "https://hooks.example.com/qaroom"
           },
           "contentType": "application/json",
           "encoded": false
         },
         "headers": {
-          "Content-Type": ["application/json"],
-          "Idempotency-Key": ["idem-wh-1"],
-          "content-type": ["application/json"]
+          "Content-Type": [
+            "application/json"
+          ],
+          "Idempotency-Key": [
+            "idem-wh-create"
+          ],
+          "content-type": [
+            "application/json"
+          ]
         },
         "matchingRules": {
           "body": {},
           "header": {
             "Idempotency-Key": {
               "combine": "AND",
-              "matchers": [{ "match": "type" }]
+              "matchers": [
+                {
+                  "match": "type"
+                }
+              ]
             }
           }
         },
@@ -37,7 +49,9 @@
           "content": {
             "community_id": "comm_01HZY0K7M3QF8VN2J5RX9TB4CD",
             "created_at": "2026-01-01T00:00:00.000Z",
-            "event_types": ["post.created"],
+            "event_types": [
+              "post.created"
+            ],
             "id": "whsub_01HZY0K7M3QF8VN2J5RX9TB4CM",
             "secret": "whsec_0000000000000000000000000000000000000000000000000000000000000000",
             "status": "Active",
@@ -48,42 +62,134 @@
           "encoded": false
         },
         "headers": {
-          "Content-Type": ["application/json"]
+          "Content-Type": [
+            "application/json"
+          ]
         },
         "matchingRules": {
           "body": {
-            "$": { "combine": "AND", "matchers": [{ "match": "type" }] },
+            "$": {
+              "combine": "AND",
+              "matchers": [
+                {
+                  "match": "type"
+                }
+              ]
+            },
             "$.community_id": {
               "combine": "AND",
-              "matchers": [{ "match": "regex", "regex": "^comm_[0-9A-HJKMNP-TV-Z]{26}$" }]
+              "matchers": [
+                {
+                  "match": "regex",
+                  "regex": "^comm_[0-9A-HJKMNP-TV-Z]{26}$"
+                }
+              ]
             },
             "$.created_at": {
               "combine": "AND",
               "matchers": [
-                { "match": "regex", "regex": "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}\\.\\d{3}Z$" }
+                {
+                  "match": "regex",
+                  "regex": "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}\\.\\d{3}Z$"
+                }
               ]
             },
-            "$.event_types": { "combine": "AND", "matchers": [{ "match": "type", "min": 1 }] },
+            "$.event_types": {
+              "combine": "AND",
+              "matchers": [
+                {
+                  "match": "type",
+                  "min": 1
+                }
+              ]
+            },
             "$.id": {
               "combine": "AND",
-              "matchers": [{ "match": "regex", "regex": "^whsub_[0-9A-HJKMNP-TV-Z]{26}$" }]
+              "matchers": [
+                {
+                  "match": "regex",
+                  "regex": "^whsub_[0-9A-HJKMNP-TV-Z]{26}$"
+                }
+              ]
             },
-            "$.secret": { "combine": "AND", "matchers": [{ "match": "type" }] },
+            "$.secret": {
+              "combine": "AND",
+              "matchers": [
+                {
+                  "match": "regex",
+                  "regex": "^whsec_[0-9a-f]{64}$"
+                }
+              ]
+            },
             "$.status": {
               "combine": "AND",
-              "matchers": [{ "match": "regex", "regex": "^(Active|Paused|Disabled)$" }]
+              "matchers": [
+                {
+                  "match": "regex",
+                  "regex": "^(Active|Paused|Disabled)$"
+                }
+              ]
             },
             "$.updated_at": {
               "combine": "AND",
               "matchers": [
-                { "match": "regex", "regex": "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}\\.\\d{3}Z$" }
+                {
+                  "match": "regex",
+                  "regex": "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}\\.\\d{3}Z$"
+                }
               ]
             },
-            "$.url": { "combine": "AND", "matchers": [{ "match": "type" }] }
+            "$.url": {
+              "combine": "AND",
+              "matchers": [
+                {
+                  "match": "type"
+                }
+              ]
+            }
           },
           "status": {}
         },
         "status": 201
+      },
+      "type": "Synchronous/HTTP"
+    },
+    {
+      "description": "a request to delete a webhook subscription",
+      "pending": false,
+      "providerStates": [
+        {
+          "name": "a webhook subscription exists",
+          "params": {
+            "community_id": "comm_01HZY0K7M3QF8VN2J5RX9TB4CD",
+            "subscription_id": "whsub_01HZY0K7M3QF8VN2J5RX9TB4CM",
+            "url": "https://hooks.example.com/qaroom"
+          }
+        }
+      ],
+      "request": {
+        "headers": {
+          "Idempotency-Key": [
+            "idem-wh-delete"
+          ]
+        },
+        "matchingRules": {
+          "header": {
+            "Idempotency-Key": {
+              "combine": "AND",
+              "matchers": [
+                {
+                  "match": "type"
+                }
+              ]
+            }
+          }
+        },
+        "method": "DELETE",
+        "path": "/api/communities/comm_01HZY0K7M3QF8VN2J5RX9TB4CD/webhook-subscriptions/whsub_01HZY0K7M3QF8VN2J5RX9TB4CM"
+      },
+      "response": {
+        "status": 204
       },
       "type": "Synchronous/HTTP"
     },
@@ -117,23 +223,81 @@
           "encoded": false
         },
         "headers": {
-          "Content-Type": ["application/json"],
-          "content-type": ["application/problem+json"]
+          "Content-Type": [
+            "application/json"
+          ],
+          "content-type": [
+            "application/problem+json"
+          ]
         },
         "matchingRules": {
           "body": {
-            "$": { "combine": "AND", "matchers": [{ "match": "type" }] },
-            "$.failure_domain": { "combine": "AND", "matchers": [{ "match": "type" }] },
-            "$.next_actions": { "combine": "AND", "matchers": [{ "match": "type" }] },
-            "$.retryable": { "combine": "AND", "matchers": [{ "match": "type" }] },
-            "$.status": { "combine": "AND", "matchers": [{ "match": "integer" }] },
-            "$.title": { "combine": "AND", "matchers": [{ "match": "type" }] },
-            "$.type": { "combine": "AND", "matchers": [{ "match": "type" }] }
+            "$": {
+              "combine": "AND",
+              "matchers": [
+                {
+                  "match": "type"
+                }
+              ]
+            },
+            "$.failure_domain": {
+              "combine": "AND",
+              "matchers": [
+                {
+                  "match": "type"
+                }
+              ]
+            },
+            "$.next_actions": {
+              "combine": "AND",
+              "matchers": [
+                {
+                  "match": "type"
+                }
+              ]
+            },
+            "$.retryable": {
+              "combine": "AND",
+              "matchers": [
+                {
+                  "match": "type"
+                }
+              ]
+            },
+            "$.status": {
+              "combine": "AND",
+              "matchers": [
+                {
+                  "match": "integer"
+                }
+              ]
+            },
+            "$.title": {
+              "combine": "AND",
+              "matchers": [
+                {
+                  "match": "type"
+                }
+              ]
+            },
+            "$.type": {
+              "combine": "AND",
+              "matchers": [
+                {
+                  "match": "type"
+                }
+              ]
+            }
           },
           "header": {
             "content-type": {
               "combine": "AND",
-              "matchers": [{ "match": "regex", "regex": "application/problem\\+json.*" }]
+              "matchers": [
+                {
+                  "match": "regex",
+                  "regex": "application/problem\\+json.*"
+                }
+              ]
             }
           },
           "status": {}
@@ -164,7 +328,9 @@
           "content": {
             "community_id": "comm_01HZY0K7M3QF8VN2J5RX9TB4CD",
             "created_at": "2026-01-01T00:00:00.000Z",
-            "event_types": ["post.created"],
+            "event_types": [
+              "post.created"
+            ],
             "id": "whsub_01HZY0K7M3QF8VN2J5RX9TB4CM",
             "status": "Active",
             "updated_at": "2026-01-01T00:00:00.000Z",
@@ -174,37 +340,147 @@
           "encoded": false
         },
         "headers": {
-          "Content-Type": ["application/json"]
+          "Content-Type": [
+            "application/json"
+          ]
         },
         "matchingRules": {
           "body": {
-            "$": { "combine": "AND", "matchers": [{ "match": "type" }] },
+            "$": {
+              "combine": "AND",
+              "matchers": [
+                {
+                  "match": "type"
+                }
+              ]
+            },
             "$.community_id": {
               "combine": "AND",
-              "matchers": [{ "match": "regex", "regex": "^comm_[0-9A-HJKMNP-TV-Z]{26}$" }]
+              "matchers": [
+                {
+                  "match": "regex",
+                  "regex": "^comm_[0-9A-HJKMNP-TV-Z]{26}$"
+                }
+              ]
             },
             "$.created_at": {
               "combine": "AND",
               "matchers": [
-                { "match": "regex", "regex": "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}\\.\\d{3}Z$" }
+                {
+                  "match": "regex",
+                  "regex": "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}\\.\\d{3}Z$"
+                }
               ]
             },
-            "$.event_types": { "combine": "AND", "matchers": [{ "match": "type", "min": 1 }] },
+            "$.event_types": {
+              "combine": "AND",
+              "matchers": [
+                {
+                  "match": "type",
+                  "min": 1
+                }
+              ]
+            },
             "$.id": {
               "combine": "AND",
-              "matchers": [{ "match": "regex", "regex": "^whsub_[0-9A-HJKMNP-TV-Z]{26}$" }]
+              "matchers": [
+                {
+                  "match": "regex",
+                  "regex": "^whsub_[0-9A-HJKMNP-TV-Z]{26}$"
+                }
+              ]
             },
             "$.status": {
               "combine": "AND",
-              "matchers": [{ "match": "regex", "regex": "^(Active|Paused|Disabled)$" }]
+              "matchers": [
+                {
+                  "match": "regex",
+                  "regex": "^(Active|Paused|Disabled)$"
+                }
+              ]
             },
             "$.updated_at": {
               "combine": "AND",
               "matchers": [
-                { "match": "regex", "regex": "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}\\.\\d{3}Z$" }
+                {
+                  "match": "regex",
+                  "regex": "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}\\.\\d{3}Z$"
+                }
               ]
             },
-            "$.url": { "combine": "AND", "matchers": [{ "match": "type" }] }
+            "$.url": {
+              "combine": "AND",
+              "matchers": [
+                {
+                  "match": "type"
+                }
+              ]
+            }
+          },
+          "status": {}
+        },
+        "status": 200
+      },
+      "type": "Synchronous/HTTP"
+    },
+    {
+      "description": "a request to list a subscription’s deliveries",
+      "pending": false,
+      "providerStates": [
+        {
+          "name": "a webhook subscription exists",
+          "params": {
+            "community_id": "comm_01HZY0K7M3QF8VN2J5RX9TB4CD",
+            "subscription_id": "whsub_01HZY0K7M3QF8VN2J5RX9TB4CM",
+            "url": "https://hooks.example.com/qaroom"
+          }
+        }
+      ],
+      "request": {
+        "method": "GET",
+        "path": "/api/communities/comm_01HZY0K7M3QF8VN2J5RX9TB4CD/webhook-subscriptions/whsub_01HZY0K7M3QF8VN2J5RX9TB4CM/deliveries"
+      },
+      "response": {
+        "body": {
+          "content": {
+            "deliveries": [],
+            "subscription_id": "whsub_01HZY0K7M3QF8VN2J5RX9TB4CM"
+          },
+          "contentType": "application/json",
+          "encoded": false
+        },
+        "headers": {
+          "Content-Type": [
+            "application/json"
+          ]
+        },
+        "matchingRules": {
+          "body": {
+            "$": {
+              "combine": "AND",
+              "matchers": [
+                {
+                  "match": "type"
+                }
+              ]
+            },
+            "$.deliveries": {
+              "combine": "AND",
+              "matchers": [
+                {
+                  "match": "type"
+                }
+              ]
+            },
+            "$.subscription_id": {
+              "combine": "AND",
+              "matchers": [
+                {
+                  "match": "regex",
+                  "regex": "^whsub_[0-9A-HJKMNP-TV-Z]{26}$"
+                }
+              ]
+            }
           },
           "status": {}
         },
@@ -237,7 +513,9 @@
               {
                 "community_id": "comm_01HZY0K7M3QF8VN2J5RX9TB4CD",
                 "created_at": "2026-01-01T00:00:00.000Z",
-                "event_types": ["post.created"],
+                "event_types": [
+                  "post.created"
+                ],
                 "id": "whsub_01HZY0K7M3QF8VN2J5RX9TB4CM",
                 "status": "Active",
                 "updated_at": "2026-01-01T00:00:00.000Z",
@@ -249,49 +527,393 @@
           "encoded": false
         },
         "headers": {
-          "Content-Type": ["application/json"]
+          "Content-Type": [
+            "application/json"
+          ]
         },
         "matchingRules": {
           "body": {
-            "$": { "combine": "AND", "matchers": [{ "match": "type" }] },
+            "$": {
+              "combine": "AND",
+              "matchers": [
+                {
+                  "match": "type"
+                }
+              ]
+            },
             "$.community_id": {
               "combine": "AND",
-              "matchers": [{ "match": "regex", "regex": "^comm_[0-9A-HJKMNP-TV-Z]{26}$" }]
+              "matchers": [
+                {
+                  "match": "regex",
+                  "regex": "^comm_[0-9A-HJKMNP-TV-Z]{26}$"
+                }
+              ]
             },
-            "$.webhooks": { "combine": "AND", "matchers": [{ "match": "type", "min": 1 }] },
-            "$.webhooks[*].id": {
+            "$.webhooks": {
               "combine": "AND",
-              "matchers": [{ "match": "regex", "regex": "^whsub_[0-9A-HJKMNP-TV-Z]{26}$" }]
+              "matchers": [
+                {
+                  "match": "type",
+                  "min": 1
+                }
+              ]
             },
             "$.webhooks[*].community_id": {
               "combine": "AND",
-              "matchers": [{ "match": "regex", "regex": "^comm_[0-9A-HJKMNP-TV-Z]{26}$" }]
-            },
-            "$.webhooks[*].status": {
-              "combine": "AND",
-              "matchers": [{ "match": "regex", "regex": "^(Active|Paused|Disabled)$" }]
-            },
-            "$.webhooks[*].url": { "combine": "AND", "matchers": [{ "match": "type" }] },
-            "$.webhooks[*].event_types": {
-              "combine": "AND",
-              "matchers": [{ "match": "type", "min": 1 }]
+              "matchers": [
+                {
+                  "match": "regex",
+                  "regex": "^comm_[0-9A-HJKMNP-TV-Z]{26}$"
+                }
+              ]
             },
             "$.webhooks[*].created_at": {
               "combine": "AND",
               "matchers": [
-                { "match": "regex", "regex": "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}\\.\\d{3}Z$" }
+                {
+                  "match": "regex",
+                  "regex": "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}\\.\\d{3}Z$"
+                }
+              ]
+            },
+            "$.webhooks[*].event_types": {
+              "combine": "AND",
+              "matchers": [
+                {
+                  "match": "type",
+                  "min": 1
+                }
+              ]
+            },
+            "$.webhooks[*].id": {
+              "combine": "AND",
+              "matchers": [
+                {
+                  "match": "regex",
+                  "regex": "^whsub_[0-9A-HJKMNP-TV-Z]{26}$"
+                }
+              ]
+            },
+            "$.webhooks[*].status": {
+              "combine": "AND",
+              "matchers": [
+                {
+                  "match": "regex",
+                  "regex": "^(Active|Paused|Disabled)$"
+                }
               ]
             },
             "$.webhooks[*].updated_at": {
               "combine": "AND",
               "matchers": [
-                { "match": "regex", "regex": "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}\\.\\d{3}Z$" }
+                {
+                  "match": "regex",
+                  "regex": "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}\\.\\d{3}Z$"
+                }
+              ]
+            },
+            "$.webhooks[*].url": {
+              "combine": "AND",
+              "matchers": [
+                {
+                  "match": "type"
+                }
               ]
             }
           },
           "status": {}
         },
         "status": 200
+      },
+      "type": "Synchronous/HTTP"
+    },
+    {
+      "description": "a request to pause an active webhook subscription",
+      "pending": false,
+      "providerStates": [
+        {
+          "name": "a webhook subscription exists",
+          "params": {
+            "community_id": "comm_01HZY0K7M3QF8VN2J5RX9TB4CD",
+            "subscription_id": "whsub_01HZY0K7M3QF8VN2J5RX9TB4CM",
+            "url": "https://hooks.example.com/qaroom"
+          }
+        }
+      ],
+      "request": {
+        "body": {
+          "content": {},
+          "contentType": "application/json",
+          "encoded": false
+        },
+        "headers": {
+          "Content-Type": [
+            "application/json"
+          ],
+          "Idempotency-Key": [
+            "idem-wh-pause"
+          ],
+          "content-type": [
+            "application/json"
+          ]
+        },
+        "matchingRules": {
+          "body": {},
+          "header": {
+            "Idempotency-Key": {
+              "combine": "AND",
+              "matchers": [
+                {
+                  "match": "type"
+                }
+              ]
+            }
+          }
+        },
+        "method": "POST",
+        "path": "/api/communities/comm_01HZY0K7M3QF8VN2J5RX9TB4CD/webhook-subscriptions/whsub_01HZY0K7M3QF8VN2J5RX9TB4CM/pause"
+      },
+      "response": {
+        "body": {
+          "content": {
+            "community_id": "comm_01HZY0K7M3QF8VN2J5RX9TB4CD",
+            "created_at": "2026-01-01T00:00:00.000Z",
+            "event_types": [
+              "post.created"
+            ],
+            "id": "whsub_01HZY0K7M3QF8VN2J5RX9TB4CM",
+            "status": "Paused",
+            "updated_at": "2026-01-01T00:00:00.000Z",
+            "url": "https://hooks.example.com/qaroom"
+          },
+          "contentType": "application/json",
+          "encoded": false
+        },
+        "headers": {
+          "Content-Type": [
+            "application/json"
+          ]
+        },
+        "matchingRules": {
+          "body": {
+            "$": {
+              "combine": "AND",
+              "matchers": [
+                {
+                  "match": "type"
+                }
+              ]
+            },
+            "$.community_id": {
+              "combine": "AND",
+              "matchers": [
+                {
+                  "match": "regex",
+                  "regex": "^comm_[0-9A-HJKMNP-TV-Z]{26}$"
+                }
+              ]
+            },
+            "$.created_at": {
+              "combine": "AND",
+              "matchers": [
+                {
+                  "match": "regex",
+                  "regex": "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}\\.\\d{3}Z$"
+                }
+              ]
+            },
+            "$.event_types": {
+              "combine": "AND",
+              "matchers": [
+                {
+                  "match": "type",
+                  "min": 1
+                }
+              ]
+            },
+            "$.id": {
+              "combine": "AND",
+              "matchers": [
+                {
+                  "match": "regex",
+                  "regex": "^whsub_[0-9A-HJKMNP-TV-Z]{26}$"
+                }
+              ]
+            },
+            "$.status": {
+              "combine": "AND",
+              "matchers": [
+                {
+                  "match": "regex",
+                  "regex": "^(Active|Paused|Disabled)$"
+                }
+              ]
+            },
+            "$.updated_at": {
+              "combine": "AND",
+              "matchers": [
+                {
+                  "match": "regex",
+                  "regex": "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}\\.\\d{3}Z$"
+                }
+              ]
+            },
+            "$.url": {
+              "combine": "AND",
+              "matchers": [
+                {
+                  "match": "type"
+                }
+              ]
+            }
+          },
+          "status": {}
+        },
+        "status": 200
+      },
+      "type": "Synchronous/HTTP"
+    },
+    {
+      "description": "a request to resume an active webhook subscription",
+      "pending": false,
+      "providerStates": [
+        {
+          "name": "a webhook subscription exists",
+          "params": {
+            "community_id": "comm_01HZY0K7M3QF8VN2J5RX9TB4CD",
+            "subscription_id": "whsub_01HZY0K7M3QF8VN2J5RX9TB4CM",
+            "url": "https://hooks.example.com/qaroom"
+          }
+        }
+      ],
+      "request": {
+        "body": {
+          "content": {},
+          "contentType": "application/json",
+          "encoded": false
+        },
+        "headers": {
+          "Content-Type": [
+            "application/json"
+          ],
+          "Idempotency-Key": [
+            "idem-wh-resume"
+          ],
+          "content-type": [
+            "application/json"
+          ]
+        },
+        "matchingRules": {
+          "body": {},
+          "header": {
+            "Idempotency-Key": {
+              "combine": "AND",
+              "matchers": [
+                {
+                  "match": "type"
+                }
+              ]
+            }
+          }
+        },
+        "method": "POST",
+        "path": "/api/communities/comm_01HZY0K7M3QF8VN2J5RX9TB4CD/webhook-subscriptions/whsub_01HZY0K7M3QF8VN2J5RX9TB4CM/resume"
+      },
+      "response": {
+        "body": {
+          "content": {
+            "failure_domain": "conflict",
+            "next_actions": [],
+            "retryable": false,
+            "status": 409,
+            "title": "Illegal subscription status transition",
+            "type": "https://qaroom.dev/errors/webhook-illegal-transition"
+          },
+          "contentType": "application/json",
+          "encoded": false
+        },
+        "headers": {
+          "Content-Type": [
+            "application/json"
+          ],
+          "content-type": [
+            "application/problem+json"
+          ]
+        },
+        "matchingRules": {
+          "body": {
+            "$": {
+              "combine": "AND",
+              "matchers": [
+                {
+                  "match": "type"
+                }
+              ]
+            },
+            "$.failure_domain": {
+              "combine": "AND",
+              "matchers": [
+                {
+                  "match": "type"
+                }
+              ]
+            },
+            "$.next_actions": {
+              "combine": "AND",
+              "matchers": [
+                {
+                  "match": "type"
+                }
+              ]
+            },
+            "$.retryable": {
+              "combine": "AND",
+              "matchers": [
+                {
+                  "match": "type"
+                }
+              ]
+            },
+            "$.status": {
+              "combine": "AND",
+              "matchers": [
+                {
+                  "match": "integer"
+                }
+              ]
+            },
+            "$.title": {
+              "combine": "AND",
+              "matchers": [
+                {
+                  "match": "type"
+                }
+              ]
+            },
+            "$.type": {
+              "combine": "AND",
+              "matchers": [
+                {
+                  "match": "type"
+                }
+              ]
+            }
+          },
+          "header": {
+            "content-type": {
+              "combine": "AND",
+              "matchers": [
+                {
+                  "match": "regex",
+                  "regex": "application/problem\\+json.*"
+                }
+              ]
+            }
+          },
+          "status": {}
+        },
+        "status": 409
       },
       "type": "Synchronous/HTTP"
     }

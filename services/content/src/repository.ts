@@ -111,10 +111,16 @@ export async function listFeed(
   // captured posts' timestamps (not the replay clock). Read per call so a single test process can
   // show the bug reproduce (toggle on), then the fix (toggle off) replay green. Off in normal use.
   const feedOrderBug = process.env.CONTENT_BUG_FEED_REVERSED === '1'
+  // Deliberate tenancy-leak toggle (Commitment 9): when set, the per-community scope is loosened to
+  // an always-true predicate, so the feed returns EVERY tenant's posts — the cross-tenant read the
+  // property-based isolation test (and the `tenant-isolation` claim) must catch. Read per call,
+  // mirroring CONTENT_BUG_FEED_REVERSED, so one test process shows the leak (toggle on → red) and
+  // the fix (toggle off → green). Off in normal use.
+  const tenantLeakBug = process.env.CONTENT_BUG_TENANT_LEAK === '1'
   const rows = await db
     .select()
     .from(posts)
-    .where(eq(posts.communityId, communityId))
+    .where(tenantLeakBug ? sql`true` : eq(posts.communityId, communityId))
     .orderBy(feedOrderBug ? asc(posts.createdAt) : desc(posts.createdAt))
     .limit(limit)
   return rows.map(rowToPost)
