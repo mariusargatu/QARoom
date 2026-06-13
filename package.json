@@ -67,6 +67,7 @@
     "prove": "tsx scripts/prove.ts",
     "claims:render": "tsx scripts/render-claims.ts",
     "stats:render": "tsx scripts/render-stats.ts",
+    "cost:render": "tsx scripts/render-cost.ts",
     "boundaries:render": "tsx scripts/render-boundaries.ts",
     "claims:verify": "tsx scripts/claims-verify.ts",
     "tour:verify": "tsx scripts/verify-tour-anchors.ts",

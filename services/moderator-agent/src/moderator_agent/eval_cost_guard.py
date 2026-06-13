@@ -1,9 +1,12 @@
 """Pre-flight cost guard for the eval / red-team run (ADR-0017 cost-guard, retained by ADR-0020).
 
-Estimates the token cost of the SME-gold eval set BEFORE any OpenAI call and fails CI if it exceeds
-``MODERATOR_EVAL_BUDGET_TOKENS``. A coarse chars/4 heuristic is enough — the point is a hard ceiling
-so a ballooning DeepEval / DeepTeam run can never run up an unbounded bill (the guarantee survives the
-Promptfoo→DeepEval swap). Run: ``pnpm --filter @qaroom/moderator-agent eval:cost``.
+Estimates the token cost of EVERY LLM lane (gold/DeepEval, DeepTeam single-turn, PyRIT multi-turn)
+BEFORE any OpenAI call and fails CI if the total exceeds ``MODERATOR_EVAL_BUDGET_TOKENS``. The estimate
++ vendored prices (``evals/cost-model.json``) also yield a dollar figure. A coarse chars/4 heuristic is
+enough — the point is a hard ceiling so a ballooning run can never run up an unbounded bill, and (unlike
+the original gold-set-only estimate) the red-team lanes that were the real uncapped risk are now in it.
+
+Run: ``pnpm --filter @qaroom/moderator-agent eval:cost``.
 """
 
 from __future__ import annotations
@@ -13,33 +16,36 @@ import sys
 from pathlib import Path
 
 from .config import load_settings
+from .cost import estimate_lanes, load_cost_model
 
 _EVALS = Path(__file__).resolve().parents[2] / "evals"
-_COMPLETION_TOKENS_PER_CASE = 60  # a verdict is small and bounded
-# A citation-bearing RAG eval makes more than one judged call per case (faithfulness + agentic +
-# G-Eval metrics each invoke the judge); scale the estimate so the ceiling reflects the real surface.
-_JUDGED_CALLS_PER_CASE = 4
 
 
-def estimate_tokens() -> int:
+def _gold_inputs() -> tuple[int, list[str]]:
     messages = json.loads((_EVALS / "moderation.prompt.json").read_text())
     system_chars = sum(len(message["content"]) for message in messages)
-    # The eval cases are the SME-gold set (gold.json), now consumed directly by DeepEval (ADR-0020).
     gold = json.loads((_EVALS / "golden" / "gold.json").read_text())
-    cases = [c for c in gold.get("cases", []) if c.get("status") == "gold"]
-    total = 0
-    for case in cases:
-        post = case.get("post", "")
-        prompt_tokens = (system_chars + len(post)) // 4
-        total += (prompt_tokens + _COMPLETION_TOKENS_PER_CASE) * _JUDGED_CALLS_PER_CASE
-    return total
+    posts = [c.get("post", "") for c in gold.get("cases", []) if c.get("status") == "gold"]
+    return system_chars, posts
 
 
 def main() -> None:
-    budget = load_settings().moderator_eval_budget_tokens
-    estimate = estimate_tokens()
-    print(f"estimated eval cost: {estimate} tokens (budget {budget})")
-    if estimate > budget:
+    settings = load_settings()
+    budget = settings.moderator_eval_budget_tokens
+    model = settings.moderator_model
+    cost_model = load_cost_model()
+    system_chars, posts = _gold_inputs()
+    lanes = estimate_lanes(model, system_chars, posts, cost_model)
+
+    total_tokens = sum(lane.tokens for lane in lanes)
+    total_usd = round(sum(lane.usd for lane in lanes), 4)
+    for lane in lanes:
+        print(f"  {lane.name:<16} {lane.tokens:>8} tokens  ~${lane.usd:.4f}")
+    print(
+        f"estimated eval cost: {total_tokens} tokens ~${total_usd:.4f} "
+        f"(budget {budget} tokens, model {model})"
+    )
+    if total_tokens > budget:
         print("ERROR: estimated eval cost exceeds MODERATOR_EVAL_BUDGET_TOKENS")
         sys.exit(1)
     print("✓ within budget")
