@@ -1,12 +1,12 @@
 # ADR 0006: MCP server as a first-class tested service
 
-- **Status:** Accepted, built in Milestone 10 (`packages/qaroom-mcp`), 2026-06-05.
+- **Status:** Accepted, built in Milestone 10 (`services/qaroom-mcp`), 2026-06-05.
 - **Date:** 2026-06-02 (proposed); 2026-06-05 (accepted, as built)
 - **Records:** the decision that, when QARoom builds an MCP server, it is a single **cross-service** server treated as a first-class *tested* QARoom service, realizing the "designed-for-later" MCP seam in `docs/02-architecture.md`. Informed by a May-2026 landscape scan. Does **not** modify any ADR-0001 commitment, and does **not** violate the "no MCP servers *per service* in v1" omission (this is one cross-service server, post-v1). Built as Milestone 10, movement 1.
 
 ## As built (Milestone 10)
 
-`packages/qaroom-mcp` is a transport-agnostic `McpCore` (no database) over an injected `ServiceClient`, held to runtime determinism (`Clock`/`IdGenerator`). The read-first v1 surface shipped exactly as decided:
+`services/qaroom-mcp` is a transport-agnostic `McpCore` (no database) over an injected `ServiceClient`, held to runtime determinism (`Clock`/`IdGenerator`). The read-first v1 surface shipped exactly as decided:
 
 - **Capabilities proxy:** the tool catalogue is generated from the `content` + `gateway` `OasOperation` registries via the shared `operationInputSchema()` (the same code behind `/system/capabilities`), namespaced `<service>_<operationId>`. Only non-mutating, non-`/system/*` operations become callable tools; mutating `callTool` stays deferred.
 - **RFC 7807 tool errors:** failures map to the closed `FailureDomain` enum via `makeProblem()`; upstream Problem Details pass through unchanged.
@@ -31,7 +31,7 @@ Because it does not earn its place on velocity grounds today, the build is **cat
 
 ## Decision
 
-When built, the MCP server is a single cross-service TypeScript server (`packages/qaroom-mcp`) that reuses `@qaroom/contracts`, `@qaroom/service-kit`, and `@qaroom/testing-utils`, and inherits `eslint-plugin-qaroom` determinism enforcement. It is held to **runtime** determinism (injected `Clock` / `IdGenerator` / `Randomness`), not the script-level latitude an offline tool would get.
+When built, the MCP server is a single cross-service TypeScript server (`services/qaroom-mcp`) that reuses `@qaroom/contracts`, `@qaroom/service-kit`, and `@qaroom/testing-utils`, and inherits `eslint-plugin-qaroom` determinism enforcement. It is held to **runtime** determinism (injected `Clock` / `IdGenerator` / `Randomness`), not the script-level latitude an offline tool would get.
 
 **Read-first v1 surface:**
 
@@ -79,6 +79,26 @@ Transports: **both**, in-memory (FastMCP-style) for unit/property/golden tests u
 - **RAG / vector-memory MCP for code:** contradicts ADR-0004 (agentic search + LSP, no vector store).
 - **MCP Inspector as the test suite:** that *is* the vibe pattern this ADR rejects; Inspector is for manual debugging only.
 - **Publishing to the MCP registry now:** premature; in-repo first. `server.json` becomes another contract to drift-gate if/when we publish.
+
+## Addendum (Phase 3 refactor, 2026-06-13): relocated to `services/`
+
+`qaroom-mcp` moved from `packages/qaroom-mcp` to `services/qaroom-mcp`. The workspace name
+(`@qaroom/qaroom-mcp`) is unchanged, so every `pnpm --filter` and the `mcp:generate`/`mcp:verify`
+scripts keep working. Two reasons, both consistent with this ADR's own framing ("MCP as a tested
+*service*"):
+
+1. **Layering.** It is the one workspace member under `packages/` that imports service operation
+   registries (`@qaroom/content/operations`, `@qaroom/gateway/operations`) — a `packages/ -> services/`
+   dependency inversion. As a service depending on services, it now sits in the right layer.
+2. **Image hygiene.** Service Dockerfiles `COPY packages ./packages` wholesale, so living in
+   `packages/` pulled qaroom-mcp (and its cross-service `workspace:*` deps) into every image,
+   forcing a `.dockerignore` exclude to avoid `ERR_PNPM_WORKSPACE_PKG_NOT_FOUND`. Under `services/`
+   it is copied by no image (each copies only its own `services/<name>`); the exclude and the
+   per-image bloat are both gone.
+
+It remains not cluster-deployed (no `openapi.yaml`/`Dockerfile`); it runs in-process or via
+`pnpm --filter @qaroom/qaroom-mcp dev` for the agentic-CI demonstration. The four typed gates are
+unchanged; `scripts/mcp-verify.ts` paths were updated to `services/qaroom-mcp`.
 
 ## Related decisions
 

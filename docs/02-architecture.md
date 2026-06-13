@@ -53,10 +53,10 @@ Supporting infrastructure deployed alongside:
 ```mermaid
 flowchart TB
     accTitle: QARoom container view at maturity
-    accDescr: web calls gateway over HTTPS and WebSocket. gateway routes to content-service, identity-service, flags-service, and donations-service; proxies webhook subscription CRUD to webhooks-service; and fronts moderator-agent decision reads per ADR-0022. content-service, flags-service, donations-service, and moderator-agent publish events to NATS JetStream; moderator-agent and webhooks-service consume from it. webhooks-service delivers outbound HTTP to external subscribers. donations-service calls the Microcks payment-provider mock over REST. packages/qaroom-mcp exposes a read-first MCP tool surface over the services' capabilities, through the gateway. Every service sends OpenTelemetry spans to the OTel Collector, which feeds Jaeger and Prometheus.
+    accDescr: web calls gateway over HTTPS and WebSocket. gateway routes to content-service, identity-service, flags-service, and donations-service; proxies webhook subscription CRUD to webhooks-service; and fronts moderator-agent decision reads per ADR-0022. content-service, flags-service, donations-service, and moderator-agent publish events to NATS JetStream; moderator-agent and webhooks-service consume from it. webhooks-service delivers outbound HTTP to external subscribers. donations-service calls the Microcks payment-provider mock over REST. services/qaroom-mcp exposes a read-first MCP tool surface over the services' capabilities, through the gateway. Every service sends OpenTelemetry spans to the OTel Collector, which feeds Jaeger and Prometheus.
 
     Web["web<br>(React + Vite)"]
-    MCP["packages/qaroom-mcp<br>(read-first MCP tool surface)"]
+    MCP["services/qaroom-mcp<br>(read-first MCP tool surface)"]
 
     subgraph Cluster["Services (Postgres per service)"]
         Gateway["gateway<br>(Fastify, OTel orchestrator,<br>RFC 7807 errors)"]
@@ -96,7 +96,7 @@ flowchart TB
     Collector --> Prometheus
 ```
 
-In prose: web -> gateway -> {content, identity, flags, donations}, with the gateway also proxying webhook subscription CRUD and moderation reads (ADR-0022); content, flags, donations, and the moderator publish to NATS JetStream, where the moderator-agent and webhooks-service consume; webhooks delivers outbound HTTP to external subscribers; donations calls the Microcks payment mock; packages/qaroom-mcp is the read-first MCP surface over the services' capabilities; and every service's OTel spans flow to the collector, then to Jaeger and Prometheus.
+In prose: web -> gateway -> {content, identity, flags, donations}, with the gateway also proxying webhook subscription CRUD and moderation reads (ADR-0022); content, flags, donations, and the moderator publish to NATS JetStream, where the moderator-agent and webhooks-service consume; webhooks delivers outbound HTTP to external subscribers; donations calls the Microcks payment mock; services/qaroom-mcp is the read-first MCP surface over the services' capabilities; and every service's OTel spans flow to the collector, then to Jaeger and Prometheus.
 
 This is the maturity view. Earlier milestones have only a subset of services; see `docs/04-roadmap.md` for which services exist in which milestone.
 
@@ -166,7 +166,7 @@ Each omission is deliberate, and the reason for each is recorded in the list abo
 
 These are the seams left deliberately in place for future work:
 
-- **MCP servers per service**: `/system/capabilities` returns MCP-tool-shaped JSON; FastMCP or Stainless can wrap each service when needed. The cross-service variant is *realized in Milestone 10* (ADR-0006): `packages/qaroom-mcp`, a first-class tested service; per-service wrappers remain the open seam.
+- **MCP servers per service**: `/system/capabilities` returns MCP-tool-shaped JSON; FastMCP or Stainless can wrap each service when needed. The cross-service variant is *realized in Milestone 10* (ADR-0006): `services/qaroom-mcp`, a first-class tested service; per-service wrappers remain the open seam.
 - **Agentic community moderator**, *realized in Milestone 9 and re-scoped to retrieval-grounded RAG in Milestone 12* (ADR-0018, ADR-0020): the `moderator-agent` consumes the NATS event stream and fills the reserved LangGraph slot.
 - **Per-agent ephemeral environments**: `scripts/spin-up-ephemeral.sh` provisions namespaces; agents get one each when needed.
 - **Agentic CI/CD demonstration**, *realized in Milestone 10, movement 2* (`docs/agentic-ci-demo.md`): Claude Code subagents work goals through the tested MCP tool surface and consume the frozen `test-results/summary.json` artifact.

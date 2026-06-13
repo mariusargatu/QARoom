@@ -1,11 +1,10 @@
 # Build-context excludes for every image built from the repo root.
 #
-# packages/qaroom-mcp depends on @qaroom/content + @qaroom/gateway (workspace:*), but each service
-# image copies `packages/` wholesale while copying only its OWN service — so including qaroom-mcp makes
-# `pnpm install` fail with ERR_PNPM_WORKSPACE_PKG_NOT_FOUND (the cross-service deps aren't in the image).
-# No service imports qaroom-mcp (it's the standalone cross-service MCP server), so it is never needed
-# inside a service/web image. Excluding it lets the per-service installs resolve.
-packages/qaroom-mcp
+# qaroom-mcp moved from packages/ to services/ in Phase 3 (ADR-0006). In packages/ it was copied
+# into every image by `COPY packages ./packages` and, depending on @qaroom/content + @qaroom/gateway
+# (workspace:*) that a per-service image lacks, broke `pnpm install` (ERR_PNPM_WORKSPACE_PKG_NOT_FOUND)
+# — hence the old exclude. Under services/ it is copied by no image (each Dockerfile copies only its
+# own `services/<name>`), so no exclude is needed; the bloat and the install break are both gone.
 
 # Never ship local installs, VCS, or build output into any image context.
 **/node_modules
