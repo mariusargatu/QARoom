@@ -42,3 +42,97 @@ export function foldRunner(summaryPath: string, runner: RunnerResult): Totals {
   writeFileSync(summaryPath, `${JSON.stringify(summary, null, 2)}\n`)
   return totals
 }
+
+/** One file entry of a Vitest `--reporter=json` report — only the fields the fold reads. */
+interface VitestFileResult {
+  name?: string
+  status?: string
+  startTime?: number
+  endTime?: number
+  assertionResults?: { title?: string; status?: string }[]
+}
+
+/** Minimal shape of a Vitest `--reporter=json` report. */
+interface VitestJsonReport {
+  numPassedTests?: number
+  numFailedTests?: number
+  numPendingTests?: number
+  numTodoTests?: number
+  success?: boolean
+  testResults?: VitestFileResult[]
+}
+
+export interface FoldVitestReportOptions {
+  /** Runner display name (e.g. `chaos`, `journey`, or a workspace package name). */
+  name: string
+  /** Absolute path to the Vitest `--reporter=json` output. */
+  reportPath: string
+  /** `output.runner` label (e.g. `vitest`, `chaos-mesh+litmus`, `golden-journey-live`). */
+  runnerLabel: string
+  /** Per-runner property/fuzzing seeds (defaults to `{}`, matching the schema default). */
+  seeds?: Record<string, unknown>
+  /** Extra `output{}` fields derived from the report (e.g. `experiments`, `steps`). */
+  extraOutput?: (report: VitestJsonReport) => Record<string, unknown>
+}
+
+export interface FoldVitestReportResult {
+  /** Cross-runner totals returned by `foldRunner` — used by the multi-runner aggregate sweep. */
+  totals: Totals
+  /** The single `RunnerResult` this call folded — used by single-runner callers to gate/print. */
+  runner: RunnerResult
+  /**
+   * False-green-aware pass flag for THIS runner: the report claims `success` AND it actually ran at
+   * least one test. Single-runner callers (chaos/journey) gate on this — gating on cross-runner
+   * `totals.failed` would wrongly couple their exit to other runners during local sequential folds.
+   */
+  success: boolean
+}
+
+/**
+ * Read one Vitest `--reporter=json` report, map it to a `RunnerResult`, and fold it into
+ * `summary.json` via {@link foldRunner}. This is the single home for the read+parse+map+duration+
+ * false-green block that scripts/aggregate-test-results.ts, scripts/chaos-results.ts and
+ * scripts/journey-results.ts each hand-copied. The caller still owns its exit code: gate on the
+ * returned `success` (single-runner chaos/journey) or on `totals.failed` (the aggregate sweep).
+ *
+ * False-green guard (strictest of the three originals): a MISSING report throws — callers that want
+ * a softer exit code (chaos/journey exit 2, the aggregate sweep `continue`s) pre-check `existsSync`
+ * and never reach this throw. An EMPTY report (0 tests) yields `success:false` even if the JSON
+ * claims `success:true`, so a "no test files found" run can never fold as green.
+ */
+export function foldVitestReport(
+  summaryPath: string,
+  opts: FoldVitestReportOptions,
+): FoldVitestReportResult {
+  if (!existsSync(opts.reportPath)) {
+    throw new Error(`no vitest report at ${opts.reportPath} for runner "${opts.name}"`)
+  }
+
+  const report = JSON.parse(readFileSync(opts.reportPath, 'utf8')) as VitestJsonReport
+  const fileDuration = (f: VitestFileResult) => (f.endTime ?? 0) - (f.startTime ?? 0)
+  const durationMs = Math.round(
+    (report.testResults ?? []).reduce((sum, f) => sum + fileDuration(f), 0),
+  )
+
+  const passed = report.numPassedTests ?? 0
+  const failed = report.numFailedTests ?? 0
+  const skipped = (report.numPendingTests ?? 0) + (report.numTodoTests ?? 0)
+
+  const runner: RunnerResult = {
+    name: opts.name,
+    passed,
+    failed,
+    skipped,
+    duration_ms: durationMs,
+    output: {
+      runner: opts.runnerLabel,
+      success: report.success === true,
+      ...opts.extraOutput?.(report),
+    },
+    seeds: opts.seeds ?? {},
+  }
+
+  const totals = foldRunner(summaryPath, runner)
+  const success = report.success === true && passed + failed + skipped > 0
+  return { totals, runner, success }
+}

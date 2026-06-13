@@ -6,6 +6,7 @@ import { CLAIMS, type Claim } from '@qaroom/contracts/claims'
 import { BOUNDARIES_END, BOUNDARIES_START, renderBoundariesBlock } from './render-boundaries'
 import { README_END, README_START, renderReadmeBlock } from './render-claims'
 import { renderStatsBlock, STATS_END, STATS_START } from './render-stats'
+import { deriveFoldedRunnerNames } from './test-results-verify'
 
 /**
  * `pnpm claims:verify`: the manifest-resolves gate (sibling of mcp:verify / openapi:verify). The
@@ -27,37 +28,27 @@ const SUMMARY_PATH = resolve(ROOT, 'test-results/summary.json')
 interface Result {
   ok: boolean
   warn?: boolean
+  /** ok, but the real falsifier could not run here (live tier, no reachable cluster). Tallied apart. */
+  deferred?: boolean
   detail: string
 }
 
 // A runner name is VALID (not a typo) if it is a real workspace dir (@qaroom/<name> → services/ or
-// packages/<name>) or a known tool-runner folded by a result script.
-const TOOL_RUNNERS = new Set([
-  'moderator',
-  'deepeval',
-  'deepteam',
-  'pyrit',
-  'promptfoo',
-  'golden-sme',
-  'k6',
-  'stryker',
-  'evomaster',
-  'scout',
-  'web-ct',
-  'chaos',
-  'eslint-plugin-qaroom',
-  // Max-out fold-runners (the gauntlet folds these; a normal CI run doesn't, so a claim's evidence
-  // pointing at one resolves STALE-not-fatal off a non-gauntlet summary). tenant-spans backs the
-  // tenant-span-everywhere claim; the rest are valid runner names a future claim may reference.
+// packages/<name>) or a known tool-runner. The tool-runner half is DERIVED from the *-results.ts
+// scripts (shared with test-results:verify's census) so it cannot rot — that derivation is what
+// removes the M12-dropped 'promptfoo' and adds 'journey'/'web-e2e' without a hand-edit here.
+const EXTRA_VALID_RUNNERS = new Set([
+  // Valid runner names NOT folded by a *-results.ts (so the derivation can't see them):
+  // tenant-spans backs the tenant-span-everywhere claim (folded by check-tenant-spans.ts --fold);
+  // eslint-plugin-qaroom is folded by the vitest aggregate under its bare (unscoped) package name;
+  // the rest are max-out fold-runners the gauntlet/matrix emit that a future claim may reference.
   'tenant-spans',
-  'pact',
-  'schemathesis',
-  'tracetest',
-  'coverage',
+  'eslint-plugin-qaroom',
+  'scout',
   'stryker-attribution',
-  'mbt-edge-coverage',
   'gauntlet',
 ])
+const TOOL_RUNNERS = new Set([...deriveFoldedRunnerNames(), ...EXTRA_VALID_RUNNERS])
 function isValidRunnerName(name: string): boolean {
   if (TOOL_RUNNERS.has(name)) return true
   const m = name.match(/^@qaroom\/(.+)$/)
@@ -133,7 +124,11 @@ function checkTeeth(claim: Claim): Result {
   if (claim.tier === 'live') {
     const probe = spawnSync('kubectl', ['get', 'ns', 'qaroom'], { encoding: 'utf8' })
     if (probe.status !== 0) {
-      return { ok: true, detail: 'live tier: no reachable cluster — teeth deferred to a live run' }
+      return {
+        ok: true,
+        deferred: true,
+        detail: 'live tier: no reachable cluster — teeth deferred to a live run',
+      }
     }
   }
   // Run the real falsifier. prove --break exits 0 iff the gate genuinely went red.
@@ -228,6 +223,7 @@ function checkCommandsCensus(): Result {
 function main(): void {
   process.stdout.write(`claims:verify: ${CLAIMS.length} claims\n`)
   let failed = 0
+  let deferred = 0
   for (const claim of CLAIMS) {
     const checks: [string, Result][] = [
       ['taxonomy', checkTaxonomy(claim)],
@@ -237,10 +233,20 @@ function main(): void {
     ]
     const bad = checks.filter(([, r]) => !r.ok)
     const warns = checks.filter(([, r]) => r.ok && r.warn)
+    const deferrals = checks.filter(([, r]) => r.ok && r.deferred)
     if (bad.length === 0) {
+      // DEFERRED is a first-class outcome, NOT a pass: the claim is well-formed and wired, but its
+      // falsifier could not run here (live tier, no cluster). Surface it distinctly so a green run
+      // never silently hides teeth that were never exercised.
+      if (deferrals.length > 0) deferred += 1
+      const mark = deferrals.length > 0 ? '⏸' : '✓'
+      const teeth = deferrals.length > 0 ? 'teeth DEFERRED' : 'teeth'
       const note = warns.length > 0 ? ` (${warns.map(([n]) => `${n}: stale`).join(', ')})` : ''
-      process.stdout.write(`  ✓ ${claim.id}: schema, taxonomy, evidence, wired, teeth${note}\n`)
+      process.stdout.write(
+        `  ${mark} ${claim.id}: schema, taxonomy, evidence, wired, ${teeth}${note}\n`,
+      )
       for (const [name, r] of warns) process.stdout.write(`      ⚠ ${name}: ${r.detail}\n`)
+      for (const [name, r] of deferrals) process.stdout.write(`      ⏸ ${name}: ${r.detail}\n`)
     } else {
       failed += 1
       process.stdout.write(`  ✗ ${claim.id}\n`)
@@ -275,6 +281,12 @@ function main(): void {
     }
   }
 
+  // Surface the DEFERRED tally on BOTH paths — it is a first-class census outcome, not a footnote on
+  // the green line, so an unrelated failure never hides "N live-tier claims were never falsified here".
+  process.stdout.write(
+    `\nclaims:verify: ${deferred} deferred (live-tier teeth pending a reachable cluster${deferred > 0 ? ' — re-run on the cluster to falsify' : ''})\n`,
+  )
+
   if (failed > 0) {
     process.stderr.write(
       `\nclaims:verify FAILED: ${failed} check(s) failed (unfalsifiable claim or stale projection)\n`,
@@ -282,7 +294,7 @@ function main(): void {
     process.exit(1)
   }
   process.stdout.write(
-    `\nclaims:verify ✓: every claim resolves live and is falsifiable on demand\n`,
+    `\nclaims:verify ✓: every claim resolves live and is falsifiable on demand (${deferred} deferred)\n`,
   )
 }
 

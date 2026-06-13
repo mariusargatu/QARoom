@@ -1,6 +1,6 @@
-import { existsSync, readFileSync } from 'node:fs'
+import { existsSync } from 'node:fs'
 import { resolve } from 'node:path'
-import { foldRunner } from './lib/fold-runner'
+import { foldVitestReport } from './lib/fold-runner'
 
 /**
  * Fold the chaos vitest run (test-results/chaos.json) into the frozen
@@ -21,38 +21,20 @@ if (!existsSync(chaosPath)) {
   process.exit(2)
 }
 
-const report = JSON.parse(readFileSync(chaosPath, 'utf8'))
-const fileDuration = (f: { startTime?: number; endTime?: number }) =>
-  (f.endTime ?? 0) - (f.startTime ?? 0)
-const durationMs = Math.round(
-  (report.testResults ?? []).reduce(
-    (sum: number, f: { startTime?: number; endTime?: number }) => sum + fileDuration(f),
-    0,
-  ),
-)
-
-const chaosRunner = {
+const { runner, success } = foldVitestReport(summaryPath, {
   name: 'chaos',
-  passed: report.numPassedTests ?? 0,
-  failed: report.numFailedTests ?? 0,
-  skipped: (report.numPendingTests ?? 0) + (report.numTodoTests ?? 0),
-  duration_ms: durationMs,
-  output: {
-    runner: 'chaos-mesh+litmus',
-    success: report.success === true,
-    experiments: (report.testResults ?? []).map((f: { name?: string; status?: string }) => ({
-      file: f.name,
-      status: f.status,
-    })),
-  },
-}
+  reportPath: chaosPath,
+  runnerLabel: 'chaos-mesh+litmus',
+  extraOutput: (report) => ({
+    experiments: (report.testResults ?? []).map((f) => ({ file: f.name, status: f.status })),
+  }),
+})
 
-foldRunner(summaryPath, chaosRunner)
 process.stdout.write(
-  `merged chaos runner into summary.json — ${chaosRunner.passed} passed, ${chaosRunner.failed} failed\n`,
+  `merged chaos runner into summary.json — ${runner.passed} passed, ${runner.failed} failed\n`,
 )
-// Gate on report.success too, not just the failed count: a suite-level crash (a beforeAll /
-// port-forward throw, an import error) produces numFailedTests:0 but success:false — keying only
-// on failed would exit 0 (false-green) even though no chaos experiment actually ran.
-const passed = report.success === true && chaosRunner.failed === 0
-process.exit(passed ? 0 : 1)
+// Gate on the false-green-aware `success` (report.success AND >0 tests ran), not just the failed
+// count: a suite-level crash (a beforeAll / port-forward throw, an import error) produces
+// numFailedTests:0 but success:false — keying only on failed would exit 0 (false-green) even though
+// no chaos experiment actually ran.
+process.exit(success && runner.failed === 0 ? 0 : 1)
