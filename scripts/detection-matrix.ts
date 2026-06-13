@@ -2,7 +2,7 @@ import { execFileSync, spawnSync } from 'node:child_process'
 import { existsSync, readFileSync, writeFileSync } from 'node:fs'
 import { resolve } from 'node:path'
 import { CLAIMS } from '@qaroom/contracts/claims'
-import { TOGGLES } from '@qaroom/contracts/detection-matrix'
+import { type DetectionToggle, TOGGLES } from '@qaroom/contracts/detection-matrix'
 import { DetectionMatrixArtifact, type MatrixCell } from '@qaroom/contracts/detection-matrix-schema'
 import { CLUSTER_ROWS, runClusterRow } from './lib/matrix-cluster'
 import {
@@ -20,7 +20,8 @@ import {
  * and proven blindness. Cells fold idempotently into test-results/detection-matrix.json.
  *
  *   pnpm matrix                      # plan + current cell status
- *   pnpm matrix --verify             # manifest census: every toggle's env is really read
+ *   pnpm matrix --verify             # manifest census: every toggle's env is really read,
+ *                                    # and the declared guard matches the read site
  *   pnpm matrix --baseline           # record standing reds (same commit/seed) before any tier
  *   pnpm matrix --tier in-proc       # Tier A: ~17 toggles × full in-proc battery (~90 min)
  *   pnpm matrix --tier in-proc --toggle webhook-no-cap
@@ -58,7 +59,23 @@ function foldCells(artifact: DetectionMatrixArtifact, cells: MatrixCell[]): void
   artifact.cells = [...artifact.cells.filter((c) => !replaced.has(cellKey(c))), ...cells]
 }
 
-// ── --verify: the census — the manifest can never name a toggle nothing reads ──
+// ── --verify: the census — the manifest can never name a toggle nothing reads, and the
+// declared guard must match what the read site actually does (cheap heuristic greps, same
+// spirit as the env-name check): a node-env-gated read lives in a file that mentions NODE_ENV,
+// an unguarded one must not, and settings-load is exactly the pydantic settings-load timing. ──
+const guardViolation = (toggle: DetectionToggle, src: string): string | null => {
+  if ((toggle.guard === 'settings-load') !== (toggle.readSite.timing === 'settings-load')) {
+    return `guard "${toggle.guard}" contradicts readSite timing "${toggle.readSite.timing}"`
+  }
+  if (toggle.guard === 'node-env-gated' && !src.includes('NODE_ENV')) {
+    return 'declared node-env-gated but the readSite never mentions NODE_ENV'
+  }
+  if (toggle.guard === 'unguarded' && src.includes('NODE_ENV')) {
+    return 'declared unguarded but the readSite mentions NODE_ENV (gated read?)'
+  }
+  return null
+}
+
 if (args.includes('--verify')) {
   let bad = 0
   for (const toggle of TOGGLES) {
@@ -68,12 +85,18 @@ if (args.includes('--verify')) {
       bad += 1
       continue
     }
+    const src = readFileSync(path, 'utf8')
     // settings-load toggles are pydantic fields: MODERATOR_UNGROUNDED → moderator_ungrounded
     // (BaseSettings maps env names case-insensitively), so the census greps the field name.
     const needle =
       toggle.readSite.timing === 'settings-load' ? toggle.env.name.toLowerCase() : toggle.env.name
-    if (!readFileSync(path, 'utf8').includes(needle)) {
+    if (!src.includes(needle)) {
       process.stderr.write(`✗ ${toggle.id}: ${toggle.readSite.file} never reads ${needle}\n`)
+      bad += 1
+    }
+    const guardProblem = guardViolation(toggle, src)
+    if (guardProblem !== null) {
+      process.stderr.write(`✗ ${toggle.id}: ${guardProblem}\n`)
       bad += 1
     }
     if (toggle.claimId && !CLAIMS.some((c) => c.id === toggle.claimId)) {
@@ -89,7 +112,7 @@ if (args.includes('--verify')) {
   }
   process.stdout.write(
     bad === 0
-      ? `✓ census clean — ${TOGGLES.length} toggles, every env read where the manifest says\n`
+      ? `✓ census clean — ${TOGGLES.length} toggles, every env read where (and how) the manifest says\n`
       : `${bad} census violation(s)\n`,
   )
   process.exit(bad === 0 ? 0 : 1)
@@ -185,6 +208,7 @@ if (tier === 'cluster') {
     const cells = runClusterRow(ROOT, {
       toggleId: toggle.id,
       env: toggle.env,
+      guard: toggle.guard,
       commit,
       recordedAt: new Date().toISOString(),
     })

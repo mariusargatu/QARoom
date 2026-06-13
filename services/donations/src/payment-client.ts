@@ -23,10 +23,16 @@ export interface PaymentClient {
   charge(req: ChargeRequest): Promise<PaymentAuthorization>
 }
 
-/** The production client: POST /charges, throwing on any non-2xx (a provider/transport fault). */
+/**
+ * The production client: POST /charges, throwing on any non-2xx (a provider/transport fault).
+ * Every call is bounded by `AbortSignal.timeout` (default 5s, the same value as the gateway's
+ * `upstream-call.ts` and webhooks' `sender.ts`): a hung provider becomes a fast throw → 502
+ * `dependency_failure` instead of a socket held open until the OS TCP timeout.
+ */
 export function createPaymentClient(
   baseUrl: string,
   fetchImpl: typeof fetch = fetch,
+  timeoutMs = 5_000,
 ): PaymentClient {
   const base = baseUrl.replace(/\/$/, '')
   return {
@@ -35,6 +41,7 @@ export function createPaymentClient(
         method: 'POST',
         headers: { 'content-type': 'application/json', 'idempotency-key': req.idempotency_key },
         body: JSON.stringify({ amount_cents: req.amount_cents, currency: req.currency }),
+        signal: AbortSignal.timeout(timeoutMs),
       })
       if (!res.ok) {
         const body = await res.text().catch(() => '')
