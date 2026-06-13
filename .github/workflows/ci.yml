@@ -1,16 +1,46 @@
 name: CI
 
-# Manual-trigger only (2026-06-10). Auto-runs on push / pull_request / schedule are intentionally
-# OFF — this is a build-in-public repo on a fresh private remote with no secrets/quota/cluster wired,
-# so an automatic CI storm buys nothing. Run on demand from the Actions tab. The heavy jobs below
-# still carry their `if: github.event_name == 'push'/'schedule'` gates, so a plain manual dispatch
-# runs the LIGHT verification lane (verify, contracts, fuzz, web-stories, moderator, claims); the
-# cluster/chaos/load tiers stay dormant and are exercised locally via `pnpm gauntlet`.
+# DISPATCH-ONLY + one EVAL cron. There is deliberately NO `on: push` / `on: pull_request` (owner
+# decision): this is a build-in-public repo on a fresh private remote with no per-commit quota to
+# spend, so an automatic CI storm buys nothing. CI runs on demand from the Actions tab (pick a
+# `tier`), and ONE weekly `schedule` cron is the only automatic trigger — it fires the cost-bounded
+# EVAL tier alone (real-OpenAI evals), never the build/cluster lanes.
+#
+# Dispatch tiers (workflow_dispatch input `tier`, default `light`) are CUMULATIVE — light < merge <
+# nightly:
+#   light   (every dispatch): verify, claims, contracts, fuzz, fuzz-identity, fuzz-webhooks,
+#                             web-stories, moderator        — in-process, no cluster, fast lane
+#   merge   (light +):        chart, cluster-smoke, tracetest, web-ct   — KinD cluster + chart + CT
+#   nightly (merge +):        load, mutation, evomaster, chaos          — heavy / search / chaos
+# Evals (moderator-evals: golden + DeepEval + DeepTeam) run on the `schedule` cron OR on a dispatch
+# with `run_evals: true`; they are gated OUT of every tier so the cron fires evals only. PyRIT stays
+# gauntlet-only (`pnpm gauntlet --pyrit`). The terminal `summary-envelope` job (needs: every folding
+# job, if: always) fans the per-job evidence partials into ONE test-results/summary.json.
 on:
   workflow_dispatch:
+    inputs:
+      tier:
+        description: Which cumulative tier to run (light is a subset of merge is a subset of nightly).
+        type: choice
+        options:
+          - light
+          - merge
+          - nightly
+        default: light
+      run_evals:
+        description: Also run the real-OpenAI eval tier (otherwise schedule-cron only).
+        type: boolean
+        default: false
+  schedule:
+    # Weekly, Mondays 06:00 UTC — the ONLY automatic trigger. Fires the EVAL tier alone
+    # (moderator-evals + summary-envelope); every build/cluster job is gated to workflow_dispatch,
+    # so the cron stays cost-bounded to the keyed evals.
+    - cron: '0 6 * * 1'
 
 jobs:
+  # LIGHT tier (runs on every dispatch; never on the schedule cron).
   verify:
+    if: github.event_name == 'workflow_dispatch'
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -36,7 +66,7 @@ jobs:
 
       - name: Render test report to the run summary
         if: always()
-        run: pnpm exec tsx scripts/render-test-summary.ts
+        run: pnpm test-results:report
 
       - name: Verify OpenAPI (Zod drift + oasdiff breaking-change gate)
         run: pnpm openapi:verify
@@ -53,11 +83,16 @@ jobs:
       - name: Verify chaos experiments (every manifest has exactly one README table row)
         run: pnpm chaos:verify
 
-      - name: Upload test-results summary
+      - name: Registry census (boundary registry / gate roster has no orphans or drift)
+        run: pnpm census
+
+      # The in-proc base envelope (vitest aggregate + mbt-edge-coverage, commit-stamped). The
+      # terminal summary-envelope job reuses this as the base it folds the cluster/eval partials onto.
+      - name: Upload the in-proc base summary partial
         if: always()
         uses: actions/upload-artifact@v4
         with:
-          name: test-results-summary
+          name: partial-verify
           path: test-results/summary.json
           if-no-files-found: warn
 
@@ -68,6 +103,7 @@ jobs:
   # claims:verify (evidence + wired + teeth + README block drift) and the matrix census. Live-tier
   # claims (tenant-spans, k6) skip their teeth — no cluster in this job — and resolve STALE-not-fatal.
   claims:
+    if: github.event_name == 'workflow_dispatch'
     runs-on: ubuntu-latest
     services:
       moderator-pg:
@@ -96,12 +132,13 @@ jobs:
           pnpm moderator:results
       - name: claims:verify (evidence + wired + teeth + README drift)
         run: pnpm claims:verify
-      - name: Detection-matrix census (every toggle is read in source; claims ⊆ manifest)
-        run: pnpm exec tsx scripts/detection-matrix.ts --verify
+      - name: Detection-matrix census + rendered-doc drift gate
+        run: pnpm matrix:verify
 
   # Consumer-driven contract verification: each provider verifies every pact under
   # services/*/pacts that names it, against a real Postgres (Testcontainers).
   contracts:
+    if: github.event_name == 'workflow_dispatch'
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -120,6 +157,7 @@ jobs:
   # Trust-boundary fuzzing: bring up content + gateway, then fuzz the gateway's OpenAPI
   # with Schemathesis (containerized — no Python in the monorepo).
   fuzz:
+    if: github.event_name == 'workflow_dispatch'
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -140,6 +178,7 @@ jobs:
   # Trust-boundary fuzzing for identity: its OAS is reachable and carries branded params +
   # strict bodies, so Schemathesis proves no generated input yields a 5xx or a spec violation.
   fuzz-identity:
+    if: github.event_name == 'workflow_dispatch'
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -158,6 +197,7 @@ jobs:
   # boundary (SSRF-guarded URLs, branded params, strict bodies, OAS links for the stateful phase).
   # webhooks-service boots HTTP-only (NATS fail-soft), so only Postgres is needed.
   fuzz-webhooks:
+    if: github.event_name == 'workflow_dispatch'
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -172,13 +212,190 @@ jobs:
       - name: Schemathesis gate (webhooks)
         run: bash scripts/schemathesis-gate.sh services/webhooks http://host.docker.internal:8087
 
-  # Load testing vs SLOs (Milestone 8, merge-to-main lane — exceeds the PR-fast budget, docs/03 §8).
-  # Brings up content-service (mirroring `fuzz`), runs the k6 write-heavy + read-heavy scripts against
-  # the documented SLOs, then PROVES the gate is sensitive: a deliberate slow path
+  # Storybook portable stories headless (Milestone 8, ADR-0005): every story's play() + addon-a11y
+  # run in real Chromium via the @storybook/addon-vitest Vitest runner. Light tier — fast enough, and
+  # it catches the broken-atom regression early (a11y is set to fail, parameters.a11y.test: 'error').
+  web-stories:
+    if: github.event_name == 'workflow_dispatch'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: ./.github/actions/setup-workspace
+      - name: Install Chromium
+        run: pnpm --filter @qaroom/web exec playwright install --with-deps chromium
+      - name: Storybook stories (play + a11y, headless)
+        run: pnpm --filter @qaroom/web run test:stories
+
+  # Python moderator-agent (Milestone 9): ruff + pyright + pytest. A pgvector Postgres service
+  # exercises the Postgres/pgvector stores (the integration tests skip without it); the in-memory
+  # fakes cover the workflow/API deterministically. Folds a `moderator` runner into summary.json.
+  moderator:
+    if: github.event_name == 'workflow_dispatch'
+    runs-on: ubuntu-latest
+    services:
+      moderator-pg:
+        image: pgvector/pgvector:pg18
+        env:
+          POSTGRES_USER: qaroom
+          POSTGRES_PASSWORD: qaroom
+          POSTGRES_DB: qaroom_moderator
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U qaroom" --health-interval 5s --health-timeout 5s --health-retries 10
+    steps:
+      - uses: actions/checkout@v4
+      - uses: ./.github/actions/setup-workspace
+      - uses: astral-sh/setup-uv@v5
+        with:
+          version: "0.8.15"
+      - name: Lint (ruff)
+        working-directory: services/moderator-agent
+        run: uv run ruff check . && uv run ruff format --check .
+      - name: Typecheck (pyright)
+        working-directory: services/moderator-agent
+        run: uv run pyright
+      - name: Test (pytest — in-memory fakes + pgvector integration)
+        working-directory: services/moderator-agent
+        env:
+          QAROOM_TEST_DATABASE_URL: postgresql://qaroom:qaroom@localhost:5432/qaroom_moderator
+        run: uv run pytest -q
+      - name: Fold moderator runner into summary.json
+        if: always()
+        run: pnpm moderator:results || true
+      - name: Upload moderator pytest report partial
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: partial-moderator
+          path: services/moderator-agent/test-results/pytest-summary.json
+          if-no-files-found: warn
+
+  # MERGE tier (light + the chart/cluster/CT lanes).
+  #
+  # Cheap manifest gate: the shared Helm chart + observability manifests lint and validate
+  # against the Kubernetes schemas (kubeconform) — catches malformed manifests in seconds.
+  chart:
+    if: github.event_name == 'workflow_dispatch' && (inputs.tier == 'merge' || inputs.tier == 'nightly')
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: azure/setup-helm@v4
+        with:
+          version: v4.1.1
+      - name: Install kubeconform
+        run: |
+          curl -sSL https://github.com/yannh/kubeconform/releases/latest/download/kubeconform-linux-amd64.tar.gz \
+            | sudo tar -xz -C /usr/local/bin kubeconform
+      - name: Lint + validate chart releases
+        run: |
+          for svc in content identity gateway moderator-agent webhooks; do
+            helm lint packages/helm-template -f deploy/$svc/values.yaml
+            helm template $svc packages/helm-template -f deploy/$svc/values.yaml \
+              | kubeconform -strict -summary -ignore-missing-schemas
+          done
+      - name: Validate observability manifests
+        run: kubeconform -strict -summary -ignore-missing-schemas deploy/observability/*.yaml
+
+  # Bring the whole stack up on KinD (shared cluster-up composite action), smoke every service's
+  # liveness probe through its Service, and prove the deliberate-broken value fails the smoke.
+  cluster-smoke:
+    if: github.event_name == 'workflow_dispatch' && (inputs.tier == 'merge' || inputs.tier == 'nightly')
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: ./.github/actions/setup-workspace
+      - uses: ./.github/actions/cluster-up
+        with:
+          services: content identity gateway
+          wait-observability: "false"
+          pod-wait-timeout: "180s"
+      - name: Smoke (each service's liveness probe via its Service)
+        run: bash scripts/smoke.sh
+      - name: Negative test — a broken service.targetPort must fail the smoke
+        run: |
+          helm upgrade content packages/helm-template -n qaroom \
+            -f deploy/content/values.yaml -f deploy/content/values.broken.yaml --set image.pullPolicy=Never
+          if bash scripts/smoke.sh; then
+            echo "ERROR: smoke passed with a broken targetPort"; exit 1
+          fi
+          echo "✓ broken value correctly failed the smoke"
+          helm upgrade content packages/helm-template -n qaroom \
+            -f deploy/content/values.yaml --set image.pullPolicy=Never
+
+  # Trace-based testing (merge lane — Tracetest infra exceeds the fast PR budget; roadmap §M4).
+  # Brings the stack up on KinD with NATS + Tracetest (cluster-up composite, wait-observability on),
+  # then asserts the publish-side post.created trace spans sync HTTP and async messaging coherently.
+  tracetest:
+    if: github.event_name == 'workflow_dispatch' && (inputs.tier == 'merge' || inputs.tier == 'nightly')
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: ./.github/actions/setup-workspace
+      - uses: ./.github/actions/cluster-up
+        with:
+          services: content identity flags donations gateway
+          pod-wait-timeout: "240s"
+      - name: Install the Tracetest CLI
+        run: curl -L https://raw.githubusercontent.com/kubeshop/tracetest/main/install-cli.sh | sudo bash
+      - name: Assert the full Tracetest suite (all 5 trace-based tests)
+        run: |
+          kubectl port-forward -n observability svc/qaroom-tracetest 11633:11633 &
+          for i in $(seq 1 30); do curl -fs http://localhost:11633 >/dev/null && break || sleep 2; done
+          tracetest configure --server-url http://localhost:11633
+          # Unique per-run id so the rollout/donation tests don't hit idempotent replay (their
+          # Idempotency-Key is `tt-${var:runId}`; a repeat would suppress the transition).
+          RUN_ID=$(date +%s)
+          tracetest run test -f services/content/tests/tracetest/post-created-publish.yaml --wait-for-result
+          tracetest run test -f services/content/tests/tracetest/feed-read.yaml --wait-for-result
+          tracetest run test -f services/content/tests/tracetest/create-missing-idempotency-key.yaml --wait-for-result
+          tracetest run test -f services/flags/tests/tracetest/rollout-transition.yaml --vars runId="$RUN_ID" --wait-for-result
+          tracetest run test -f services/donations/tests/tracetest/donation-create-publish.yaml --vars runId="$RUN_ID" --wait-for-result
+
+  # Playwright Component Tests + unified coverage (Milestone 8). Heavier (real Chromium per mount +
+  # the V8/Istanbul coverage merge), so merge-gated. Folds a `web-ct` runner (scripts/ct-results.ts)
+  # and a `coverage` runner (scripts/coverage-results.ts) into summary.json.
+  web-ct:
+    if: github.event_name == 'workflow_dispatch' && (inputs.tier == 'merge' || inputs.tier == 'nightly')
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: ./.github/actions/setup-workspace
+      - name: Install Chromium
+        run: pnpm --filter @qaroom/web exec playwright install --with-deps chromium
+      - name: Component tests with coverage (Istanbul)
+        run: pnpm --filter @qaroom/web run ct:coverage
+      - name: Story coverage (V8)
+        run: pnpm --filter @qaroom/web run test:stories:coverage
+      - name: Merge V8 + Istanbul coverage (monocart)
+        run: pnpm --filter @qaroom/web run coverage:merge
+      - name: Fold web-ct runner into summary.json
+        if: always()
+        run: pnpm --filter @qaroom/web run ct:results
+      - name: Upload the web-ct Playwright report partial
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: partial-web-ct
+          path: services/web/test-results/ct.json
+          if-no-files-found: warn
+      - name: Upload the merged web coverage partial (also human-inspectable)
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: partial-web-coverage
+          path: services/web/coverage/merged
+          if-no-files-found: warn
+
+  # NIGHTLY tier (merge + the heavy / search / chaos lanes).
+  #
+  # Load testing vs SLOs (Milestone 8, docs/03 §8 — exceeds the PR-fast budget). Brings up
+  # content-service (mirroring `fuzz`), runs the k6 write-heavy + read-heavy scripts against the
+  # documented SLOs, then PROVES the gate is sensitive: a deliberate slow path
   # (CONTENT_BUG_VOTE_SLOW_MS) must breach the vote SLO and make k6 exit 99. K6_SLO_MULTIPLIER widens
   # the clean-run thresholds to absorb shared-runner variance; the negative test is the hard proof.
   load:
-    if: github.event_name == 'push' || github.event_name == 'schedule'
+    if: github.event_name == 'workflow_dispatch' && inputs.tier == 'nightly'
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -226,19 +443,19 @@ jobs:
             echo "ERROR: expected k6 exit 99 (SLO threshold breach), got $code"; exit 1
           fi
           echo "✓ slow path correctly breached the vote SLO (k6 exit 99)"
-      - name: Upload k6 summary
+      - name: Upload k6 result partials
         if: always()
         uses: actions/upload-artifact@v4
         with:
-          name: k6-summary
-          path: test-results/summary.json
+          name: partial-load
+          path: test-results/k6-*.json
           if-no-files-found: warn
 
   # Mutation testing on the locked critical-modules list (docs/03 §11, ADR-0016). Nightly — Stryker
   # re-runs each module's suite per mutant, far exceeding the PR-fast budget. The fast tier (pure
   # logic + in-process pglite) needs no cluster; each package enforces its own thresholds.break.
   mutation:
-    if: github.event_name == 'schedule'
+    if: github.event_name == 'workflow_dispatch' && inputs.tier == 'nightly'
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -248,12 +465,12 @@ jobs:
       - name: Merge mutation results into summary.json
         if: always()
         run: pnpm stryker:results || true
-      - name: Upload mutation summary
+      - name: Upload Stryker result partials
         if: always()
         uses: actions/upload-artifact@v4
         with:
-          name: mutation-summary
-          path: test-results/summary.json
+          name: partial-mutation
+          path: test-results/stryker-*.json
           if-no-files-found: warn
 
   # Search-based fuzzing (EvoMaster v6 black-box, ADR-0016). Nightly — the search budget far exceeds
@@ -262,7 +479,7 @@ jobs:
   # Findings are hand-reified into the regression catalog (scenario 5); raw output is a disposable
   # artifact. The jar is cached by version; the M0 spike validated EvoMaster against TS Fastify.
   evomaster:
-    if: github.event_name == 'schedule'
+    if: github.event_name == 'workflow_dispatch' && inputs.tier == 'nightly'
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -289,110 +506,52 @@ jobs:
       - name: Gate — ran and emitted ≥1 test file; merge into summary.json
         if: always()
         run: pnpm evomaster:results
-      - name: Upload EvoMaster output + summary
+      - name: Upload EvoMaster generated suite partial
         if: always()
         uses: actions/upload-artifact@v4
         with:
-          name: evomaster-output
-          path: |
-            services/content/tests/evomaster-generated
-            test-results/summary.json
+          name: partial-evomaster
+          path: services/content/tests/evomaster-generated
           if-no-files-found: warn
 
-  # Storybook portable stories headless (Milestone 8, ADR-0005): every story's play() + addon-a11y
-  # run in real Chromium via the @storybook/addon-vitest Vitest runner. Per-PR — fast enough, and it
-  # catches the broken-atom regression early (a11y is set to fail, parameters.a11y.test: 'error').
-  web-stories:
+  # Nightly chaos tier (ADR-0014): bring the full stack up on KinD (cluster-up composite), install
+  # Chaos Mesh, and run the TypeScript steady-state harness (tests/chaos). KinD's containerd socket
+  # differs from k3d's, so the chaos-daemon socket is overridden via CHAOS_CONTAINERD_SOCKET.
+  chaos:
+    if: github.event_name == 'workflow_dispatch' && inputs.tier == 'nightly'
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
       - uses: ./.github/actions/setup-workspace
-      - name: Install Chromium
-        run: pnpm --filter @qaroom/web exec playwright install --with-deps chromium
-      - name: Storybook stories (play + a11y, headless)
-        run: pnpm --filter @qaroom/web run test:stories
-
-  # Playwright Component Tests + unified coverage (Milestone 8). Heavier (real Chromium per mount +
-  # the V8↔Istanbul coverage merge), so push-gated like cluster-smoke/tracetest. Folds a `web-ct`
-  # runner into summary.json (scripts/ct-results.ts).
-  web-ct:
-    if: github.event_name == 'push'
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v4
-      - uses: ./.github/actions/setup-workspace
-      - name: Install Chromium
-        run: pnpm --filter @qaroom/web exec playwright install --with-deps chromium
-      - name: Component tests with coverage (Istanbul)
-        run: pnpm --filter @qaroom/web run ct:coverage
-      - name: Story coverage (V8)
-        run: pnpm --filter @qaroom/web run test:stories:coverage
-      - name: Merge V8 + Istanbul coverage (monocart)
-        run: pnpm --filter @qaroom/web run coverage:merge
-      - name: Fold web-ct runner into summary.json
+      - uses: ./.github/actions/cluster-up
+        with:
+          services: content identity flags donations gateway
+      - name: Install Chaos Mesh (KinD containerd socket)
+        run: CHAOS_CONTAINERD_SOCKET=/run/containerd/containerd.sock pnpm chaos:install
+      - name: Chaos smoke — prove injection works
+        run: pnpm chaos:smoke
+      - name: Run chaos experiments (steady-state harness)
+        run: pnpm chaos:run
+      - name: Merge chaos runner into summary.json
         if: always()
-        run: pnpm --filter @qaroom/web run ct:results
-      - name: Upload merged web coverage + summary
+        run: pnpm chaos:results
+      - name: Upload chaos report partial
         if: always()
         uses: actions/upload-artifact@v4
         with:
-          name: web-coverage
-          path: |
-            services/web/coverage/merged
-            test-results/summary.json
+          name: partial-chaos
+          path: test-results/chaos.json
           if-no-files-found: warn
 
-  # Python moderator-agent (Milestone 9): ruff + pyright + pytest. A pgvector Postgres service
-  # exercises the Postgres/pgvector stores (the integration tests skip without it); the in-memory
-  # fakes cover the workflow/API deterministically. Folds a `moderator` runner into summary.json.
-  moderator:
-    runs-on: ubuntu-latest
-    services:
-      moderator-pg:
-        image: pgvector/pgvector:pg18
-        env:
-          POSTGRES_USER: qaroom
-          POSTGRES_PASSWORD: qaroom
-          POSTGRES_DB: qaroom_moderator
-        ports:
-          - 5432:5432
-        options: >-
-          --health-cmd "pg_isready -U qaroom" --health-interval 5s --health-timeout 5s --health-retries 10
-    steps:
-      - uses: actions/checkout@v4
-      - uses: ./.github/actions/setup-workspace
-      - uses: astral-sh/setup-uv@v5
-        with:
-          version: "0.8.15"
-      - name: Lint (ruff)
-        working-directory: services/moderator-agent
-        run: uv run ruff check . && uv run ruff format --check .
-      - name: Typecheck (pyright)
-        working-directory: services/moderator-agent
-        run: uv run pyright
-      - name: Test (pytest — in-memory fakes + pgvector integration)
-        working-directory: services/moderator-agent
-        env:
-          QAROOM_TEST_DATABASE_URL: postgresql://qaroom:qaroom@localhost:5432/qaroom_moderator
-        run: uv run pytest -q
-      - name: Fold moderator runner into summary.json
-        if: always()
-        run: pnpm moderator:results || true
-      - name: Upload moderator summary
-        if: always()
-        uses: actions/upload-artifact@v4
-        with:
-          name: moderator-summary
-          path: test-results/summary.json
-          if-no-files-found: warn
-
-  # LLM evals (ADR-0017, ADR-0020). Mirrors the gauntlet's phase-2 LLM lane. The pre-flight cost
-  # guard runs always (keyless); the golden-set + metamorphic pytest lane, the DeepEval quality
-  # suite, and the DeepTeam red-team hit real OpenAI and run only on push/schedule AND only when
-  # the OPENAI_API_KEY secret is present. PyRIT (longest, most spend) stays gauntlet-only
+  # EVAL tier (the schedule cron's sole payload, or any dispatch with run_evals: true). NEVER gated to
+  # a `tier` — it must be excluded from the build/cluster lanes so the cron fires evals only (ADR-0017,
+  # ADR-0020; mirrors the gauntlet's phase-2 LLM lane). The pre-flight cost guard runs always (keyless);
+  # the golden-set + metamorphic pytest lane, the DeepEval quality suite, and the DeepTeam red-team hit
+  # real OpenAI and run only when the OPENAI_API_KEY secret is present, so a missing secret degrades to a
+  # recorded skip — never a hard fail. PyRIT (longest, most spend) stays gauntlet-only
   # (`pnpm gauntlet --pyrit`). Promptfoo was dropped in Milestone 12 (ADR-0020).
   moderator-evals:
-    if: github.event_name == 'push' || github.event_name == 'schedule'
+    if: github.event_name == 'schedule' || inputs.run_evals
     runs-on: ubuntu-latest
     env:
       OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
@@ -427,181 +586,134 @@ jobs:
       - name: Note when the evals are skipped
         if: env.OPENAI_API_KEY == ''
         run: 'echo "OPENAI_API_KEY not set: eval suites skipped (cost guard still ran)."'
-      - name: Upload eval summary
+      - name: Upload golden-set partial
         if: always() && env.OPENAI_API_KEY != ''
         uses: actions/upload-artifact@v4
         with:
-          name: eval-summary
-          path: test-results/summary.json
+          name: partial-golden
+          path: services/moderator-agent/evals/golden/gold.json
+          if-no-files-found: warn
+      - name: Upload DeepEval partial
+        if: always() && env.OPENAI_API_KEY != ''
+        uses: actions/upload-artifact@v4
+        with:
+          name: partial-deepeval
+          path: services/moderator-agent/test-results/deepeval-output.json
+          if-no-files-found: warn
+      - name: Upload DeepTeam partial
+        if: always() && env.OPENAI_API_KEY != ''
+        uses: actions/upload-artifact@v4
+        with:
+          name: partial-deepteam
+          path: services/moderator-agent/test-results/deepteam-output.json
           if-no-files-found: warn
 
-  # Cheap per-PR gate: the shared Helm chart + observability manifests lint and validate
-  # against the Kubernetes schemas (kubeconform) — catches malformed manifests in seconds.
-  chart:
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v4
-      - uses: azure/setup-helm@v4
-        with:
-          version: v4.1.1
-      - name: Install kubeconform
-        run: |
-          curl -sSL https://github.com/yannh/kubeconform/releases/latest/download/kubeconform-linux-amd64.tar.gz \
-            | sudo tar -xz -C /usr/local/bin kubeconform
-      - name: Lint + validate chart releases
-        run: |
-          for svc in content identity gateway moderator-agent webhooks; do
-            helm lint packages/helm-template -f deploy/$svc/values.yaml
-            helm template $svc packages/helm-template -f deploy/$svc/values.yaml \
-              | kubeconform -strict -summary -ignore-missing-schemas
-          done
-      - name: Validate observability manifests
-        run: kubeconform -strict -summary -ignore-missing-schemas deploy/observability/*.yaml
-
-  # Heavier, gated to push (off the PR-fast path): bring the whole stack up on KinD, smoke
-  # every /health through its Service, and prove the deliberate-broken value fails the smoke.
-  cluster-smoke:
-    if: github.event_name == 'push'
+  # Evidence fan-in (T3): the single place a complete test-results/summary.json is assembled. Every
+  # runner-folding job above uploads its RAW result report as a `partial-*` artifact; this job
+  # downloads whatever ran and re-folds each through its existing *-results fold script (foldRunner's
+  # replace-by-name merge path) into ONE envelope. `if: always()` + per-partial guards mean a lane
+  # that did not run (key/cluster absent) is a SKIP, never a failure. The census runs at the `in-proc`
+  # tier: CI never assembles the full ingress-E2E + journey + keyed-eval + PyRIT set that `--tier full`
+  # requires (that is the local `pnpm gauntlet`), so cluster/keyed runners are reported DEFERRED, not
+  # fatal — exactly matching "a missing partial is a skip, not a failure".
+  summary-envelope:
+    needs:
+      - verify
+      - moderator
+      - web-ct
+      - load
+      - mutation
+      - evomaster
+      - chaos
+      - moderator-evals
+    if: always()
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
       - uses: ./.github/actions/setup-workspace
-      - uses: azure/setup-helm@v4
+      - name: Download every evidence partial that was produced
+        # No `name:` -> downloads all partials from this run into partials/<artifact-name>/. Tolerant
+        # of the empty set (e.g. a keyless schedule cron) via continue-on-error.
+        continue-on-error: true
+        uses: actions/download-artifact@v4
         with:
-          version: v4.1.1
-      - uses: helm/kind-action@v1
-        with:
-          cluster_name: qaroom
-      - name: Build + load service images
+          path: partials
+      - name: Assemble one envelope — base, then fold each present partial
         run: |
-          for svc in content identity gateway; do
-            docker build -f services/$svc/Dockerfile -t qaroom/$svc:latest .
-            kind load docker-image qaroom/$svc:latest --name qaroom
-          done
-      - name: Namespaces + observability
-        run: |
-          kubectl create namespace qaroom
-          kubectl create namespace observability
-          kubectl apply -f deploy/observability/
-      - name: Install services (image pulled locally via kind load)
-        run: |
-          for svc in content identity gateway; do
-            helm install $svc packages/helm-template -n qaroom \
-              -f deploy/$svc/values.yaml --set image.pullPolicy=Never
-          done
-      - name: Wait for readiness
-        run: kubectl wait --for=condition=ready pod --all -n qaroom --timeout=180s
-      - name: Smoke (/health on every service via its Service)
-        run: bash scripts/smoke.sh
-      - name: Negative test — a broken service.targetPort must fail the smoke
-        run: |
-          helm upgrade content packages/helm-template -n qaroom \
-            -f deploy/content/values.yaml -f deploy/content/values.broken.yaml --set image.pullPolicy=Never
-          if bash scripts/smoke.sh; then
-            echo "ERROR: smoke passed with a broken targetPort"; exit 1
+          set -eu
+          mkdir -p test-results services/web/test-results services/web/coverage/merged \
+            services/moderator-agent/test-results services/moderator-agent/evals/golden \
+            services/content/tests/evomaster-generated
+
+          # Base envelope (vitest aggregate + mbt-edge-coverage + commit stamp). Reuse the verify
+          # job's base when present (any dispatch); on the schedule cron verify does not run, so
+          # regenerate it so the census still has its one hard requirement (the vitest aggregate) and
+          # a real commit stamp. foldRunner preserves the base commit/generated_at across folds.
+          if [ -f partials/partial-verify/summary.json ]; then
+            cp partials/partial-verify/summary.json test-results/summary.json
+            echo "base: reused the verify partial"
+          else
+            echo "base: no verify partial (schedule cron) — regenerating in-proc base"
+            pnpm test-results:generate && pnpm mbt:results
           fi
-          echo "✓ broken value correctly failed the smoke"
-          helm upgrade content packages/helm-template -n qaroom \
-            -f deploy/content/values.yaml --set image.pullPolicy=Never
 
-  # Trace-based testing (merge lane only — Tracetest infra exceeds the <10min PR-fast
-  # budget; roadmap §M4). Brings the stack up on KinD with NATS + Tracetest, then asserts
-  # the publish-side post.created trace spans sync HTTP and async messaging coherently. The
-  # consume-side assertion ("an unexpected downstream call") lands with flags-service in M5.
-  tracetest:
-    if: github.event_name == 'push'
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v4
-      - uses: ./.github/actions/setup-workspace
-      - uses: azure/setup-helm@v4
-        with:
-          version: v4.1.1
-      - uses: helm/kind-action@v1
-        with:
-          cluster_name: qaroom
-      - name: Build + load service images
-        run: |
-          for svc in content identity flags donations gateway; do
-            docker build -f services/$svc/Dockerfile -t qaroom/$svc:latest .
-            kind load docker-image qaroom/$svc:latest --name qaroom
-          done
-      - name: Namespaces + observability (OTel + Jaeger + NATS + Tracetest)
-        run: |
-          kubectl create namespace qaroom
-          kubectl create namespace observability
-          kubectl apply -f deploy/observability/
-          kubectl wait --for=condition=available deploy --all -n observability --timeout=300s
-      - name: Install services
-        run: |
-          for svc in content identity flags donations gateway; do
-            helm install $svc packages/helm-template -n qaroom \
-              -f deploy/$svc/values.yaml --set image.pullPolicy=Never
-          done
-          kubectl wait --for=condition=ready pod --all -n qaroom --timeout=240s
-      - name: Install the Tracetest CLI
-        run: curl -L https://raw.githubusercontent.com/kubeshop/tracetest/main/install-cli.sh | sudo bash
-      - name: Assert the full Tracetest suite (all 5 trace-based tests)
-        run: |
-          kubectl port-forward -n observability svc/qaroom-tracetest 11633:11633 &
-          for i in $(seq 1 30); do curl -fs http://localhost:11633 >/dev/null && break || sleep 2; done
-          tracetest configure --server-url http://localhost:11633
-          # Unique per-run id so the rollout/donation tests don't hit idempotent replay (their
-          # Idempotency-Key is `tt-${var:runId}`; a repeat would suppress the transition).
-          RUN_ID=$(date +%s)
-          tracetest run test -f services/content/tests/tracetest/post-created-publish.yaml --wait-for-result
-          tracetest run test -f services/content/tests/tracetest/feed-read.yaml --wait-for-result
-          tracetest run test -f services/content/tests/tracetest/create-missing-idempotency-key.yaml --wait-for-result
-          tracetest run test -f services/flags/tests/tracetest/rollout-transition.yaml --vars runId="$RUN_ID" --wait-for-result
-          tracetest run test -f services/donations/tests/tracetest/donation-create-publish.yaml --vars runId="$RUN_ID" --wait-for-result
-
-  # Nightly chaos tier (ADR-0014): bring the full stack up on KinD, install Chaos Mesh, and run
-  # the TypeScript steady-state harness (tests/chaos). Gated to the schedule — chaos needs a live
-  # cluster and exceeds the PR-fast budget. KinD's containerd socket differs from k3d's, so the
-  # chaos-daemon socket is overridden via CHAOS_CONTAINERD_SOCKET.
-  chaos:
-    if: github.event_name == 'schedule'
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v4
-      - uses: ./.github/actions/setup-workspace
-      - uses: azure/setup-helm@v4
-        with:
-          version: v4.1.1
-      - uses: helm/kind-action@v1
-        with:
-          cluster_name: qaroom
-      - name: Build + load service images
-        run: |
-          for svc in content identity flags donations gateway; do
-            docker build -f services/$svc/Dockerfile -t qaroom/$svc:latest .
-            kind load docker-image qaroom/$svc:latest --name qaroom
-          done
-      - name: Namespaces + observability (NATS + Microcks + OTel)
-        run: |
-          kubectl create namespace qaroom
-          kubectl create namespace observability
-          kubectl apply -f deploy/observability/
-          kubectl wait --for=condition=available deploy --all -n observability --timeout=300s
-      - name: Install services
-        run: |
-          for svc in content identity flags donations gateway; do
-            helm install $svc packages/helm-template -n qaroom \
-              -f deploy/$svc/values.yaml --set image.pullPolicy=Never
-          done
-          kubectl wait --for=condition=ready pod --all -n qaroom --timeout=300s
-      - name: Install Chaos Mesh (KinD containerd socket)
-        run: CHAOS_CONTAINERD_SOCKET=/run/containerd/containerd.sock pnpm chaos:install
-      - name: Chaos smoke — prove injection works
-        run: pnpm chaos:smoke
-      - name: Run chaos experiments (steady-state harness)
-        run: pnpm chaos:run
-      - name: Merge chaos runner into summary.json
+          # Fold each partial that a job actually uploaded. Gating on the PARTIAL (not the canonical
+          # path) keeps a committed-but-not-run fixture (e.g. the committed gold.json) from folding
+          # spuriously. `|| true` keeps a runner's own red (already failing its source job) from
+          # failing the assembly — the schema/census step below is this job's gate.
+          if [ -f partials/partial-moderator/pytest-summary.json ]; then
+            cp partials/partial-moderator/pytest-summary.json services/moderator-agent/test-results/
+            pnpm moderator:results || true
+          fi
+          if [ -f partials/partial-web-ct/ct.json ]; then
+            cp partials/partial-web-ct/ct.json services/web/test-results/
+            pnpm --filter @qaroom/web run ct:results || true
+          fi
+          if [ -f partials/partial-web-coverage/coverage-summary.json ]; then
+            cp partials/partial-web-coverage/coverage-summary.json services/web/coverage/merged/
+            pnpm coverage:results || true
+          fi
+          if ls partials/partial-load/k6-*.json >/dev/null 2>&1; then
+            cp partials/partial-load/k6-*.json test-results/
+            pnpm k6:results || true
+          fi
+          if ls partials/partial-mutation/stryker-*.json >/dev/null 2>&1; then
+            cp partials/partial-mutation/stryker-*.json test-results/
+            pnpm stryker:results || true
+          fi
+          if ls partials/partial-evomaster/*_Test.js >/dev/null 2>&1; then
+            cp -R partials/partial-evomaster/. services/content/tests/evomaster-generated/
+            pnpm evomaster:results || true
+          fi
+          if [ -f partials/partial-chaos/chaos.json ]; then
+            cp partials/partial-chaos/chaos.json test-results/
+            pnpm chaos:results || true
+          fi
+          if [ -f partials/partial-golden/gold.json ]; then
+            cp partials/partial-golden/gold.json services/moderator-agent/evals/golden/
+            pnpm golden:results || true
+          fi
+          if [ -f partials/partial-deepeval/deepeval-output.json ]; then
+            cp partials/partial-deepeval/deepeval-output.json services/moderator-agent/test-results/
+            pnpm deepeval:results || true
+          fi
+          if [ -f partials/partial-deepteam/deepteam-output.json ]; then
+            cp partials/partial-deepteam/deepteam-output.json services/moderator-agent/test-results/
+            pnpm deepteam:results || true
+          fi
+      - name: Verify the complete envelope (frozen schema + census)
+        # in-proc tier: CI cannot satisfy --tier full (no ingress E2E / journey / tenant-spans /
+        # PyRIT here), so absent cluster/keyed runners resolve DEFERRED, never fatal.
+        env:
+          QAROOM_VERIFY_TIER: in-proc
+        run: pnpm test-results:verify
+      - name: Render the complete envelope to the run summary
         if: always()
-        run: pnpm chaos:results
-      - name: Upload chaos summary
+        run: pnpm test-results:report
+      - name: Upload the single complete test-results envelope
         if: always()
         uses: actions/upload-artifact@v4
         with:
-          name: chaos-summary
+          name: test-results-summary
           path: test-results/summary.json
+          if-no-files-found: warn

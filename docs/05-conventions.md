@@ -281,10 +281,11 @@ Subjects are **descriptive, not milestone-numbered.** Never put "Milestone N" in
 
 ### CI gates
 
-A PR cannot merge unless:
-- All tests in the "PR CI, fast" and "PR CI, full" feedback loops pass (per `docs/03-testing-strategy.md`, section 8).
+GitHub Actions are dispatch-only (`.github/workflows/ci.yml`): no `push`/`pull_request` trigger. CI is run on demand from the Actions tab at a cumulative `tier` (`light` < `merge` < `nightly`), and one weekly `schedule` cron — the only automatic trigger — fires the keyed eval tier alone. Locally the same bar is `pnpm verify` (fast lane) and `pnpm gauntlet` (full). The merge bar (run by the dispatched lanes, required of any PR before merge) is:
+
+- All tests in the "fast" and "full" feedback loops pass (per `docs/03-testing-strategy.md`, section 8).
 - `oasdiff` reports no undeclared breaking changes.
-- `test-results/summary.json` is produced and validates.
+- `test-results/summary.json` is produced and validates against its frozen schema. The terminal `summary-envelope` job fans every lane's evidence partial into one envelope; absent key/cluster lanes are deferred, not fatal.
 - The PR description is non-empty and includes the three required sections.
 
 ## 8. Style and formatting

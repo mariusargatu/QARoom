@@ -155,12 +155,14 @@ Always check the current milestone before introducing infrastructure that doesn'
 
 ## CI gates
 
-A PR cannot merge unless:
+GitHub Actions are **dispatch-only** (`.github/workflows/ci.yml`): there is no `push` / `pull_request` trigger. You run CI on demand from the Actions tab by choosing a cumulative `tier` (`light` < `merge` < `nightly`), and one weekly `schedule` cron is the *only* automatic trigger — it fires the keyed `eval` tier alone (cost-bounded; consumes `secrets.OPENAI_API_KEY`). Locally the same bar is `pnpm verify` (fast lane) and `pnpm gauntlet` (full). Tier map: light = verify/claims/contracts/fuzz*/web-stories/moderator; merge = + chart/cluster-smoke/tracetest/web-ct; nightly = + load/mutation/evomaster/chaos; evals (golden/DeepEval/DeepTeam) run on the cron or a dispatch with `run_evals: true`.
+
+The merge bar (enforced by the dispatched lanes, and required of any PR before merge) is:
 
 1. Unit, property, integration, and contract tests pass (`pnpm test`).
 2. Lint and type-check pass (`pnpm lint`, `pnpm typecheck`).
 3. `oasdiff` reports no undeclared breaking changes.
-4. `test-results/summary.json` is produced and validates against its frozen schema.
+4. `test-results/summary.json` is produced and validates against its frozen schema. The terminal `summary-envelope` job fans every lane's evidence partial into one envelope; missing key/cluster lanes are deferred, not fatal.
 5. PR description includes the required sections (What, Why, Test plan, Demonstration if introducing a technique).
 
 ## Where to ask "is this in scope?"
