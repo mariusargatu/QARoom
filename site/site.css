@@ -1,0 +1,32 @@
+/* QARoom site: shared tokens, base reset, and the focus ring for the hosted page
+ * (a one-page, plain-English testing overview).
+ *
+ * Identity: a warm chart-paper field, sepia ink, one muted madder-red spot accent, and a literary
+ * serif for headings. Calm and editorial, not a dark dev tool. */
+:root {
+  /* Chart paper + sepia ink. Never #fff/#000; every neutral tinted warm (hue ~80). */
+  --canvas: #F1EBDD;   /* aged chart paper, the dominant field */
+  --fg: #36302A;       /* sepia-black ink, ~10.5:1 on canvas */
+  --fg-2: #5E564C;     /* secondary ink, ~6.1:1 */
+  --fg-3: #645C50;     /* muted labels/eyebrows, clears WCAG AA (>=4.5:1) on canvas */
+  --fg-4: #6A6153;     /* faintest readable tier, clears AA on canvas; below this is decoration only */
+  --line: rgba(54, 42, 28, 0.16);
+  --line-strong: rgba(54, 42, 28, 0.26);
+
+  /* The one committed spot accent: muted madder red, the spot color of old maps. */
+  --accent: #A8472F;
+  --accent-soft: rgba(168, 71, 47, 0.12);
+  --accent-line: rgba(168, 71, 47, 0.42);
+
+  --serif: Spectral, Georgia, "Times New Roman", serif;
+  --sans: "IBM Plex Sans", ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+  --mono: "IBM Plex Mono", ui-monospace, SFMono-Regular, Menlo, monospace;
+  --ease: cubic-bezier(0.25, 1, 0.5, 1);
+}
+
+* { box-sizing: border-box; margin: 0; padding: 0; }
+a { color: inherit; text-decoration: none; }
+.mono { font-family: var(--mono); font-variant-ligatures: none; }
+
+/* Shared focus ring: every interactive element gets a visible 2px accent ring. */
+:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }

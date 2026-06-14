@@ -1,0 +1,261 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>QARoom — a small app, and the testing behind it</title>
+<link rel="icon" href="data:image/svg+xml,%3Csvg%20xmlns='http://www.w3.org/2000/svg'%20viewBox='0%200%2024%2026'%3E%3Cpath%20d='M12%201.5%2022%207v12l-10%205.5L2%2019V7z'%20fill='none'%20stroke='%23A8472F'%20stroke-width='1.6'/%3E%3C/svg%3E">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600&family=IBM+Plex+Sans:wght@400;500;600;700&family=Spectral:wght@400;500;600;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="site.css">
+<style>
+  :root{ --maxw:760px; }
+  body{background:var(--canvas);color:var(--fg);font-family:var(--sans);font-size:17px;line-height:1.6;-webkit-font-smoothing:antialiased}
+  .wrap{max-width:var(--maxw);margin:0 auto;padding:0 24px}
+
+  /* header */
+  header{padding:56px 0 8px}
+  .brand{display:flex;align-items:center;gap:10px;font-family:var(--serif);font-weight:600;font-size:18px;letter-spacing:-0.01em}
+  .brand svg{width:22px;height:24px}
+  .brand .dot{font-family:var(--mono);color:var(--accent);font-size:12px}
+
+  /* intro */
+  .intro{padding:36px 0 12px}
+  .intro h1{font-family:var(--serif);font-weight:600;font-size:clamp(30px,5vw,44px);line-height:1.08;letter-spacing:-0.02em;margin-bottom:20px}
+  .intro p{font-size:18px;color:var(--fg-2);max-width:64ch;margin-bottom:14px}
+  .intro b{color:var(--fg);font-weight:600}
+  .intro .what{font-size:15px;color:var(--fg-3);margin-top:18px;line-height:1.7}
+
+  /* the list of testing kinds */
+  .kinds{padding:40px 0 8px}
+  .kinds-h{font-family:var(--serif);font-size:15px;font-weight:600;color:var(--fg-3);letter-spacing:0.02em;text-transform:none;margin-bottom:4px}
+  .row{padding:26px 0;border-top:0.5px solid var(--line)}
+  .row .q{font-family:var(--mono);font-size:13px;color:var(--accent);margin-bottom:8px}
+  .row h2{font-family:var(--serif);font-weight:600;font-size:22px;letter-spacing:-0.01em;margin-bottom:8px}
+  .row p{font-size:16px;color:var(--fg-2);max-width:62ch;margin-bottom:14px}
+  .row p b{color:var(--fg);font-weight:600}
+  .tags{display:flex;flex-wrap:wrap;gap:8px}
+  .tag{font-family:var(--mono);font-size:12.5px;color:var(--fg-2);background:color-mix(in srgb,var(--accent) 5%,var(--canvas));border:0.5px solid var(--line-strong);border-radius:5px;padding:4px 10px}
+  .tag.feat{color:var(--accent);border-color:var(--accent-line);background:var(--accent-soft)}
+
+  /* run it */
+  .run{margin-top:48px;padding:28px 0 8px;border-top:0.5px solid var(--line-strong)}
+  .run h2{font-family:var(--serif);font-size:20px;font-weight:600;margin-bottom:12px;letter-spacing:-0.01em}
+  .run p{font-size:16px;color:var(--fg-2);max-width:62ch;margin-bottom:16px}
+  pre{font-family:var(--mono);font-size:14px;color:var(--fg);background:color-mix(in srgb,var(--accent) 4%,var(--canvas));border:0.5px solid var(--line);border-radius:8px;padding:16px 18px;overflow-x:auto;line-height:1.7}
+  pre .c{color:var(--fg-4)}
+  .run .warn{margin-top:18px;font-size:14px;color:var(--fg-2);line-height:1.65;background:var(--accent-soft);border:0.5px solid var(--accent-line);border-radius:8px;padding:14px 16px}
+  .run .warn .wl{font-family:var(--mono);font-size:11px;font-weight:600;letter-spacing:0.08em;text-transform:uppercase;color:var(--accent);margin-right:10px}
+  .run .warn b{color:var(--fg);font-weight:600}
+  .run .warn code{font-family:var(--mono);font-size:13px;color:var(--fg);background:color-mix(in srgb,var(--accent) 7%,var(--canvas));border:0.5px solid var(--line-strong);border-radius:4px;padding:1px 6px}
+
+  /* screenshots of the running system */
+  .shots-h{font-family:var(--mono);font-size:12px;font-weight:600;letter-spacing:0.05em;text-transform:uppercase;color:var(--accent);margin:26px 0 12px}
+  .shots{display:grid;grid-template-columns:repeat(2,1fr);gap:14px}
+  .shot{display:block;border:0.5px solid var(--line-strong);border-radius:8px;overflow:hidden;background:var(--canvas);transition:border-color .15s var(--ease)}
+  .shot:hover{border-color:var(--accent-line)}
+  .shot img{display:block;width:100%;height:auto;border-bottom:0.5px solid var(--line)}
+  .shot .cap{display:block;font-family:var(--mono);font-size:12px;color:var(--fg-3);padding:9px 12px;line-height:1.4}
+  .shot{cursor:zoom-in}
+
+  /* lightbox: the full image in an overlay, no new tab */
+  .lb{position:fixed;inset:0;z-index:100;display:flex;align-items:center;justify-content:center;padding:32px;background:color-mix(in srgb,var(--fg) 80%, transparent);opacity:0;transition:opacity .2s var(--ease)}
+  .lb[hidden]{display:none}
+  .lb.open{opacity:1}
+  .lb-fig{margin:0;display:flex;flex-direction:column;align-items:center;max-width:min(1100px,92vw);max-height:90vh}
+  .lb-img{display:block;max-width:100%;max-height:84vh;width:auto;height:auto;object-fit:contain;border-radius:8px;border:0.5px solid var(--line-strong);background:var(--canvas);box-shadow:0 18px 50px -12px rgba(54,42,28,0.55);cursor:zoom-out}
+  .lb-cap{font-family:var(--mono);font-size:13px;color:#F1EBDD;padding:14px 2px 0;text-align:center}
+  .lb-close{position:absolute;top:16px;right:18px;width:44px;height:44px;border-radius:8px;border:0.5px solid rgba(241,235,221,0.4);background:rgba(54,42,28,0.45);color:#F1EBDD;font-family:var(--mono);font-size:17px;cursor:pointer;line-height:1;display:flex;align-items:center;justify-content:center;transition:background .15s var(--ease),border-color .15s var(--ease)}
+  .lb-close:hover{background:rgba(54,42,28,0.7);border-color:var(--accent)}
+  .lb-close:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+
+  /* footer */
+  footer{margin-top:52px;padding:28px 0 64px;border-top:0.5px solid var(--line);display:flex;flex-wrap:wrap;gap:8px 22px;align-items:center;font-family:var(--mono);font-size:13px}
+  footer a{color:var(--accent);border-bottom:0.5px solid var(--accent-line);padding-bottom:1px;transition:border-color .15s var(--ease)}
+  footer a:hover{border-bottom-color:var(--accent)}
+  footer .muted{color:var(--fg-4)}
+
+  /* the toolkit diagram: the seven kinds as columns standing on a shared foundation */
+  .toolkit{margin-top:52px;padding-top:36px;border-top:0.5px solid var(--line-strong)}
+  .toolkit > h2{font-family:var(--serif);font-size:22px;font-weight:600;letter-spacing:-0.01em;margin-bottom:8px}
+  .toolkit .sub{font-size:15px;color:var(--fg-3);max-width:62ch;margin-bottom:24px}
+  .tk-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:1px;background:var(--line);border:0.5px solid var(--line);border-radius:8px 8px 0 0;overflow:hidden}
+  .tk-col{background:var(--canvas);padding:15px 14px 17px}
+  .tk-k{font-family:var(--mono);font-size:12px;font-weight:600;letter-spacing:0.05em;text-transform:uppercase;color:var(--accent);margin-bottom:11px}
+  .tk-tags{display:flex;flex-wrap:wrap;gap:6px}
+  .tk-tags span{font-family:var(--mono);font-size:12px;color:var(--fg-2);background:color-mix(in srgb,var(--accent) 4%,var(--canvas));border:0.5px solid var(--line-strong);border-radius:5px;padding:3px 8px;line-height:1.3}
+  .tk-base{background:var(--accent-soft);border:0.5px solid var(--accent-line);border-top:none;border-radius:0 0 8px 8px;padding:15px 16px;display:flex;flex-wrap:wrap;align-items:baseline;gap:10px 14px}
+  .tk-base-k{font-family:var(--mono);font-size:12px;font-weight:600;letter-spacing:0.05em;text-transform:uppercase;color:var(--accent);flex:none}
+  .tk-base .tk-tags span{background:var(--canvas);border-color:var(--accent-line)}
+
+  @media (max-width:560px){ .intro p,.row p{font-size:16px} .shots{grid-template-columns:1fr} }
+  @media (prefers-reduced-motion:reduce){ *{transition-duration:0.001ms !important} }
+</style>
+</head>
+<body>
+  <header>
+    <div class="wrap">
+      <span class="brand">
+        <svg viewBox="0 0 24 26" fill="none" aria-hidden="true"><path d="M12 1.5 22 7v12l-10 5.5L2 19V7z" stroke="#A8472F" stroke-width="1.4"/><path d="M12 8.5 17 11v5l-5 2.7L7 16v-5z" fill="#A8472F" fill-opacity="0.18" stroke="#A8472F" stroke-width="1.1"/></svg>
+        QARoom<span class="dot">/testing</span>
+      </span>
+    </div>
+  </header>
+
+  <main class="wrap">
+    <section class="intro">
+      <h1>A small app, and the testing behind it.</h1>
+      <p>QARoom is a little social platform: <b>communities, posts, up and down votes, donations</b>, outbound notifications, and an AI that helps moderate. It exists for one reason: to show how the well-known kinds of software testing fit together, with each kind defending a real part of the app.</p>
+      <p>First the whole picture, then each kind in plain terms with one real example.</p>
+    </section>
+
+    <section class="toolkit">
+      <h2>The whole toolkit, at a glance</h2>
+      <p class="sub">Every technique in the repo, grouped by the seven kinds below, standing on a foundation that runs underneath every test.</p>
+      <div class="tk-grid">
+        <div class="tk-col"><div class="tk-k">Unit</div><div class="tk-tags"><span>Vitest</span><span>fast-check</span></div></div>
+        <div class="tk-col"><div class="tk-k">Integration</div><div class="tk-tags"><span>PGlite</span><span>Microcks</span><span>tenant interleave</span></div></div>
+        <div class="tk-col"><div class="tk-k">End-to-end</div><div class="tk-tags"><span>Playwright</span><span>golden-journey</span><span>smoke</span><span>Storybook + axe</span></div></div>
+        <div class="tk-col"><div class="tk-k">Contract</div><div class="tk-tags"><span>Pact</span><span>oasdiff</span><span>Schemathesis</span><span>AsyncAPI diff</span></div></div>
+        <div class="tk-col"><div class="tk-k">Load</div><div class="tk-tags"><span>k6 vs SLOs</span></div></div>
+        <div class="tk-col"><div class="tk-k">Security</div><div class="tk-tags"><span>EvoMaster fuzz</span><span>SSRF + HMAC</span><span>rate limiting</span></div></div>
+        <div class="tk-col"><div class="tk-k">AI</div><div class="tk-tags"><span>DeepEval</span><span>DeepTeam</span><span>PyRIT</span><span>metamorphic</span></div></div>
+      </div>
+      <div class="tk-base">
+        <div class="tk-base-k">Underneath every test</div>
+        <div class="tk-tags"><span>static analysis</span><span>determinism (injected clock &amp; ids)</span><span>model-based (XState · LangGraph)</span><span>mutation (Stryker)</span><span>chaos (Chaos Mesh · Litmus)</span><span>trace assertions (OpenTelemetry · Tracetest)</span></div>
+      </div>
+    </section>
+
+    <section class="kinds">
+      <p class="kinds-h">Seven kinds of testing · one real example each</p>
+
+      <div class="row">
+        <div class="q">does one small piece work on its own?</div>
+        <h2>Unit tests</h2>
+        <p>Check a single piece of logic in isolation, with nothing else around it. In QARoom: <b>tallying the up and down votes</b> on a post and getting the score right every time.</p>
+        <div class="tags"><span class="tag feat">votes</span><span class="tag">Vitest</span></div>
+      </div>
+
+      <div class="row">
+        <div class="q">do two parts work together?</div>
+        <h2>Integration tests</h2>
+        <p>Check that two pieces actually connect and agree. In QARoom: <b>donations</b> charging an outside payment provider, tested against a stand-in fake of that provider so the real money path is exercised safely.</p>
+        <div class="tags"><span class="tag feat">donations</span><span class="tag">mock provider</span><span class="tag">real Postgres</span></div>
+      </div>
+
+      <div class="row">
+        <div class="q">does a whole user journey work?</div>
+        <h2>End-to-end tests</h2>
+        <p>Drive the real running app the way a person would, from start to finish. In QARoom: <b>sign up, join a community, and create a post</b>, all the way through the live system.</p>
+        <div class="tags"><span class="tag feat">sign-up → post</span><span class="tag">Playwright</span></div>
+      </div>
+
+      <div class="row">
+        <div class="q">do the APIs keep their promises?</div>
+        <h2>Contract tests</h2>
+        <p>Pin down the agreement between two services so one can't quietly break the other. In QARoom: the <b>login tokens that identity issues</b> stay in the exact shape every other service expects.</p>
+        <div class="tags"><span class="tag feat">identity</span><span class="tag">Pact</span></div>
+      </div>
+
+      <div class="row">
+        <div class="q">does it stay fast when lots of people use it?</div>
+        <h2>Load tests</h2>
+        <p>Send heavy, realistic traffic and watch the response times hold. In QARoom: the <b>community feed</b> under a crowd, measured against a target it must not cross.</p>
+        <div class="tags"><span class="tag feat">feed</span><span class="tag">k6</span></div>
+      </div>
+
+      <div class="row">
+        <div class="q">can someone abuse it?</div>
+        <h2>Security tests</h2>
+        <p>Try to misuse it on purpose, before anyone else does. In QARoom: outbound <b>webhooks</b> are signed so they can't be forged, and blocked from being tricked into calling internal addresses.</p>
+        <div class="tags"><span class="tag feat">webhooks</span><span class="tag">signing + SSRF guard</span></div>
+      </div>
+
+      <div class="row">
+        <div class="q">does the AI behave?</div>
+        <h2>AI tests</h2>
+        <p>Probe the AI the way only an AI needs probing. In QARoom: the <b>moderation agent</b> flags rule-breaking posts, cites the rule it used, and isn't fooled when the same content is simply reworded.</p>
+        <div class="tags"><span class="tag feat">moderation</span><span class="tag">DeepEval</span><span class="tag">red-team</span></div>
+      </div>
+    </section>
+
+    <section class="run">
+      <h2>See it for yourself</h2>
+      <p>Bring the whole system up locally, every service, the NATS message bus, and the Grafana, Jaeger, and Prometheus dashboards, on a small Kubernetes cluster with one command:</p>
+      <pre><span class="c"># Docker must be running</span>
+pnpm dev        <span class="c"># k3d + Tilt: the full architecture</span>
+pnpm dev:down   <span class="c"># tear it all back down</span></pre>
+      <p class="warn"><span class="wl">Resource warning</span>This starts a <b>~15-pod cluster</b> with its own observability stack, so it is resource-heavy: give Docker at least <b>8 GB of RAM</b> and <b>4 CPUs</b>, or not everything will come up. Just want the tests? <code>pnpm install &amp;&amp; pnpm test</code> runs the whole suite in seconds, with no Docker at all.</p>
+
+      <p class="shots-h">What comes up</p>
+      <div class="shots">
+        <a class="shot" href="assets/web-feed.png"><img src="assets/web-feed.png" width="1440" height="900" loading="lazy" alt="The QARoom web app showing a community feed of posts and votes"><span class="cap">The app, a community feed</span></a>
+        <a class="shot" href="assets/rollout-dashboard.png"><img src="assets/rollout-dashboard.png" width="1440" height="900" loading="lazy" alt="An operator dashboard showing a feature flag partway through a canary rollout"><span class="cap">A feature flag, mid-rollout</span></a>
+        <a class="shot" href="assets/jaeger-trace.png"><img src="assets/jaeger-trace.png" width="1440" height="900" loading="lazy" alt="A Jaeger trace of one request fanning across services as connected spans"><span class="cap">One request, traced across services</span></a>
+        <a class="shot" href="assets/grafana.png"><img src="assets/grafana.png" width="1440" height="900" loading="lazy" alt="A Grafana dashboard of live service metrics"><span class="cap">Live metrics in Grafana</span></a>
+      </div>
+    </section>
+  </main>
+
+  <footer class="wrap">
+    <a href="https://github.com/mariusargatu/QARoom">GitHub repo</a>
+    <a href="https://github.com/mariusargatu/QARoom/blob/main/ARCHITECTURE.md">How it's built</a>
+    <span class="muted">a multi-tenant social platform, built to be testable</span>
+  </footer>
+
+  <div id="lightbox" class="lb" hidden role="dialog" aria-modal="true" aria-label="Screenshot viewer">
+    <button class="lb-close" type="button" aria-label="Close">✕</button>
+    <figure class="lb-fig">
+      <img class="lb-img" src="" alt="">
+      <figcaption class="lb-cap"></figcaption>
+    </figure>
+  </div>
+
+  <script>
+  /* Lightbox: open a thumbnail's full image in-page instead of a new tab. Progressive enhancement,
+     with JS off the anchors still open the image inline (same tab). */
+  (function lightbox(){
+    var lb = document.getElementById('lightbox');
+    var img = lb.querySelector('.lb-img');
+    var cap = lb.querySelector('.lb-cap');
+    var closeBtn = lb.querySelector('.lb-close');
+    var lastFocus = null;
+
+    function open(a){
+      lastFocus = a;
+      var thumb = a.querySelector('img');
+      img.src = a.getAttribute('href');
+      img.alt = thumb ? thumb.alt : '';
+      cap.textContent = a.querySelector('.cap').textContent;
+      lb.hidden = false;
+      requestAnimationFrame(function(){ lb.classList.add('open'); });
+      document.body.style.overflow = 'hidden';
+      closeBtn.focus();
+    }
+    function close(){
+      lb.classList.remove('open');
+      document.body.style.overflow = '';
+      var done = false;
+      function finish(){
+        if(done) return; done = true;
+        lb.hidden = true; img.src = '';
+        if(lastFocus) lastFocus.focus();
+      }
+      lb.addEventListener('transitionend', finish, { once: true });
+      setTimeout(finish, 260); // fallback if transitionend doesn't fire (e.g. reduced motion)
+    }
+
+    document.querySelectorAll('.shot').forEach(function(a){
+      a.addEventListener('click', function(e){ e.preventDefault(); open(a); });
+    });
+    closeBtn.addEventListener('click', close);
+    lb.addEventListener('click', function(e){ if(e.target === lb || e.target === img) close(); });
+    document.addEventListener('keydown', function(e){ if(!lb.hidden && e.key === 'Escape') close(); });
+    // keep focus inside the dialog (only the close button is focusable)
+    lb.addEventListener('keydown', function(e){ if(e.key === 'Tab'){ e.preventDefault(); closeBtn.focus(); } });
+  })();
+  </script>
+</body>
+</html>
