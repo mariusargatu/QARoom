@@ -16,6 +16,24 @@ Abbreviated columns: pact-oas = pact-oas-crosscheck, rev-conf = reverse-conforma
 
 **Totals: 27 caught, 104 missed, 131 cells measured** (154 grid positions not applicable or not yet run). Baseline: `475c7ac4df22` (1 standing red, fast-check seed 12648430). Last render: 2026-06-10T16:25:48.193Z. A frozen, hash-stamped snapshot of every cell is committed at [docs/evidence/detection-matrix.snapshot.json](evidence/detection-matrix.snapshot.json), so the grid is verifiable without cloning the gitignored artifact.
 
+## The grid at a glance
+
+> **27 catches. 104 recorded misses. The misses are the point.**
+> Every deliberate bug in this repo is armed, one at a time, against every testing technique. A filled cell is a catch. A hollow cell is a technique that ran and stayed green: measured blindness, recorded instead of hidden. The 154 faint cells are not applicable or not yet run.
+
+<picture>
+<source media="(prefers-color-scheme: dark)" srcset="assets/detection-matrix-dark.svg">
+<img alt="The detection matrix as a heat grid: 27 filled cells (catches) and 104 hollow cells (recorded misses) across three tiers" src="assets/detection-matrix-light.svg">
+</picture>
+
+### Three rows worth calling out
+
+| Deliberate bug | Caught by | What happened |
+|---|---|---|
+| `feed-reversed` | 1 of 11 | A reversed feed passed the entire in-proc battery. The hole was closed the same day; the row re-ran ✗ to ✓. |
+| `vote-slow` | 1 of 9 | Invisible to every functional technique, by design: suites get slower, not redder. Only the k6 SLO threshold sees it. |
+| `disable-circuit-breaker` | 1 of 9 | Missed in-proc, structurally. Caught live by paced fuzz traffic through an accidentally sick upstream. |
+
 ## In-proc tier (Tier A)
 
 | toggle | unit | integration | property | mbt | pact | pact-oas | rev-conf | py-unit | py-conf | metamorphic |

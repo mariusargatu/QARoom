@@ -2,11 +2,11 @@ import { pathToFileURL } from 'node:url'
 import { BOUNDARY_REGISTRY } from '@qaroom/contracts/boundary-registry'
 
 /**
- * Render the README breadth table from the boundary registry (the 2026-06-11 critique's
- * consistency fix: three hand-maintained boundary tables had drifted; now one source renders the
- * README view and `pnpm claims:verify` byte-gates it).
+ * Render the breadth table from the boundary registry (the 2026-06-11 critique's consistency fix:
+ * three hand-maintained boundary tables had drifted; now one source renders the table that lives in
+ * docs/02-architecture.md and `pnpm claims:verify` byte-gates it).
  *
- *   pnpm boundaries:render   print the README block (for injection + the gate)
+ *   pnpm boundaries:render   print the block (for injection into docs/02 + the gate)
  */
 
 export const BOUNDARIES_START =

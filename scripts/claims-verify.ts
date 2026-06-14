@@ -254,17 +254,25 @@ function main(): void {
       for (const [name, r] of bad) process.stdout.write(`      ${name}: ${r.detail}\n`)
     }
   }
+  // The front-door projections moved off the README (now a thin pointer to the hosted site) into
+  // their thematic docs homes; the byte gate is identical, only the file each block lives in moved.
   const blocks: [string, Result][] = [
     [
-      'README claims',
-      checkBlock('README.md', 'claims', README_START, README_END, renderReadmeBlock),
+      'ARCHITECTURE.md claims',
+      checkBlock('ARCHITECTURE.md', 'claims', README_START, README_END, renderReadmeBlock),
     ],
-    ['README stats', checkBlock('README.md', 'stats', STATS_START, STATS_END, renderStatsBlock)],
-    ['README cost', checkBlock('README.md', 'cost', COST_START, COST_END, renderCostBlock)],
     [
-      'README boundaries',
+      'ARCHITECTURE.md stats',
+      checkBlock('ARCHITECTURE.md', 'stats', STATS_START, STATS_END, renderStatsBlock),
+    ],
+    [
+      'docs/03 cost',
+      checkBlock('docs/03-testing-strategy.md', 'cost', COST_START, COST_END, renderCostBlock),
+    ],
+    [
+      'docs/02 boundaries',
       checkBlock(
-        'README.md',
+        'docs/02-architecture.md',
         'boundaries',
         BOUNDARIES_START,
         BOUNDARIES_END,

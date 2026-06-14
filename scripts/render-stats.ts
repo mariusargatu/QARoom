@@ -5,15 +5,16 @@ import { BOUNDARY_REGISTRY } from '@qaroom/contracts/boundary-registry'
 import { CLAIMS } from '@qaroom/contracts/claims'
 
 /**
- * Render the QARoom "stats" projection: a single drift-gated README line whose every number
- * is DERIVED from a machine-readable source, never hand-typed. The root fix for the stale-front-door
- * weak axis (README said "ten milestones / 214 tests / 3 services / 11 ADRs" while reality is 12
- * milestones / 8 services / 23 ADRs). Mirrors scripts/render-claims.ts: a side-effect-free renderer +
- * markers, byte-gated by scripts/claims-verify.ts. Excludes summary.json's volatile generated_at /
- * commit so the block stays byte-stable until a COUNT actually changes (then re-run + commit).
+ * Render the QARoom "stats" projection: a single drift-gated line (lives in ARCHITECTURE.md §1) whose
+ * every number is DERIVED from a machine-readable source, never hand-typed. The root fix for the
+ * stale-front-door weak axis (the front door once said "ten milestones / 214 tests / 3 services /
+ * 11 ADRs" while reality is 12 milestones / 9 services / 23 ADRs). Mirrors scripts/render-claims.ts:
+ * a side-effect-free renderer + markers, byte-gated by scripts/claims-verify.ts. Excludes summary.json's
+ * volatile generated_at / commit so the block stays byte-stable until a COUNT actually changes
+ * (then re-run + commit).
  *
  *   pnpm stats:render            print the block
- *   pnpm stats:render --readme   same (for injection + the gate)
+ *   pnpm stats:render --readme   same (for injection into ARCHITECTURE.md + the gate)
  */
 
 const ROOT = process.cwd()
@@ -43,7 +44,7 @@ export function renderStatsBlock(): string {
   const services = countWorkspace('services')
   const packages = countWorkspace('packages')
   const helm = existsSync(resolve(ROOT, 'packages/helm-template')) ? ' + 1 helm chart' : ''
-  // The documented boundaries (the registry that renders the README breadth table), so the stats
+  // The documented boundaries (the registry that renders the docs/02 breadth table), so the stats
   // line and the table can never disagree on the count.
   const boundaries = BOUNDARY_REGISTRY.length
   // Deliberately NO live test-totals here. The pass/fail/skip count is environment-dependent (key

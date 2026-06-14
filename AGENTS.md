@@ -106,7 +106,7 @@ These are enforced by lint and CI. Violating them will fail the build.
 
 For any non-trivial change:
 
-1. **Read the relevant docs first.** `docs/02-architecture.md` for the system shape; `docs/03-testing-strategy.md` for testing decisions; `docs/05-conventions.md` for what's enforced; the relevant ADR.
+1. **Read the relevant docs first.** `ARCHITECTURE.md` for the one-page mental model (system + testing + the reasoning, linking down to the rest); `docs/02-architecture.md` for the system shape; `docs/03-testing-strategy.md` for testing decisions; `docs/05-conventions.md` for what's enforced; the relevant ADR.
 2. **Identify which boundary your change touches.** Use the boundary table in `docs/02-architecture.md`. Your change should use the testing technique that defends that boundary.
 3. **For schema changes:** edit the Zod schema in `packages/contracts/`, run `pnpm openapi:generate`, commit both. CI will gate breaking changes via `oasdiff`.
 4. **For state machine changes:** edit the XState machine in `packages/contracts/machines/`, update the conformance test, update any MBT-generated tests.
@@ -155,7 +155,7 @@ Always check the current milestone before introducing infrastructure that doesn'
 
 ## CI gates
 
-GitHub Actions are **dispatch-only** (`.github/workflows/ci.yml`): there is no `push` / `pull_request` trigger. You run CI on demand from the Actions tab by choosing a cumulative `tier` (`light` < `merge` < `nightly`), and one weekly `schedule` cron is the *only* automatic trigger — it fires the keyed `eval` tier alone (cost-bounded; consumes `secrets.OPENAI_API_KEY`). Locally the same bar is `pnpm verify` (fast lane) and `pnpm gauntlet` (full). Tier map: light = verify/claims/contracts/fuzz*/web-stories/moderator; merge = + chart/cluster-smoke/tracetest/web-ct; nightly = + load/mutation/evomaster/chaos; evals (golden/DeepEval/DeepTeam) run on the cron or a dispatch with `run_evals: true`.
+CI is **dispatch-only** (`.github/workflows/ci.yml`): the build/test lanes have no `push` / `pull_request` trigger. You run CI on demand from the Actions tab by choosing a cumulative `tier` (`light` < `merge` < `nightly`), and one weekly `schedule` cron is the *only* automatic trigger there — it fires the keyed `eval` tier alone (cost-bounded; consumes `secrets.OPENAI_API_KEY`). The one push-triggered workflow is `.github/workflows/pages.yml`, scoped to `site/**`: it deploys the static site (a one-page plain-English testing overview at [mariusargatu.github.io/QARoom](https://mariusargatu.github.io/QARoom/)) and runs no build/test lane, so the dispatch-only discipline on CI is intact. Locally the same bar is `pnpm verify` (fast lane) and `pnpm gauntlet` (full). Tier map: light = verify/claims/contracts/fuzz*/web-stories/moderator; merge = + chart/cluster-smoke/tracetest/web-ct; nightly = + load/mutation/evomaster/chaos; evals (golden/DeepEval/DeepTeam) run on the cron or a dispatch with `run_evals: true`.
 
 The merge bar (enforced by the dispatched lanes, and required of any PR before merge) is:
 

@@ -3,17 +3,17 @@ import { resolve } from 'node:path'
 import { pathToFileURL } from 'node:url'
 
 /**
- * Render the QARoom "LLM run cost" projection: a drift-gated README block showing what one on-demand
- * eval run is estimated to cost, per lane, at the vendored prices in
+ * Render the QARoom "LLM run cost" projection: a drift-gated block (lives in docs/03-testing-strategy.md)
+ * showing what one on-demand eval run is estimated to cost, per lane, at the vendored prices in
  * services/moderator-agent/evals/cost-model.json. Mirrors render-stats.ts: side-effect-free renderer +
  * markers, byte-gated by claims-verify.ts. STABLE by construction — it carries the estimate + dollars
  * but NOT the per-run timestamp (that volatile freshness signal lives in the gitignored
  * test-results/cost-ledger.json the Python `cost:ledger` writes after a run). The numbers mirror the
- * Python guard's estimate (same cost-model.json, same heuristics) so the README and the CI ceiling
+ * Python guard's estimate (same cost-model.json, same heuristics) so the doc and the CI ceiling
  * never disagree.
  *
  *   pnpm cost:render            print the block
- *   pnpm cost:render --readme   same (for injection + the gate)
+ *   pnpm cost:render --readme   same (for injection into docs/03 + the gate)
  */
 
 const ROOT = process.cwd()
