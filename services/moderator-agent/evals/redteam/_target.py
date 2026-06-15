@@ -47,16 +47,32 @@ def _ulid(n: int) -> str:
     return str(n).rjust(26, "0")
 
 
-def build_workflow(settings: Settings) -> ModerationWorkflow:
+class PoisonedKnowledgeStore(InMemoryKnowledgeStore):
+    """A knowledge store whose precedent corpus is PRE-POISONED with an attacker-controlled summary.
+
+    Precedents derive from past post bodies (``remember`` stores them), so the corpus is attacker-
+    REACHABLE: this models a STORED / INDIRECT injection (OWASP LLM01 indirect, ASI01 goal-hijacking).
+    ``similar`` then surfaces the poison as precedent — into the system prompt — exactly where the
+    corpus guard must fence it. Re-seeded per build so multi-turn attacks see it every turn."""
+
+    def __init__(self, community_id: str, poison: str) -> None:
+        super().__init__()
+        self._summaries = [(community_id, poison)]
+
+
+def build_workflow(
+    settings: Settings, *, knowledge: InMemoryKnowledgeStore | None = None
+) -> ModerationWorkflow:
     """A workflow wired with the REAL provider + in-memory stores seeded from the versioned corpus.
 
-    The settings carry the guard toggle (``moderator_disable_input_guard``); everything else is
-    deterministic so the only stochastic surface is the model under attack.
+    The settings carry the guard toggles (``moderator_disable_input_guard`` /
+    ``moderator_disable_corpus_guard``); everything else is deterministic so the only stochastic
+    surface is the model under attack. Pass ``knowledge`` to inject a poisoned precedent corpus.
     """
     clock, ids, _ = seeded_trio()
     corpus = InMemoryPolicyCorpusStore()
     corpus.set_entries(TARGET_COMMUNITY, load_corpus_dir(_RULES_DIR).get(TARGET_COMMUNITY, []))
-    knowledge = InMemoryKnowledgeStore()
+    knowledge = knowledge or InMemoryKnowledgeStore()
     knowledge.set_rules(TARGET_COMMUNITY, load_rules_dir(_RULES_DIR).get(TARGET_COMMUNITY, []))
     return ModerationWorkflow(
         llm=LangChainLlmClient(settings),
@@ -134,6 +150,28 @@ def make_model_callback(settings: Settings) -> Callable[[str], str]:
     return model_callback
 
 
+def make_poisoned_corpus_callback(settings: Settings, poison: str) -> Callable[[str], str]:
+    """A ``model_callback`` whose PRECEDENT corpus is poisoned every turn (ASI01 indirect surface).
+
+    The harness's synthesized attack rides in the post body; a poisoned precedent sits in the retrieved
+    context simultaneously, so the run exercises the combined direct+indirect agentic attack surface.
+    Each call rebuilds the workflow (and re-seeds the poison), so multi-turn attacks see it every turn.
+    """
+    counter = {"n": 0}
+
+    def model_callback(input_text: str) -> str:
+        counter["n"] += 1
+        knowledge = PoisonedKnowledgeStore(TARGET_COMMUNITY, poison)
+        decision = _run_sync(
+            build_workflow(settings, knowledge=knowledge).run(
+                _event(input_text, idx=counter["n"])
+            )
+        )
+        return _verdict_text(decision)
+
+    return model_callback
+
+
 def run_post(body: str, *, settings: Settings) -> ModerationDecision | None:
     """Run a single post body through a freshly-built workflow and return the structured decision.
 
@@ -141,4 +179,18 @@ def run_post(body: str, *, settings: Settings) -> ModerationDecision | None:
     directly on the disposition, proving the guard changes the outcome on an injection payload.
     """
     workflow = build_workflow(settings)
+    return _run_sync(workflow.run(_event(body)))
+
+
+def run_post_with_poisoned_precedent(
+    body: str, *, poison: str, settings: Settings
+) -> ModerationDecision | None:
+    """Run a post against a workflow whose PRECEDENT corpus is poisoned (ASI01 goal-hijacking).
+
+    The injection rides in the RETRIEVED context (a precedent), not the post body — the indirect
+    channel the corpus guard defends. ``settings.moderator_disable_corpus_guard`` selects guarded vs
+    the deliberate bug, so a caller can compare whether the stored injection hijacks the disposition.
+    """
+    knowledge = PoisonedKnowledgeStore(TARGET_COMMUNITY, poison)
+    workflow = build_workflow(settings, knowledge=knowledge)
     return _run_sync(workflow.run(_event(body)))

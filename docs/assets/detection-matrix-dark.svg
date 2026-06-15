@@ -1,6 +1,6 @@
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 390 346" width="390" height="346" role="img" aria-labelledby="t d">
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 390 361" width="390" height="361" role="img" aria-labelledby="t d">
 <title id="t">The detection matrix: deliberate bugs versus testing techniques</title>
-<desc id="d">A grid of 131 measured cells across 3 tiers, plus 154 unmeasured positions. 27 filled cells are catches; 104 hollow cells are recorded misses; faint cells are not applicable or not yet run. Full per-cell detail is in docs/detection-matrix.md.</desc>
+<desc id="d">A grid of 131 measured cells across 3 tiers, plus 167 unmeasured positions. 27 filled cells are catches; 104 hollow cells are recorded misses; faint cells are not applicable or not yet run. Full per-cell detail is in docs/detection-matrix.md.</desc>
 <text x="2" y="13" font-family="ui-sans-serif, system-ui, sans-serif" font-size="10" fill="#9aa0aa">Tier A · in-proc</text>
 <rect x="2" y="22" width="12" height="12" rx="2" fill="#8fb0dc"/>
 <rect x="17" y="22" width="12" height="12" rx="2" fill="#8fb0dc"/>
@@ -159,9 +159,9 @@
 <rect x="62" y="247" width="12" height="12" rx="2" fill="#1e2126"/>
 <rect x="77" y="247" width="12" height="12" rx="2" fill="#1e2126"/>
 <rect x="92" y="247" width="12" height="12" rx="2" fill="#1e2126"/>
-<rect x="107" y="247" width="12" height="12" rx="2" fill="#8fb0dc"/>
-<rect x="122.5" y="247.5" width="11" height="11" rx="2" fill="none" stroke="#4a4f58"/>
-<rect x="137.5" y="247.5" width="11" height="11" rx="2" fill="none" stroke="#4a4f58"/>
+<rect x="107" y="247" width="12" height="12" rx="2" fill="#1e2126"/>
+<rect x="122" y="247" width="12" height="12" rx="2" fill="#1e2126"/>
+<rect x="137" y="247" width="12" height="12" rx="2" fill="#1e2126"/>
 <rect x="2" y="262" width="12" height="12" rx="2" fill="#1e2126"/>
 <rect x="17" y="262" width="12" height="12" rx="2" fill="#1e2126"/>
 <rect x="32" y="262" width="12" height="12" rx="2" fill="#1e2126"/>
@@ -180,7 +180,7 @@
 <rect x="77" y="277" width="12" height="12" rx="2" fill="#1e2126"/>
 <rect x="92" y="277" width="12" height="12" rx="2" fill="#1e2126"/>
 <rect x="107" y="277" width="12" height="12" rx="2" fill="#8fb0dc"/>
-<rect x="122" y="277" width="12" height="12" rx="2" fill="#8fb0dc"/>
+<rect x="122.5" y="277.5" width="11" height="11" rx="2" fill="none" stroke="#4a4f58"/>
 <rect x="137.5" y="277.5" width="11" height="11" rx="2" fill="none" stroke="#4a4f58"/>
 <rect x="2" y="292" width="12" height="12" rx="2" fill="#1e2126"/>
 <rect x="17" y="292" width="12" height="12" rx="2" fill="#1e2126"/>
@@ -189,9 +189,9 @@
 <rect x="62" y="292" width="12" height="12" rx="2" fill="#1e2126"/>
 <rect x="77" y="292" width="12" height="12" rx="2" fill="#1e2126"/>
 <rect x="92" y="292" width="12" height="12" rx="2" fill="#1e2126"/>
-<rect x="107" y="292" width="12" height="12" rx="2" fill="#1e2126"/>
-<rect x="122" y="292" width="12" height="12" rx="2" fill="#1e2126"/>
-<rect x="137" y="292" width="12" height="12" rx="2" fill="#1e2126"/>
+<rect x="107" y="292" width="12" height="12" rx="2" fill="#8fb0dc"/>
+<rect x="122" y="292" width="12" height="12" rx="2" fill="#8fb0dc"/>
+<rect x="137.5" y="292.5" width="11" height="11" rx="2" fill="none" stroke="#4a4f58"/>
 <rect x="2" y="307" width="12" height="12" rx="2" fill="#1e2126"/>
 <rect x="17" y="307" width="12" height="12" rx="2" fill="#1e2126"/>
 <rect x="32" y="307" width="12" height="12" rx="2" fill="#1e2126"/>
@@ -199,9 +199,19 @@
 <rect x="62" y="307" width="12" height="12" rx="2" fill="#1e2126"/>
 <rect x="77" y="307" width="12" height="12" rx="2" fill="#1e2126"/>
 <rect x="92" y="307" width="12" height="12" rx="2" fill="#1e2126"/>
-<rect x="107" y="307" width="12" height="12" rx="2" fill="#8fb0dc"/>
-<rect x="122.5" y="307.5" width="11" height="11" rx="2" fill="none" stroke="#4a4f58"/>
-<rect x="137.5" y="307.5" width="11" height="11" rx="2" fill="none" stroke="#4a4f58"/>
+<rect x="107" y="307" width="12" height="12" rx="2" fill="#1e2126"/>
+<rect x="122" y="307" width="12" height="12" rx="2" fill="#1e2126"/>
+<rect x="137" y="307" width="12" height="12" rx="2" fill="#1e2126"/>
+<rect x="2" y="322" width="12" height="12" rx="2" fill="#1e2126"/>
+<rect x="17" y="322" width="12" height="12" rx="2" fill="#1e2126"/>
+<rect x="32" y="322" width="12" height="12" rx="2" fill="#1e2126"/>
+<rect x="47" y="322" width="12" height="12" rx="2" fill="#1e2126"/>
+<rect x="62" y="322" width="12" height="12" rx="2" fill="#1e2126"/>
+<rect x="77" y="322" width="12" height="12" rx="2" fill="#1e2126"/>
+<rect x="92" y="322" width="12" height="12" rx="2" fill="#1e2126"/>
+<rect x="107" y="322" width="12" height="12" rx="2" fill="#8fb0dc"/>
+<rect x="122.5" y="322.5" width="11" height="11" rx="2" fill="none" stroke="#4a4f58"/>
+<rect x="137.5" y="322.5" width="11" height="11" rx="2" fill="none" stroke="#4a4f58"/>
 <text x="166" y="13" font-family="ui-sans-serif, system-ui, sans-serif" font-size="10" fill="#9aa0aa">Tier B · live cluster</text>
 <rect x="166.5" y="22.5" width="11" height="11" rx="2" fill="none" stroke="#4a4f58"/>
 <rect x="181" y="22" width="12" height="12" rx="2" fill="#1e2126"/>
@@ -277,8 +287,8 @@
 <rect x="285.5" y="22.5" width="11" height="11" rx="2" fill="none" stroke="#4a4f58"/>
 <rect x="300.5" y="22.5" width="11" height="11" rx="2" fill="none" stroke="#4a4f58"/>
 <rect x="315" y="22" width="12" height="12" rx="2" fill="#1e2126"/>
-<rect x="285.5" y="37.5" width="11" height="11" rx="2" fill="none" stroke="#4a4f58"/>
-<rect x="300.5" y="37.5" width="11" height="11" rx="2" fill="none" stroke="#4a4f58"/>
+<rect x="285" y="37" width="12" height="12" rx="2" fill="#1e2126"/>
+<rect x="300" y="37" width="12" height="12" rx="2" fill="#1e2126"/>
 <rect x="315" y="37" width="12" height="12" rx="2" fill="#1e2126"/>
 <rect x="285.5" y="52.5" width="11" height="11" rx="2" fill="none" stroke="#4a4f58"/>
 <rect x="300.5" y="52.5" width="11" height="11" rx="2" fill="none" stroke="#4a4f58"/>
@@ -289,10 +299,13 @@
 <rect x="285.5" y="82.5" width="11" height="11" rx="2" fill="none" stroke="#4a4f58"/>
 <rect x="300.5" y="82.5" width="11" height="11" rx="2" fill="none" stroke="#4a4f58"/>
 <rect x="315" y="82" width="12" height="12" rx="2" fill="#1e2126"/>
-<rect x="2" y="312" width="12" height="12" rx="2" fill="#8fb0dc"/>
-<text x="19" y="321" font-family="ui-sans-serif, system-ui, sans-serif" font-size="10" fill="#9aa0aa">caught (27)</text>
-<rect x="88" y="312" width="11" height="11" rx="2" fill="none" stroke="#4a4f58"/>
-<text x="105" y="321" font-family="ui-sans-serif, system-ui, sans-serif" font-size="10" fill="#9aa0aa">missed (104)</text>
-<rect x="176" y="312" width="12" height="12" rx="2" fill="#1e2126"/>
-<text x="193" y="321" font-family="ui-sans-serif, system-ui, sans-serif" font-size="10" fill="#9aa0aa">not run or n/a (154)</text>
+<rect x="285.5" y="97.5" width="11" height="11" rx="2" fill="none" stroke="#4a4f58"/>
+<rect x="300.5" y="97.5" width="11" height="11" rx="2" fill="none" stroke="#4a4f58"/>
+<rect x="315" y="97" width="12" height="12" rx="2" fill="#1e2126"/>
+<rect x="2" y="327" width="12" height="12" rx="2" fill="#8fb0dc"/>
+<text x="19" y="336" font-family="ui-sans-serif, system-ui, sans-serif" font-size="10" fill="#9aa0aa">caught (27)</text>
+<rect x="88" y="327" width="11" height="11" rx="2" fill="none" stroke="#4a4f58"/>
+<text x="105" y="336" font-family="ui-sans-serif, system-ui, sans-serif" font-size="10" fill="#9aa0aa">missed (104)</text>
+<rect x="176" y="327" width="12" height="12" rx="2" fill="#1e2126"/>
+<text x="193" y="336" font-family="ui-sans-serif, system-ui, sans-serif" font-size="10" fill="#9aa0aa">not run or n/a (167)</text>
 </svg>

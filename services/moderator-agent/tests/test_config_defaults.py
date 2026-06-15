@@ -15,6 +15,10 @@ def test_input_guard_enabled_by_default() -> None:
     assert Settings().moderator_disable_input_guard is False
 
 
+def test_corpus_guard_enabled_by_default() -> None:
+    assert Settings().moderator_disable_corpus_guard is False
+
+
 def test_prompt_bug_off_by_default() -> None:
     assert Settings().moderator_prompt_bug is False
 

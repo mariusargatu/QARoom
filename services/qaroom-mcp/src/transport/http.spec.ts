@@ -67,4 +67,52 @@ describe('the HTTP JSON-RPC transport', () => {
     expect(Array.isArray(result.content)).toBe(true)
     await app.close()
   })
+
+  it('serves /mcp without auth when no token is configured (back-compat)', async () => {
+    const { core } = setupMcpInMemory()
+    const app = createMcpHttpApp(core)
+    const response = await injectClient(app).post('/mcp', {
+      jsonrpc: '2.0',
+      id: 1,
+      method: 'tools/list',
+    })
+    expect(response.status).toBe(200)
+    await app.close()
+  })
+
+  it('rejects /mcp with an RFC 7807 401 when a token is set but absent/invalid', async () => {
+    const { core } = setupMcpInMemory()
+    const app = createMcpHttpApp(core, { authToken: 'sekret-token' })
+    const request = injectClient(app)
+    const missing = await request.post('/mcp', { jsonrpc: '2.0', id: 1, method: 'tools/list' })
+    expect(missing.status).toBe(401)
+    expectRFC7807(missing.json, { status: 401, failureDomain: 'authentication' })
+    const wrong = await request.post(
+      '/mcp',
+      { jsonrpc: '2.0', id: 1, method: 'tools/list' },
+      { authorization: 'Bearer wrong-token' },
+    )
+    expect(wrong.status).toBe(401)
+    await app.close()
+  })
+
+  it('accepts /mcp with the correct bearer token', async () => {
+    const { core } = setupMcpInMemory()
+    const app = createMcpHttpApp(core, { authToken: 'sekret-token' })
+    const response = await injectClient(app).post(
+      '/mcp',
+      { jsonrpc: '2.0', id: 1, method: 'tools/list' },
+      { authorization: 'Bearer sekret-token' },
+    )
+    expect(response.status).toBe(200)
+    await app.close()
+  })
+
+  it('leaves /health open even when a token is configured', async () => {
+    const { core } = setupMcpInMemory()
+    const app = createMcpHttpApp(core, { authToken: 'sekret-token' })
+    const response = await injectClient(app).get('/health')
+    expect(response.status).toBe(200)
+    await app.close()
+  })
 })

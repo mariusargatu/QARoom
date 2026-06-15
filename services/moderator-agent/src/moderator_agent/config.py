@@ -59,6 +59,10 @@ class Settings(BaseSettings):
     # /system/capabilities). Each defeats one M12 guarantee so a test can prove the guarantee has teeth:
     #   prompt_bug          — model keys on literal wording (metamorphic catches; golden misses).
     #   disable_input_guard — untrusted post body is NOT delimited → prompt-injection lands (DeepTeam).
+    #   disable_corpus_guard— retrieved policy/precedent text is NOT delimited → a STORED / INDIRECT
+    #                         injection in the corpus (a poisoned precedent) reaches instruction context
+    #                         (OWASP LLM01 indirect / ASI01 goal-hijacking; the retrieved-context-fenced
+    #                         claim + the ASI-2026 red-team catch it).
     #   ungrounded          — self-check skips citation grounding → hallucinated policy survives
     #                         (DeepEval faithfulness catches it; a non-grounded eval would not).
     #   disable_abstain     — self-check never escalates → a low-confidence/conflicting case is guessed
@@ -68,6 +72,7 @@ class Settings(BaseSettings):
     #                         the top-k the LLM sees (a keyword-relevance test catches it; ADR-0021).
     moderator_prompt_bug: bool = False
     moderator_disable_input_guard: bool = False
+    moderator_disable_corpus_guard: bool = False
     moderator_ungrounded: bool = False
     moderator_disable_abstain: bool = False
     #   disable_approve_guard — self-check skips the never-confidently-approve-flagged safety guard →

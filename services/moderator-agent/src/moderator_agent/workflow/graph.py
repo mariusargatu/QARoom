@@ -222,7 +222,8 @@ class ModerationWorkflow:
 
     async def _draft(self, state: WorkflowState) -> dict:
         """The single LLM call: draft a citation-bearing disposition from the retrieved context
-        (FR3). The untrusted post body is fenced by the injection guard. Failure → Failed@PrecedentGathered."""
+        (FR3). The untrusted post body AND the attacker-reachable retrieved context (policy + precedent)
+        are fenced by the injection guards. Failure → Failed@PrecedentGathered."""
         event = PostCreatedEvent.model_validate(state["event"])
         entries = [PolicyEntry.model_validate(e) for e in state.get("policy", [])]
         bug = self._settings.moderator_prompt_bug
@@ -237,7 +238,11 @@ class ModerationWorkflow:
         else:
             header = fallback_header
         prompt = build_system_prompt(
-            entries, state.get("precedents", []), prompt_bug=bug, header=header
+            entries,
+            state.get("precedents", []),
+            prompt_bug=bug,
+            header=header,
+            corpus_guard_disabled=self._settings.moderator_disable_corpus_guard,
         )
         guarded = guard_post_text(
             self._post_text(event), disabled=self._settings.moderator_disable_input_guard

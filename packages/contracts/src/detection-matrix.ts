@@ -284,6 +284,27 @@ export const TOGGLES: DetectionToggle[] = z.array(DetectionToggle).parse([
       '(evals/README.md).',
   },
   {
+    // The INDIRECT-injection sibling (2026-06-15): the corpus channel rather than the post body. A
+    // poisoned PRECEDENT (corpus derives from past post bodies) is a stored injection — OWASP ASI01.
+    id: 'moderator-disable-corpus-guard',
+    env: { name: 'MODERATOR_DISABLE_CORPUS_GUARD', value: '1' },
+    component: 'moderator',
+    readSite: {
+      file: 'services/moderator-agent/src/moderator_agent/config.py',
+      timing: 'settings-load',
+    },
+    guard: 'settings-load',
+    designatedCatcher: 'services/moderator-agent/tests/test_corpus_guard.py',
+    claimId: 'retrieved-context-fenced',
+    tiers: ['in-proc', 'llm'],
+    selfToggling: ['services/moderator-agent/tests/test_corpus_guard.py'],
+    notes:
+      'Tier-A: caught keyless by the deterministic corpus-guard test (the fence is a pure string ' +
+      'transform — cannot rot). The llm tier is the ASI-2026 red-team (test_asi_2026.py) which ' +
+      'MEASURES whether a stored injection flips a disposition with the guard off — a tracked metric, ' +
+      'not a gate, since the behavioural payoff moves with the model (evals/README.md).',
+  },
+  {
     id: 'moderator-prompt-bug',
     env: { name: 'MODERATOR_PROMPT_BUG', value: '1' },
     component: 'moderator',

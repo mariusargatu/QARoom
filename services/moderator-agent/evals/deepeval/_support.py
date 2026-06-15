@@ -23,6 +23,7 @@ itself is the only stochastic dependency).
 from __future__ import annotations
 
 import json
+import os
 from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any
@@ -100,6 +101,39 @@ def _retrieval_texts(entries: list[PolicyEntry]) -> list[str]:
     # The retrieval_context DeepEval's RAG metrics judge against: the retrieved policy entry texts,
     # tagged by id so a faithfulness judge can tell whether a cited rule is actually present.
     return [f"{e.entry_id} [{e.entry_type}]: {e.text}" for e in entries]
+
+
+# The pinned judge model for the LLM-as-judge metrics. JRH best practice (mid-2026): the judge model is
+# versioned as strictly as the code, so judge DRIFT is caught instead of read as a model regression.
+# Overridable for a deliberate-judge-swap experiment; defaults to a fixed, strong, cheap judge.
+JUDGE_MODEL = os.environ.get("MODERATOR_JUDGE_MODEL", "gpt-4o-mini")
+
+
+def citation_grounding_metric(threshold: float = 0.5, *, model: str | None = None) -> Any:
+    """The strict-binary citation-grounding judge — the SINGLE definition both the RAG-metrics suite
+    and the judge-reliability meta-eval use, so the meta-eval tests the REAL deployed judge, not a copy.
+
+    Every rule id in the verdict's cited_rules MUST literally appear in the retrieval context; a
+    fabricated citation fails. ``strict_mode`` makes the continuous GEval score binary (a fabricated
+    citation inside an otherwise-plausible verdict floated above 0.5 without it). deepeval is imported
+    lazily so this module still imports without the key-gated ``eval`` group (the conftest needs it)."""
+    from deepeval.metrics import GEval
+    from deepeval.test_case import SingleTurnParams
+
+    return GEval(
+        name="citation-grounding",
+        criteria=(
+            "Every rule id in the verdict's cited_rules MUST literally appear in the retrieval "
+            "context. A verdict citing any rule that is absent from the retrieval context fails."
+        ),
+        evaluation_params=[
+            SingleTurnParams.ACTUAL_OUTPUT,
+            SingleTurnParams.RETRIEVAL_CONTEXT,
+        ],
+        threshold=threshold,
+        strict_mode=True,
+        model=model or JUDGE_MODEL,
+    )
 
 
 def build_workflow(

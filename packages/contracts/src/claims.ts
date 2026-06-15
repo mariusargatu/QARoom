@@ -191,6 +191,35 @@ const RAW: Claim[] = [
     tier: 'simulate',
   },
   {
+    // The INDIRECT-injection sibling of input-guard (2026-06-15). The post-body guard fences the
+    // DIRECT channel; this fences the RETRIEVED one. Precedents derive from past post bodies, so the
+    // RAG corpus is attacker-REACHABLE: a poisoned precedent is a STORED injection (OWASP LLM01
+    // indirect / ASI01 goal-hijacking) that lands in the trusted half of the prompt, downstream of the
+    // body guard. Same rot-proof discipline: a keyless string-transform gate, not a model-dependent
+    // behavioural demo (the live-model payoff is the key-gated ASI-2026 red-team METRIC).
+    id: 'retrieved-context-fenced',
+    claim:
+      'The moderator fences attacker-reachable retrieved context (poisoned precedents / policy text) as DATA before it reaches the model; disabling the corpus guard leaves a stored injection in instruction context.',
+    boundary: 'external-dep',
+    registryRow: 'external-dep',
+    technique: 'deterministic corpus-guard unit test (keyless, no model — cannot rot)',
+    toggle: 'MODERATOR_DISABLE_CORPUS_GUARD',
+    gate: {
+      cmd: 'uv',
+      args: [
+        'run',
+        'pytest',
+        '-q',
+        'tests/test_corpus_guard.py',
+        '-k',
+        'env_armed_corpus_disable_toggle_unfences',
+      ],
+      cwd: 'services/moderator-agent',
+    },
+    evidence: { runner: 'moderator', field: 'passed' },
+    tier: 'simulate',
+  },
+  {
     id: 'tenant-isolation',
     claim:
       "A community's feed contains exactly its own posts and never another tenant's, even under an arbitrary interleave of cross-community writes (Commitment 9).",

@@ -9,9 +9,12 @@ vendor-objectivity caveat in ADR-0017. It also handles reasoning-vs-non-reasonin
 
 Unit tests wire the deterministic fakes so the workflow, persistence, and API are exercised without a
 network call; the REAL provider is exercised by the DeepEval suite + metamorphic suite, which need
-``OPENAI_API_KEY`` (decision: roadmap-literal real-OpenAI-in-CI, ADR-0017). A full record/replay
-``ModelClient`` seam (cassettes + scripted oracle + a lint rule) is deferred to Milestone 14; here the
-LLM is plain dependency injection behind the ``LlmClient`` Protocol (ADR-0018).
+``OPENAI_API_KEY`` (decision: roadmap-literal real-OpenAI-in-CI, ADR-0017). The first slice of the
+record/replay ``ModelClient`` seam now lives in ``llm_cassette.py`` (a ``RecordingLlmClient`` /
+``CassetteLlmClient`` pair behind THIS ``LlmClient`` Protocol), so the merge lane can gate the agent's
+behaviour over recorded completions keylessly; committing cassettes of REAL completions and the
+raw-client lint rule remain the Milestone 14 follow-up. The LLM is plain dependency injection behind
+the ``LlmClient`` Protocol (ADR-0018).
 """
 
 from __future__ import annotations

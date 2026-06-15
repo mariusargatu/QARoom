@@ -92,10 +92,10 @@ The only layer that spends real money is that LLM evaluation lane. It is cost-bo
 
 | Lane | Est. tokens | Est. cost |
 |---|--:|--:|
-| `gold-deepeval` | 77,380 | $0.0061 |
+| `gold-deepeval` | 99,140 | $0.0071 |
 | `deepteam-owasp` | 1,600 | $0.0004 |
 | `pyrit-nightly` | 12,000 | $0.0027 |
-| **total** | **90,980** | **$0.0091** |
+| **total** | **112,740** | **$0.0102** |
 
 <sub>Pre-flight estimate, not a measured bill: the eval harnesses (DeepEval/DeepTeam/PyRIT) report no token usage, so `pnpm --filter @qaroom/moderator-agent eval:cost` bounds the run against `MODERATOR_EVAL_BUDGET_TOKENS` and `cost:ledger` stamps the actual per-run record (with date) into `test-results/cost-ledger.json`. Prices are vendored in `evals/cost-model.json` — the `gpt-5.5` rate is a placeholder (no public price exists for a pinned future-dated model). Numbers derive from that file; `pnpm claims:verify` fails if this block drifts.</sub>
 <!-- cost:end -->

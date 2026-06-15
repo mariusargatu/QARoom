@@ -31,11 +31,17 @@ from deepeval.metrics import (  # noqa: E402
     FaithfulnessMetric,
     GEval,
 )
-from deepeval.test_case import LLMTestCase, LLMTestCaseParams, SingleTurnParams  # noqa: E402
+from deepeval.test_case import LLMTestCase, LLMTestCaseParams  # noqa: E402
 
 from moderator_agent.config import Settings  # noqa: E402
 
-from ._support import build_workflow, load_gold_cases, record_metric, run_case  # noqa: E402
+from ._support import (  # noqa: E402
+    build_workflow,
+    citation_grounding_metric,
+    load_gold_cases,
+    record_metric,
+    run_case,
+)
 
 pytestmark = [
     pytest.mark.deepeval,
@@ -132,21 +138,8 @@ async def test_hallucinated_policy_fails_faithfulness_but_a_non_grounded_check_p
         retrieval_context=target.test_case.retrieval_context,
     )
 
-    grounded_check = GEval(
-        name="citation-grounding",
-        criteria=(
-            "Every rule id in the verdict's cited_rules MUST literally appear in the retrieval "
-            "context. A verdict citing any rule that is absent from the retrieval context fails."
-        ),
-        evaluation_params=[
-            SingleTurnParams.ACTUAL_OUTPUT,
-            SingleTurnParams.RETRIEVAL_CONTEXT,
-        ],
-        threshold=_THRESHOLD,
-        # Binary criterion needs binary scoring: without strict_mode GEval scores continuously
-        # and a fabricated citation inside an otherwise-plausible verdict floated above 0.5.
-        strict_mode=True,
-    )
+    # The SAME judge the judge-reliability meta-eval stress-tests (single definition in _support).
+    grounded_check = citation_grounding_metric(_THRESHOLD)
     grounded_check.measure(ungrounded)
     grounded_passed = grounded_check.score is not None and grounded_check.score >= _THRESHOLD
     record_metric("faithfulness_hallucination_demo", passed=not grounded_passed)

@@ -30,4 +30,6 @@ const core = new McpCore({
   summary: fileSummaryProvider(),
 })
 
-runServer(() => createMcpHttpApp(core), { port: readPort(), name: 'qaroom-mcp' })
+// QAROOM_MCP_TOKEN gates POST /mcp with a bearer token; unset → open (in-cluster, network-protected).
+const authToken = process.env.QAROOM_MCP_TOKEN
+runServer(() => createMcpHttpApp(core, { authToken }), { port: readPort(), name: 'qaroom-mcp' })

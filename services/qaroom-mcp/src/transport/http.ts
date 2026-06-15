@@ -1,3 +1,4 @@
+import { timingSafeEqual } from 'node:crypto'
 import { makeProblem } from '@qaroom/contracts'
 import Fastify, { type FastifyInstance } from 'fastify'
 import {
@@ -17,13 +18,53 @@ interface JsonRpcRequest {
   params?: unknown
 }
 
-/** HTTP transport: a single JSON-RPC 2.0 endpoint over Fastify (the integration/contract surface). */
-export function createMcpHttpApp(core: McpCore): FastifyInstance {
-  const app = Fastify({ logger: false })
+/** Constant-time bearer-token comparison (no early-exit length/lexicographic leak). */
+function tokenMatches(presented: string, expected: string): boolean {
+  const a = Buffer.from(presented)
+  const b = Buffer.from(expected)
+  if (a.length !== b.length) return false
+  return timingSafeEqual(a, b)
+}
 
+export interface McpHttpOptions {
+  /** When set, every `POST /mcp` must present `Authorization: Bearer <authToken>`. When unset/empty
+   *  the surface is open (back-compat: in-cluster, network-protected). Wire from `QAROOM_MCP_TOKEN`. */
+  authToken?: string
+}
+
+/** HTTP transport: a single JSON-RPC 2.0 endpoint over Fastify (the integration/contract surface). */
+export function createMcpHttpApp(core: McpCore, options: McpHttpOptions = {}): FastifyInstance {
+  const app = Fastify({ logger: false })
+  const authToken = options.authToken?.trim()
+
+  // `/health` stays open (k8s probes); only the JSON-RPC surface is gated.
   app.get('/health', async () => ({ status: 'ok' }))
 
-  // Unauthenticated by design (ADR-0006 read-first surface) — protect at the network layer.
+  // Bearer-token gate for the JSON-RPC surface. Read-first today, but `callTool` will gain a mutating
+  // pass (ADR-0006), so the authn seam lands now: unset token → open (network-protected); set → every
+  // /mcp call must present it, else an RFC 7807 401. Constant-time compare; failures never echo input.
+  if (authToken) {
+    app.addHook('onRequest', async (request, reply) => {
+      if (request.method !== 'POST' || (request.url.split('?')[0] ?? '') !== '/mcp') return
+      const header = request.headers.authorization ?? ''
+      const presented = header.startsWith('Bearer ') ? header.slice('Bearer '.length).trim() : ''
+      if (!presented || !tokenMatches(presented, authToken)) {
+        const problem = makeProblem({
+          slug: 'mcp-unauthenticated',
+          title: 'Missing or invalid bearer token',
+          status: 401,
+          failure_domain: 'authentication',
+          detail: 'POST /mcp requires `Authorization: Bearer <token>` (QAROOM_MCP_TOKEN is set).',
+        })
+        return reply
+          .status(401)
+          .header('content-type', 'application/problem+json')
+          .header('www-authenticate', 'Bearer')
+          .send(problem)
+      }
+    })
+  }
+
   // MCP is request/response: JSON-RPC notifications (no `id`) are not supported, so `id` is always
   // echoed. Transport-level HTTP errors are RFC 7807; protocol-level errors use the JSON-RPC envelope.
   app.post('/mcp', async (request, reply) => {

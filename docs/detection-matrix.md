@@ -14,12 +14,12 @@ Every deliberate-bug toggle in the repo, armed one at a time, against the whole 
 
 Abbreviated columns: pact-oas = pact-oas-crosscheck, rev-conf = reverse-conformance, py-conf = py-conformance.
 
-**Totals: 27 caught, 104 missed, 131 cells measured** (154 grid positions not applicable or not yet run). Baseline: `475c7ac4df22` (1 standing red, fast-check seed 12648430). Last render: 2026-06-10T16:25:48.193Z. A frozen, hash-stamped snapshot of every cell is committed at [docs/evidence/detection-matrix.snapshot.json](evidence/detection-matrix.snapshot.json), so the grid is verifiable without cloning the gitignored artifact.
+**Totals: 27 caught, 104 missed, 131 cells measured** (167 grid positions not applicable or not yet run). Baseline: `475c7ac4df22` (1 standing red, fast-check seed 12648430). Last render: 2026-06-10T16:25:48.193Z. A frozen, hash-stamped snapshot of every cell is committed at [docs/evidence/detection-matrix.snapshot.json](evidence/detection-matrix.snapshot.json), so the grid is verifiable without cloning the gitignored artifact.
 
 ## The grid at a glance
 
 > **27 catches. 104 recorded misses. The misses are the point.**
-> Every deliberate bug in this repo is armed, one at a time, against every testing technique. A filled cell is a catch. A hollow cell is a technique that ran and stayed green: measured blindness, recorded instead of hidden. The 154 faint cells are not applicable or not yet run.
+> Every deliberate bug in this repo is armed, one at a time, against every testing technique. A filled cell is a catch. A hollow cell is a technique that ran and stayed green: measured blindness, recorded instead of hidden. The 167 faint cells are not applicable or not yet run.
 
 <picture>
 <source media="(prefers-color-scheme: dark)" srcset="assets/detection-matrix-dark.svg">
@@ -53,6 +53,7 @@ Abbreviated columns: pact-oas = pact-oas-crosscheck, rev-conf = reverse-conforma
 | `webhook-no-cap` | ✗ | ✗ | ✓ | ✗ | ✗ | ✗ | ✗ | n/a | n/a | n/a |
 | `webhook-illegal-transition` | ✗ | ✗ | ✗ | ✗ | ✗ | ✗ | ✓ | n/a | n/a | n/a |
 | `moderator-disable-input-guard` | n/a | n/a | n/a | n/a | n/a | n/a | n/a | ✓ | ✗ | ✗ |
+| `moderator-disable-corpus-guard` | n/a | n/a | n/a | n/a | n/a | n/a | n/a | n/r | n/r | n/r |
 | `moderator-prompt-bug` | n/a | n/a | n/a | n/a | n/a | n/a | n/a | ✓ | ✗ | ✗ |
 | `moderator-ungrounded` | n/a | n/a | n/a | n/a | n/a | n/a | n/a | ✓ | ✗ | ✗ |
 | `moderator-disable-abstain` | n/a | n/a | n/a | n/a | n/a | n/a | n/a | ✓ | ✓ | ✗ |
@@ -79,6 +80,7 @@ Abbreviated columns: pact-oas = pact-oas-crosscheck, rev-conf = reverse-conforma
 | toggle | deepeval | redteam | metamorphic |
 |---|---|---|---|
 | `moderator-disable-input-guard` | ✗ | ✗ | ~ |
+| `moderator-disable-corpus-guard` | n/r | n/r | n/r |
 | `moderator-prompt-bug` | ✗ | ✗ | ~ |
 | `moderator-ungrounded` | ✗ | ✗ | ~ |
 | `moderator-disable-abstain` | ✗ | ✗ | ~ |
@@ -231,6 +233,15 @@ Abbreviated columns: pact-oas = pact-oas-crosscheck, rev-conf = reverse-conforma
   - `services/moderator-agent/tests/test_config_defaults.py`
 - self-toggling files (excluded from naive counting): `services/moderator-agent/evals/redteam/test_deepteam_owasp.py`
 - notes: Tier-C verdict (2026-06-10): MISSED by every llm group: pinned gpt-5.5 resists the injection even unguarded (deliberate LLM bugs rot). RESOLVED: the behavioural demo is now a recorded metric (SKIPs when unmeasurable, never false-green), and the durable teeth moved to the deterministic guard-mechanism claim `input-guard-fences-untrusted-body` (prove --break) + tests/test_config_defaults.py. Only deterministic gates earn teeth now (evals/README.md).
+
+### `moderator-disable-corpus-guard`: `MODERATOR_DISABLE_CORPUS_GUARD=1`
+
+- component: moderator; read at services/moderator-agent/src/moderator_agent/config.py (settings-load)
+- designated catcher: services/moderator-agent/tests/test_corpus_guard.py
+- permanent claim: `retrieved-context-fenced` (pnpm prove retrieved-context-fenced --break)
+- not run yet
+- self-toggling files (excluded from naive counting): `services/moderator-agent/tests/test_corpus_guard.py`
+- notes: Tier-A: caught keyless by the deterministic corpus-guard test (the fence is a pure string transform — cannot rot). The llm tier is the ASI-2026 red-team (test_asi_2026.py) which MEASURES whether a stored injection flips a disposition with the guard off — a tracked metric, not a gate, since the behavioural payoff moves with the model (evals/README.md).
 
 ### `moderator-prompt-bug`: `MODERATOR_PROMPT_BUG=1`
 

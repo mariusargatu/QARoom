@@ -16,7 +16,11 @@ from __future__ import annotations
 
 from collections.abc import Sequence
 
-from ..guard import INJECTION_DEFENSE_INSTRUCTION
+from ..guard import (
+    CORPUS_DEFENSE_INSTRUCTION,
+    INJECTION_DEFENSE_INSTRUCTION,
+    guard_corpus_text,
+)
 from ..schemas import PolicyEntry
 
 _HONEST_INSTRUCTION = (
@@ -69,18 +73,25 @@ def build_system_prompt(
     *,
     prompt_bug: bool = False,
     header: str | None = None,
+    corpus_guard_disabled: bool = False,
 ) -> str:
     """Full system prompt: the static block (``header`` — Langfuse-managed or hardcoded) then the
-    per-post retrieved policy + precedent. With ``header=None`` the output is byte-identical to the
-    pre-Langfuse prompt, so the eval drift gate is unaffected."""
+    per-post retrieved policy + precedent.
+
+    The retrieved policy entry text and precedent summaries are attacker-REACHABLE (precedents derive
+    from past post bodies), so each retrieved chunk is fenced as untrusted reference DATA via
+    ``guard_corpus_text`` and the corpus-defense clause is stated alongside it — the indirect-injection
+    defense (OWASP ASI01). ``corpus_guard_disabled`` (the deliberate bug) leaves them raw."""
     head = header if header is not None else static_system_instructions(prompt_bug=prompt_bug)
     lines = [
         head,
         "",
+        CORPUS_DEFENSE_INSTRUCTION,
+        "",
         "Retrieved community policies:",
     ]
     if entries:
-        lines.extend(_format_entry(entry) for entry in entries)
+        lines.extend(_format_entry(entry, corpus_guard_disabled) for entry in entries)
     else:
         lines.append(
             "- (retrieval surfaced no policy for this community; approve unless clearly abusive, "
@@ -89,10 +100,15 @@ def build_system_prompt(
     if precedents:
         lines.append("")
         lines.append("Similar past decisions (for consistency):")
-        lines.extend(f"- {p}" for p in precedents)
+        lines.extend(
+            f"- {guard_corpus_text(p, disabled=corpus_guard_disabled)}" for p in precedents
+        )
     return "\n".join(lines)
 
 
-def _format_entry(entry: PolicyEntry) -> str:
+def _format_entry(entry: PolicyEntry, corpus_guard_disabled: bool = False) -> str:
     severity = f" ({entry.severity})" if entry.severity else ""
-    return f"- {entry.entry_id} [{entry.entry_type}{severity}]: {entry.text}"
+    # The entry id/type/severity are structured (a bounded id from a controlled set); only the freeform
+    # `text` is fenced — that is the attacker-reachable span if the corpus is poisoned.
+    text = guard_corpus_text(entry.text, disabled=corpus_guard_disabled)
+    return f"- {entry.entry_id} [{entry.entry_type}{severity}]: {text}"
