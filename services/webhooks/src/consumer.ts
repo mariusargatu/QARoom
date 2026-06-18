@@ -8,13 +8,13 @@ import {
 } from '@qaroom/contracts'
 import type { Clock, IdGenerator } from '@qaroom/determinism'
 import {
+  consumeDurable,
   type EventHandler,
-  ensureConsumer,
   headersToRecord,
   type NatsHandle,
   processEvent,
   readEventHeaders,
-  runResilientConsume,
+  settleByDeliveryBudget,
 } from '@qaroom/messaging'
 import type { WebhooksDb } from './db/client'
 import { activeSubscriptionsFor, insertPendingDelivery } from './repository'
@@ -45,24 +45,6 @@ export const WEBHOOK_FEED_SUBJECTS = [
 export function classifyEventType(eventName: string): WebhookEventType | null {
   const parsed = WebhookEventType.safeParse(eventName)
   return parsed.success ? parsed.data : null
-}
-
-/** How to settle a failed fan-out message back to JetStream. */
-export type FailedDelivery =
-  | { readonly action: 'nak' }
-  | { readonly action: 'term'; readonly reason: string }
-
-/**
- * Decide how a failed message is settled (PURE — broker-free, so it is unit-tested directly). A
- * failure is transient and `nak`-ed for redelivery until the message has exhausted its delivery
- * budget; the Nth-and-later attempt is poison and `term`-ed (dead-lettered) so one un-processable
- * event cannot wedge the durable consumer forever. `deliveryCount` is 1 on the first delivery.
- */
-export function settleFailedDelivery(deliveryCount: number): FailedDelivery {
-  if (deliveryCount >= WEBHOOK_FANOUT_MAX_DELIVERIES) {
-    return { action: 'term', reason: 'webhooks-fanout poison: exhausted delivery budget' }
-  }
-  return { action: 'nak' }
 }
 
 export interface FanoutDeps {
@@ -112,48 +94,45 @@ export async function startWebhookFanout(
   db: WebhooksDb,
   deps: FanoutDeps,
 ): Promise<() => Promise<void>> {
-  await ensureConsumer(handle, {
-    stream,
-    durable: WEBHOOK_FANOUT_DURABLE,
-    filterSubjects: WEBHOOK_FEED_SUBJECTS,
-  })
-  const consumer = await handle.js.consumers.get(stream, WEBHOOK_FANOUT_DURABLE)
-  const messages = await consumer.consume()
-
-  return runResilientConsume({
-    messages,
-    spanName: 'nats.process',
-    loopDeathSpanName: 'nats.fanout.loop_died',
-    traceCarrier: (message) => headersToRecord(message.headers),
-    handle: async (message) => {
-      const meta = readEventHeaders(headersToRecord(message.headers))
-      const eventType = classifyEventType(meta.eventName)
-      if (eventType) {
-        await processEvent(
-          db,
-          WEBHOOK_FANOUT_DURABLE,
-          {
-            eventId: meta.eventId,
-            communityId: meta.communityId,
-            payload: message.json<unknown>(),
-          },
-          fanoutHandler(deps, {
-            eventType,
-            communityId: meta.communityId,
-            eventId: meta.eventId,
-          }),
-          deps.clock,
-        )
-      }
-      message.ack()
+  // `consumeDurable` folds ensureConsumer -> consumers.get -> consume -> runResilientConsume, so the
+  // ordering footgun (consumers.get throws unless the durable was created first) cannot be expressed.
+  return consumeDurable(
+    handle,
+    { stream, durable: WEBHOOK_FANOUT_DURABLE, filterSubjects: WEBHOOK_FEED_SUBJECTS },
+    {
+      spanName: 'nats.process',
+      loopDeathSpanName: 'nats.fanout.loop_died',
+      traceCarrier: (message) => headersToRecord(message.headers),
+      handle: async (message) => {
+        const meta = readEventHeaders(headersToRecord(message.headers))
+        const eventType = classifyEventType(meta.eventName)
+        if (eventType) {
+          await processEvent(
+            db,
+            WEBHOOK_FANOUT_DURABLE,
+            {
+              eventId: meta.eventId,
+              communityId: meta.communityId,
+              payload: message.json<unknown>(),
+            },
+            fanoutHandler(deps, {
+              eventType,
+              communityId: meta.communityId,
+              eventId: meta.eventId,
+            }),
+            deps.clock,
+          )
+        }
+        message.ack()
+      },
+      // nak -> redeliver until the budget is exhausted, then term -> dead-letter (poison). Dedup +
+      // at-least-once hold: `processEvent` only marks-processed inside the committed transaction, so a
+      // nak-driven redelivery re-runs the (deduped) effect rather than dropping the event.
+      settle: (message) =>
+        settleByDeliveryBudget(message, {
+          max: WEBHOOK_FANOUT_MAX_DELIVERIES,
+          poisonReason: 'webhooks-fanout poison: exhausted delivery budget',
+        }),
     },
-    // nak -> redeliver until the budget is exhausted, then term -> dead-letter (poison). Dedup +
-    // at-least-once hold: `processEvent` only marks-processed inside the committed transaction, so a
-    // nak-driven redelivery re-runs the (deduped) effect rather than dropping the event.
-    settle: (message) => {
-      const settlement = settleFailedDelivery(message.info.deliveryCount)
-      if (settlement.action === 'term') message.term(settlement.reason)
-      else message.nak()
-    },
-  })
+  )
 }

@@ -1,3 +1,4 @@
+export { dateFromEpochMillis, unixSeconds } from './production/clock-bridge'
 export { CryptoRandomness } from './production/crypto-randomness'
 export { FixedClock } from './production/fixed-clock'
 export { SystemClock } from './production/system-clock'

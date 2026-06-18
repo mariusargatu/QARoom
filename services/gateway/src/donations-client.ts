@@ -1,6 +1,11 @@
 import { breakerGuardedCall } from './breaker-guarded-call'
 import type { CircuitBreaker } from './circuit-breaker'
-import { type ClientResponse, type UpstreamCallOptions, upstreamTimeoutMs } from './upstream-call'
+import {
+  type ClientResponse,
+  type UpstreamCallOptions,
+  type UpstreamClientOptions,
+  upstreamTimeoutMs,
+} from './upstream-call'
 
 /**
  * The gateway's client for donations-service. Like the content client it is a thin seam
@@ -19,8 +24,7 @@ export interface DonationsClient {
   ): Promise<ClientResponse>
 }
 
-export interface DonationsClientOptions {
-  timeoutMs?: number
+export interface DonationsClientOptions extends UpstreamClientOptions {
   /** Guards every call. Omit (or pass undefined) to run with the breaker disabled. */
   breaker?: CircuitBreaker
 }

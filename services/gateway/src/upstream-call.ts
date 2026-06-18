@@ -73,3 +73,22 @@ export async function upstreamCall(
   const contentType = res.headers.get('content-type')
   return { status: res.status, body: parseBody(text), contentType }
 }
+
+export interface UpstreamClientOptions {
+  /** Per-call timeout; defaults to the shared upstream timeout (env-tunable). */
+  timeoutMs?: number
+}
+
+/**
+ * Bind a base URL + resolved timeout into a one-arg upstream caller — the construction ritual every
+ * client repeated (`timeoutMs = options.timeoutMs ?? upstreamTimeoutMs()` then a `call` closure over
+ * `upstreamCall`). A client now declares only its typed method-object. The resolved timeout is
+ * captured once at construction, so every call the client makes shares the same bound deadline.
+ */
+export function boundCaller(
+  baseUrl: string,
+  options: UpstreamClientOptions = {},
+): (opts: UpstreamCallOptions) => Promise<ClientResponse> {
+  const timeoutMs = options.timeoutMs ?? upstreamTimeoutMs()
+  return (opts) => upstreamCall(baseUrl, opts, timeoutMs)
+}

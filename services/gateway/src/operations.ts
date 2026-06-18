@@ -16,6 +16,7 @@ import {
 } from '@qaroom/contracts'
 import { IDENTITY_OPERATIONS } from './identity-operations'
 import { MODERATION_OPERATIONS } from './moderation-operations'
+import { upstreamUnreachable502, validation400 } from './problem-responses'
 import { WEBHOOK_OPERATIONS } from './webhooks-operations'
 
 /**
@@ -25,49 +26,27 @@ import { WEBHOOK_OPERATIONS } from './webhooks-operations'
  * is unreachable, 429 from the rate limiter. Single source for the gateway's
  * openapi.yaml + /system/capabilities. Common OAS pieces come from @qaroom/contracts.
  */
-const validation400 = problemResponse(
-  400,
-  'validation-failed',
-  'Request failed validation',
-  'validation',
-  {
-    description: 'The request failed validation at the gateway edge.',
-  },
-)
 const notFound404 = problemResponse(404, 'post-not-found', 'Post not found', 'not_found', {
   description: 'The upstream resource does not exist.',
 })
-const upstream502 = problemResponse(
-  502,
+const upstream502 = upstreamUnreachable502(
   'content-unreachable',
-  'Upstream content-service unavailable',
-  'dependency_failure',
-  {
-    description: 'content-service is unreachable.',
-    retryable: true,
-  },
+  'content-service',
+  'content-service is unreachable.',
 )
 const rateLimited429 = problemResponse(429, 'rate-limited', 'Too many requests', 'rate_limit', {
   description: 'The per-principal rate limit was exceeded. Carries a Retry-After header.',
   retryable: true,
 })
-const donationsUnreachable502 = problemResponse(
-  502,
+const donationsUnreachable502 = upstreamUnreachable502(
   'donations-unreachable',
-  'Upstream donations-service unavailable',
-  'dependency_failure',
-  {
-    description:
-      'donations-service is unreachable, timed out, or the gateway circuit breaker is open (chaos experiments 06/07). The upstream payment-provider 502 is also surfaced here.',
-    retryable: true,
-  },
+  'donations-service',
+  'donations-service is unreachable, timed out, or the gateway circuit breaker is open (chaos experiments 06/07). The upstream payment-provider 502 is also surfaced here.',
 )
-const flagsUnreachable502 = problemResponse(
-  502,
+const flagsUnreachable502 = upstreamUnreachable502(
   'flags-unreachable',
-  'Upstream flags-service unavailable',
-  'dependency_failure',
-  { description: 'flags-service is unreachable or timed out.', retryable: true },
+  'flags-service',
+  'flags-service is unreachable or timed out.',
 )
 const donationsGated409 = problemResponse(
   409,

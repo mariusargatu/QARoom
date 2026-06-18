@@ -7,7 +7,7 @@ Read this after `01-vision.md` if you want the *idea*, or first if you want the 
 ## Entry points: what to open per service
 
 - **gateway**: boot [`server.ts`](../services/gateway/src/server.ts); wiring [`app.ts:30`](../services/gateway/src/app.ts#L30) (`buildGatewayApp`); routes [`proxy-routes.ts`](../services/gateway/src/proxy-routes.ts); contract surface [`operations.ts`](../services/gateway/src/operations.ts)
-- **content**: boot [`server.ts`](../services/content/src/server.ts); wiring [`app.ts:24`](../services/content/src/app.ts#L24) (`buildApp`); routes [`posts.ts`](../services/content/src/posts.ts) · [`votes.ts`](../services/content/src/votes.ts) · [`feed.ts`](../services/content/src/feed.ts); contract surface [`operations.ts`](../services/content/src/operations.ts)
+- **content**: boot [`server.ts`](../services/content/src/server.ts); wiring [`app.ts:21`](../services/content/src/app.ts#L21) (`buildApp`); routes [`posts.ts`](../services/content/src/posts.ts) · [`votes.ts`](../services/content/src/votes.ts) · [`feed.ts`](../services/content/src/feed.ts); contract surface [`operations.ts`](../services/content/src/operations.ts)
 - **shared**: [`packages/service-kit`](../packages/service-kit) (RFC 7807, `/system/*`); [`packages/contracts`](../packages/contracts) (Zod = source of truth)
 
 Both `app.ts` files read the same shape: build a Fastify instance purely from injected `deps` (no globals: Commitment 6), register the problem handler, register routes, register `/system/*`. Read one and you've read both.
@@ -23,7 +23,7 @@ A client `POST`s a new post. The gateway fronts content-service; content owns th
    - code: [`proxy-routes.ts:17`](../services/gateway/src/proxy-routes.ts#L17) (`CommunityId.parse`); [`proxy-routes.ts:19`](../services/gateway/src/proxy-routes.ts#L19) (`CreatePostRequest.parse`)
    - technique: **Schemathesis** fuzzes the gateway OAS ([`schemathesis-gate.sh`](../scripts/schemathesis-gate.sh)); **RFC 7807** conformance via [`rfc7807.ts:17`](../packages/testing-utils/src/matchers/rfc7807.ts#L17) (`expectRFC7807`)
 3. **process boundary (REST)** · The gateway forwards to content via the Pact-consumer client; an unreachable upstream becomes a 502 `dependency_failure`.
-   - code: [`proxy-routes.ts:21`](../services/gateway/src/proxy-routes.ts#L21) (`deps.content.createPost`) -> [`content-client.ts:32`](../services/gateway/src/content-client.ts#L32) (`createPost`); 502 map [`forward.ts:29`](../services/gateway/src/forward.ts#L29) (`problem`)
+   - code: [`proxy-routes.ts:21`](../services/gateway/src/proxy-routes.ts#L21) (`deps.content.createPost`) -> [`content-client.ts:26`](../services/gateway/src/content-client.ts#L26) (`createPost`); 502 map [`forward.ts:29`](../services/gateway/src/forward.ts#L29) (`problem`)
    - technique: **Pact v4** consumer test [`content.consumer.spec.ts:101`](../services/gateway/tests/contracts/content.consumer.spec.ts#L101) (`creates a post`) emits `pacts/gateway-content.json`
 4. **observability** · The gateway bumps its own lamport on a successful mutation.
    - code: [`forward.ts:41`](../services/gateway/src/forward.ts#L41) (`deps.lamport.bump`)

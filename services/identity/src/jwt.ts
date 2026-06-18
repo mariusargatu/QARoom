@@ -1,5 +1,5 @@
 import { AccessTokenClaims, type MembershipClaim, type UserId } from '@qaroom/contracts'
-import type { Clock } from '@qaroom/determinism'
+import { type Clock, unixSeconds } from '@qaroom/determinism'
 import { problem } from '@qaroom/service-kit'
 import { decodeProtectedHeader, importJWK, jwtVerify, SignJWT } from 'jose'
 import type { KeyStore } from './keys'
@@ -46,7 +46,7 @@ export function createIssuer(keyStore: KeyStore, clock: Clock, tokenTtlSeconds: 
   return {
     async issue({ sub, memberships }) {
       const key = await keyStore.current()
-      const nowSec = Math.floor(clock.now().getTime() / 1000)
+      const nowSec = unixSeconds(clock)
       const exp = nowSec + tokenTtlSeconds
       const privateKey = await importJWK(key.privateJwk, 'ES256')
       const token = await new SignJWT({ memberships })

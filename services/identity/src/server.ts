@@ -1,7 +1,5 @@
-import { pgSnapshotStore } from '@qaroom/messaging'
+import { connectServiceDb } from '@qaroom/messaging'
 import { intFromEnv, pgPoolMax, resolveBootDeps, runServer } from '@qaroom/service-kit'
-import { drizzle } from 'drizzle-orm/postgres-js'
-import postgres from 'postgres'
 import { buildIdentity } from './app'
 import { runIdentityMigration } from './db/migrate'
 import { schema } from './db/schema'
@@ -18,8 +16,12 @@ runServer(
     // with it: a session's `kid` points at that un-exported key, so a captured token could never
     // verify against the fresh key a replay env mints — replay clients re-authenticate instead.
     const { deps } = resolveBootDeps()
-    const sql = postgres(connectionString, { max: pgPoolMax() })
-    const db = drizzle(sql, { schema })
+    const { db, snapshotStore } = connectServiceDb({
+      connectionString,
+      schema,
+      max: pgPoolMax(),
+      exclude: ['signing_keys', 'sessions'],
+    })
     // Provision schema + seed the general community through the migration state machine.
     await runIdentityMigration(db, { clock: deps.clock })
     const built = buildIdentity({
@@ -27,7 +29,7 @@ runServer(
       ...deps,
       keyMaterial: new ProductionKeyMaterialSource(),
       rotation: { graceMs: 24 * 60 * 60 * 1000 },
-      snapshotStore: pgSnapshotStore(sql, { exclude: ['signing_keys', 'sessions'] }),
+      snapshotStore,
     })
     // Mint the first signing key on every boot (including replay — keys are not snapshotted).
     await built.keyStore.ensureCurrent()

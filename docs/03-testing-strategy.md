@@ -102,7 +102,7 @@ The only layer that spends real money is that LLM evaluation lane. It is cost-bo
 
 ## 5. The technique-to-boundary map
 
-This is the central artifact of the strategy. Every architectural boundary in QARoom has a named testing technique that defends it. Looking at this map, an engineer should understand why each technique exists where it does. The eleven rows mirror `packages/contracts/src/boundary-registry.ts`, the registry the boundary map (ARCHITECTURE.md §3) is rendered from: same entries, same order.
+This is the central artifact of the strategy. Every architectural boundary in QARoom has a named testing technique that defends it. Looking at this map, an engineer should understand why each technique exists where it does. The eleven rows mirror `scripts/lib/manifests/boundary-registry.ts`, the registry the boundary map (ARCHITECTURE.md §3) is rendered from: same entries, same order.
 
 | Boundary | Where it lives in QARoom | Technique that defends it | What that technique catches uniquely |
 |---|---|---|---|

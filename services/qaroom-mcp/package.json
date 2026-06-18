@@ -4,7 +4,6 @@
   "private": true,
   "type": "module",
   "exports": {
-    ".": "./src/index.ts",
     "./manifest": "./src/manifest/build-manifest.ts",
     "./transport/http": "./src/transport/http.ts"
   },

@@ -46,7 +46,7 @@ paths:
                 next_actions: []
                 failure_domain: validation
         "409":
-          description: The Idempotency-Key was already used for a request with a different body.
+          description: This Idempotency-Key was already used for a request with a different body.
           content:
             application/problem+json:
               schema:
@@ -238,7 +238,7 @@ paths:
                 next_actions: []
                 failure_domain: not_found
         "409":
-          description: The Idempotency-Key was already used for a request with a different body.
+          description: This Idempotency-Key was already used for a request with a different body.
           content:
             application/problem+json:
               schema:

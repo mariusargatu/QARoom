@@ -1,8 +1,8 @@
 import { spawnSync } from 'node:child_process'
 import { existsSync, readFileSync } from 'node:fs'
 import { resolve } from 'node:path'
-import { BOUNDARY_REGISTRY } from '@qaroom/contracts/boundary-registry'
-import { CLAIMS, type Claim } from '@qaroom/contracts/claims'
+import { BOUNDARY_REGISTRY } from './lib/manifests/boundary-registry'
+import { CLAIMS, type Claim } from './lib/manifests/claims'
 import { BOUNDARIES_END, BOUNDARIES_START, renderBoundariesBlock } from './render-boundaries'
 import { README_END, README_START, renderReadmeBlock } from './render-claims'
 import { COST_END, COST_START, renderCostBlock } from './render-cost'
@@ -13,7 +13,7 @@ import { deriveFoldedRunnerNames } from './test-results-verify'
  * `pnpm claims:verify`: the manifest-resolves gate (sibling of mcp:verify / openapi:verify). The
  * linchpin that stops the falsifiable-claim manifest from decaying into theater. For every claim:
  *
- *   1. SCHEMA      the manifest parses (enforced at import of @qaroom/contracts/claims).
+ *   1. SCHEMA      the manifest parses (enforced at import of ./lib/manifests/claims).
  *   2. EVIDENCE    the claim's evidence pointer resolves to a real runner in summary.json.
  *   3. WIRED       the toggle is read by real (non-test) service source: directly (process.env.X)
  *                  or via a settings field (pydantic maps `moderator_disable_abstain` ← MODERATOR_DISABLE_ABSTAIN).

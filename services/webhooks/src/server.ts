@@ -1,8 +1,6 @@
-import { connectNats, pgSnapshotStore, QAROOM_STREAM } from '@qaroom/messaging'
+import { connectNats, connectServiceDb, QAROOM_STREAM } from '@qaroom/messaging'
 import { xstateTransitionSink } from '@qaroom/otel'
 import { intFromEnv, pgPoolMax, resolveBootDeps, runServer } from '@qaroom/service-kit'
-import { drizzle } from 'drizzle-orm/postgres-js'
-import postgres from 'postgres'
 import { buildApp } from './app'
 import { startWebhookFanout } from './consumer'
 import { ensureSchema } from './db/migrate'
@@ -22,10 +20,8 @@ const WORKER_INTERVAL_MS = 1000
 runServer(
   async () => {
     const { deps, replaying } = resolveBootDeps()
-    const sql = postgres(connectionString, { max: pgPoolMax() })
-    const db = drizzle(sql, { schema })
+    const { db, snapshotStore } = connectServiceDb({ connectionString, schema, max: pgPoolMax() })
     await ensureSchema(db)
-    const snapshotStore = pgSnapshotStore(sql)
 
     if (!replaying) {
       // Fail-soft on the broker: the CRUD HTTP surface must boot even if NATS is briefly

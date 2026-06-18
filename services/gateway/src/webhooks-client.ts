@@ -1,9 +1,4 @@
-import {
-  type ClientResponse,
-  type UpstreamCallOptions,
-  upstreamCall,
-  upstreamTimeoutMs,
-} from './upstream-call'
+import { boundCaller, type ClientResponse, type UpstreamClientOptions } from './upstream-call'
 
 /**
  * The gateway's client for webhooks-service (Milestone 11). A thin seam — the Pact consumer for
@@ -34,16 +29,11 @@ export interface WebhooksClient {
   listWebhookDeliveries(communityId: string, subscriptionId: string): Promise<ClientResponse>
 }
 
-export interface WebhooksClientOptions {
-  timeoutMs?: number
-}
-
 export function createWebhooksClient(
   baseUrl: string,
-  options: WebhooksClientOptions = {},
+  options: UpstreamClientOptions = {},
 ): WebhooksClient {
-  const timeoutMs = options.timeoutMs ?? upstreamTimeoutMs()
-  const call = (opts: UpstreamCallOptions) => upstreamCall(baseUrl, opts, timeoutMs)
+  const call = boundCaller(baseUrl, options)
 
   const base = (communityId: string) => `/api/communities/${communityId}/webhook-subscriptions`
   return {

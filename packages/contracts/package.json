@@ -6,10 +6,6 @@
   "exports": {
     ".": "./src/index.ts",
     "./webhook-hmac": "./src/webhook-hmac.ts",
-    "./claims": "./src/claims.ts",
-    "./boundary-registry": "./src/boundary-registry.ts",
-    "./detection-matrix": "./src/detection-matrix.ts",
-    "./detection-matrix-schema": "./src/detection-matrix-schema.ts",
     "./ids": "./src/ids.ts",
     "./errors": "./src/errors.ts",
     "./lamport": "./src/lamport.ts",

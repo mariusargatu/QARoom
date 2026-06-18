@@ -27,10 +27,11 @@ from opentelemetry import trace as _otel_trace
 
 from .. import telemetry
 from ..config import Settings
+from ..decision_observer import DecisionObserver
 from ..determinism import Clock, IdGenerator
 from ..guard import guard_post_text
 from ..lamport import LamportGate
-from ..langfuse_integration import LangfuseClient, current_trace_id
+from ..langfuse_integration import LangfuseClient
 from ..llm import Embedder, LlmClient
 from ..ports import DecisionStore, EventPublisher, KnowledgeStore, PolicyCorpusStore
 from ..problem import ProblemError
@@ -99,8 +100,10 @@ class ModerationWorkflow:
         self._publisher = publisher
         self._sink = sink
         # Best-effort LLM-observability sink (Langfuse). None/disabled → the agent runs unchanged.
+        # `_draft` still reads `self._langfuse` for the live prompt; the decision-scoring side-concern
+        # is bound once into a DecisionObserver so the orchestrator stays focused on the trajectory.
         self._langfuse = langfuse
-        self._langfuse_queue_id = langfuse_queue_id
+        self._observer = DecisionObserver(langfuse, queue_id=langfuse_queue_id)
         self._last_state = M.INITIAL_STATE
         self._graph = self._build(checkpointer)
 
@@ -338,7 +341,7 @@ class ModerationWorkflow:
         # publish failure is NOT a ProblemError: it propagates → the consumer naks → redelivery
         # re-attempts the publish. This is the outbox-free at-least-once guarantee (ADR-0018).
         await self._publish(decision)
-        await self._emit_observability(decision)
+        await self._observer.record(decision)
         return self._advance(
             state,
             {"decision": decision.model_dump()},
@@ -346,39 +349,6 @@ class ModerationWorkflow:
             event="SelfCheckPassed",
             to="Recorded",
         )
-
-    async def _emit_observability(self, decision: ModerationDecision) -> None:
-        """Attach the decision's outcome to its Langfuse trace as scores, and route an escalation into
-        the human-annotation queue. Entirely best-effort: the client swallows failures, so observability
-        never affects the recorded decision."""
-        if self._langfuse is None or not self._langfuse.enabled:
-            return
-        trace_id = current_trace_id()
-        if trace_id is None:
-            return
-        await self._langfuse.create_score(
-            trace_id=trace_id,
-            name="disposition",
-            value=decision.disposition,
-            data_type="CATEGORICAL",
-        )
-        await self._langfuse.create_score(
-            trace_id=trace_id, name="confidence", value=decision.confidence, data_type="NUMERIC"
-        )
-        await self._langfuse.create_score(
-            trace_id=trace_id,
-            name="cited_rules",
-            value=float(len(decision.cited_rules)),
-            data_type="NUMERIC",
-        )
-        await self._langfuse.create_score(
-            trace_id=trace_id,
-            name="departs_from_precedent",
-            value=1 if decision.departs_from_precedent else 0,
-            data_type="BOOLEAN",
-        )
-        if decision.disposition == "escalate_to_human" and self._langfuse_queue_id is not None:
-            await self._langfuse.add_queue_item(queue_id=self._langfuse_queue_id, trace_id=trace_id)
 
     async def _publish(self, decision: ModerationDecision) -> None:
         if self._publisher is None:

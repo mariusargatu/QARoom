@@ -1226,7 +1226,7 @@ paths:
                 title: Idempotency-Key reused with a different body
                 status: 409
                 detail: Idempotency-Key reused with a different body.
-                instance: /api/posts/post_01HZY0K7M3QF8VN2J5RX9TB4CE
+                instance: /api/communities/comm_01HZY0K7M3QF8VN2J5RX9TB4CD/posts
                 retryable: false
                 next_actions: []
                 failure_domain: conflict

@@ -121,7 +121,7 @@ Service boundaries are not architectural noise; they are where bugs live and whe
 | Delivery edge (outbound webhooks) | a replayed, dropped, or unsafe delivery | HMAC signing, SSRF guard, at-least-once with retries |
 <!-- boundaries:end -->
 
-The source of truth for these rows is `packages/contracts/src/boundary-registry.ts`; this table is rendered from it (`pnpm boundaries:render`) and byte-gated by `pnpm claims:verify`, so it cannot drift from the registry. The richer per-technique prose (what each catches, the chaos and metamorphic detail) lives in `docs/03-testing-strategy.md` §5.
+The source of truth for these rows is `scripts/lib/manifests/boundary-registry.ts`; this table is rendered from it (`pnpm boundaries:render`) and byte-gated by `pnpm claims:verify`, so it cannot drift from the registry. The richer per-technique prose (what each catches, the chaos and metamorphic detail) lives in `docs/03-testing-strategy.md` §5.
 
 These boundary types are the contract between architecture and testing: every service must respect the ones it touches.
 

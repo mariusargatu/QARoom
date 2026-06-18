@@ -1,4 +1,4 @@
-import { type ClientResponse, upstreamCall, upstreamTimeoutMs } from './upstream-call'
+import { boundCaller, type ClientResponse, type UpstreamClientOptions } from './upstream-call'
 
 /**
  * The gateway's client for identity-service. A thin, bounded-timeout seam (the Pact consumer for
@@ -19,16 +19,11 @@ export interface IdentityClient {
   createWsTicket(authorization: string | undefined): Promise<ClientResponse>
 }
 
-export interface IdentityClientOptions {
-  timeoutMs?: number
-}
-
 export function createIdentityClient(
   baseUrl: string,
-  options: IdentityClientOptions = {},
+  options: UpstreamClientOptions = {},
 ): IdentityClient {
-  const timeoutMs = options.timeoutMs ?? upstreamTimeoutMs()
-  const call = (opts: Parameters<typeof upstreamCall>[1]) => upstreamCall(baseUrl, opts, timeoutMs)
+  const call = boundCaller(baseUrl, options)
   return {
     createUser: (body, idempotencyKey) =>
       call({ method: 'POST', path: '/api/users', body, idempotencyKey }),

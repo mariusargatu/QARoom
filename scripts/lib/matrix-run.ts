@@ -6,8 +6,8 @@ import {
   type DetectionToggle,
   PY_TECHNIQUE_CLASSIFIERS,
   TS_TECHNIQUE_CLASSIFIERS,
-} from '@qaroom/contracts/detection-matrix'
-import type { MatrixCell } from '@qaroom/contracts/detection-matrix-schema'
+} from './manifests/detection-matrix'
+import type { MatrixCell } from './manifests/detection-matrix-schema'
 
 /**
  * Battery engine for the detection matrix (scripts/detection-matrix.ts). One sweep = run every

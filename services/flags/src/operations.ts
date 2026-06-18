@@ -8,6 +8,8 @@ import {
   type OasOperation,
   type OasParam,
   problemResponse,
+  SYSTEM_OPERATIONS,
+  validationFailed,
 } from '@qaroom/contracts'
 
 /**
@@ -25,11 +27,7 @@ const flagKeyParam: OasParam = {
   schema: { type: 'string', pattern: '^[a-z][a-z0-9-]{1,63}$' },
 }
 
-const badRequest = (description: string) =>
-  problemResponse(400, 'validation-failed', 'Request failed validation', 'validation', {
-    description,
-    instance: FLAG_INSTANCE,
-  })
+const badRequest = (description: string) => validationFailed(description, FLAG_INSTANCE)
 
 const rolloutConflict = problemResponse(
   409,
@@ -121,25 +119,5 @@ export const OPERATIONS: readonly OasOperation[] = [
       badRequest('The request body or headers failed validation.'),
     ],
   },
-  {
-    operationId: 'getSystemState',
-    method: 'get',
-    path: '/system/state',
-    summary: 'Observable state of every model',
-    description:
-      'Returns the current state of every model the service runs, with an as_of envelope (Commitment 7).',
-    tags: ['system'],
-    mutating: false,
-    responses: [{ code: 200, description: 'Current observable state.', bodyRef: 'SystemState' }],
-  },
-  {
-    operationId: 'getSystemCapabilities',
-    method: 'get',
-    path: '/system/capabilities',
-    summary: 'Operations the service exposes',
-    description: 'Returns every operation in MCP-tool-shaped form (Commitment 7).',
-    tags: ['system'],
-    mutating: false,
-    responses: [{ code: 200, description: 'The capability list.', bodyRef: 'Capabilities' }],
-  },
+  ...SYSTEM_OPERATIONS,
 ]

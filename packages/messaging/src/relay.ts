@@ -1,6 +1,7 @@
 import type { Clock } from '@qaroom/determinism'
-import { context, extractTraceContext, traced, withTenant } from '@qaroom/otel'
+import { context, extractTraceContext, type TracedSpan, traced, withTenant } from '@qaroom/otel'
 import { sql } from 'drizzle-orm'
+import { createDrainLoop } from './drain-loop'
 import { buildEventHeaders } from './headers'
 import {
   type EventPublisher,
@@ -11,11 +12,6 @@ import {
 } from './types'
 
 const DEFAULT_BATCH = 100
-
-// The live span handed to a `traced` callback. Derived from `traced`'s signature so we don't
-// take a direct dependency on `@opentelemetry/api` (it is not in this package's package.json;
-// only `@qaroom/otel` is). This is the span `publishOne` records a publish failure on.
-type DrainSpan = Parameters<Parameters<typeof traced>[1]>[0]
 
 interface OutboxDbRow {
   id: string
@@ -61,7 +57,7 @@ export function createRelay(opts: {
   async function publishOne(
     tx: SqlExecutor,
     event: PendingEvent,
-    drainSpan: DrainSpan,
+    drainSpan: TracedSpan,
   ): Promise<boolean> {
     const restored = extractTraceContext(event.traceContext)
     try {
@@ -121,19 +117,11 @@ export function createRelay(opts: {
     )
   }
 
-  function start(intervalMs: number): () => void {
-    // `drainOnce` already records its own failures on a live span via `traced`; the `.catch`
-    // here only keeps a rejected drain from becoming an unhandled rejection in the detached
-    // loop (`getActiveSpan()` is undefined here — there is no ambient span in a bare
-    // setInterval callback, which is why the recording must happen inside `drainOnce`).
-    const timer = setInterval(() => {
-      // `drainOnce` records its own failures on its `traced` span; this only stops a rejected
-      // tick from becoming an unhandled rejection (matches the loop-death `.catch` shape elsewhere).
-      void drainOnce().catch(() => undefined)
-    }, intervalMs)
-    timer.unref?.()
-    return () => clearInterval(timer)
-  }
+  // `drainOnce` already records its own failures on a live span via `traced`, so the shared loop's
+  // swallowing `.catch` only keeps a rejected tick from becoming an unhandled rejection in the
+  // detached `setInterval` (where `getActiveSpan()` is undefined — the recording must happen inside
+  // `drainOnce`). Tests call `drainOnce` directly, so they stay deterministic with no live timer.
+  const start = (intervalMs: number): (() => void) => createDrainLoop(intervalMs, drainOnce)
 
   return { drainOnce, start }
 }

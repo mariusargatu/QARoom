@@ -1,4 +1,4 @@
-import { type ClientResponse, upstreamCall, upstreamTimeoutMs } from './upstream-call'
+import { boundCaller, type ClientResponse, type UpstreamClientOptions } from './upstream-call'
 
 /**
  * The gateway's client for flags-service. A thin, bounded-timeout seam (the Pact consumer for
@@ -17,13 +17,11 @@ export interface FlagsClient {
   ): Promise<ClientResponse>
 }
 
-export interface FlagsClientOptions {
-  timeoutMs?: number
-}
-
-export function createFlagsClient(baseUrl: string, options: FlagsClientOptions = {}): FlagsClient {
-  const timeoutMs = options.timeoutMs ?? upstreamTimeoutMs()
-  const call = (opts: Parameters<typeof upstreamCall>[1]) => upstreamCall(baseUrl, opts, timeoutMs)
+export function createFlagsClient(
+  baseUrl: string,
+  options: UpstreamClientOptions = {},
+): FlagsClient {
+  const call = boundCaller(baseUrl, options)
   return {
     resolveFlag: (communityId, flagKey) =>
       call({ method: 'GET', path: `/api/communities/${communityId}/flags/${flagKey}` }),

@@ -5,7 +5,7 @@ runs the **real, key-gated model**. That makes one rule load-bearing:
 
 > **LLM-behaviour outcomes are tracked METRICS, not falsifiable GATES.**
 > Only deterministic, model-free tests earn `prove --break` teeth and a place in
-> `packages/contracts/src/claims.ts`.
+> `scripts/lib/manifests/claims.ts`.
 
 ## Why
 

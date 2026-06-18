@@ -9,10 +9,13 @@ import {
   EXAMPLE_USER,
   EXAMPLE_USER_ID,
   EXAMPLE_WHEN,
+  idempotencyConflict,
   idempotencyKeyHeaderParam,
   type OasOperation,
   problemResponse,
+  SYSTEM_OPERATIONS,
   userIdParam,
+  validationFailed,
 } from '@qaroom/contracts'
 
 /**
@@ -24,15 +27,9 @@ import {
  * `tenant_resolution` failure (identity is the registry — Commitment 9), distinct from a
  * missing user, which is plain `not_found`.
  */
-const validation400 = problemResponse(
-  400,
-  'validation-failed',
-  'Request failed validation',
-  'validation',
-  {
-    description: 'The request body or headers failed validation.',
-    instance: `/api/users/${EXAMPLE_USER_ID}`,
-  },
+const validation400 = validationFailed(
+  'The request body or headers failed validation.',
+  `/api/users/${EXAMPLE_USER_ID}`,
 )
 const userNotFound = problemResponse(404, 'user-not-found', 'User not found', 'not_found', {
   description: 'No user with that id exists.',
@@ -68,18 +65,10 @@ const membershipConflict = problemResponse(
 
 // Undocumented-409 fuzz finding (gauntlet phase 6, live identity, Schemathesis seed
 // 6206237401687615594460301199776970265): the shared idempotency middleware answers a reused
-// Idempotency-Key with a different body as 409 on EVERY mutating endpoint — content's registry
-// declared it, identity's never did. Declared here exactly like content's.
-const idempotencyConflict = problemResponse(
-  409,
-  'idempotency-key-conflict',
-  'Idempotency-Key reused with a different body',
-  'conflict',
-  {
-    description: 'This Idempotency-Key was already used for a request with a different body.',
-    instance: '/api/users',
-  },
-)
+// Idempotency-Key with a different body as 409 on EVERY mutating endpoint — identity's registry
+// originally never declared it. Now sourced from the shared @qaroom/contracts factory; identity
+// passes its own example `instance`.
+const idempotencyConflict409 = idempotencyConflict('/api/users')
 
 const EXAMPLE_ACCESS_TOKEN = {
   session_id: EXAMPLE_SESSION_ID,
@@ -143,7 +132,7 @@ export const OPERATIONS: readonly OasOperation[] = [
         },
       },
       validation400,
-      idempotencyConflict,
+      idempotencyConflict409,
     ],
   },
   {
@@ -188,7 +177,7 @@ export const OPERATIONS: readonly OasOperation[] = [
       },
       validation400,
       slugConflict,
-      idempotencyConflict,
+      idempotencyConflict409,
     ],
   },
   {
@@ -219,7 +208,7 @@ export const OPERATIONS: readonly OasOperation[] = [
       validation400,
       communityNotFound,
       membershipConflict,
-      idempotencyConflict,
+      idempotencyConflict409,
     ],
   },
   {
@@ -265,7 +254,7 @@ export const OPERATIONS: readonly OasOperation[] = [
       },
       validation400,
       userNotFound,
-      idempotencyConflict,
+      idempotencyConflict409,
     ],
   },
   {
@@ -328,25 +317,7 @@ export const OPERATIONS: readonly OasOperation[] = [
       { code: 200, description: 'The JWKS.', bodyRef: 'Jwks', example: { keys: [EXAMPLE_JWK] } },
     ],
   },
-  {
-    operationId: 'getSystemState',
-    method: 'get',
-    path: '/system/state',
-    summary: 'Observable state of every model',
-    description:
-      'Returns the current state of every model the service runs, with an as_of envelope (Commitment 7).',
-    tags: ['system'],
-    mutating: false,
-    responses: [{ code: 200, description: 'Current observable state.', bodyRef: 'SystemState' }],
-  },
-  {
-    operationId: 'getSystemCapabilities',
-    method: 'get',
-    path: '/system/capabilities',
-    summary: 'Operations the service exposes',
-    description: 'Returns every operation in MCP-tool-shaped form (Commitment 7).',
-    tags: ['system'],
-    mutating: false,
-    responses: [{ code: 200, description: 'The capability list.', bodyRef: 'Capabilities' }],
-  },
+  // The /system/state + /system/capabilities pair every service exposes identically (Commitment 7),
+  // sourced from the shared @qaroom/contracts registry so drift is guarded centrally.
+  ...SYSTEM_OPERATIONS,
 ]

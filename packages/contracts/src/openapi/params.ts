@@ -67,3 +67,33 @@ export function problemResponse(
     }),
   }
 }
+
+/**
+ * The RFC 7807 400 every service returns when edge/body/header validation fails. One canonical
+ * wording instead of a `badRequest`/`validation400` helper re-spelled in each service.
+ */
+export function validationFailed(description: string, instance?: string): OasResponse {
+  return problemResponse(400, 'validation-failed', 'Request failed validation', 'validation', {
+    description,
+    instance,
+  })
+}
+
+/**
+ * The 409 the shared Idempotency-Key middleware returns on key-reuse-with-a-different-body. Hoisted
+ * here because every mutating service returned the same envelope, and the description had already
+ * drifted between copies ("The" vs "This Idempotency-Key…").
+ */
+export function idempotencyConflict(instance?: string): OasResponse {
+  return problemResponse(
+    409,
+    'idempotency-key-conflict',
+    'Idempotency-Key reused with a different body',
+    'conflict',
+    {
+      description: 'This Idempotency-Key was already used for a request with a different body.',
+      retryable: false,
+      instance,
+    },
+  )
+}

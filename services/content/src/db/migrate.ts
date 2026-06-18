@@ -1,5 +1,5 @@
 import { composeMigrations, type Migration } from '@qaroom/contracts'
-import { messagingMigration } from '@qaroom/messaging/migrations'
+import { messagingFragment } from '@qaroom/messaging/migrations'
 import { sql } from 'drizzle-orm'
 import type { SqlExecutor } from './client'
 
@@ -53,17 +53,10 @@ const votesMigration: Migration<SqlExecutor> = {
 }
 
 /**
- * The shared messaging substrate (outbox + processed_events + idempotency_responses) composed in
- * as a named fragment, unchanged from the canonical @qaroom/messaging definition — content
- * publishes (outbox) and dedupes consumed events, so it adopts the full substrate.
+ * The full content-service schema: domain tables + the shared messaging substrate
+ * (outbox + processed_events + idempotency_responses). content publishes (outbox) and dedupes
+ * consumed events, so it adopts the full substrate via the canonical @qaroom/messaging fragment.
  */
-const messagingFragment: Migration<SqlExecutor> = {
-  name: 'messaging',
-  up: (tx) => messagingMigration.up(tx),
-  down: (tx) => messagingMigration.down(tx),
-}
-
-/** The full content-service schema: domain tables + the composed messaging substrate. */
 export const contentMigrations = composeMigrations<SqlExecutor>([
   postsMigration,
   votesMigration,

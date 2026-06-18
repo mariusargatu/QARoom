@@ -1,5 +1,6 @@
 import { z } from 'zod'
 import { AsOf } from './lamport'
+import type { OasOperation } from './openapi/builder'
 
 /**
  * `GET /system/state` (Commitment 7). Current state of every model the service
@@ -42,3 +43,36 @@ export const Capabilities = z
   })
   .meta({ id: 'Capabilities', description: 'All operations the service exposes, MCP-tool-shaped.' })
 export type Capabilities = z.infer<typeof Capabilities>
+
+/**
+ * The `/system/state` + `/system/capabilities` operation pair every domain service exposes
+ * identically (Commitment 7). service-kit wires the routes; each service spreads this into the
+ * tail of its `OPERATIONS` registry, so the capabilities-completeness test still guards drift —
+ * now from one source instead of five byte-identical copies that could diverge silently.
+ *
+ * The gateway keeps its OWN system-ops variant (gateway-specific wording + `getSystemLimits`) and
+ * must NOT import this — its `/system/*` surface is deliberately distinct.
+ */
+export const SYSTEM_OPERATIONS: readonly OasOperation[] = [
+  {
+    operationId: 'getSystemState',
+    method: 'get',
+    path: '/system/state',
+    summary: 'Observable state of every model',
+    description:
+      'Returns the current state of every model the service runs, with an as_of envelope (Commitment 7).',
+    tags: ['system'],
+    mutating: false,
+    responses: [{ code: 200, description: 'Current observable state.', bodyRef: 'SystemState' }],
+  },
+  {
+    operationId: 'getSystemCapabilities',
+    method: 'get',
+    path: '/system/capabilities',
+    summary: 'Operations the service exposes',
+    description: 'Returns every operation in MCP-tool-shaped form (Commitment 7).',
+    tags: ['system'],
+    mutating: false,
+    responses: [{ code: 200, description: 'The capability list.', bodyRef: 'Capabilities' }],
+  },
+]

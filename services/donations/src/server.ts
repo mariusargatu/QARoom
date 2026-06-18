@@ -1,13 +1,11 @@
 import {
   connectNats,
+  connectServiceDb,
   createRelay,
   natsPublisher,
-  pgSnapshotStore,
   QAROOM_STREAM,
 } from '@qaroom/messaging'
 import { intFromEnv, pgPoolMax, resolveBootDeps, runServer } from '@qaroom/service-kit'
-import { drizzle } from 'drizzle-orm/postgres-js'
-import postgres from 'postgres'
 import { buildApp } from './app'
 import { startDonationsConsumer } from './consumer'
 import { ensureSchema } from './db/migrate'
@@ -32,10 +30,8 @@ const replayPayment = {
 runServer(
   async () => {
     const { deps, replaying } = resolveBootDeps()
-    const sql = postgres(connectionString, { max: pgPoolMax() })
-    const db = drizzle(sql, { schema })
+    const { db, snapshotStore } = connectServiceDb({ connectionString, schema, max: pgPoolMax() })
     await ensureSchema(db)
-    const snapshotStore = pgSnapshotStore(sql)
 
     if (!replaying) {
       const nats = await connectNats(natsUrl)

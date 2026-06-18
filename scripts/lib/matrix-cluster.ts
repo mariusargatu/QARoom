@@ -1,6 +1,6 @@
 import { spawnSync } from 'node:child_process'
-import type { ToggleGuard } from '@qaroom/contracts/detection-matrix'
-import type { MatrixCell } from '@qaroom/contracts/detection-matrix-schema'
+import type { ToggleGuard } from './manifests/detection-matrix'
+import type { MatrixCell } from './manifests/detection-matrix-schema'
 
 /**
  * Tier B of the detection matrix: arm one toggle on the LIVE deployment(s) via

@@ -1,13 +1,8 @@
 import { LamportGate } from '@qaroom/contracts'
-import { activeSpanSink, registerTenantContext } from '@qaroom/otel'
-import {
-  registerHealthRoutes,
-  registerProblemHandler,
-  registerSnapshotRoutes,
-  registerSystemRoutes,
-} from '@qaroom/service-kit'
-import { sql } from 'drizzle-orm'
-import Fastify, { type FastifyInstance } from 'fastify'
+import { dbReadiness } from '@qaroom/messaging'
+import { activeSpanSink } from '@qaroom/otel'
+import { buildServiceApp } from '@qaroom/service-kit'
+import type { FastifyInstance } from 'fastify'
 import { DEFAULT_TOKEN_TTL_SECONDS, type IdentityDeps, type RouteDeps } from './deps'
 import { createIssuer, type Issuer } from './jwt'
 import { KeyStore } from './keys'
@@ -52,25 +47,13 @@ export function buildIdentity(deps: IdentityDeps): BuiltIdentity {
     ticketStore,
   }
 
-  const app = Fastify({ logger: false })
-  registerTenantContext(app)
-  registerProblemHandler(app)
-  registerHealthRoutes(app, {
-    service: 'identity',
-    readiness: async () => {
-      await deps.db.execute(sql`select 1`)
-    },
-  })
-  registerUserRoutes(app, routeDeps)
-  registerCommunityRoutes(app, routeDeps)
-  registerSessionRoutes(app, routeDeps)
-  registerWsTicketRoutes(app, routeDeps)
-  registerJwksRoute(app, routeDeps)
-  registerSystemRoutes(app, {
+  const app = buildServiceApp({
     service: 'identity',
     clock: deps.clock,
     lamport,
     operations: OPERATIONS,
+    readiness: dbReadiness(deps.db),
+    snapshotStore: deps.snapshotStore,
     models: async () => {
       const counts = await countRows(deps.db)
       const eligible = await keyStore.jwksEligible()
@@ -89,12 +72,13 @@ export function buildIdentity(deps: IdentityDeps): BuiltIdentity {
         },
       }
     },
-  })
-  registerSnapshotRoutes(app, {
-    service: 'identity',
-    clock: deps.clock,
-    lamport,
-    store: deps.snapshotStore,
+    registerRoutes: (app) => {
+      registerUserRoutes(app, routeDeps)
+      registerCommunityRoutes(app, routeDeps)
+      registerSessionRoutes(app, routeDeps)
+      registerWsTicketRoutes(app, routeDeps)
+      registerJwksRoute(app, routeDeps)
+    },
   })
   return { app, keyStore, issuer }
 }

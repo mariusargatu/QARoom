@@ -1,8 +1,8 @@
 import { createHash } from 'node:crypto'
 import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs'
 import { resolve } from 'node:path'
-import { TOGGLES } from '@qaroom/contracts/detection-matrix'
-import { DetectionMatrixArtifact, type MatrixCell } from '@qaroom/contracts/detection-matrix-schema'
+import { TOGGLES } from './lib/manifests/detection-matrix'
+import { DetectionMatrixArtifact, type MatrixCell } from './lib/manifests/detection-matrix-schema'
 import { renderMatrixSvg, type SvgTier } from './lib/matrix-svg'
 
 /**

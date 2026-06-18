@@ -1,6 +1,6 @@
 import { spawnSync } from 'node:child_process'
 import { resolve } from 'node:path'
-import { CLAIMS, type Claim, claimById } from '@qaroom/contracts/claims'
+import { CLAIMS, type Claim, claimById } from './lib/manifests/claims'
 import { gateLine, loadSummary, resolveEvidence, type Summary } from './lib/claim-evidence'
 
 /**

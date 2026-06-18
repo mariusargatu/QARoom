@@ -89,3 +89,15 @@ export const MESSAGING_MIGRATIONS: readonly Migration<SqlExecutor>[] = [
  * (identity, webhooks) compose the fragments they need directly instead.
  */
 export const messagingMigration = composeMigrations(MESSAGING_MIGRATIONS)
+
+/**
+ * `messagingMigration` re-exposed as a NAMED `Migration` so a full adopter can drop it straight into
+ * its own `composeMigrations([domain, messagingFragment])` pipeline. `composeMigrations` returns a
+ * `name`-less object, which is exactly why content/flags/donations each hand-wrote an identical
+ * `{ name: 'messaging', up, down }` relabel — this is that relabel, owned once.
+ */
+export const messagingFragment: Migration<SqlExecutor> = {
+  name: 'messaging',
+  up: (tx) => messagingMigration.up(tx),
+  down: (tx) => messagingMigration.down(tx),
+}

@@ -3,10 +3,13 @@ import {
   EXAMPLE_POST,
   EXAMPLE_POST_ID,
   EXAMPLE_USER_ID,
+  idempotencyConflict,
   idempotencyKeyHeaderParam,
   type OasOperation,
   postIdParam,
   problemResponse,
+  SYSTEM_OPERATIONS,
+  validationFailed,
 } from '@qaroom/contracts'
 
 /**
@@ -15,26 +18,14 @@ import {
  * response, and the capabilities completeness test. Routes are wired by hand but
  * MUST stay in lockstep with this list (the capabilities test enforces it).
  */
-const badRequest = (description: string) =>
-  problemResponse(400, 'validation-failed', 'Request failed validation', 'validation', {
-    description,
-  })
+const badRequest = (description: string) => validationFailed(description)
 const postNotFound = problemResponse(404, 'post-not-found', 'Post not found', 'not_found', {
   description: 'No post with that id exists.',
 })
 // EvoMaster (Milestone 8, black-box search) found this 409 was returned by the withIdempotency
-// wrapper but never declared in the spec (fault type 101). Declaring it closes the impl/spec drift;
-// every mutating endpoint can return it. See docs/adr/0016-testing-your-tests.md.
-const idempotencyConflict = problemResponse(
-  409,
-  'idempotency-key-conflict',
-  'Idempotency-Key reused with a different body',
-  'conflict',
-  {
-    description: 'The Idempotency-Key was already used for a request with a different body.',
-    retryable: false,
-  },
-)
+// wrapper but never declared in the spec (fault type 101). The canonical declaration now lives in
+// @qaroom/contracts (idempotencyConflict) so every service shares one wording; declaring it closes
+// the impl/spec drift and every mutating endpoint can return it. See docs/adr/0016-testing-your-tests.md.
 
 export const OPERATIONS: readonly OasOperation[] = [
   {
@@ -68,7 +59,7 @@ export const OPERATIONS: readonly OasOperation[] = [
         },
       },
       badRequest('The request body or headers failed validation.'),
-      idempotencyConflict,
+      idempotencyConflict(),
     ],
   },
   {
@@ -129,28 +120,8 @@ export const OPERATIONS: readonly OasOperation[] = [
       },
       postNotFound,
       badRequest('The request body or headers failed validation.'),
-      idempotencyConflict,
+      idempotencyConflict(),
     ],
   },
-  {
-    operationId: 'getSystemState',
-    method: 'get',
-    path: '/system/state',
-    summary: 'Observable state of every model',
-    description:
-      'Returns the current state of every model the service runs, with an as_of envelope (Commitment 7).',
-    tags: ['system'],
-    mutating: false,
-    responses: [{ code: 200, description: 'Current observable state.', bodyRef: 'SystemState' }],
-  },
-  {
-    operationId: 'getSystemCapabilities',
-    method: 'get',
-    path: '/system/capabilities',
-    summary: 'Operations the service exposes',
-    description: 'Returns every operation in MCP-tool-shaped form (Commitment 7).',
-    tags: ['system'],
-    mutating: false,
-    responses: [{ code: 200, description: 'The capability list.', bodyRef: 'Capabilities' }],
-  },
+  ...SYSTEM_OPERATIONS,
 ]

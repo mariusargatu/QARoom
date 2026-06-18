@@ -1,7 +1,4 @@
-import { context, extractTraceContext, SpanStatusCode, traced } from '@qaroom/otel'
-
-/** The live span handed to a `traced` callback (derived so we take no direct `@opentelemetry/api` dep). */
-type ConsumeSpan = Parameters<Parameters<typeof traced>[1]>[0]
+import { context, extractTraceContext, SpanStatusCode, type TracedSpan, traced } from '@qaroom/otel'
 
 export interface ResilientConsumeOpts<M> {
   /** A JetStream `consume()` iterator: async-iterable of messages with a `stop()`. */
@@ -13,7 +10,7 @@ export interface ResilientConsumeOpts<M> {
   /** Optional: trace-context carrier headers for a message, restored before the per-message span. */
   traceCarrier?: (message: M) => Record<string, string>
   /** Process one message and ack it on success; THROW to signal failure (then `settle` runs). */
-  handle: (message: M, span: ConsumeSpan) => Promise<void>
+  handle: (message: M, span: TracedSpan) => Promise<void>
   /** Settle a FAILED message back to the broker (nak/term I/O). Runs after the exception is
    *  recorded on the span; must not throw. */
   settle: (message: M, err: unknown) => void

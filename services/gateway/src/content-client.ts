@@ -1,4 +1,4 @@
-import { type ClientResponse, upstreamCall, upstreamTimeoutMs } from './upstream-call'
+import { boundCaller, type ClientResponse, type UpstreamClientOptions } from './upstream-call'
 
 /**
  * HTTP client the gateway uses to call content-service. This is the **Pact consumer**: the
@@ -15,17 +15,11 @@ export interface ContentClient {
   castVote(postId: string, body: unknown, idempotencyKey: string): Promise<ClientResponse>
 }
 
-export interface ContentClientOptions {
-  /** Per-call timeout; defaults to the shared upstream timeout (env-tunable). */
-  timeoutMs?: number
-}
-
 export function createContentClient(
   baseUrl: string,
-  options: ContentClientOptions = {},
+  options: UpstreamClientOptions = {},
 ): ContentClient {
-  const timeoutMs = options.timeoutMs ?? upstreamTimeoutMs()
-  const call = (opts: Parameters<typeof upstreamCall>[1]) => upstreamCall(baseUrl, opts, timeoutMs)
+  const call = boundCaller(baseUrl, options)
   return {
     getFeed: (communityId) => call({ method: 'GET', path: `/api/communities/${communityId}/feed` }),
     getPost: (postId) => call({ method: 'GET', path: `/api/posts/${postId}` }),

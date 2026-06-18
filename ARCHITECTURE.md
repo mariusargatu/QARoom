@@ -66,7 +66,7 @@ cross-community leakage must be impossible by service-layer enforcement and is v
 property-based isolation tests.
 
 The service roster, and the *one* boundary each exists to teach (full table:
-[`packages/contracts/src/boundary-registry.ts`](packages/contracts/src/boundary-registry.ts),
+[`scripts/lib/manifests/boundary-registry.ts`](scripts/lib/manifests/boundary-registry.ts),
 rendered into [docs/02](docs/02-architecture.md)):
 
 | Service | Role | Boundary it teaches |
@@ -208,8 +208,8 @@ contract tools never collapse into one because each checks a *different directio
 
 `toMatchSnapshot()` is **forbidden repo-wide** because it makes drift invisible. The repo
 dogfoods the same one-source→many-projections-with-drift-gate pattern onto its *own* story:
-[`boundary-registry.ts`](packages/contracts/src/boundary-registry.ts) is the single source the
-boundary map (§3) renders from, and [`claims.ts`](packages/contracts/src/claims.ts) is the
+[`boundary-registry.ts`](scripts/lib/manifests/boundary-registry.ts) is the single source the
+boundary map (§3) renders from, and [`claims.ts`](scripts/lib/manifests/claims.ts) is the
 single manifest the `prove` CLI and skimmer project from — with `pnpm claims:verify`
 empirically proving each gate goes RED when its toggle is set, so the manifest "can never decay
 into theater."
@@ -340,8 +340,8 @@ Honesty about scope is part of the deliverable. The full list lives in
 - **Everything at once:** [`docs/gauntlet.md`](docs/gauntlet.md) — one orchestrated run of every
   technique against one live system (`pnpm gauntlet`), with honest *infra / gate / observe*
   failure semantics and recorded skips. The complement to per-PR CI.
-- **The contracts of the repo itself:** [`packages/contracts/src/boundary-registry.ts`](packages/contracts/src/boundary-registry.ts)
-  (the source the breadth table renders from) and [`packages/contracts/src/claims.ts`](packages/contracts/src/claims.ts)
+- **The contracts of the repo itself:** [`scripts/lib/manifests/boundary-registry.ts`](scripts/lib/manifests/boundary-registry.ts)
+  (the source the breadth table renders from) and [`scripts/lib/manifests/claims.ts`](scripts/lib/manifests/claims.ts)
   (the manifest `pnpm claims:verify` proves can never decay into theater).
 
 > Start anywhere; everything links back to the thesis. **The system is shaped to be testable;

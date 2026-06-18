@@ -28,6 +28,7 @@ from langchain_core.runnables import Runnable
 
 from . import telemetry
 from .config import Settings
+from .langchain_seam import build_structured_runnable, dependency_failure
 from .problem import ProblemError
 from .schemas import LlmVerdict
 from .tokenize import TiktokenTokenizer, Tokenizer
@@ -47,20 +48,6 @@ class Embedder(Protocol):
     @property
     def model(self) -> str: ...
     def embed(self, text: str) -> list[float]: ...
-
-
-def _dependency_failure(slug: str, title: str, cause: str) -> ProblemError:
-    # Log the provider's raw error server-side; do NOT echo it to the client — an SDK message could
-    # carry request or credential detail (security review). The client gets a generic, retryable problem.
-    _logger.error("%s: %s", slug, cause)
-    return ProblemError(
-        slug=slug,
-        title=title,
-        status=502,
-        failure_domain="dependency_failure",
-        detail="the LLM provider call failed; see service logs",
-        retryable=True,
-    )
 
 
 class LangChainLlmClient:
@@ -88,19 +75,10 @@ class LangChainLlmClient:
             with self._lock:
                 structured = self._structured
                 if structured is None:
-                    from langchain.chat_models import init_chat_model
-
-                    # Reasoning models (gpt-5.x) take `reasoning_effort`, not `seed`/`temperature`.
-                    # Pass key + effort only when configured. init_chat_model forwards extra kwargs to
-                    # the provider class; its overloads are not typed for them (hence the ignore).
-                    extra: dict[str, Any] = {}
-                    if self._settings.openai_api_key:
-                        extra["api_key"] = self._settings.openai_api_key
-                    if self._settings.moderator_reasoning_effort:
-                        extra["reasoning_effort"] = self._settings.moderator_reasoning_effort
-                    model = init_chat_model(self._model_name, **extra)  # pyright: ignore[reportArgumentType]
                     # include_raw keeps the AIMessage so we can read usage_metadata + a parsing error.
-                    structured = model.with_structured_output(LlmVerdict, include_raw=True)
+                    structured = build_structured_runnable(
+                        self._settings, LlmVerdict, include_raw=True
+                    )
                     self._structured = structured
         return structured
 
@@ -136,14 +114,14 @@ class LangChainLlmClient:
                         result.get("parsing_error")
                         or f"no parsed verdict (got {type(parsed).__name__})"
                     )
-                    raise _dependency_failure(
+                    raise dependency_failure(
                         "llm-refusal", "LLM returned no structured output", str(cause)
                     )
                 return parsed
             except ProblemError:
                 raise
             except Exception as exc:
-                raise _dependency_failure(
+                raise dependency_failure(
                     "llm-unavailable", "LLM provider call failed", str(exc)
                 ) from exc
 
@@ -188,14 +166,14 @@ class LangChainEmbedder:
                 bounded = self._tokenizer.truncate(text, max_tokens=self._max_tokens)
                 vector = embeddings.embed_query(bounded)
             except Exception as exc:
-                raise _dependency_failure(
+                raise dependency_failure(
                     "embedding-unavailable", "Embedding call failed", str(exc)
                 ) from exc
             result = list(vector)
             # Bound the vector before it reaches pgvector: a malformed/oversized provider response
             # would otherwise build an unbounded text literal in knowledge.py (memory exhaustion).
             if len(result) != self._expected_dim:
-                raise _dependency_failure(
+                raise dependency_failure(
                     "embedding-dimension",
                     "Embedding has an unexpected dimension",
                     f"expected {self._expected_dim} components, got {len(result)}",

@@ -1,4 +1,4 @@
-import { type ClientResponse, upstreamCall, upstreamTimeoutMs } from './upstream-call'
+import { boundCaller, type ClientResponse, type UpstreamClientOptions } from './upstream-call'
 
 /**
  * The gateway's client for the moderator-agent (the one Python service, ADR-0018). Read-only: the
@@ -12,16 +12,11 @@ export interface ModeratorClient {
   getDecision(communityId: string, decisionId: string): Promise<ClientResponse>
 }
 
-export interface ModeratorClientOptions {
-  timeoutMs?: number
-}
-
 export function createModeratorClient(
   baseUrl: string,
-  options: ModeratorClientOptions = {},
+  options: UpstreamClientOptions = {},
 ): ModeratorClient {
-  const timeoutMs = options.timeoutMs ?? upstreamTimeoutMs()
-  const call = (opts: Parameters<typeof upstreamCall>[1]) => upstreamCall(baseUrl, opts, timeoutMs)
+  const call = boundCaller(baseUrl, options)
   return {
     listDecisions: (communityId) =>
       call({ method: 'GET', path: `/api/communities/${communityId}/moderation-decisions` }),

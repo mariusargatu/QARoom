@@ -1,5 +1,12 @@
 import { type Span, SpanStatusCode, trace } from '@opentelemetry/api'
 
+/**
+ * The span handed to a `traced` callback. Re-exported so downstream packages (e.g. messaging) can
+ * type their tracing seams without taking a direct `@opentelemetry/api` dependency, instead of
+ * reverse-engineering it as `Parameters<Parameters<typeof traced>[1]>[0]`.
+ */
+export type TracedSpan = Span
+
 const tracer = trace.getTracer('@qaroom/otel')
 
 /**

@@ -1,9 +1,9 @@
 import { execFileSync, spawnSync } from 'node:child_process'
 import { existsSync, readFileSync, writeFileSync } from 'node:fs'
 import { resolve } from 'node:path'
-import { CLAIMS } from '@qaroom/contracts/claims'
-import { type DetectionToggle, TOGGLES } from '@qaroom/contracts/detection-matrix'
-import { DetectionMatrixArtifact, type MatrixCell } from '@qaroom/contracts/detection-matrix-schema'
+import { CLAIMS } from './lib/manifests/claims'
+import { type DetectionToggle, TOGGLES } from './lib/manifests/detection-matrix'
+import { DetectionMatrixArtifact, type MatrixCell } from './lib/manifests/detection-matrix-schema'
 import { CLUSTER_ROWS, runClusterRow } from './lib/matrix-cluster'
 import {
   computeCells,

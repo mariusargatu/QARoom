@@ -6,9 +6,12 @@ import {
   EXAMPLE_WEBHOOK_SUBSCRIPTION,
   EXAMPLE_WEBHOOK_SUBSCRIPTION_ID,
   EXAMPLE_WEBHOOK_URL,
+  idempotencyConflict,
   idempotencyKeyHeaderParam,
   type OasOperation,
   problemResponse,
+  SYSTEM_OPERATIONS,
+  validationFailed,
 } from '@qaroom/contracts'
 
 /**
@@ -20,11 +23,7 @@ const subscriptionIdParam = brandedPathParam('subscriptionId', 'whsub', 'Target 
 
 const WITH_SECRET_EXAMPLE = { ...EXAMPLE_WEBHOOK_SUBSCRIPTION, secret: 'whsec_…' }
 
-const badRequest = (description: string) =>
-  problemResponse(400, 'validation-failed', 'Request failed validation', 'validation', {
-    description,
-    instance: WEBHOOK_INSTANCE,
-  })
+const badRequest = (description: string) => validationFailed(description, WEBHOOK_INSTANCE)
 
 const urlInvalid = problemResponse(
   422,
@@ -34,17 +33,6 @@ const urlInvalid = problemResponse(
   {
     description:
       'The delivery URL must be https and must not target a loopback/private/link-local host (SSRF guard).',
-    instance: WEBHOOK_INSTANCE,
-  },
-)
-
-const idempotencyConflict = problemResponse(
-  409,
-  'idempotency-key-conflict',
-  'Idempotency-Key reused with a different body',
-  'conflict',
-  {
-    description: 'This Idempotency-Key was already used for a request with a different body.',
     instance: WEBHOOK_INSTANCE,
   },
 )
@@ -107,7 +95,7 @@ export const OPERATIONS: readonly OasOperation[] = [
         links: getLink,
       },
       urlInvalid,
-      idempotencyConflict,
+      idempotencyConflict(WEBHOOK_INSTANCE),
       badRequest('The request body or headers failed validation.'),
     ],
   },
@@ -247,25 +235,5 @@ export const OPERATIONS: readonly OasOperation[] = [
       notFound,
     ],
   },
-  {
-    operationId: 'getSystemState',
-    method: 'get',
-    path: '/system/state',
-    summary: 'Observable state of every model',
-    description:
-      'Returns the current state of every model the service runs, with an as_of envelope (Commitment 7).',
-    tags: ['system'],
-    mutating: false,
-    responses: [{ code: 200, description: 'Current observable state.', bodyRef: 'SystemState' }],
-  },
-  {
-    operationId: 'getSystemCapabilities',
-    method: 'get',
-    path: '/system/capabilities',
-    summary: 'Operations the service exposes',
-    description: 'Returns every operation in MCP-tool-shaped form (Commitment 7).',
-    tags: ['system'],
-    mutating: false,
-    responses: [{ code: 200, description: 'The capability list.', bodyRef: 'Capabilities' }],
-  },
+  ...SYSTEM_OPERATIONS,
 ]

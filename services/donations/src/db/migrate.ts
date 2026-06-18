@@ -1,5 +1,5 @@
 import { composeMigrations, type Migration } from '@qaroom/contracts'
-import { messagingMigration } from '@qaroom/messaging/migrations'
+import { messagingFragment } from '@qaroom/messaging/migrations'
 import { sql } from 'drizzle-orm'
 import type { SqlExecutor } from './client'
 
@@ -51,16 +51,6 @@ const flagCacheMigration: Migration<SqlExecutor> = {
   async down(tx) {
     await tx.execute(sql.raw(`DROP TABLE IF EXISTS flag_cache`))
   },
-}
-
-/**
- * The shared messaging substrate (outbox + processed_events + idempotency_responses) composed in
- * as a named fragment, unchanged from the canonical @qaroom/messaging definition.
- */
-const messagingFragment: Migration<SqlExecutor> = {
-  name: 'messaging',
-  up: (tx) => messagingMigration.up(tx),
-  down: (tx) => messagingMigration.down(tx),
 }
 
 /** The full donations-service schema: domain tables + the composed messaging substrate. */

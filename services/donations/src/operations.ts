@@ -7,6 +7,8 @@ import {
   idempotencyKeyHeaderParam,
   type OasOperation,
   problemResponse,
+  SYSTEM_OPERATIONS,
+  validationFailed,
 } from '@qaroom/contracts'
 
 /**
@@ -16,11 +18,7 @@ import {
 const DONATION_INSTANCE = `/api/communities/${EXAMPLE_COMMUNITY_ID}/donations`
 const donationIdParam = brandedPathParam('donationId', 'dntn', 'Target donation.')
 
-const badRequest = (description: string) =>
-  problemResponse(400, 'validation-failed', 'Request failed validation', 'validation', {
-    description,
-    instance: DONATION_INSTANCE,
-  })
+const badRequest = (description: string) => validationFailed(description, DONATION_INSTANCE)
 
 const gated = problemResponse(
   409,
@@ -125,25 +123,5 @@ export const OPERATIONS: readonly OasOperation[] = [
       badRequest('The community id in the path is malformed.'),
     ],
   },
-  {
-    operationId: 'getSystemState',
-    method: 'get',
-    path: '/system/state',
-    summary: 'Observable state of every model',
-    description:
-      'Returns the current state of every model the service runs, with an as_of envelope (Commitment 7).',
-    tags: ['system'],
-    mutating: false,
-    responses: [{ code: 200, description: 'Current observable state.', bodyRef: 'SystemState' }],
-  },
-  {
-    operationId: 'getSystemCapabilities',
-    method: 'get',
-    path: '/system/capabilities',
-    summary: 'Operations the service exposes',
-    description: 'Returns every operation in MCP-tool-shaped form (Commitment 7).',
-    tags: ['system'],
-    mutating: false,
-    responses: [{ code: 200, description: 'The capability list.', bodyRef: 'Capabilities' }],
-  },
+  ...SYSTEM_OPERATIONS,
 ]

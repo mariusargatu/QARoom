@@ -10,6 +10,7 @@ export { currentTenant, SYSTEM_TENANT, tenantStore, withTenant } from './tenant-
 export { TENANT_ID_ATTR, TenantSpanProcessor } from './tenant-span-processor'
 export type { InMemoryTelemetry } from './test-telemetry'
 export { startInMemoryTelemetry } from './test-telemetry'
+export type { TracedSpan } from './traced'
 export { traced } from './traced'
 export { XStateTransitionSampler } from './xstate-sampler'
 export { XSTATE_TRANSITION_SPAN, xstateTransitionSink } from './xstate-span'

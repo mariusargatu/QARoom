@@ -1,6 +1,6 @@
 import { existsSync, readFileSync } from 'node:fs'
 import { resolve } from 'node:path'
-import type { Claim } from '@qaroom/contracts/claims'
+import type { Claim } from './manifests/claims'
 
 /**
  * Shared live-evidence resolver for the falsifiable-claim projections (`prove` CLI + `render-claims`).

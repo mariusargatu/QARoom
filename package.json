@@ -97,6 +97,7 @@
     "typescript": "^5.7.0",
     "vitest": "^3.0.0",
     "yaml": "^2.7.0",
+    "zod": "^4.0.0",
     "mutation-testing-metrics": "3.7.3"
   }
 }

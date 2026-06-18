@@ -1,8 +1,8 @@
 import { writeFileSync } from 'node:fs'
 import { resolve } from 'node:path'
 import { pathToFileURL } from 'node:url'
-import { BOUNDARY_REGISTRY } from '@qaroom/contracts/boundary-registry'
-import { CLAIMS } from '@qaroom/contracts/claims'
+import { BOUNDARY_REGISTRY } from './lib/manifests/boundary-registry'
+import { CLAIMS } from './lib/manifests/claims'
 import { loadSummary, resolveEvidence } from './lib/claim-evidence'
 
 /**

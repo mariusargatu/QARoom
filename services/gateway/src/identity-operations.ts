@@ -17,26 +17,22 @@ import {
   problemResponse,
   userIdParam,
 } from '@qaroom/contracts'
+import { upstreamUnreachable502 } from './problem-responses'
 
 /**
  * The identity operations the gateway proxies to identity-service (ADR-0022): user + community +
  * membership bootstrap, session issuance, and WS-ticket minting. Split out of `operations.ts` to
  * keep it under the 500-line cap; spread into the gateway OPERATIONS array. Reuses the shared
  * `@qaroom/contracts` request/response schemas (the same ones identity-service registers).
+ *
+ * The gateway-edge 400 is NOT hand-listed here: every `/api/*` op gets it stamped uniformly by the
+ * cross-cutting map in `operations.ts` (the stamp that file documents). Only genuinely op-specific
+ * responses (404/409/422/401 + the 502) live below.
  */
-const validation400 = problemResponse(
-  400,
-  'validation-failed',
-  'Request failed validation',
-  'validation',
-  { description: 'The request failed validation at the gateway edge.' },
-)
-const identityUnreachable502 = problemResponse(
-  502,
+const identityUnreachable502 = upstreamUnreachable502(
   'identity-unreachable',
-  'Upstream identity-service unavailable',
-  'dependency_failure',
-  { description: 'identity-service is unreachable or timed out.', retryable: true },
+  'identity-service',
+  'identity-service is unreachable or timed out.',
 )
 const userNotFound404 = problemResponse(404, 'user-not-found', 'User not found', 'not_found', {
   description: 'No user with that id exists.',
@@ -98,7 +94,6 @@ export const IDENTITY_OPERATIONS: readonly OasOperation[] = [
           },
         },
       },
-      validation400,
       identityUnreachable502,
     ],
   },
@@ -113,7 +108,6 @@ export const IDENTITY_OPERATIONS: readonly OasOperation[] = [
     params: [userIdParam],
     responses: [
       { code: 200, description: 'The user.', bodyRef: 'User', example: EXAMPLE_USER },
-      validation400,
       userNotFound404,
       identityUnreachable502,
     ],
@@ -149,7 +143,6 @@ export const IDENTITY_OPERATIONS: readonly OasOperation[] = [
         },
       },
       slugConflict409,
-      validation400,
       identityUnreachable502,
     ],
   },
@@ -179,7 +172,6 @@ export const IDENTITY_OPERATIONS: readonly OasOperation[] = [
         },
       },
       membershipConflict409,
-      validation400,
       identityUnreachable502,
     ],
   },
@@ -203,7 +195,6 @@ export const IDENTITY_OPERATIONS: readonly OasOperation[] = [
           as_of: EXAMPLE_AS_OF,
         },
       },
-      validation400,
       identityUnreachable502,
     ],
   },
@@ -239,7 +230,6 @@ export const IDENTITY_OPERATIONS: readonly OasOperation[] = [
         },
       },
       userNotFound404,
-      validation400,
       identityUnreachable502,
     ],
   },

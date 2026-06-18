@@ -1,7 +1,6 @@
 import { createHmac } from 'node:crypto'
 import {
   applyWebhookDeliveryEvent,
-  backoffCeilingMs,
   nextBackoff,
   WEBHOOK_DELIVERY_ID_HEADER,
   WEBHOOK_EVENT_ID_HEADER,
@@ -13,8 +12,8 @@ import {
 } from '@qaroom/contracts'
 // node:crypto-backed signing lives in the dedicated subpath, not the browser-reachable barrel.
 import { signWebhook } from '@qaroom/contracts/webhook-hmac'
-import type { Randomness } from '@qaroom/determinism'
-import { rowsOf, type SqlExecutor } from '@qaroom/messaging'
+import { dateFromEpochMillis, type Randomness } from '@qaroom/determinism'
+import { createDrainLoop, rowsOf, type SqlExecutor } from '@qaroom/messaging'
 import { traced, withTenant } from '@qaroom/otel'
 import { sql } from 'drizzle-orm'
 import type { WorkerDeps } from './deps'
@@ -182,9 +181,7 @@ export function createDeliveryWorker(deps: WorkerDeps): DeliveryWorker {
     const delay = computeBackoff(row.attempt + 1, deps.randomness)
     if (delay !== null) {
       applyWebhookDeliveryEvent('Delivering', 'DeliveryFailed', { clock: deps.clock, sink })
-      // Future time from logical time (no `new Date(...)`, Commitment 6): a fresh clock Date setTime'd.
-      const nextAtDate = deps.clock.now()
-      nextAtDate.setTime(now.getTime() + delay)
+      const nextAtDate = dateFromEpochMillis(now.getTime() + delay)
       await persist(
         tx,
         row.id,
@@ -239,17 +236,11 @@ export function createDeliveryWorker(deps: WorkerDeps): DeliveryWorker {
   }
 
   function start(intervalMs: number): () => void {
-    const timer = setInterval(() => {
-      void traced('webhooks.worker.drain', () => drainOnce()).catch(() => {
-        /* a drain failure leaves rows due for the next pass — at-least-once */
-      })
-    }, intervalMs)
-    timer.unref?.()
-    return () => clearInterval(timer)
+    // The timer shell (only-timer + unref + a swallowed failed tick — a drain failure just leaves
+    // rows due for the next pass, at-least-once) is owned by createDrainLoop; the explicit `traced`
+    // wrap stays here so the worker keeps its own drain span.
+    return createDrainLoop(intervalMs, () => traced('webhooks.worker.drain', () => drainOnce()))
   }
 
   return { drainOnce, start }
 }
-
-// Re-export for the retry-schedule property test (asserts the worker's schedule == the contract).
-export { backoffCeilingMs }

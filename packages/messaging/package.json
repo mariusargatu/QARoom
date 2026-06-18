@@ -5,6 +5,7 @@
   "type": "module",
   "exports": {
     ".": "./src/index.ts",
+    "./gc-job": "./src/gc-job.ts",
     "./migrations": "./src/migrations.ts",
     "./schema": "./src/schema.ts",
     "./idempotency": "./src/idempotency.ts"

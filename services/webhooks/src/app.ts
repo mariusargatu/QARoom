@@ -1,13 +1,8 @@
 import { LamportGate } from '@qaroom/contracts'
-import { activeSpanSink, registerTenantContext } from '@qaroom/otel'
-import {
-  registerHealthRoutes,
-  registerProblemHandler,
-  registerSnapshotRoutes,
-  registerSystemRoutes,
-} from '@qaroom/service-kit'
-import { sql } from 'drizzle-orm'
-import Fastify, { type FastifyInstance } from 'fastify'
+import { dbReadiness } from '@qaroom/messaging'
+import { activeSpanSink } from '@qaroom/otel'
+import { buildServiceApp } from '@qaroom/service-kit'
+import type { FastifyInstance } from 'fastify'
 import type { RouteDeps, WebhooksDeps } from './deps'
 import { OPERATIONS } from './operations'
 import { countDeliveriesByStatus, countSubscriptions } from './repository'
@@ -17,7 +12,10 @@ import { registerWebhookRoutes } from './routes'
  * Build a webhooks-service Fastify instance from injected dependencies (Commitment 6). This wires
  * the HTTP surface (subscription CRUD + system/snapshot) only — the NATS fan-out consumer and the
  * delivery worker are started in `server.ts` (live boot), so the app is testable in-process with
- * no broker. A `LamportGate` is created from the IdGenerator if absent.
+ * no broker. A `LamportGate` is created from the IdGenerator if absent. The cross-cutting shell
+ * (tenant ctx -> RFC 7807 -> health -> routes -> /system/* -> snapshot) is composed by
+ * `buildServiceApp`; webhooks composes a subset of its callbacks (readiness + models + a snapshot
+ * store; no outbox).
  */
 export function buildApp(deps: WebhooksDeps): FastifyInstance {
   const lamport = deps.lamport ?? new LamportGate(deps.ids, deps.sink ?? activeSpanSink)
@@ -29,21 +27,13 @@ export function buildApp(deps: WebhooksDeps): FastifyInstance {
     lamport,
   }
 
-  const app = Fastify({ logger: false })
-  registerTenantContext(app)
-  registerProblemHandler(app)
-  registerHealthRoutes(app, {
-    service: 'webhooks',
-    readiness: async () => {
-      await deps.db.execute(sql`select 1`)
-    },
-  })
-  registerWebhookRoutes(app, routeDeps)
-  registerSystemRoutes(app, {
+  return buildServiceApp({
     service: 'webhooks',
     clock: deps.clock,
     lamport,
     operations: OPERATIONS,
+    readiness: dbReadiness(deps.db),
+    snapshotStore: deps.snapshotStore,
     models: async () => {
       // Independent reads — run concurrently.
       const [subscriptions, deliveries] = await Promise.all([
@@ -52,12 +42,6 @@ export function buildApp(deps: WebhooksDeps): FastifyInstance {
       ])
       return { subscriptions: { count: subscriptions }, deliveries }
     },
+    registerRoutes: (app) => registerWebhookRoutes(app, routeDeps),
   })
-  registerSnapshotRoutes(app, {
-    service: 'webhooks',
-    clock: deps.clock,
-    lamport,
-    store: deps.snapshotStore,
-  })
-  return app
 }

@@ -1,5 +1,5 @@
 import { pathToFileURL } from 'node:url'
-import { BOUNDARY_REGISTRY } from '@qaroom/contracts/boundary-registry'
+import { BOUNDARY_REGISTRY } from './lib/manifests/boundary-registry'
 
 /**
  * Render the breadth table from the boundary registry (the 2026-06-11 critique's consistency fix:

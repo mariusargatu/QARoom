@@ -1,8 +1,10 @@
 import { AccessTokenResponse, CreateSessionRequest, MembershipClaim } from '@qaroom/contracts'
-import { problem, withIdempotency } from '@qaroom/service-kit'
+import { dateFromEpochMillis } from '@qaroom/determinism'
+import { withIdempotency } from '@qaroom/service-kit'
 import type { FastifyInstance } from 'fastify'
 import type { RouteDeps } from '../deps'
 import { getUser, membershipsForUser, recordSession } from '../repository'
+import { userNotFoundProblem } from './problems'
 
 const CREATE_ROUTE = 'POST /api/sessions'
 
@@ -15,18 +17,7 @@ export function registerSessionRoutes(app: FastifyInstance, deps: RouteDeps): vo
       { db: deps.db, clock: deps.clock, route: CREATE_ROUTE, status: 201 },
       async () => {
         const user = await getUser(deps.db, body.user_id)
-        if (!user) {
-          throw problem({
-            slug: 'user-not-found',
-            title: 'User not found',
-            status: 404,
-            failure_domain: 'not_found',
-            detail: `No user with id ${body.user_id}`,
-            next_actions: [
-              { verb: 'POST', href: '/api/users', description: 'Create the user first.' },
-            ],
-          })
-        }
+        if (!user) throw userNotFoundProblem(body.user_id)
 
         const memberships = await membershipsForUser(deps.db, body.user_id)
         const claims = memberships.map((m) =>
@@ -35,10 +26,8 @@ export function registerSessionRoutes(app: FastifyInstance, deps: RouteDeps): vo
         const issued = await deps.issuer.issue({ sub: body.user_id, memberships: claims })
 
         const issuedAt = deps.clock.now()
-        // Future expiry from logical time (no `new Date(...)`, Commitment 6): copy a fresh
-        // clock instant and shift it; `issued.exp` is already derived from the injected clock.
-        const expiresAt = deps.clock.now()
-        expiresAt.setTime(issued.exp * 1000)
+        // `issued.exp` is JWT NumericDate (seconds), already derived from the injected clock.
+        const expiresAt = dateFromEpochMillis(issued.exp * 1000)
 
         const sessionId = deps.ids.next('sess')
         await recordSession(deps.db, {

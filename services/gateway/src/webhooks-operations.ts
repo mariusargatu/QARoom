@@ -10,30 +10,20 @@ import {
   type OasOperation,
   problemResponse,
 } from '@qaroom/contracts'
+import { upstreamUnreachable502 } from './problem-responses'
 
 /**
  * The webhook CRUD operations the gateway proxies to webhooks-service (Milestone 11). Split out of
  * `operations.ts` to keep that file under the 500-line cap; spread into the gateway OPERATIONS array.
+ *
+ * The gateway-edge 400 and the Idempotency-Key 409 are NOT hand-listed here: every `/api/*` op gets
+ * the 400 stamped uniformly, and every mutating `/api/*` op gets the 409 stamped, by the
+ * cross-cutting map in `operations.ts`. Only genuinely op-specific responses live below.
  */
-const validation400 = problemResponse(
-  400,
-  'validation-failed',
-  'Request failed validation',
-  'validation',
-  {
-    description: 'The request failed validation at the gateway edge.',
-  },
-)
-const webhooksUnreachable502 = problemResponse(
-  502,
+const webhooksUnreachable502 = upstreamUnreachable502(
   'webhooks-unreachable',
-  'Upstream webhooks-service unavailable',
-  'dependency_failure',
-  {
-    description:
-      'webhooks-service is unreachable, timed out, or the gateway circuit breaker is open.',
-    retryable: true,
-  },
+  'webhooks-service',
+  'webhooks-service is unreachable, timed out, or the gateway circuit breaker is open.',
 )
 const webhookNotFound404 = problemResponse(
   404,
@@ -55,13 +45,6 @@ const webhookIllegalTransition409 = problemResponse(
   'Illegal subscription status transition',
   'conflict',
   { description: 'The subscription cannot move to the requested status from its current status.' },
-)
-const idempotencyConflict409 = problemResponse(
-  409,
-  'idempotency-key-conflict',
-  'Idempotency-Key reused with a different body',
-  'conflict',
-  { description: 'This Idempotency-Key was already used for a request with a different body.' },
 )
 const subscriptionIdParam = brandedPathParam('subscriptionId', 'whsub', 'Target subscription.')
 const webhookGetLink = {
@@ -97,8 +80,6 @@ export const WEBHOOK_OPERATIONS: readonly OasOperation[] = [
         links: webhookGetLink,
       },
       webhookUrlInvalid422,
-      idempotencyConflict409,
-      validation400,
       webhooksUnreachable502,
     ],
   },
@@ -118,7 +99,6 @@ export const WEBHOOK_OPERATIONS: readonly OasOperation[] = [
         bodyRef: 'WebhookSubscriptionList',
         example: { community_id: EXAMPLE_COMMUNITY_ID, webhooks: [EXAMPLE_WEBHOOK_SUBSCRIPTION] },
       },
-      validation400,
       webhooksUnreachable502,
     ],
   },

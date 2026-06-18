@@ -171,10 +171,12 @@ export type { ProblemResponseOptions } from './openapi/params'
 export {
   brandedPathParam,
   communityIdParam,
+  idempotencyConflict,
   idempotencyKeyHeaderParam,
   postIdParam,
   problemResponse,
   userIdParam,
+  validationFailed,
 } from './openapi/params'
 export { CreatePostRequest, Feed, Post } from './post'
 export {
@@ -219,7 +221,7 @@ export {
   VOTES_FEED_SUBJECT,
   voteCast,
 } from './subjects'
-export { Capabilities, Capability, SystemState } from './system'
+export { Capabilities, Capability, SYSTEM_OPERATIONS, SystemState } from './system'
 export { RunnerResult, SCHEMA_VERSION, TestResultsSummary } from './test-results-schema'
 export { RedeemTicketRequest, RedeemTicketResponse, TicketResponse } from './ticket'
 export { CreateUserRequest, User } from './user'

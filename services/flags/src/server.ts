@@ -1,7 +1,5 @@
-import { connectNats, createRelay, natsPublisher, pgSnapshotStore } from '@qaroom/messaging'
+import { connectNats, connectServiceDb, createRelay, natsPublisher } from '@qaroom/messaging'
 import { intFromEnv, pgPoolMax, resolveBootDeps, runServer } from '@qaroom/service-kit'
-import { drizzle } from 'drizzle-orm/postgres-js'
-import postgres from 'postgres'
 import { buildApp } from './app'
 import { ensureSchema } from './db/migrate'
 import { schema } from './db/schema'
@@ -17,10 +15,8 @@ const RELAY_INTERVAL_MS = 1000
 runServer(
   async () => {
     const { deps, replaying } = resolveBootDeps()
-    const sql = postgres(connectionString, { max: pgPoolMax() })
-    const db = drizzle(sql, { schema })
+    const { db, snapshotStore } = connectServiceDb({ connectionString, schema, max: pgPoolMax() })
     await ensureSchema(db)
-    const snapshotStore = pgSnapshotStore(sql)
 
     if (!replaying) {
       // Transactional-outbox relay (Commitment 17): drain committed flag-changed events to

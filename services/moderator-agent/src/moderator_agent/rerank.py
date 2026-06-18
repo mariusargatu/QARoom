@@ -22,7 +22,6 @@ relevant policy falls OUT of the window the LLM sees — a regression a keyword-
 
 from __future__ import annotations
 
-import logging
 import re
 import threading
 from collections.abc import Sequence
@@ -30,10 +29,9 @@ from typing import Any, Protocol, cast, runtime_checkable
 
 from . import telemetry
 from .config import Settings
+from .langchain_seam import build_structured_runnable, dependency_failure
 from .problem import ProblemError
 from .schemas import PolicyEntry, RerankResult
-
-_logger = logging.getLogger("qaroom.moderator.rerank")
 
 # Lowercase alphanumeric runs — the lexical unit KeywordReranker scores overlap on.
 _WORD = re.compile(r"[a-z0-9]+")
@@ -114,20 +112,6 @@ class KeywordReranker:
         return ordered[:top_k]
 
 
-def _dependency_failure(slug: str, title: str, cause: str) -> ProblemError:
-    # Log the provider's raw error server-side; never echo it to the client (could carry request/cred
-    # detail). The caller gets a generic, retryable 502 — the same posture as the LLM/embedder seam.
-    _logger.error("%s: %s", slug, cause)
-    return ProblemError(
-        slug=slug,
-        title=title,
-        status=502,
-        failure_domain="dependency_failure",
-        detail="the reranker call failed; see service logs",
-        retryable=True,
-    )
-
-
 _RERANK_SYSTEM = (
     "You rank a community's retrieved policy entries by how relevant each is to a specific post under "
     "review. Return ordered_ids: the entry ids, MOST relevant first. Use ONLY ids from the list below; "
@@ -165,15 +149,7 @@ class LlmReranker:
             with self._lock:
                 structured = self._structured
                 if structured is None:
-                    from langchain.chat_models import init_chat_model
-
-                    extra: dict[str, Any] = {}
-                    if self._settings.openai_api_key:
-                        extra["api_key"] = self._settings.openai_api_key
-                    if self._settings.moderator_reasoning_effort:
-                        extra["reasoning_effort"] = self._settings.moderator_reasoning_effort
-                    model = init_chat_model(self._model_name, **extra)  # pyright: ignore[reportArgumentType]
-                    structured = model.with_structured_output(RerankResult)
+                    structured = build_structured_runnable(self._settings, RerankResult)
                     self._structured = structured
         return structured
 
@@ -191,7 +167,7 @@ class LlmReranker:
             try:
                 parsed = cast(object, structured.invoke(messages))
                 if not isinstance(parsed, RerankResult):
-                    raise _dependency_failure(
+                    raise dependency_failure(
                         "rerank-refusal",
                         "Reranker returned no structured ordering",
                         f"got {type(parsed).__name__}",
@@ -203,7 +179,7 @@ class LlmReranker:
             except ProblemError:
                 raise
             except Exception as exc:
-                raise _dependency_failure(
+                raise dependency_failure(
                     "rerank-unavailable", "Reranker call failed", str(exc)
                 ) from exc
         ordered = ground_order(entries, ordered_ids)

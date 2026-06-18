@@ -6,25 +6,17 @@ import {
   type OasOperation,
   problemResponse,
 } from '@qaroom/contracts'
+import { upstreamUnreachable502, validation400 } from './problem-responses'
 
 /**
  * The moderation-decision reads the gateway proxies to the moderator-agent (ADR-0022, ADR-0018).
  * Read-only: the agent PROPOSES decisions and never enforces, so there is no mutating surface.
  * Split out of `operations.ts` to keep it under the 500-line cap; spread into OPERATIONS.
  */
-const validation400 = problemResponse(
-  400,
-  'validation-failed',
-  'Request failed validation',
-  'validation',
-  { description: 'The request failed validation at the gateway edge.' },
-)
-const moderatorUnreachable502 = problemResponse(
-  502,
+const moderatorUnreachable502 = upstreamUnreachable502(
   'moderator-unreachable',
-  'Upstream moderator-agent unavailable',
-  'dependency_failure',
-  { description: 'moderator-agent is unreachable or timed out.', retryable: true },
+  'moderator-agent',
+  'moderator-agent is unreachable or timed out.',
 )
 const decisionNotFound404 = problemResponse(
   404,

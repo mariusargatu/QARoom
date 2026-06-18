@@ -5,12 +5,11 @@ import {
   FlagStateChangedEvent,
 } from '@qaroom/contracts'
 import {
-  ensureConsumer,
+  consumeDurable,
   headersToRecord,
   type NatsHandle,
   QAROOM_STREAM,
   readEventHeaders,
-  runResilientConsume,
 } from '@qaroom/messaging'
 import type { CommunityEventStream, FrameInput } from './event-stream'
 
@@ -65,39 +64,42 @@ export async function startWsFeed(
   handle: NatsHandle,
   stream: CommunityEventStream,
 ): Promise<() => Promise<void>> {
-  await ensureConsumer(handle, {
-    stream: QAROOM_STREAM,
-    durable: WS_FEED_DURABLE,
-    filterSubjects: [FLAGS_FEED_SUBJECT, DONATIONS_FEED_SUBJECT],
-  })
-
-  const consumer = await handle.js.consumers.get(QAROOM_STREAM, WS_FEED_DURABLE)
-  const messages = await consumer.consume()
+  // Built in this closure BEFORE consumeDurable so the gateway owns its own dedup state.
+  // `consumeDurable` folds ONLY the ensure -> get -> consume bootstrap (removing the
+  // ensure-before-get footgun); the in-memory `seen` Set and the SyntaxError poison rule below
+  // stay the gateway's, not the substrate's.
   const seen = new Set<string>()
 
-  return runResilientConsume({
-    messages,
-    spanName: 'gateway.event.process',
-    loopDeathSpanName: 'gateway.feed.loop_died',
-    handle: async (message) => {
-      const { eventId } = readEventHeaders(headersToRecord(message.headers))
-      if (!seen.has(eventId)) {
-        // `message.json()` throws on an undecodable payload — a poison message. Mark seen only
-        // AFTER a successful decode so a poison message we `term` does not suppress a
-        // (hypothetical) later well-formed redelivery of the same id.
-        const frame = wsFrameFor(message.json())
-        seen.add(eventId)
-        if (frame) stream.publish(frame)
-      }
-      message.ack()
+  return consumeDurable(
+    handle,
+    {
+      stream: QAROOM_STREAM,
+      durable: WS_FEED_DURABLE,
+      filterSubjects: [FLAGS_FEED_SUBJECT, DONATIONS_FEED_SUBJECT],
     },
-    // Poison vs transient: a payload that cannot be parsed will never succeed on redelivery, so
-    // terminate it; anything else may be transient, so nak for redelivery.
-    settle: (message, err) => {
-      if (isPoison(err)) message.term('undecodable feed event')
-      else message.nak()
+    {
+      spanName: 'gateway.event.process',
+      loopDeathSpanName: 'gateway.feed.loop_died',
+      handle: async (message) => {
+        const { eventId } = readEventHeaders(headersToRecord(message.headers))
+        if (!seen.has(eventId)) {
+          // `message.json()` throws on an undecodable payload — a poison message. Mark seen only
+          // AFTER a successful decode so a poison message we `term` does not suppress a
+          // (hypothetical) later well-formed redelivery of the same id.
+          const frame = wsFrameFor(message.json())
+          seen.add(eventId)
+          if (frame) stream.publish(frame)
+        }
+        message.ack()
+      },
+      // Poison vs transient: a payload that cannot be parsed will never succeed on redelivery, so
+      // terminate it; anything else may be transient, so nak for redelivery.
+      settle: (message, err) => {
+        if (isPoison(err)) message.term('undecodable feed event')
+        else message.nak()
+      },
     },
-  })
+  )
 }
 
 /**
