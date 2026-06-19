@@ -5,7 +5,7 @@
   "testRunner": "vitest",
   "plugins": ["@stryker-mutator/vitest-runner"],
   "vitest": { "configFile": "vitest.stryker.config.ts" },
-  "mutate": ["src/rate-limiter.ts"],
+  "mutate": ["src/rate-limiter.ts", "src/breaker-guarded-call.ts"],
   "ignoreStatic": true,
   "inPlace": true,
   "tempDirName": ".stryker-tmp",

@@ -1,7 +1,14 @@
+import { test } from '@fast-check/vitest'
+import { CreatePostRequest } from '@qaroom/contracts'
 import { createPostRequestArb } from '@qaroom/testing-utils/generators'
+import { withResource } from '@qaroom/testing-utils/harness'
 import fc from 'fast-check'
-import { describe, expect, it } from 'vitest'
+import { describe, expect } from 'vitest'
 import { setupContentTest } from '../tests/harness'
+
+// Only ever-valid bodies: every create is a 201, so `expected` is derived purely from the input
+// sequence — not from the SUT's own status (which would let a regress-to-400 pass vacuously).
+const validBodyArb = createPostRequestArb.filter((b) => CreatePostRequest.safeParse(b).success)
 
 /**
  * Tenant isolation as a real property (Commitment 9), not a single example: an arbitrary
@@ -17,36 +24,30 @@ const COMMS = [
 ] as const
 
 describe('community tenancy isolation (property)', () => {
-  it('posts created across three communities each appear only in their own feed, never another tenant’s', async () => {
-    await fc.assert(
-      fc.asyncProperty(
-        fc.array(fc.record({ comm: fc.nat({ max: 2 }), body: createPostRequestArb }), {
-          minLength: 1,
-          maxLength: 6,
-        }),
-        async (ops) => {
-          const ctx = await setupContentTest()
+  test.prop(
+    [fc.array(fc.record({ comm: fc.nat({ max: 2 }), body: validBodyArb }), { minLength: 1, maxLength: 6 })],
+    { numRuns: 12 },
+  )(
+    'posts created across three communities each appear only in their own feed, never another tenant’s',
+    (ops) =>
+      withResource(
+        () => setupContentTest(),
+        async (ctx) => {
           const expected = [0, 0, 0]
           let n = 0
           for (const op of ops) {
-            const res = await ctx.request.post(
-              `/api/communities/${COMMS[op.comm]}/posts`,
-              op.body,
-              {
-                'idempotency-key': `p-${n++}`,
-              },
-            )
-            // A body with a NUL title is a clean 400, not created — only count creations.
-            expected[op.comm] = (expected[op.comm] ?? 0) + (res.status === 201 ? 1 : 0)
+            const res = await ctx.request.post(`/api/communities/${COMMS[op.comm]}/posts`, op.body, {
+              'idempotency-key': `p-${n++}`,
+            })
+            // Bodies are pre-validated, so every create is a 201; the count derives from the input.
+            expect(res.status).toBe(201)
+            expected[op.comm] = (expected[op.comm] ?? 0) + 1
           }
           for (const i of [0, 1, 2]) {
             const feed = await ctx.request.get(`/api/communities/${COMMS[i]}/feed`)
             expect((feed.json as { posts: unknown[] }).posts.length).toBe(expected[i])
           }
-          await ctx.close()
         },
       ),
-      { numRuns: 12 },
-    )
-  })
+  )
 })

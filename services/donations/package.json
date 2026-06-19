@@ -10,6 +10,7 @@
     "build": "tsc -p tsconfig.json",
     "typecheck": "tsc -p tsconfig.json",
     "test": "vitest run",
+    "test:coverage": "vitest run --coverage",
     "dev": "tsx watch --import ./src/telemetry.ts src/server.ts",
     "openapi:generate": "tsx src/openapi-build.ts",
     "asyncapi:generate": "tsx src/asyncapi-build.ts",
@@ -29,13 +30,15 @@
   "devDependencies": {
     "@electric-sql/pglite": "^0.2.0",
     "@pact-foundation/pact": "^13.0.0",
+    "@fast-check/vitest": "catalog:",
     "@qaroom/testing-utils": "workspace:*",
+    "@vitest/coverage-v8": "catalog:",
     "@testcontainers/postgresql": "^10.0.0",
     "drizzle-kit": "^0.30.0",
-    "fast-check": "^3.23.0",
+    "fast-check": "catalog:",
     "tsx": "^4.19.0",
     "typescript": "^5.7.0",
-    "vitest": "^3.0.0",
+    "vitest": "catalog:",
     "@stryker-mutator/core": "9.6.1",
     "@stryker-mutator/vitest-runner": "9.6.1"
   }

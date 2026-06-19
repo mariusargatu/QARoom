@@ -45,91 +45,72 @@ export function setupGatewayTest(content: ContentClient, options: GatewayTestOpt
   return { ...deps, app, eventStream, request: injectClient(app) }
 }
 
-/** A content stub that returns the same response for every call. */
-export function constantContent(response: ClientResponse): ContentClient {
+/**
+ * One factory for every upstream-client double. A client stub is just "these method names, each
+ * returning the same response" (constant) or "each throwing a transport error" (unreachable) — so
+ * the per-client `getFeed/getPost/...` object literals (×10, the audit's dedup target) collapse to a
+ * method-name tuple + this builder. The cast is sound: a no-arg `reply` is assignable to each
+ * arg-taking method (fewer params), and the tuple covers exactly the client's interface keys.
+ */
+function constantClient<T>(methods: readonly string[], response: ClientResponse): T {
   const reply = async () => response
-  return { getFeed: reply, getPost: reply, createPost: reply, castVote: reply }
+  return Object.fromEntries(methods.map((m) => [m, reply])) as unknown as T
 }
 
-/** A content stub that simulates an unreachable upstream (every call throws). */
-export function unreachableContent(): ContentClient {
+function unreachableClient<T>(methods: readonly string[]): T {
   const fail = async (): Promise<ClientResponse> => {
     throw new Error('ECONNREFUSED')
   }
-  return { getFeed: fail, getPost: fail, createPost: fail, castVote: fail }
+  return Object.fromEntries(methods.map((m) => [m, fail])) as unknown as T
 }
+
+const CONTENT_METHODS = ['getFeed', 'getPost', 'createPost', 'castVote'] as const
+const DONATIONS_METHODS = ['listDonations', 'getDonation', 'createDonation'] as const
+const FLAGS_METHODS = ['resolveFlag', 'listFlags', 'advanceRollout'] as const
+const IDENTITY_METHODS = [
+  'createUser',
+  'getUser',
+  'createCommunity',
+  'addMembership',
+  'listMembers',
+  'createSession',
+  'createWsTicket',
+] as const
+const MODERATOR_METHODS = ['listDecisions', 'getDecision'] as const
+
+/** A content stub that returns the same response for every call. */
+export const constantContent = (response: ClientResponse): ContentClient =>
+  constantClient<ContentClient>(CONTENT_METHODS, response)
+/** A content stub that simulates an unreachable upstream (every call throws). */
+export const unreachableContent = (): ContentClient =>
+  unreachableClient<ContentClient>(CONTENT_METHODS)
 
 /** A donations stub returning the same response for every call. */
-export function constantDonations(response: ClientResponse): DonationsClient {
-  const reply = async () => response
-  return { listDonations: reply, getDonation: reply, createDonation: reply }
-}
-
+export const constantDonations = (response: ClientResponse): DonationsClient =>
+  constantClient<DonationsClient>(DONATIONS_METHODS, response)
 /** A donations stub whose every call throws (unreachable / timed-out / circuit open). */
-export function unreachableDonations(): DonationsClient {
-  const fail = async (): Promise<ClientResponse> => {
-    throw new Error('ECONNREFUSED')
-  }
-  return { listDonations: fail, getDonation: fail, createDonation: fail }
-}
+export const unreachableDonations = (): DonationsClient =>
+  unreachableClient<DonationsClient>(DONATIONS_METHODS)
 
 /** A flags stub returning the same response for every call. */
-export function constantFlags(response: ClientResponse): FlagsClient {
-  const reply = async () => response
-  return { resolveFlag: reply, listFlags: reply, advanceRollout: reply }
-}
-
+export const constantFlags = (response: ClientResponse): FlagsClient =>
+  constantClient<FlagsClient>(FLAGS_METHODS, response)
 /** A flags stub whose every call throws (unreachable / timed-out). */
-export function unreachableFlags(): FlagsClient {
-  const fail = async (): Promise<ClientResponse> => {
-    throw new Error('ECONNREFUSED')
-  }
-  return { resolveFlag: fail, listFlags: fail, advanceRollout: fail }
-}
+export const unreachableFlags = (): FlagsClient => unreachableClient<FlagsClient>(FLAGS_METHODS)
 
 /** An identity stub returning the same response for every call. */
-export function constantIdentity(response: ClientResponse): IdentityClient {
-  const reply = async () => response
-  return {
-    createUser: reply,
-    getUser: reply,
-    createCommunity: reply,
-    addMembership: reply,
-    listMembers: reply,
-    createSession: reply,
-    createWsTicket: reply,
-  }
-}
-
+export const constantIdentity = (response: ClientResponse): IdentityClient =>
+  constantClient<IdentityClient>(IDENTITY_METHODS, response)
 /** An identity stub whose every call throws (unreachable / timed-out). */
-export function unreachableIdentity(): IdentityClient {
-  const fail = async (): Promise<ClientResponse> => {
-    throw new Error('ECONNREFUSED')
-  }
-  return {
-    createUser: fail,
-    getUser: fail,
-    createCommunity: fail,
-    addMembership: fail,
-    listMembers: fail,
-    createSession: fail,
-    createWsTicket: fail,
-  }
-}
+export const unreachableIdentity = (): IdentityClient =>
+  unreachableClient<IdentityClient>(IDENTITY_METHODS)
 
 /** A moderator stub returning the same response for every call. */
-export function constantModerator(response: ClientResponse): ModeratorClient {
-  const reply = async () => response
-  return { listDecisions: reply, getDecision: reply }
-}
-
+export const constantModerator = (response: ClientResponse): ModeratorClient =>
+  constantClient<ModeratorClient>(MODERATOR_METHODS, response)
 /** A moderator stub whose every call throws (unreachable / timed-out). */
-export function unreachableModerator(): ModeratorClient {
-  const fail = async (): Promise<ClientResponse> => {
-    throw new Error('ECONNREFUSED')
-  }
-  return { listDecisions: fail, getDecision: fail }
-}
+export const unreachableModerator = (): ModeratorClient =>
+  unreachableClient<ModeratorClient>(MODERATOR_METHODS)
 
 /** A ticket client that never recognizes any ticket (the default — no valid tickets). */
 export function noTickets(): TicketClient {

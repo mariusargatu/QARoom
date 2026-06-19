@@ -28,10 +28,11 @@ export async function breakerGuardedCall(
   baseUrl: string,
   opts: UpstreamCallOptions,
   timeoutMs: number,
+  fetchImpl: typeof fetch = fetch,
 ): Promise<ClientResponse> {
   if (breaker && !breaker.allow()) throw new CircuitOpenError()
   try {
-    const res = await upstreamCall(baseUrl, opts, timeoutMs)
+    const res = await upstreamCall(baseUrl, opts, timeoutMs, fetchImpl)
     const signal = breakerSignal(res.status)
     if (signal !== undefined) breaker?.record(signal)
     return res

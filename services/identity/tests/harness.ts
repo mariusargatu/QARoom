@@ -1,6 +1,6 @@
 import { COMM_GENERAL, EXAMPLE_USER_ID } from '@qaroom/contracts'
 import type { SeedConfig } from '@qaroom/testing-utils/harness'
-import { injectClient, setupServiceTest } from '@qaroom/testing-utils/harness'
+import { asServiceDb, injectClient, setupServiceTest } from '@qaroom/testing-utils/harness'
 import type { BuiltIdentity } from '../src/app'
 import { buildIdentity } from '../src/app'
 import type { IdentityDb } from '../src/db/client'
@@ -29,7 +29,7 @@ export async function setupIdentityTest(opts: IdentityTestOptions = {}) {
     applyMigrations: (db) => ensureSchema(db),
     createApp: (deps) => {
       built = buildIdentity({
-        db: deps.db as unknown as IdentityDb,
+        db: asServiceDb<IdentityDb>(deps.db),
         clock: deps.clock,
         ids: deps.ids,
         randomness: deps.randomness,

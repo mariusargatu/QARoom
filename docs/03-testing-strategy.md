@@ -281,6 +281,51 @@ Test data is not duplicated across tests. Generators and fixtures are shared. Ne
 
 These conventions are enforced by lint rules, not by review.
 
+### Property-based testing as a discipline
+
+PBT is not a layer; it is a way of writing tests at every layer. The standard idiom is
+`@fast-check/vitest`'s `test.prop` / `it.prop`, so each property is a first-class Vitest test node
+(individual pass/fail, seed-in-output, `.skip`/`.only`) rather than an `fc.assert(fc.asyncProperty(…))`
+buried inside an `it`. One idiom across the repo.
+
+```ts
+import { fc, test } from '@fast-check/vitest'
+test.prop([createPostRequestArb, idempotencyKeyArb], { numRuns: 10 })(
+  'creating a post twice with the same Idempotency-Key yields one post',
+  (body, key) => withResource(() => setupContentTest(), async (ctx) => { /* assertions */ }),
+)
+```
+
+The plugin is ergonomics + reporting; it does **not** solve the cost model. Three things actually make
+PBT scale, and they are the discipline:
+
+- **Per-layer `numRuns` budget.** fast-check's model is *many cheap iterations*. Match the budget to
+  the per-iteration cost:
+  - **Unit (pure functions, no I/O):** the sweet spot — high `numRuns` (the global default, 100). These
+    are nearly free; prefer a property over examples wherever an invariant exists (`resolveFaults`
+    semantics, `breakerSignal` decision table, retry-schedule math, `rowToPost`).
+  - **Integration (a PGlite app per iteration):** modest `numRuns` (10–15). A fresh harness per run is
+    expensive; do not crank it.
+  - **System (live cluster):** fast-check is the wrong tool — each iteration is a real round-trip.
+    Property-style fuzzing at this tier is **Schemathesis** (stateful-links over the OpenAPI) and
+    **EvoMaster**, not fast-check.
+- **`withResource` for per-iteration isolation.** An integration property builds a fresh harness inside
+  the predicate so fast-check iterations stay isolated. `withResource(acquire, use)`
+  (`@qaroom/testing-utils/harness`) is the lint-safe home for the `try/finally` that guarantees
+  teardown — predicates themselves cannot contain `try` (the no-conditional-in-test rule), and a
+  failing iteration or a shrink replay must never leak the wasm-backed PGlite instance.
+- **Stateful / model-based PBT for sequences.** When the invariant is about a *sequence* of operations
+  (rollout transitions, migration edges, multi-tenant interleavings), use `fc.commands` against a model
+  rather than rebuilding a harness per single input — see the Milestone-7 rollout-traversal and
+  migration-edge regression suites. This is also how to keep integration `numRuns` honest: one long
+  command sequence covers more than many short rebuilds.
+
+Determinism is preserved automatically: the global seed is pinned once
+(`configureFastCheck` → `fc.configureGlobal({ seed, numRuns })` in the shared setup file), and
+`test.prop` inherits it, so a reported counter-example replays exactly via `VITEST_SEED=<n>`. The
+arbitraries themselves (`packages/testing-utils/generators/`) are the real PBT asset — reach for an
+existing generator before writing one inline.
+
 ## 10. The learning loop
 
 The strategy itself evolves. Each milestone is meant to close with a retrospective: what the techniques caught, what they missed, the cost, what changes next. Through Milestone 12 no standalone retro was written; `docs/retrospectives/` is created the day one lands.
@@ -297,7 +342,7 @@ The strategy is not handed down from on high. It is the current best understandi
 
 Techniques deliberately not in v1, with their reasons:
 
-- **Mutation testing of the full codebase.** Stryker runs on the **locked critical-modules list**: voting score logic, flag resolution, donation gating, RFC 7807 envelope construction, `LamportGate`, branded ID parsers, rate-limit token bucket. Adding a module is an ADR; removing requires a retrospective. Full-suite mutation testing is too slow to demonstrate well in a teaching project.
+- **Mutation testing of the full codebase.** Stryker runs on the **locked critical-modules list**: voting score logic, flag resolution, donation gating, RFC 7807 envelope construction, `LamportGate`, branded ID parsers, rate-limit token bucket, circuit-breaker signal mapping, WS-ticket one-use/expiry (the last two added 2026-06-19, ADR-0016 addendum). Adding a module is an ADR; removing requires a retrospective. Full-suite mutation testing is too slow to demonstrate well in a teaching project.
 - **Security testing** (SAST, DAST, dependency scanning). Out of scope for the architectural lens.
 - **Visual regression testing.** Mentioned in conventions; not enforced as a milestone.
 - **Accessibility testing.** Out of scope.

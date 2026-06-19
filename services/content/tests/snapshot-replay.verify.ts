@@ -8,9 +8,10 @@ import { sql as drizzleSql } from 'drizzle-orm'
 import { drizzle } from 'drizzle-orm/postgres-js'
 import postgres from 'postgres'
 import { buildApp } from '../src/app'
-import type { ContentDb } from '../src/db/client'
+import type { FaultConfig } from '../src/deps'
 import { ensureSchema } from '../src/db/migrate'
 import { schema } from '../src/db/schema'
+import { asContentDb } from './db-cast'
 
 /**
  * The Milestone-7 regression catalog (Commitment 8): ≥3 scenarios that run on every PR (Docker
@@ -31,13 +32,16 @@ const FEED = `/api/communities/${COMMUNITY}/feed`
 
 const container = await new PostgreSqlContainer('postgres:18-alpine').start()
 const sql = postgres(container.getConnectionUri(), { max: 4 })
-const db = drizzle(sql, { schema }) as unknown as ContentDb
+const db = asContentDb(drizzle(sql, { schema }))
 await ensureSchema(db)
 
 const clock = new FakeClock('2026-06-04T00:00:00.000Z')
 const ids = new SeededIdGenerator(1)
 const lamport = new LamportGate(ids)
 const store = pgSnapshotStore(sql)
+// Mutable fault set flipped mid-process by scenarioFeedOrderBug (read per call by listFeed) — the
+// injectable replacement for the old process.env mutation, so this script touches no global state.
+const faults: FaultConfig = { feedReversed: false, tenantLeak: false, voteSlowMs: 0, syncPublish: false }
 const app = buildApp({
   db,
   clock,
@@ -45,6 +49,7 @@ const app = buildApp({
   randomness: new SeededRandomness(1),
   lamport,
   snapshotStore: store,
+  faults,
 })
 const request = injectClient(app)
 
@@ -71,7 +76,7 @@ async function clearDomain(): Promise<void> {
 
 async function scenarioFeedOrderBug(): Promise<void> {
   await clearDomain()
-  process.env.CONTENT_BUG_FEED_REVERSED = '1'
+  faults.feedReversed = true
   for (let i = 0; i < 3; i += 1) await seedPost(`post-${i}`)
   const buggy = (await request.get(FEED)).json
   const buggyTitles = titles(buggy)
@@ -86,7 +91,7 @@ async function scenarioFeedOrderBug(): Promise<void> {
   assert.deepEqual(titles(reproduced), buggyTitles, 'restore reproduces the captured order')
   assert.equal(feedLamport(reproduced), buggyLamport, 'restore reproduces as_of.lamport')
 
-  process.env.CONTENT_BUG_FEED_REVERSED = ''
+  faults.feedReversed = false
   await request.post('/system/snapshot', snapshot)
   const fixed = (await request.get(FEED)).json
   assert.deepEqual(titles(fixed), [...buggyTitles].reverse(), 'fix replays green (newest-first)')

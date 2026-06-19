@@ -1,3 +1,4 @@
+import { test } from '@fast-check/vitest'
 import { backoffCeilingMs, nextBackoff, WEBHOOK_RETRY_POLICY } from '@qaroom/contracts'
 import { rowsOf } from '@qaroom/messaging'
 import { SeededRandomness } from '@qaroom/testing-utils/determinism'
@@ -18,64 +19,49 @@ import {
  * pure function of (attempt, seed): exponential, capped, bounded in attempts, seed-determined.
  */
 describe('webhook retry contract', () => {
-  it('every scheduled delay sits in [0, ceiling] and the ceiling never exceeds max_delay_ms', () => {
-    fc.assert(
-      fc.property(
-        fc.integer({ min: 1, max: WEBHOOK_RETRY_POLICY.max_attempts - 1 }),
-        fc.integer({ min: 1, max: 1_000_000 }),
-        (attempt, seed) => {
-          const delay = nextBackoff(attempt, new SeededRandomness(seed))
-          expect(delay).not.toBeNull()
-          const ceiling = backoffCeilingMs(attempt)
-          expect(delay as number).toBeGreaterThanOrEqual(0)
-          expect(delay as number).toBeLessThanOrEqual(ceiling)
-          expect(ceiling).toBeLessThanOrEqual(WEBHOOK_RETRY_POLICY.max_delay_ms)
-        },
-      ),
-    )
-  })
+  test.prop([
+    fc.integer({ min: 1, max: WEBHOOK_RETRY_POLICY.max_attempts - 1 }),
+    fc.integer({ min: 1, max: 1_000_000 }),
+  ])(
+    'every scheduled delay sits in [0, ceiling] and the ceiling never exceeds max_delay_ms',
+    (attempt, seed) => {
+      const delay = nextBackoff(attempt, new SeededRandomness(seed))
+      expect(delay).not.toBeNull()
+      const ceiling = backoffCeilingMs(attempt)
+      expect(delay as number).toBeGreaterThanOrEqual(0)
+      expect(delay as number).toBeLessThanOrEqual(ceiling)
+      expect(ceiling).toBeLessThanOrEqual(WEBHOOK_RETRY_POLICY.max_delay_ms)
+    },
+  )
 
-  it('the ceiling follows the capped-exponential law (catches a linear schedule)', () => {
-    fc.assert(
-      fc.property(fc.integer({ min: 1, max: WEBHOOK_RETRY_POLICY.max_attempts - 2 }), (attempt) => {
-        const a = backoffCeilingMs(attempt)
-        const b = backoffCeilingMs(attempt + 1)
-        // The exact law: next ceiling = min(prev * multiplier, cap). A linear (prev + base) or
-        // uncapped schedule violates this at some attempt.
-        expect(b).toBe(
-          Math.min(a * WEBHOOK_RETRY_POLICY.multiplier, WEBHOOK_RETRY_POLICY.max_delay_ms),
-        )
-      }),
-    )
-  })
+  test.prop([fc.integer({ min: 1, max: WEBHOOK_RETRY_POLICY.max_attempts - 2 })])(
+    'the ceiling follows the capped-exponential law (catches a linear schedule)',
+    (attempt) => {
+      const a = backoffCeilingMs(attempt)
+      const b = backoffCeilingMs(attempt + 1)
+      // The exact law: next ceiling = min(prev * multiplier, cap). A linear (prev + base) or
+      // uncapped schedule violates this at some attempt.
+      expect(b).toBe(Math.min(a * WEBHOOK_RETRY_POLICY.multiplier, WEBHOOK_RETRY_POLICY.max_delay_ms))
+    },
+  )
 
-  it('returns null exactly when the attempt budget is exhausted', () => {
-    fc.assert(
-      fc.property(
-        fc.integer({ min: 1, max: 50 }),
-        fc.integer({ min: 1, max: 1000 }),
-        (attempt, seed) => {
-          const result = nextBackoff(attempt, new SeededRandomness(seed))
-          // null exactly when (and only when) the attempt budget is exhausted.
-          expect(result === null).toBe(attempt >= WEBHOOK_RETRY_POLICY.max_attempts)
-        },
-      ),
-    )
-  })
+  test.prop([fc.integer({ min: 1, max: 50 }), fc.integer({ min: 1, max: 1000 })])(
+    'returns null exactly when the attempt budget is exhausted',
+    (attempt, seed) => {
+      const result = nextBackoff(attempt, new SeededRandomness(seed))
+      // null exactly when (and only when) the attempt budget is exhausted.
+      expect(result === null).toBe(attempt >= WEBHOOK_RETRY_POLICY.max_attempts)
+    },
+  )
 
-  it('is fully determined by the seed (same seed → same schedule)', () => {
-    fc.assert(
-      fc.property(fc.integer({ min: 1, max: 1_000_000 }), (seed) => {
-        const a = Array.from({ length: 7 }, (_, i) =>
-          nextBackoff(i + 1, new SeededRandomness(seed)),
-        )
-        const b = Array.from({ length: 7 }, (_, i) =>
-          nextBackoff(i + 1, new SeededRandomness(seed)),
-        )
-        expect(a).toEqual(b)
-      }),
-    )
-  })
+  test.prop([fc.integer({ min: 1, max: 1_000_000 })])(
+    'is fully determined by the seed (same seed → same schedule)',
+    (seed) => {
+      const a = Array.from({ length: 7 }, (_, i) => nextBackoff(i + 1, new SeededRandomness(seed)))
+      const b = Array.from({ length: 7 }, (_, i) => nextBackoff(i + 1, new SeededRandomness(seed)))
+      expect(a).toEqual(b)
+    },
+  )
 })
 
 // Deliberate-bug demo: CHAOS_WEBHOOK_NO_CAP drops the max_delay_ms ceiling in the worker. With a

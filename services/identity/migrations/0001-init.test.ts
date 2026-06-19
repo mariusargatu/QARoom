@@ -2,6 +2,7 @@ import { PGlite } from '@electric-sql/pglite'
 import { COMM_GENERAL, composeMigrations, type Migration } from '@qaroom/contracts'
 import { sql } from 'drizzle-orm'
 import { drizzle } from 'drizzle-orm/pglite'
+import { asServiceDb, pgliteRows } from '@qaroom/testing-utils/harness'
 import { afterEach, beforeEach, describe, expect, it } from 'vitest'
 import type { IdentityDb, SqlExecutor } from '../src/db/client'
 import { IDENTITY_MIGRATIONS } from '../src/db/migrate'
@@ -24,21 +25,27 @@ const composed = composeMigrations(IDENTITY_MIGRATIONS)
 let pglite: PGlite
 let db: IdentityDb
 
-const tables = async (): Promise<string[]> => {
-  const res = await db.execute(
+const tables = (): Promise<string[]> =>
+  pgliteRows<{ table_name: string }>(
+    db,
     sql`SELECT table_name FROM information_schema.tables WHERE table_schema = 'public' ORDER BY table_name`,
-  )
-  return (res as unknown as { rows: Array<{ table_name: string }> }).rows.map((r) => r.table_name)
-}
+  ).then((rows) => rows.map((r) => r.table_name))
 
-const generalSeedCount = async (): Promise<number> => {
-  const res = await db.execute(sql`SELECT count(*)::int AS n FROM communities WHERE id = ${COMM_GENERAL}`)
-  return (res as unknown as { rows: Array<{ n: number }> }).rows[0]?.n ?? 0
-}
+const indexNames = (): Promise<string[]> =>
+  pgliteRows<{ indexname: string }>(
+    db,
+    sql`SELECT indexname FROM pg_indexes WHERE schemaname = 'public'`,
+  ).then((rows) => rows.map((r) => r.indexname))
+
+const generalSeedCount = (): Promise<number> =>
+  pgliteRows<{ n: number }>(
+    db,
+    sql`SELECT count(*)::int AS n FROM communities WHERE id = ${COMM_GENERAL}`,
+  ).then((rows) => rows[0]?.n ?? 0)
 
 beforeEach(() => {
   pglite = new PGlite()
-  db = drizzle(pglite) as unknown as IdentityDb
+  db = asServiceDb<IdentityDb>(drizzle(pglite))
 })
 
 afterEach(async () => {
@@ -71,7 +78,21 @@ describe('identity schema migration (0001 init)', () => {
     expect(await generalSeedCount()).toBe(1)
   })
 
-  it('catches a deliberately broken migration whose down does not drop its table', async () => {
+  it('creates the invariant-bearing indexes on up and drops them with their tables on down', async () => {
+    await composed.up(db)
+    const present = await indexNames()
+    // The rotation invariant (at most one 'current' signing key) and the membership-by-community
+    // lookup are enforced by indexes, not just table existence — the old name-only test missed both.
+    expect(present).toContain('signing_keys_one_current')
+    expect(present).toContain('memberships_community_idx')
+
+    await composed.down(db)
+    const afterDown = await indexNames()
+    expect(afterDown).not.toContain('signing_keys_one_current')
+    expect(afterDown).not.toContain('memberships_community_idx')
+  })
+
+  it('down-reversal discipline catches a broken migration composed into the real set', async () => {
     const broken: Migration<SqlExecutor> = {
       name: 'broken-no-down',
       async up(tx) {
@@ -81,9 +102,14 @@ describe('identity schema migration (0001 init)', () => {
         /* deliberately a no-op: the reversal assertion below must catch this */
       },
     }
-    await broken.up(db)
-    await broken.down(db)
-    // A correct down would drop broken_demo; the broken one leaves it present.
-    expect(await tables()).toContain('broken_demo')
+    // Compose the broken step onto the REAL identity migrations and run the real reversal, so the
+    // gate's own predicate ('down drops every table') is exercised against migrate.ts — not a
+    // self-contained toy. Every real down runs, leaving ONLY the broken step's residue behind.
+    const withBroken = composeMigrations([...IDENTITY_MIGRATIONS, broken])
+    await withBroken.up(db)
+    await withBroken.down(db)
+    // If any REAL migration's down regressed to a no-op, this would be more than [broken_demo] and
+    // the negative control would itself go red — so it now has teeth over the real schema.
+    expect(await tables()).toEqual(['broken_demo'])
   })
 })

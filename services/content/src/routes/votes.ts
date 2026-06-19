@@ -1,8 +1,8 @@
 import { CastVoteRequest, CastVoteResponse, PostId } from '@qaroom/contracts'
 import { problem, withIdempotency } from '@qaroom/service-kit'
 import type { FastifyInstance } from 'fastify'
-import type { RouteDeps } from './deps'
-import { castVote } from './repository'
+import type { RouteDeps } from '../deps'
+import { castVote } from '../repository/votes'
 
 const VOTE_ROUTE = 'POST /api/posts/{postId}/votes'
 

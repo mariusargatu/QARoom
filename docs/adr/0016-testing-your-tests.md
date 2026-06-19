@@ -36,8 +36,10 @@ preconditions that already exist.
 
 **1. Stryker is scoped to the locked critical-modules list, never full-suite.** The list is governed
 in **Doc 03 §11** as the single source of truth: voting score logic, flag resolution, donation
-gating, RFC 7807 envelope construction, `LamportGate`, branded ID parsers, rate-limit token bucket.
-Each owning package carries a scoped `stryker.config.json` + `vitest.stryker.config.ts` whose
+gating, RFC 7807 envelope construction, `LamportGate`, branded ID parsers, rate-limit token bucket,
+circuit-breaker signal mapping, and the WS-ticket one-use/expiry store (the last two added in the
+2026-06-19 addendum below). Each owning package carries a scoped `stryker.config.json` +
+`vitest.stryker.config.ts` whose
 `mutate` glob points at *its* module(s) and whose Vitest scope excludes the Testcontainers/pglite
 specs so a per-mutant re-run stays fast. The §11 list names *logic*, not files, so mutating the
 `repository.ts` that holds (e.g.) the voting-score arithmetic is faithful to the list and needs no
@@ -71,6 +73,38 @@ when a finding is reified into a deterministic, committed test:
 
 The raw, stochastic tool output is the *discovery engine*; the deterministic test is the deliverable.
 
+## Addendum (2026-06-19): two modules added to the §11 list
+
+Per the governance rule above ("adding a module to the list is an ADR"), two modules join the locked
+critical-modules list. Both are small, branch-shaped *logic* (not plumbing) whose silent breakage is
+a real production incident, and both gained a thorough unit guard in the L1 coverage backfill that
+makes them worth meta-testing:
+
+- **Circuit-breaker signal mapping** (`services/gateway/src/breaker-guarded-call.ts`,
+  `breakerSignal`). The 3-way decision table — a 5xx≠502 trips the breaker (`false`), a 2xx/3xx is a
+  success (`true`), a 4xx or a 502 leaves it untouched (`undefined`) — is the experiment-06
+  resilience contract. A silent inversion either fast-fails healthy reads (502 wrongly trips) or
+  hammers a sick upstream (500 wrongly ignored). Guarded by `breaker-guarded-call.test.ts` (the full
+  table + transport-failure + open-circuit short-circuit). Folded into gateway's existing
+  `stryker.config.json` (`mutate` += `src/breaker-guarded-call.ts`). **Measured baseline 2026-06-19:
+  28/28 mutants killed (100%)**; the gateway package score is **92.75%** (rate-limiter + breaker),
+  well over its 80% break floor.
+
+- **WS-ticket one-use/expiry store** (`services/identity/src/ticket-store.ts`). The handshake-ticket
+  security contract (ADR-0013): a ticket is redeemable exactly once (delete-before-expiry-check) and
+  for ≤30s, measured against the injected `Clock`. A silent break is ticket replay — an auth bypass
+  on the WS upgrade. Guarded by `ticket-store.test.ts` (one-use, replay rejection, the 30s boundary,
+  the sweep). identity gains its first scoped `stryker.config.json` + `vitest.stryker.config.ts` and
+  joins `scripts/stryker-critical.ts`'s FAST_TIER. **Measured baseline 2026-06-19: 95.24%** (one
+  low-value `StringLiteral` survivor, consistent with the string-edit caveat in Trade-offs), over its
+  80% break floor.
+
+Deliberately **excluded**: `upstream-call.ts` (header construction / `AbortSignal` timeout) — it is
+an HTTP transport seam, not branch-shaped logic, and the §11 list names logic not plumbing; its
+example tests (`upstream-call.test.ts`) are sufficient. The scenario primitives in
+`@qaroom/testing-utils/scenario` stay out too: they are *test infrastructure*, validated by their own
+unit tests, not product modules.
+
 ## Consequences
 
 ### Positive
@@ -86,7 +120,7 @@ The raw, stochastic tool output is the *discovery engine*; the deterministic tes
   are low-value; break floors reflect that honestly rather than chasing 100%.
 - EvoMaster pulls a Java/JVM dependency into the nightly lane: accepted as a cached, version-pinned
   tool, mirroring how Schemathesis is containerised (no Python in the monorepo).
-- Two of the seven §11 modules (content voting score, flags resolution) are primarily covered by
+- Two of the nine §11 modules (content voting score, flags resolution) are primarily covered by
   Testcontainers specs; their mutation tier is the documented nightly-heavy extension, not the fast
   default: surfaced here rather than silently dropped.
 

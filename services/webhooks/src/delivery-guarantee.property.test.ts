@@ -1,5 +1,7 @@
+import { test } from '@fast-check/vitest'
 import { WEBHOOK_RETRY_POLICY } from '@qaroom/contracts'
 import { rowsOf } from '@qaroom/messaging'
+import { withResource } from '@qaroom/testing-utils/harness'
 import { sql } from 'drizzle-orm'
 import fc from 'fast-check'
 import { afterEach, describe, expect, it } from 'vitest'
@@ -30,35 +32,35 @@ async function deliveryStatus(ctx: Awaited<ReturnType<typeof setupWebhooksTest>>
  * status is consistent with what the receiver actually returned.
  */
 describe('at-least-once delivery guarantee', () => {
-  it('every delivery reaches a terminal state and Delivered implies the receiver returned 2xx', async () => {
-    await fc.assert(
-      fc.asyncProperty(fc.integer({ min: 0, max: 12 }), async (failuresBeforeSuccess) => {
-        const ctx = await setupWebhooksTest()
-        const sub = await seedSubscription(ctx)
-        await enqueueDelivery(ctx, { subscriptionId: sub.id })
-        const sender: RecordingSender = scriptedSender([
-          ...Array.from({ length: failuresBeforeSuccess }, () => FAIL),
-          OK,
-        ])
-        const worker = makeWorker(ctx, sender)
-        await drainToQuiescence(ctx, worker)
+  test.prop([fc.integer({ min: 0, max: 12 })], { numRuns: 25 })(
+    'every delivery reaches a terminal state and Delivered implies the receiver returned 2xx',
+    (failuresBeforeSuccess) =>
+      withResource(
+        () => setupWebhooksTest(),
+        async (ctx) => {
+          const sub = await seedSubscription(ctx)
+          await enqueueDelivery(ctx, { subscriptionId: sub.id })
+          const sender: RecordingSender = scriptedSender([
+            ...Array.from({ length: failuresBeforeSuccess }, () => FAIL),
+            OK,
+          ])
+          const worker = makeWorker(ctx, sender)
+          await drainToQuiescence(ctx, worker)
 
-        const status = await deliveryStatus(ctx)
-        const calls = sender.calls.length
-        await ctx.close()
+          const status = await deliveryStatus(ctx)
+          const calls = sender.calls.length
 
-        // A delivery is never stuck mid-flight.
-        expect(['Delivered', 'DeadLettered']).toContain(status)
-        // Within budget → delivered after exactly K+1 POSTs; else dead-lettered after max_attempts.
-        const withinBudget = failuresBeforeSuccess < WEBHOOK_RETRY_POLICY.max_attempts
-        expect(status).toBe(withinBudget ? 'Delivered' : 'DeadLettered')
-        expect(calls).toBe(
-          withinBudget ? failuresBeforeSuccess + 1 : WEBHOOK_RETRY_POLICY.max_attempts,
-        )
-      }),
-      { numRuns: 25 },
-    )
-  })
+          // A delivery is never stuck mid-flight.
+          expect(['Delivered', 'DeadLettered']).toContain(status)
+          // Within budget → delivered after exactly K+1 POSTs; else dead-lettered after max_attempts.
+          const withinBudget = failuresBeforeSuccess < WEBHOOK_RETRY_POLICY.max_attempts
+          expect(status).toBe(withinBudget ? 'Delivered' : 'DeadLettered')
+          expect(calls).toBe(
+            withinBudget ? failuresBeforeSuccess + 1 : WEBHOOK_RETRY_POLICY.max_attempts,
+          )
+        },
+      ),
+  )
 
   it('a receiver that recovers after a transient outage still gets delivered', async () => {
     const ctx = await setupWebhooksTest()

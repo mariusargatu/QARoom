@@ -2,3 +2,14 @@ packages:
   - 'packages/*'
   - 'services/*'
   - 'tools/*'
+
+# Single source of truth for the shared test stack (pnpm catalog). Bump here, not per-package.
+# Unifies the workspace onto one vitest/fast-check major (was a 3.x/4.x split: web on 4, rest on 3).
+catalog:
+  # 4.1.8 matches web's lockstep @vitest/browser* stack already proven in-repo (avoids churning
+  # web's browser/vite deps); bump to latest with @vitest/browser* together in a dedicated pass.
+  vitest: 4.1.8
+  '@vitest/coverage-v8': 4.1.8
+  fast-check: 4.8.0
+  '@fast-check/vitest': 0.4.1
+  undici: 8.5.0

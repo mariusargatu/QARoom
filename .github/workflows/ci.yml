@@ -61,6 +61,14 @@ jobs:
       - name: Fold MBT edge-coverage results into summary.json
         run: pnpm mbt:results
 
+      # Backend v8 coverage (content + donations) folded as coverage:<svc> runners. Runs HERE (not
+      # only in web-ct/summary-envelope) so it rides partial-verify into the final envelope; must come
+      # after test-results:generate, which rewrites the envelope from scratch.
+      - name: Backend coverage (all 5 services) + fold into summary.json
+        run: |
+          pnpm --filter @qaroom/content --filter @qaroom/donations --filter @qaroom/flags --filter @qaroom/gateway --filter @qaroom/identity run test:coverage
+          pnpm coverage:results
+
       - name: Verify test-results/summary.json against frozen schema
         run: pnpm test-results:verify
 

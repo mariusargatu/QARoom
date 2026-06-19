@@ -1,6 +1,8 @@
+import { test } from '@fast-check/vitest'
 import { roleArb, userIdArb } from '@qaroom/testing-utils/generators'
+import { withResource } from '@qaroom/testing-utils/harness'
 import fc from 'fast-check'
-import { describe, expect, it } from 'vitest'
+import { describe, expect } from 'vitest'
 import { setupIdentityTest } from '../tests/harness'
 
 /**
@@ -12,15 +14,20 @@ import { setupIdentityTest } from '../tests/harness'
  * test could not surface.
  */
 describe('community membership tenancy isolation (property)', () => {
-  it('members added across three communities are each listed only in their own community, never another’s', async () => {
-    await fc.assert(
-      fc.asyncProperty(
-        fc.array(fc.record({ comm: fc.nat({ max: 2 }), user: userIdArb, role: roleArb }), {
-          minLength: 1,
-          maxLength: 6,
-        }),
-        async (ops) => {
-          const ctx = await setupIdentityTest()
+  test.prop(
+    [
+      fc.array(fc.record({ comm: fc.nat({ max: 2 }), user: userIdArb, role: roleArb }), {
+        minLength: 1,
+        maxLength: 6,
+      }),
+    ],
+    { numRuns: 12 },
+  )(
+    'members added across three communities are each listed only in their own community, never another’s',
+    (ops) =>
+      withResource(
+        () => setupIdentityTest(),
+        async (ctx) => {
           const ids: string[] = []
           for (const i of [0, 1, 2]) {
             const res = await ctx.request.post(
@@ -50,10 +57,7 @@ describe('community membership tenancy isolation (property)', () => {
             )
             expect(got).toEqual(expected[i])
           }
-          await ctx.close()
         },
       ),
-      { numRuns: 12 },
-    )
-  })
+  )
 })

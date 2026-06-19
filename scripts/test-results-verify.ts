@@ -46,6 +46,8 @@ const RUNNER_TIERS: Record<string, RunnerTier> = {
   pyrit: 'cluster',
   'golden-sme': 'cluster',
   coverage: 'optional',
+  'scenario:content': 'optional',
+  'scenario:flags': 'optional',
   evomaster: 'optional',
   moderator: 'optional',
   pact: 'optional',
@@ -53,10 +55,13 @@ const RUNNER_TIERS: Record<string, RunnerTier> = {
   stryker: 'optional',
 }
 
-// Classified names that are NOT folded by a *-results.ts (so deriveFoldedRunnerNames can't see them):
-// tenant-spans is folded by scripts/check-tenant-spans.ts via its `--fold` side-channel. Exempt it
-// from the "every classified name is folded by a script" direction of the drift check.
-const RUNNERS_WITHOUT_RESULTS_SCRIPT = new Set(['tenant-spans'])
+// Classified names the static `deriveFoldedRunnerNames` cannot see, so they are exempt from the
+// "every classified name is folded by a script" direction of the drift check:
+//  - tenant-spans   — folded by scripts/check-tenant-spans.ts via its `--fold` side-channel.
+//  - coverage       — folded by scripts/coverage-results.ts via a DYNAMIC `name: s.runner` (the web
+//                     merged-coverage scope), which the literal-`name:` extractor can't read.
+// (scenario:* are derivable — scenario-results.ts uses literal `name:` strings — so they stay in.)
+const RUNNERS_WITHOUT_RESULTS_SCRIPT = new Set(['tenant-spans', 'coverage'])
 
 /**
  * Derive the runner names the repo's `*-results.ts` scripts actually fold into summary.json — the

@@ -4,7 +4,7 @@ import {
   type RolloutTransitionRecord,
 } from '@qaroom/contracts'
 import type { SeedConfig } from '@qaroom/testing-utils/harness'
-import { injectClient, nextIdempotencyKey, setupServiceTest } from '@qaroom/testing-utils/harness'
+import { asServiceDb, injectClient, nextIdempotencyKey, setupServiceTest } from '@qaroom/testing-utils/harness'
 import { buildApp } from '../src/app'
 import type { FlagsDb } from '../src/db/client'
 import { ensureSchema } from '../src/db/migrate'
@@ -21,7 +21,7 @@ export async function setupFlagsTest(seed?: SeedConfig) {
     applyMigrations: (db) => ensureSchema(db),
     createApp: (deps) =>
       buildApp({
-        db: deps.db as unknown as FlagsDb,
+        db: asServiceDb<FlagsDb>(deps.db),
         clock: deps.clock,
         ids: deps.ids,
         randomness: deps.randomness,

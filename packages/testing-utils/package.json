@@ -18,7 +18,10 @@
     "./screenplay-ct": "./src/screenplay-ct/index.ts",
     "./mbt": "./src/screenplay/mbt/index.ts",
     "./testids": "./src/screenplay/testids.ts",
-    "./vitest-timeouts": "./src/vitest-timeouts.ts"
+    "./vitest-timeouts": "./src/vitest-timeouts.ts",
+    "./vitest-config": "./src/vitest-base.ts",
+    "./http": "./src/http/mock-upstream.ts",
+    "./scenario": "./src/scenario/index.ts"
   },
   "scripts": {
     "build": "tsc -p tsconfig.json",
@@ -36,19 +39,21 @@
     "ajv": "^8.17.0",
     "ajv-formats": "^3.0.1",
     "drizzle-orm": "^0.38.0",
-    "fast-check": "^3.23.0",
+    "fast-check": "catalog:",
     "pure-rand": "^6.1.0",
+    "undici": "catalog:",
     "xstate": "^5.19.0",
     "zod": "^4.0.0"
   },
   "peerDependencies": {
+    "@fast-check/vitest": "catalog:",
     "@pact-foundation/pact": "^13.0.0",
     "@playwright/experimental-ct-react": "^1.60.0",
     "@playwright/test": "^1.60.0",
     "@testcontainers/postgresql": "^10.0.0",
     "fastify": "^5.0.0",
     "postgres": "^3.4.0",
-    "vitest": "^3.0.0 || ^4.0.0"
+    "vitest": "^4.0.0"
   },
   "peerDependenciesMeta": {
     "@pact-foundation/pact": {
@@ -75,6 +80,6 @@
     "fastify": "^5.2.0",
     "postgres": "^3.4.0",
     "typescript": "^5.7.0",
-    "vitest": "^3.0.0"
+    "vitest": "catalog:"
   }
 }

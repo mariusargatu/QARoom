@@ -1,6 +1,8 @@
+import { test } from '@fast-check/vitest'
 import { createDonationRequestArb } from '@qaroom/testing-utils/generators'
+import { withResource } from '@qaroom/testing-utils/harness'
 import fc from 'fast-check'
-import { describe, expect, it } from 'vitest'
+import { describe, expect } from 'vitest'
 import { enableDonations, setupDonationsTest } from '../tests/harness'
 
 /**
@@ -17,15 +19,20 @@ const COMMS = [
 ] as const
 
 describe('community tenancy isolation (property)', () => {
-  it('donations created across three communities each appear only in their own list, never another tenant’s', async () => {
-    await fc.assert(
-      fc.asyncProperty(
-        fc.array(fc.record({ comm: fc.nat({ max: 2 }), body: createDonationRequestArb }), {
-          minLength: 1,
-          maxLength: 6,
-        }),
-        async (ops) => {
-          const ctx = await setupDonationsTest()
+  test.prop(
+    [
+      fc.array(fc.record({ comm: fc.nat({ max: 2 }), body: createDonationRequestArb }), {
+        minLength: 1,
+        maxLength: 6,
+      }),
+    ],
+    { numRuns: 12 },
+  )(
+    'donations created across three communities each appear only in their own list, never another tenant’s',
+    (ops) =>
+      withResource(
+        () => setupDonationsTest(),
+        async (ctx) => {
           // Donations are gated; enable the flag for every community so creations are recorded.
           for (const comm of COMMS) {
             await enableDonations(ctx, comm)
@@ -47,10 +54,7 @@ describe('community tenancy isolation (property)', () => {
             const list = await ctx.request.get(`/api/communities/${COMMS[i]}/donations`)
             expect((list.json as { donations: unknown[] }).donations.length).toBe(expected[i])
           }
-          await ctx.close()
         },
       ),
-      { numRuns: 12 },
-    )
-  })
+  )
 })

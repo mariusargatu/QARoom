@@ -1,6 +1,7 @@
+import { test } from '@fast-check/vitest'
 import { UserId } from '@qaroom/contracts'
 import { keyIdArb, userIdArb } from '@qaroom/testing-utils/generators'
-import fc from 'fast-check'
+import { withResource } from '@qaroom/testing-utils/harness'
 import { importJWK, SignJWT } from 'jose'
 import { describe, expect, it } from 'vitest'
 import { ISSUER } from '../src/jwt'
@@ -10,38 +11,38 @@ import { SAMPLE, setupIdentityTest } from '../tests/harness'
 const authRejection = { problem: { failure_domain: 'authentication' } }
 
 describe('JWT validation (property)', () => {
-  it('a token whose exp has passed under the logical clock is rejected as an authentication problem', async () => {
-    await fc.assert(
-      fc.asyncProperty(userIdArb, async (userId) => {
-        const ctx = await setupIdentityTest({ tokenTtlSeconds: 1 })
-        const issued = await ctx.issuer.issue({ sub: UserId.parse(userId), memberships: [] })
-        ctx.clock.advance(2000) // 2s of logical time > the 1s TTL
-        await expect(ctx.issuer.verify(issued.token)).rejects.toMatchObject(authRejection)
-        await ctx.close()
-      }),
-      { numRuns: 8 },
-    )
-  })
+  test.prop([userIdArb], { numRuns: 8 })(
+    'a token whose exp has passed under the logical clock is rejected as an authentication problem',
+    (userId) =>
+      withResource(
+        () => setupIdentityTest({ tokenTtlSeconds: 1 }),
+        async (ctx) => {
+          const issued = await ctx.issuer.issue({ sub: UserId.parse(userId), memberships: [] })
+          ctx.clock.advance(2000) // 2s of logical time > the 1s TTL
+          await expect(ctx.issuer.verify(issued.token)).rejects.toMatchObject(authRejection)
+        },
+      ),
+  )
 
-  it('a token bearing a kid absent from the JWKS-eligible set is rejected', async () => {
-    await fc.assert(
-      fc.asyncProperty(userIdArb, keyIdArb, async (userId, forgedKid) => {
-        const ctx = await setupIdentityTest()
-        await ctx.keyStore.ensureCurrent()
-        const nowSec = Math.floor(ctx.clock.now().getTime() / 1000)
-        const token = await new SignJWT({ memberships: [] })
-          .setProtectedHeader({ alg: 'ES256', kid: forgedKid })
-          .setSubject(UserId.parse(userId))
-          .setIssuer(ISSUER)
-          .setIssuedAt(nowSec)
-          .setExpirationTime(nowSec + 3600)
-          .sign(await importJWK(TEST_PRIVATE_JWK, 'ES256'))
-        await expect(ctx.issuer.verify(token)).rejects.toMatchObject(authRejection)
-        await ctx.close()
-      }),
-      { numRuns: 8 },
-    )
-  })
+  test.prop([userIdArb, keyIdArb], { numRuns: 8 })(
+    'a token bearing a kid absent from the JWKS-eligible set is rejected',
+    (userId, forgedKid) =>
+      withResource(
+        () => setupIdentityTest(),
+        async (ctx) => {
+          await ctx.keyStore.ensureCurrent()
+          const nowSec = Math.floor(ctx.clock.now().getTime() / 1000)
+          const token = await new SignJWT({ memberships: [] })
+            .setProtectedHeader({ alg: 'ES256', kid: forgedKid })
+            .setSubject(UserId.parse(userId))
+            .setIssuer(ISSUER)
+            .setIssuedAt(nowSec)
+            .setExpirationTime(nowSec + 3600)
+            .sign(await importJWK(TEST_PRIVATE_JWK, 'ES256'))
+          await expect(ctx.issuer.verify(token)).rejects.toMatchObject(authRejection)
+        },
+      ),
+  )
 
   it('a token signed by a key absent from the JWKS is rejected even when its kid matches the current key', async () => {
     const ctx = await setupIdentityTest()

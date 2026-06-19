@@ -1,11 +1,4 @@
-import { defineConfig } from 'vitest/config'
+import { defineServiceConfig } from '@qaroom/testing-utils/vitest-config'
 
-export default defineConfig({
-  test: {
-    globals: true,
-    setupFiles: ['@qaroom/testing-utils/setup'],
-    // Pact + Testcontainers-backed provider verification need a generous budget.
-    testTimeout: 60_000,
-    hookTimeout: 60_000,
-  },
-})
+// Pact + Testcontainers provider verification: flat generous budget, single-suite (no worker cap).
+export default defineServiceConfig({ pact: true })

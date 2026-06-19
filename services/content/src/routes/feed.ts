@@ -1,14 +1,14 @@
 import { CommunityId, Feed } from '@qaroom/contracts'
 import type { FastifyInstance } from 'fastify'
-import type { RouteDeps } from './deps'
-import { listFeed } from './repository'
+import type { RouteDeps } from '../deps'
+import { listFeed } from '../repository/posts'
 
 export function registerFeedRoutes(app: FastifyInstance, deps: RouteDeps): void {
   app.get<{ Params: { communityId: string } }>(
     '/api/communities/:communityId/feed',
     async (req, reply) => {
       const communityId = CommunityId.parse(req.params.communityId)
-      const records = await listFeed(deps.db, communityId)
+      const records = await listFeed(deps.db, deps, communityId)
       const tick = deps.lamport.read()
       const feed = Feed.parse({
         community_id: communityId,

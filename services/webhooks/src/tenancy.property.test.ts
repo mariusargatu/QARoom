@@ -1,6 +1,8 @@
+import { test } from '@fast-check/vitest'
 import { WebhookEventType } from '@qaroom/contracts'
+import { withResource } from '@qaroom/testing-utils/harness'
 import fc from 'fast-check'
-import { describe, expect, it } from 'vitest'
+import { describe, expect } from 'vitest'
 import { setupWebhooksTest } from '../tests/harness'
 
 /**
@@ -24,15 +26,20 @@ const eventTypesArb = fc.uniqueArray(fc.constantFrom(...WebhookEventType.options
 })
 
 describe('community tenancy isolation (property)', () => {
-  it('subscriptions created across three communities each appear only in their own list, never another tenant’s', async () => {
-    await fc.assert(
-      fc.asyncProperty(
-        fc.array(fc.record({ comm: fc.nat({ max: 2 }), eventTypes: eventTypesArb }), {
-          minLength: 1,
-          maxLength: 6,
-        }),
-        async (ops) => {
-          const ctx = await setupWebhooksTest()
+  test.prop(
+    [
+      fc.array(fc.record({ comm: fc.nat({ max: 2 }), eventTypes: eventTypesArb }), {
+        minLength: 1,
+        maxLength: 6,
+      }),
+    ],
+    { numRuns: 12 },
+  )(
+    'subscriptions created across three communities each appear only in their own list, never another tenant’s',
+    (ops) =>
+      withResource(
+        () => setupWebhooksTest(),
+        async (ctx) => {
           const expected = [0, 0, 0]
           let n = 0
           for (const op of ops) {
@@ -50,10 +57,7 @@ describe('community tenancy isolation (property)', () => {
             const list = await ctx.request.get(`/api/communities/${COMMS[i]}/webhook-subscriptions`)
             expect((list.json as { webhooks: unknown[] }).webhooks.length).toBe(expected[i])
           }
-          await ctx.close()
         },
       ),
-      { numRuns: 12 },
-    )
-  })
+  )
 })

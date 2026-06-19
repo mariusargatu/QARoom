@@ -14,6 +14,7 @@ const FAST_TIER = [
   '@qaroom/service-kit',
   '@qaroom/gateway',
   '@qaroom/donations',
+  '@qaroom/identity',
 ]
 
 let anyFailed = false

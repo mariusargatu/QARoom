@@ -58,6 +58,9 @@ export function buildPlan(ctx: PreflightCtx, opts: GauntletOpts): GauntletStep[]
       timeoutMs: 25 * 60_000,
     }),
     step(1, 'fold-mbt-coverage', 'gate', 'pnpm', ['mbt:results']),
+    // Re-runs the per-service fault-scenario catalogs and folds a `scenario:<svc>` runner. After
+    // aggregate-vitest (which rewrites the envelope from scratch), like every other fold here.
+    step(1, 'fold-scenario', 'gate', 'pnpm', ['scenario:results']),
     step(1, 'verify-openapi', 'gate', 'pnpm', ['openapi:verify']),
     step(1, 'verify-asyncapi', 'gate', 'pnpm', ['asyncapi:verify']),
     step(1, 'verify-mcp-manifest', 'gate', 'pnpm', ['mcp:verify']),
@@ -83,6 +86,22 @@ export function buildPlan(ctx: PreflightCtx, opts: GauntletOpts): GauntletStep[]
       'coverage:merge',
     ]),
     step(1, 'fold-web-ct', 'gate', 'pnpm', ['--filter', '@qaroom/web', 'run', 'ct:results']),
+    // Backend v8 coverage (content + donations on defineServiceConfig) must run before fold-coverage,
+    // or coverage:results finds no per-service coverage-summary.json and folds only web.
+    step(1, 'backend-coverage', 'gate', 'pnpm', [
+      '--filter',
+      '@qaroom/content',
+      '--filter',
+      '@qaroom/donations',
+      '--filter',
+      '@qaroom/flags',
+      '--filter',
+      '@qaroom/gateway',
+      '--filter',
+      '@qaroom/identity',
+      'run',
+      'test:coverage',
+    ]),
     step(1, 'fold-coverage', 'gate', 'pnpm', ['coverage:results']),
     step(1, 'verify-envelope', 'gate', 'pnpm', ['test-results:verify']),
   ]

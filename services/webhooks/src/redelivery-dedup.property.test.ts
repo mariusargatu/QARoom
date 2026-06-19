@@ -1,4 +1,6 @@
+import { test } from '@fast-check/vitest'
 import { WEBHOOK_DELIVERY_ID_HEADER } from '@qaroom/contracts'
+import { withResource } from '@qaroom/testing-utils/harness'
 import fc from 'fast-check'
 import { afterEach, describe, expect, it } from 'vitest'
 import type { SendResult } from '../src/sender'
@@ -27,28 +29,31 @@ function distinctDeliveryIds(sender: RecordingSender): number {
  * once even though it gets N≥1 POSTs.
  */
 describe('receiver idempotency via a stable delivery id', () => {
-  it('redeliveries carry one stable delivery id, so a deduping receiver applies the effect once', async () => {
-    await fc.assert(
-      fc.asyncProperty(fc.integer({ min: 1, max: 6 }), async (lostResponses) => {
-        const ctx = await setupWebhooksTest()
-        const sub = await seedSubscription(ctx)
-        await enqueueDelivery(ctx, { subscriptionId: sub.id })
-        // The receiver "processes" each POST but its response is lost `lostResponses` times,
-        // then finally acknowledges — so the worker POSTs `lostResponses + 1` times.
-        const sender = scriptedSender([...Array.from({ length: lostResponses }, () => TIMEOUT), OK])
-        const worker = makeWorker(ctx, sender)
-        await drainToQuiescence(ctx, worker)
+  test.prop([fc.integer({ min: 1, max: 6 })], { numRuns: 15 })(
+    'redeliveries carry one stable delivery id, so a deduping receiver applies the effect once',
+    (lostResponses) =>
+      withResource(
+        () => setupWebhooksTest(),
+        async (ctx) => {
+          const sub = await seedSubscription(ctx)
+          await enqueueDelivery(ctx, { subscriptionId: sub.id })
+          // The receiver "processes" each POST but its response is lost `lostResponses` times,
+          // then finally acknowledges — so the worker POSTs `lostResponses + 1` times.
+          const sender = scriptedSender([
+            ...Array.from({ length: lostResponses }, () => TIMEOUT),
+            OK,
+          ])
+          const worker = makeWorker(ctx, sender)
+          await drainToQuiescence(ctx, worker)
 
-        const posts = sender.calls.length
-        const distinct = distinctDeliveryIds(sender)
-        await ctx.close()
+          const posts = sender.calls.length
+          const distinct = distinctDeliveryIds(sender)
 
-        expect(posts).toBe(lostResponses + 1) // at-least-once: more than one POST
-        expect(distinct).toBe(1) // exactly-once effect: one delivery id to dedupe on
-      }),
-      { numRuns: 15 },
-    )
-  })
+          expect(posts).toBe(lostResponses + 1) // at-least-once: more than one POST
+          expect(distinct).toBe(1) // exactly-once effect: one delivery id to dedupe on
+        },
+      ),
+  )
 })
 
 // Deliberate-bug demo: CHAOS_WEBHOOK_UNSTABLE_DELIVERY_ID mints a fresh id per attempt, so a

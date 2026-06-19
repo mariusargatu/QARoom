@@ -1,6 +1,7 @@
+import { test } from '@fast-check/vitest'
 import { isPublicHttpsUrl } from '@qaroom/contracts'
 import fc from 'fast-check'
-import { describe, expect, it } from 'vitest'
+import { describe, expect } from 'vitest'
 
 const octet = fc.integer({ min: 0, max: 255 })
 
@@ -19,40 +20,30 @@ const privateIpv4 = fc.oneof(
  * rejected, and only public https endpoints are accepted.
  */
 describe('SSRF guard', () => {
-  it('rejects every private/loopback/link-local/CGNAT IPv4 target', () => {
-    fc.assert(
-      fc.property(privateIpv4, (ip) => {
-        expect(isPublicHttpsUrl(`https://${ip}/hook`)).toBe(false)
-      }),
-    )
+  test.prop([privateIpv4])('rejects every private/loopback/link-local/CGNAT IPv4 target', (ip) => {
+    expect(isPublicHttpsUrl(`https://${ip}/hook`)).toBe(false)
   })
 
-  it('rejects any non-https scheme to an otherwise-public host', () => {
-    fc.assert(
-      fc.property(fc.constantFrom('http', 'ftp', 'gopher', 'file'), (scheme) => {
-        expect(isPublicHttpsUrl(`${scheme}://hooks.example.com/x`)).toBe(false)
-      }),
-    )
-  })
+  test.prop([fc.constantFrom('http', 'ftp', 'gopher', 'file')])(
+    'rejects any non-https scheme to an otherwise-public host',
+    (scheme) => {
+      expect(isPublicHttpsUrl(`${scheme}://hooks.example.com/x`)).toBe(false)
+    },
+  )
 
-  it('rejects embedded credentials even on a public host', () => {
-    fc.assert(
-      fc.property(fc.string({ minLength: 1 }), fc.string({ minLength: 1 }), (user, pass) => {
-        const u = encodeURIComponent(user)
-        const p = encodeURIComponent(pass)
-        expect(isPublicHttpsUrl(`https://${u}:${p}@hooks.example.com/x`)).toBe(false)
-      }),
-    )
-  })
+  test.prop([fc.string({ minLength: 1 }), fc.string({ minLength: 1 })])(
+    'rejects embedded credentials even on a public host',
+    (user, pass) => {
+      const u = encodeURIComponent(user)
+      const p = encodeURIComponent(pass)
+      expect(isPublicHttpsUrl(`https://${u}:${p}@hooks.example.com/x`)).toBe(false)
+    },
+  )
 
-  it('accepts a public https host', () => {
-    fc.assert(
-      fc.property(
-        fc.constantFrom('hooks.example.com', 'api.partner.io', 'events.acme.co.uk'),
-        (host) => {
-          expect(isPublicHttpsUrl(`https://${host}/qaroom`)).toBe(true)
-        },
-      ),
-    )
-  })
+  test.prop([fc.constantFrom('hooks.example.com', 'api.partner.io', 'events.acme.co.uk')])(
+    'accepts a public https host',
+    (host) => {
+      expect(isPublicHttpsUrl(`https://${host}/qaroom`)).toBe(true)
+    },
+  )
 })

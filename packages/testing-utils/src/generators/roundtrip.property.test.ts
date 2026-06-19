@@ -1,3 +1,4 @@
+import { test } from '@fast-check/vitest'
 import {
   AddMembershipRequest,
   CastVoteRequest,
@@ -12,8 +13,7 @@ import {
 } from '@qaroom/contracts'
 import { Ajv } from 'ajv'
 import addFormats from 'ajv-formats'
-import fc from 'fast-check'
-import { describe, expect, it } from 'vitest'
+import { describe, expect } from 'vitest'
 import { z } from 'zod'
 import { configureFastCheck } from '../fast-check-seed'
 import {
@@ -68,14 +68,13 @@ function ajvAcceptorFor(schema: z.ZodType): (value: unknown) => boolean {
 
 describe('Zod ↔ OpenAPI generator round-trip', () => {
   for (const testCase of cases) {
-    it(`${testCase.name}: emitted JSON Schema accepts/rejects each generated value exactly as the Zod parser does`, () => {
-      const ajvAccepts = ajvAcceptorFor(testCase.schema)
-      fc.assert(
-        fc.property(testCase.arb, (value) => {
-          const zodAccepts = testCase.schema.safeParse(value).success
-          expect(ajvAccepts(value)).toBe(zodAccepts)
-        }),
-      )
-    })
+    const ajvAccepts = ajvAcceptorFor(testCase.schema)
+    test.prop([testCase.arb])(
+      `${testCase.name}: emitted JSON Schema accepts/rejects each generated value exactly as the Zod parser does`,
+      (value) => {
+        const zodAccepts = testCase.schema.safeParse(value).success
+        expect(ajvAccepts(value)).toBe(zodAccepts)
+      },
+    )
   }
 })

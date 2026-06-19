@@ -28,6 +28,7 @@
     "schemathesis:results": "tsx scripts/schemathesis-results.ts",
     "tracetest:results": "tsx scripts/tracetest-results.ts",
     "coverage:results": "tsx scripts/coverage-results.ts",
+    "scenario:results": "tsx scripts/scenario-results.ts",
     "gauntlet": "tsx scripts/gauntlet.ts",
     "gauntlet:report": "tsx scripts/gauntlet-report.ts",
     "matrix": "tsx scripts/detection-matrix.ts",
@@ -95,7 +96,7 @@
     "tsx": "^4.19.0",
     "turbo": "^2.3.0",
     "typescript": "^5.7.0",
-    "vitest": "^3.0.0",
+    "vitest": "catalog:",
     "yaml": "^2.7.0",
     "zod": "^4.0.0",
     "mutation-testing-metrics": "3.7.3"

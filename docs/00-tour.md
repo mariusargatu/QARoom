@@ -7,7 +7,7 @@ Read this after `01-vision.md` if you want the *idea*, or first if you want the 
 ## Entry points: what to open per service
 
 - **gateway**: boot [`server.ts`](../services/gateway/src/server.ts); wiring [`app.ts:30`](../services/gateway/src/app.ts#L30) (`buildGatewayApp`); routes [`proxy-routes.ts`](../services/gateway/src/proxy-routes.ts); contract surface [`operations.ts`](../services/gateway/src/operations.ts)
-- **content**: boot [`server.ts`](../services/content/src/server.ts); wiring [`app.ts:21`](../services/content/src/app.ts#L21) (`buildApp`); routes [`posts.ts`](../services/content/src/posts.ts) · [`votes.ts`](../services/content/src/votes.ts) · [`feed.ts`](../services/content/src/feed.ts); contract surface [`operations.ts`](../services/content/src/operations.ts)
+- **content**: boot [`server.ts`](../services/content/src/server.ts); wiring [`app.ts:22`](../services/content/src/app.ts#L22) (`buildApp`); routes [`routes/posts.ts`](../services/content/src/routes/posts.ts) · [`routes/votes.ts`](../services/content/src/routes/votes.ts) · [`routes/feed.ts`](../services/content/src/routes/feed.ts); contract surface [`contract/operations.ts`](../services/content/src/contract/operations.ts)
 - **shared**: [`packages/service-kit`](../packages/service-kit) (RFC 7807, `/system/*`); [`packages/contracts`](../packages/contracts) (Zod = source of truth)
 
 Both `app.ts` files read the same shape: build a Fastify instance purely from injected `deps` (no globals: Commitment 6), register the problem handler, register routes, register `/system/*`. Read one and you've read both.
@@ -18,7 +18,7 @@ A client `POST`s a new post. The gateway fronts content-service; content owns th
 
 1. **trust boundary** · Request hits the gateway; a per-principal token bucket is consumed; over-limit -> 429 `rate_limit` problem.
    - code: [`rate-limit.ts:23`](../services/gateway/src/rate-limit.ts#L23) (`limiter.consume`); the bucket is [`rate-limiter.ts:28`](../services/gateway/src/rate-limiter.ts#L28) (`RateLimiter`)
-   - technique: **property test** [`rate-limiter.property.test.ts:9`](../services/gateway/src/rate-limiter.property.test.ts#L9) (`never allows more than capacity requests`)
+   - technique: **property test** [`rate-limiter.property.test.ts:11`](../services/gateway/src/rate-limiter.property.test.ts#L11) (`never allows more than capacity requests`)
 2. **trust boundary** · The gateway validates at the edge: brands the path id, parses the body.
    - code: [`proxy-routes.ts:17`](../services/gateway/src/proxy-routes.ts#L17) (`CommunityId.parse`); [`proxy-routes.ts:19`](../services/gateway/src/proxy-routes.ts#L19) (`CreatePostRequest.parse`)
    - technique: **Schemathesis** fuzzes the gateway OAS ([`schemathesis-gate.sh`](../scripts/schemathesis-gate.sh)); **RFC 7807** conformance via [`rfc7807.ts:17`](../packages/testing-utils/src/matchers/rfc7807.ts#L17) (`expectRFC7807`)
@@ -29,32 +29,32 @@ A client `POST`s a new post. The gateway fronts content-service; content owns th
    - code: [`forward.ts:41`](../services/gateway/src/forward.ts#L41) (`deps.lamport.bump`)
    - technique: **`/system/state`** `as_of` envelope
 5. **trust boundary (content edge)** · The content handler re-brands the id and re-parses the body; it does not trust the gateway.
-   - code: [`posts.ts:13`](../services/content/src/posts.ts#L13) (`CommunityId.parse`); [`posts.ts:14`](../services/content/src/posts.ts#L14) (`CreatePostRequest.parse`)
+   - code: [`routes/posts.ts:13`](../services/content/src/routes/posts.ts#L13) (`CommunityId.parse`); [`routes/posts.ts:14`](../services/content/src/routes/posts.ts#L14) (`CreatePostRequest.parse`)
    - technique: **branded IDs** enforced at runtime via Zod, [`ids.ts:19`](../packages/contracts/src/ids.ts#L19) (`brandedIdPattern`)
 6. **retry boundary** · Idempotency-Key replay check: same key + body -> stored response, no re-execute. The replay dance lives in one shared wrapper in `@qaroom/service-kit`.
-   - code: [`posts.ts:15`](../services/content/src/posts.ts#L15) (`withIdempotency`) -> [`idempotency.ts:32`](../packages/service-kit/src/idempotency.ts#L32) (`withIdempotency`); hash [`idempotency.ts:39`](../packages/service-kit/src/idempotency.ts#L39) (`bodyHash`); store [`idempotency.ts:60`](../packages/service-kit/src/idempotency.ts#L60) (`storeIdempotent`)
-   - technique: **property test** [`idempotency.property.test.ts:7`](../services/content/src/idempotency.property.test.ts#L7) (`same Idempotency-Key`)
+   - code: [`routes/posts.ts:15`](../services/content/src/routes/posts.ts#L15) (`withIdempotency`) -> [`idempotency.ts:32`](../packages/service-kit/src/idempotency.ts#L32) (`withIdempotency`); hash [`idempotency.ts:39`](../packages/service-kit/src/idempotency.ts#L39) (`bodyHash`); store [`idempotency.ts:60`](../packages/service-kit/src/idempotency.ts#L60) (`storeIdempotent`)
+   - technique: **property test** [`idempotency.property.test.ts:9`](../services/content/src/idempotency.property.test.ts#L9) (`same Idempotency-Key`)
 7. **persistence** · Write under single-writer discipline: advisory lock -> insert -> one row, one mapper.
-   - code: [`repository.ts:48`](../services/content/src/repository.ts#L48) (`createPost`); lock [`repository.ts:66`](../services/content/src/repository.ts#L66) (`advisoryLock`)
-   - technique: **advisory lock + `SELECT … FOR UPDATE`** (Commitment 4); property test [`single-writer.property.test.ts:9`](../services/content/src/single-writer.property.test.ts#L9) (`whatever the interleaving`)
+   - code: [`repository/posts.ts:39`](../services/content/src/repository/posts.ts#L39) (`createPost`); lock [`repository/posts.ts:57`](../services/content/src/repository/posts.ts#L57) (`advisoryLock`)
+   - technique: **advisory lock + `SELECT … FOR UPDATE`** (Commitment 4); property test [`single-writer.property.test.ts:20`](../services/content/src/single-writer.property.test.ts#L20) (`whatever the interleaving`)
 8. **observability** · Every tracked write funnels through the lamport gate.
-   - code: [`repository.ts:92`](../services/content/src/repository.ts#L92) (`deps.lamport.bump`) -> [`lamport.ts:55`](../packages/contracts/src/lamport.ts#L55) (`bump`)
+   - code: [`repository/posts.ts:61`](../services/content/src/repository/posts.ts#L61) (`deps.lamport.bump`) -> [`lamport.ts:55`](../packages/contracts/src/lamport.ts#L55) (`bump`)
    - technique: **`/system/state`** is pinnable by `snapshot_id`
 9. **contract boundary** · The response is re-parsed through the `Post` contract before send.
-   - code: [`posts.ts:26`](../services/content/src/posts.ts#L26) (`Post.parse`)
+   - code: [`routes/posts.ts:26`](../services/content/src/routes/posts.ts#L26) (`Post.parse`)
    - technique: **contract re-parse**: the response cannot drift from the schema
 10. **tenancy boundary** · A community's posts never leak to another community.
     - code: data partition (`community_id`)
-    - technique: **fast-check** property [`tenancy.property.test.ts:20`](../services/content/src/tenancy.property.test.ts#L20) (`only in their own feed`)
+    - technique: **fast-check** property [`tenancy.property.test.ts:31`](../services/content/src/tenancy.property.test.ts#L31) (`only in their own feed`)
 11. **process boundary (provider side)** · The gateway pact is verified against a *real* content + Postgres.
     - code: [`provider.verify.ts:13`](../services/content/tests/contracts/provider.verify.ts#L13) (`runProviderVerification`)
     - technique: **Pact** provider verification (Testcontainers)
 
-Any non-2xx along the way is an RFC 7807 `application/problem+json` with `retryable` / `next_actions` / `failure_domain`: see the 404 at [`posts.ts:36`](../services/content/src/posts.ts#L36) (`problem`) and the 502 at [`forward.ts:29`](../services/gateway/src/forward.ts#L29) (`problem`). The single handler is [`problem.ts`](../packages/service-kit/src/problem.ts).
+Any non-2xx along the way is an RFC 7807 `application/problem+json` with `retryable` / `next_actions` / `failure_domain`: see the 404 at [`routes/posts.ts:36`](../services/content/src/routes/posts.ts#L36) (`problem`) and the 502 at [`forward.ts:29`](../services/gateway/src/forward.ts#L29) (`problem`). The single handler is [`problem.ts`](../packages/service-kit/src/problem.ts).
 
 ### The determinism trio is everywhere on this path
 
-`createPost` never calls the clock, a UUID lib, or `Math.random` directly. It reads the injected trio: [`repository.ts:57`](../services/content/src/repository.ts#L57) (`deps.ids.next`) and [`repository.ts:63`](../services/content/src/repository.ts#L63) (`deps.clock.now`). Production wires real implementations ([`packages/determinism/src/production/`](../packages/determinism/src/production)); tests wire seeded ones ([`packages/testing-utils/src/determinism/`](../packages/testing-utils/src/determinism)). This is the precondition for replay and property testing, and a direct `new Date()` in non-test code fails lint ([`tools/eslint-plugin-qaroom`](../tools/eslint-plugin-qaroom)).
+`createPost` never calls the clock, a UUID lib, or `Math.random` directly. It reads the injected trio: [`repository/posts.ts:48`](../services/content/src/repository/posts.ts#L48) (`deps.ids.next`) and [`repository/posts.ts:54`](../services/content/src/repository/posts.ts#L54) (`deps.clock.now`). Production wires real implementations ([`packages/determinism/src/production/`](../packages/determinism/src/production)); tests wire seeded ones ([`packages/testing-utils/src/determinism/`](../packages/testing-utils/src/determinism)). This is the precondition for replay and property testing, and a direct `new Date()` in non-test code fails lint ([`tools/eslint-plugin-qaroom`](../tools/eslint-plugin-qaroom)).
 
 ## One schema, four derivations
 

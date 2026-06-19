@@ -35,7 +35,9 @@ export function createDonationsClient(
 ): DonationsClient {
   const timeoutMs = options.timeoutMs ?? upstreamTimeoutMs()
   const { breaker } = options
-  const call = (opts: UpstreamCallOptions) => breakerGuardedCall(breaker, baseUrl, opts, timeoutMs)
+  const fetchImpl = options.fetchImpl ?? fetch
+  const call = (opts: UpstreamCallOptions) =>
+    breakerGuardedCall(breaker, baseUrl, opts, timeoutMs, fetchImpl)
 
   return {
     listDonations: (communityId) =>

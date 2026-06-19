@@ -1,59 +1,14 @@
-import { PGlite } from '@electric-sql/pglite'
-import { sql } from 'drizzle-orm'
-import { drizzle } from 'drizzle-orm/pglite'
-import { afterEach, beforeEach, describe, expect, it } from 'vitest'
-import type { SqlExecutor } from './client'
+import { assertMigrationDiscipline } from '@qaroom/testing-utils/harness'
 import { flagsMigrations } from './migrate'
 
 /**
- * Migration discipline (docs/05): up → down → up → up(no-op) with structural assertions at each
- * step (NO snapshots). Covers the flags-domain table plus the composed messaging fragments.
+ * Migration discipline (docs/05): up / down / up→down→up→up, NO snapshots — via the shared registrar.
+ * Asserts the (community_id, flag_key) composite primary-key index — the tenancy + advisory-lock
+ * contract — exists after up and is dropped with its table (the old test checked table names only).
  */
-const FLAGS_TABLES = ['flags']
-const MESSAGING_TABLES = ['idempotency_responses', 'outbox', 'processed_events']
-
-let pglite: PGlite
-let db: SqlExecutor
-
-const tables = async (): Promise<string[]> => {
-  const res = await db.execute(
-    sql`SELECT table_name FROM information_schema.tables WHERE table_schema = 'public' ORDER BY table_name`,
-  )
-  return (res as unknown as { rows: Array<{ table_name: string }> }).rows.map((r) => r.table_name)
-}
-
-beforeEach(() => {
-  pglite = new PGlite()
-  db = drizzle(pglite) as unknown as SqlExecutor
-})
-
-afterEach(async () => {
-  await pglite.close()
-})
-
-describe('flags migrations', () => {
-  it('creates the flags + messaging tables on up', async () => {
-    await flagsMigrations.up(db)
-    const present = await tables()
-    for (const t of FLAGS_TABLES) expect(present).toContain(t)
-    for (const t of MESSAGING_TABLES) expect(present).toContain(t)
-  })
-
-  it('drops the flags + messaging tables on down', async () => {
-    await flagsMigrations.up(db)
-    await flagsMigrations.down(db)
-    const present = await tables()
-    for (const t of FLAGS_TABLES) expect(present).not.toContain(t)
-    for (const t of MESSAGING_TABLES) expect(present).not.toContain(t)
-  })
-
-  it('is idempotent: up → down → up → up converges to the same schema', async () => {
-    await flagsMigrations.up(db)
-    const afterFirstUp = await tables()
-    await flagsMigrations.down(db)
-    await flagsMigrations.up(db)
-    await flagsMigrations.up(db) // second up is a no-op (IF NOT EXISTS)
-    const afterReUp = await tables()
-    expect(afterReUp).toEqual(afterFirstUp)
-  })
+assertMigrationDiscipline({
+  name: 'flags',
+  migrations: flagsMigrations,
+  domainTables: ['flags'],
+  indexes: ['flags_pkey'],
 })

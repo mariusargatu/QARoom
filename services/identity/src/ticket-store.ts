@@ -30,6 +30,15 @@ export class TicketStore {
     this.#ids = ids
   }
 
+  /**
+   * Number of tickets currently held. The observable for `#sweepExpired` — without it the sweep is
+   * indistinguishable from `redeem`'s own expiry check — and the natural gauge for a future
+   * `/system/state` read of the store's pressure.
+   */
+  get size(): number {
+    return this.#store.size
+  }
+
   /** Mint a ticket for an authenticated principal. Sweeps expired entries first. */
   issue(principal: TicketPrincipal): string {
     this.#sweepExpired()

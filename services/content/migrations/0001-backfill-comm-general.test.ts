@@ -3,6 +3,7 @@ import { COMM_GENERAL, CommunityId, type Migration } from '@qaroom/contracts'
 import { sql } from 'drizzle-orm'
 import { drizzle } from 'drizzle-orm/pglite'
 import { afterEach, beforeEach, describe, expect, it } from 'vitest'
+import { asContentDb } from '../tests/db-cast'
 import type { ContentDb } from '../src/db/client'
 import { backfillCommGeneral } from '../src/db/backfill'
 import { ensureSchema } from '../src/db/migrate'
@@ -50,7 +51,7 @@ const auditExists = async (): Promise<boolean> => {
 
 beforeEach(async () => {
   pglite = new PGlite()
-  db = drizzle(pglite) as unknown as ContentDb
+  db = asContentDb(drizzle(pglite))
   await ensureSchema(db)
 })
 

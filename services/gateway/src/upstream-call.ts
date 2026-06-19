@@ -57,13 +57,14 @@ export async function upstreamCall(
   baseUrl: string,
   opts: UpstreamCallOptions,
   timeoutMs: number,
+  fetchImpl: typeof fetch = fetch,
 ): Promise<ClientResponse> {
   const headers: Record<string, string> = { accept: 'application/json' }
   if (opts.body !== undefined) headers['content-type'] = 'application/json'
   if (opts.idempotencyKey !== undefined) headers['idempotency-key'] = opts.idempotencyKey
   if (opts.authorization !== undefined) headers.authorization = opts.authorization
 
-  const res = await fetch(`${baseUrl}${opts.path}`, {
+  const res = await fetchImpl(`${baseUrl}${opts.path}`, {
     method: opts.method,
     headers,
     body: opts.body !== undefined ? JSON.stringify(opts.body) : undefined,
@@ -77,6 +78,12 @@ export async function upstreamCall(
 export interface UpstreamClientOptions {
   /** Per-call timeout; defaults to the shared upstream timeout (env-tunable). */
   timeoutMs?: number
+  /**
+   * The `fetch` to call with. Defaults to the global `fetch` (production unchanged). Tests inject
+   * `undiciFetch` so undici's `MockAgent` (`@qaroom/testing-utils/http`) can intercept — Node's
+   * built-in global fetch ignores a test-installed dispatcher, so DI is the only interceptable seam.
+   */
+  fetchImpl?: typeof fetch
 }
 
 /**
@@ -90,5 +97,6 @@ export function boundCaller(
   options: UpstreamClientOptions = {},
 ): (opts: UpstreamCallOptions) => Promise<ClientResponse> {
   const timeoutMs = options.timeoutMs ?? upstreamTimeoutMs()
-  return (opts) => upstreamCall(baseUrl, opts, timeoutMs)
+  const fetchImpl = options.fetchImpl ?? fetch
+  return (opts) => upstreamCall(baseUrl, opts, timeoutMs, fetchImpl)
 }

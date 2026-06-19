@@ -1,5 +1,7 @@
+import { test } from '@fast-check/vitest'
 import { UserId } from '@qaroom/contracts'
 import { userIdArb } from '@qaroom/testing-utils/generators'
+import { withResource } from '@qaroom/testing-utils/harness'
 import fc from 'fast-check'
 import { describe, expect, it } from 'vitest'
 import { setupIdentityTest } from '../tests/harness'
@@ -14,50 +16,44 @@ const GRACE_MS = 1000
 const LONG_TTL_SECONDS = 100_000
 
 describe('signing-key rotation continuity (property)', () => {
-  it('a token issued under the old kid still verifies before the grace window closes', async () => {
-    await fc.assert(
-      fc.asyncProperty(
-        userIdArb,
-        fc.integer({ min: 0, max: GRACE_MS - 1 }),
-        async (userId, advanceBy) => {
-          const ctx = await setupIdentityTest({
+  test.prop([userIdArb, fc.integer({ min: 0, max: GRACE_MS - 1 })], { numRuns: 8 })(
+    'a token issued under the old kid still verifies before the grace window closes',
+    (userId, advanceBy) =>
+      withResource(
+        () =>
+          setupIdentityTest({
             rotation: { graceMs: GRACE_MS },
             tokenTtlSeconds: LONG_TTL_SECONDS,
-          })
+          }),
+        async (ctx) => {
           const issued = await ctx.issuer.issue({ sub: UserId.parse(userId), memberships: [] })
           await ctx.keyStore.rotate()
           ctx.clock.advance(advanceBy)
           const claims = await ctx.issuer.verify(issued.token)
-          await ctx.close()
           expect(claims.sub).toBe(userId)
         },
       ),
-      { numRuns: 8 },
-    )
-  })
+  )
 
-  it('a token issued under the old kid is rejected after the grace window closes', async () => {
-    await fc.assert(
-      fc.asyncProperty(
-        userIdArb,
-        fc.integer({ min: GRACE_MS + 1, max: GRACE_MS * 4 }),
-        async (userId, advanceBy) => {
-          const ctx = await setupIdentityTest({
+  test.prop([userIdArb, fc.integer({ min: GRACE_MS + 1, max: GRACE_MS * 4 })], { numRuns: 8 })(
+    'a token issued under the old kid is rejected after the grace window closes',
+    (userId, advanceBy) =>
+      withResource(
+        () =>
+          setupIdentityTest({
             rotation: { graceMs: GRACE_MS },
             tokenTtlSeconds: LONG_TTL_SECONDS,
-          })
+          }),
+        async (ctx) => {
           const issued = await ctx.issuer.issue({ sub: UserId.parse(userId), memberships: [] })
           await ctx.keyStore.rotate()
           ctx.clock.advance(advanceBy)
           await expect(ctx.issuer.verify(issued.token)).rejects.toMatchObject({
             problem: { failure_domain: 'authentication' },
           })
-          await ctx.close()
         },
       ),
-      { numRuns: 8 },
-    )
-  })
+  )
 
   // Multiple rotations accumulate multiple 'previous' keys; the JWKS-eligible set must keep
   // every one still inside its own grace window and drop only those past it (per-key grace,

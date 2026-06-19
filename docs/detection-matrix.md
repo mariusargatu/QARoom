@@ -111,16 +111,15 @@ Abbreviated columns: pact-oas = pact-oas-crosscheck, rev-conf = reverse-conforma
 
 ### `feed-reversed`: `CONTENT_BUG_FEED_REVERSED=1`
 
-- component: content; read at services/content/src/repository.ts (call-time)
+- component: content; read at services/content/src/config/faults.ts (construction-time)
 - designated catcher: none (purely empirical)
 - **caught by 1 group(s)** (integration@in-proc); detection breadth 1, blast radius 1 file(s):
   - `services/content/tests/feed-order.spec.ts`
-- self-toggling files (excluded from naive counting): `services/content/tests/snapshot-replay.verify.ts`
 - notes: Tier-A v1 verdict (2026-06-10): ALL MISSED: content.spec.ts asserted a created post APPEARS in the feed, never its ORDER; a reversed feed passed the entire battery. Hole closed same day by tests/feed-order.spec.ts (newest-first pinned); row re-ran ✗ to ✓. The matrix-finds-hole -> fix -> re-run loop, demonstrated.
 
 ### `vote-slow`: `CONTENT_BUG_VOTE_SLOW_MS=800`
 
-- component: content; read at services/content/src/repository.ts (call-time)
+- component: content; read at services/content/src/config/faults.ts (construction-time)
 - designated catcher: load-tests/vote-cast.js (k6 SLO gate, exit 99)
 - **caught by 1 group(s)** (k6@cluster); detection breadth 1, blast radius 1 file(s):
   - `live:k6 (exit 99)`
@@ -128,7 +127,7 @@ Abbreviated columns: pact-oas = pact-oas-crosscheck, rev-conf = reverse-conforma
 
 ### `tenant-leak`: `CONTENT_BUG_TENANT_LEAK=1`
 
-- component: content; read at services/content/src/repository.ts (call-time)
+- component: content; read at services/content/src/config/faults.ts (construction-time)
 - designated catcher: services/content/src/tenancy.property.test.ts (property-based isolation)
 - permanent claim: `tenant-isolation` (pnpm prove tenant-isolation --break)
 - not run yet
@@ -136,7 +135,7 @@ Abbreviated columns: pact-oas = pact-oas-crosscheck, rev-conf = reverse-conforma
 
 ### `sync-publish`: `CHAOS_SYNC_PUBLISH=1`
 
-- component: content; read at services/content/src/server.ts (construction-time)
+- component: content; read at services/content/src/config/faults.ts (construction-time)
 - designated catcher: scripts/k6-under-chaos.sh 02-net-slow-nats vote-cast (chaos × load)
 - **caught by 2 group(s)** (k6@cluster, chaos@cluster); detection breadth 2, blast radius 2 file(s):
   - `live:chaos (exit 99)`

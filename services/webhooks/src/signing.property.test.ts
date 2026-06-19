@@ -1,4 +1,5 @@
 import { createHmac } from 'node:crypto'
+import { test } from '@fast-check/vitest'
 import { WEBHOOK_SIGNATURE_HEADER, WEBHOOK_TIMESTAMP_HEADER } from '@qaroom/contracts'
 import { signWebhook, verifyWebhook } from '@qaroom/contracts/webhook-hmac'
 import fc from 'fast-check'
@@ -17,24 +18,22 @@ import {
  * fails; the timestamp bound into the signature defeats replay outside the freshness window.
  */
 describe('webhook signature', () => {
-  it('a correctly-signed payload verifies; tampering with the body breaks it', () => {
-    fc.assert(
-      fc.property(fc.string(), fc.string({ minLength: 1 }), fc.string(), (secret, body, ts) => {
-        const sig = signWebhook(secret, ts, body)
-        expect(verifyWebhook(secret, ts, body, sig)).toBe(true)
-        expect(verifyWebhook(secret, ts, `${body}x`, sig)).toBe(false)
-      }),
-    )
-  })
+  test.prop([fc.string(), fc.string({ minLength: 1 }), fc.string()])(
+    'a correctly-signed payload verifies; tampering with the body breaks it',
+    (secret, body, ts) => {
+      const sig = signWebhook(secret, ts, body)
+      expect(verifyWebhook(secret, ts, body, sig)).toBe(true)
+      expect(verifyWebhook(secret, ts, `${body}x`, sig)).toBe(false)
+    },
+  )
 
-  it('a captured signature does not verify for a different timestamp (replay defense is bound in)', () => {
-    fc.assert(
-      fc.property(fc.string({ minLength: 1 }), fc.string(), (secret, body) => {
-        const sig = signWebhook(secret, '2026-06-05T12:00:00.000Z', body)
-        expect(verifyWebhook(secret, '2026-06-05T13:00:00.000Z', body, sig)).toBe(false)
-      }),
-    )
-  })
+  test.prop([fc.string({ minLength: 1 }), fc.string()])(
+    'a captured signature does not verify for a different timestamp (replay defense is bound in)',
+    (secret, body) => {
+      const sig = signWebhook(secret, '2026-06-05T12:00:00.000Z', body)
+      expect(verifyWebhook(secret, '2026-06-05T13:00:00.000Z', body, sig)).toBe(false)
+    },
+  )
 
   it('rejects an otherwise-valid signature outside the freshness window', () => {
     const secret = 'whsec_x'
