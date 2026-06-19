@@ -8,9 +8,9 @@ import { sql as drizzleSql } from 'drizzle-orm'
 import { drizzle } from 'drizzle-orm/postgres-js'
 import postgres from 'postgres'
 import { buildApp } from '../src/app'
-import type { FaultConfig } from '../src/deps'
 import { ensureSchema } from '../src/db/migrate'
 import { schema } from '../src/db/schema'
+import type { FaultConfig } from '../src/deps'
 import { asContentDb } from './db-cast'
 
 /**
@@ -41,7 +41,12 @@ const lamport = new LamportGate(ids)
 const store = pgSnapshotStore(sql)
 // Mutable fault set flipped mid-process by scenarioFeedOrderBug (read per call by listFeed) — the
 // injectable replacement for the old process.env mutation, so this script touches no global state.
-const faults: FaultConfig = { feedReversed: false, tenantLeak: false, voteSlowMs: 0, syncPublish: false }
+const faults: FaultConfig = {
+  feedReversed: false,
+  tenantLeak: false,
+  voteSlowMs: 0,
+  syncPublish: false,
+}
 const app = buildApp({
   db,
   clock,

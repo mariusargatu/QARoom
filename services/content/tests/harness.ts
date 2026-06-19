@@ -3,8 +3,8 @@ import type { SeedConfig } from '@qaroom/testing-utils/harness'
 import { injectClient, setupServiceTest } from '@qaroom/testing-utils/harness'
 import { buildApp } from '../src/app'
 import { resolveFaults } from '../src/config/faults'
-import type { FaultConfig } from '../src/deps'
 import { ensureSchema } from '../src/db/migrate'
+import type { FaultConfig } from '../src/deps'
 import { asContentDb } from './db-cast'
 
 /**
@@ -16,10 +16,7 @@ import { asContentDb } from './db-cast'
  * --break`, the detection-matrix in-proc tier) still arms the deliberate bug; a clean run resolves to
  * all-off. Pass an explicit (optionally mutable) `faults` to exercise a switch without touching env.
  */
-export async function setupContentTest(
-  seed?: SeedConfig,
-  faults: FaultConfig = resolveFaults(),
-) {
+export async function setupContentTest(seed?: SeedConfig, faults: FaultConfig = resolveFaults()) {
   const ctx = await setupServiceTest({
     applyMigrations: (db) => ensureSchema(db),
     createApp: (deps) =>

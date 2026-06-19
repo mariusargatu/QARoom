@@ -1,9 +1,4 @@
-import {
-  VOTE_CAST_EVENT,
-  VOTE_CAST_VERSION,
-  VoteCastEvent,
-  voteCast,
-} from '@qaroom/contracts'
+import { VOTE_CAST_EVENT, VOTE_CAST_VERSION, VoteCastEvent, voteCast } from '@qaroom/contracts'
 import type { IdGenerator } from '@qaroom/determinism'
 import { outboxPublish } from '@qaroom/messaging'
 

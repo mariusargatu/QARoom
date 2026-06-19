@@ -90,6 +90,7 @@
   .tk-base .tk-tags span{background:var(--canvas);border-color:var(--accent-line)}
 
   @media (max-width:560px){ .intro p,.row p{font-size:16px} .shots{grid-template-columns:1fr} }
+  /* biome-ignore lint/complexity/noImportantStyles: the reduced-motion reset must override every per-element transition — !important is the standard a11y pattern here. */
   @media (prefers-reduced-motion:reduce){ *{transition-duration:0.001ms !important} }
 </style>
 </head>
@@ -230,7 +231,7 @@ pnpm dev:down   <span class="c"># tear it all back down</span></pre>
       img.alt = thumb ? thumb.alt : '';
       cap.textContent = a.querySelector('.cap').textContent;
       lb.hidden = false;
-      requestAnimationFrame(function(){ lb.classList.add('open'); });
+      requestAnimationFrame(()=> { lb.classList.add('open'); });
       document.body.style.overflow = 'hidden';
       closeBtn.focus();
     }
@@ -247,14 +248,14 @@ pnpm dev:down   <span class="c"># tear it all back down</span></pre>
       setTimeout(finish, 260); // fallback if transitionend doesn't fire (e.g. reduced motion)
     }
 
-    document.querySelectorAll('.shot').forEach(function(a){
-      a.addEventListener('click', function(e){ e.preventDefault(); open(a); });
+    document.querySelectorAll('.shot').forEach((a)=> {
+      a.addEventListener('click', (e)=> { e.preventDefault(); open(a); });
     });
     closeBtn.addEventListener('click', close);
-    lb.addEventListener('click', function(e){ if(e.target === lb || e.target === img) close(); });
-    document.addEventListener('keydown', function(e){ if(!lb.hidden && e.key === 'Escape') close(); });
+    lb.addEventListener('click', (e)=> { if(e.target === lb || e.target === img) close(); });
+    document.addEventListener('keydown', (e)=> { if(!lb.hidden && e.key === 'Escape') close(); });
     // keep focus inside the dialog (only the close button is focusable)
-    lb.addEventListener('keydown', function(e){ if(e.key === 'Tab'){ e.preventDefault(); closeBtn.focus(); } });
+    lb.addEventListener('keydown', (e)=> { if(e.key === 'Tab'){ e.preventDefault(); closeBtn.focus(); } });
   })();
   </script>
 </body>

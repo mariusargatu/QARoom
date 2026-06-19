@@ -1,7 +1,7 @@
 import { PGlite } from '@electric-sql/pglite'
 import type { SQL } from 'drizzle-orm'
 import { drizzle } from 'drizzle-orm/pglite'
-import { createSeededDeps, type SeededDeps, type SeedConfig } from './seeded-deps'
+import { createSeededDeps, type SeedConfig, type SeededDeps } from './seeded-deps'
 import type { MigrationTarget } from './setup-service-test'
 
 /**

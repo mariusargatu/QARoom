@@ -41,7 +41,9 @@ describe('webhook retry contract', () => {
       const b = backoffCeilingMs(attempt + 1)
       // The exact law: next ceiling = min(prev * multiplier, cap). A linear (prev + base) or
       // uncapped schedule violates this at some attempt.
-      expect(b).toBe(Math.min(a * WEBHOOK_RETRY_POLICY.multiplier, WEBHOOK_RETRY_POLICY.max_delay_ms))
+      expect(b).toBe(
+        Math.min(a * WEBHOOK_RETRY_POLICY.multiplier, WEBHOOK_RETRY_POLICY.max_delay_ms),
+      )
     },
   )
 

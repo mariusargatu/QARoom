@@ -9,7 +9,11 @@ import { NO_FAULTS, resolveFaults } from './faults'
  * a handful of examples — guards a future refactor from silently flipping toggle semantics, which only
  * env-armed cluster/matrix runs would otherwise catch.
  */
-const BOOLEAN_TOGGLES = ['CONTENT_BUG_FEED_REVERSED', 'CONTENT_BUG_TENANT_LEAK', 'CHAOS_SYNC_PUBLISH'] as const
+const BOOLEAN_TOGGLES = [
+  'CONTENT_BUG_FEED_REVERSED',
+  'CONTENT_BUG_TENANT_LEAK',
+  'CHAOS_SYNC_PUBLISH',
+] as const
 const FIELD_OF = {
   CONTENT_BUG_FEED_REVERSED: 'feedReversed',
   CONTENT_BUG_TENANT_LEAK: 'tenantLeak',
@@ -51,7 +55,12 @@ describe('resolveFaults (property)', () => {
   )
 
   it('NO_FAULTS is all-off and frozen so the shared default cannot be mutated', () => {
-    expect(NO_FAULTS).toEqual({ feedReversed: false, tenantLeak: false, voteSlowMs: 0, syncPublish: false })
+    expect(NO_FAULTS).toEqual({
+      feedReversed: false,
+      tenantLeak: false,
+      voteSlowMs: 0,
+      syncPublish: false,
+    })
     expect(Object.isFrozen(NO_FAULTS)).toBe(true)
   })
 })

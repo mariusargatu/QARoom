@@ -25,7 +25,12 @@ const COMMS = [
 
 describe('community tenancy isolation (property)', () => {
   test.prop(
-    [fc.array(fc.record({ comm: fc.nat({ max: 2 }), body: validBodyArb }), { minLength: 1, maxLength: 6 })],
+    [
+      fc.array(fc.record({ comm: fc.nat({ max: 2 }), body: validBodyArb }), {
+        minLength: 1,
+        maxLength: 6,
+      }),
+    ],
     { numRuns: 12 },
   )(
     'posts created across three communities each appear only in their own feed, never another tenant’s',
@@ -36,9 +41,13 @@ describe('community tenancy isolation (property)', () => {
           const expected = [0, 0, 0]
           let n = 0
           for (const op of ops) {
-            const res = await ctx.request.post(`/api/communities/${COMMS[op.comm]}/posts`, op.body, {
-              'idempotency-key': `p-${n++}`,
-            })
+            const res = await ctx.request.post(
+              `/api/communities/${COMMS[op.comm]}/posts`,
+              op.body,
+              {
+                'idempotency-key': `p-${n++}`,
+              },
+            )
             // Bodies are pre-validated, so every create is a 201; the count derives from the input.
             expect(res.status).toBe(201)
             expected[op.comm] = (expected[op.comm] ?? 0) + 1

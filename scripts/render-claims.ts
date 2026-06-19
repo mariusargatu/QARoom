@@ -1,9 +1,9 @@
 import { writeFileSync } from 'node:fs'
 import { resolve } from 'node:path'
 import { pathToFileURL } from 'node:url'
+import { loadSummary, resolveEvidence } from './lib/claim-evidence'
 import { BOUNDARY_REGISTRY } from './lib/manifests/boundary-registry'
 import { CLAIMS } from './lib/manifests/claims'
-import { loadSummary, resolveEvidence } from './lib/claim-evidence'
 
 /**
  * Render the falsifiable-claim manifest into its reader projections: docs/claims.md (verdicts,

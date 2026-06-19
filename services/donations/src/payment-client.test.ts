@@ -1,4 +1,9 @@
-import { hangingFetch, mockUpstream, type MockUpstream, undiciFetch } from '@qaroom/testing-utils/http'
+import {
+  hangingFetch,
+  type MockUpstream,
+  mockUpstream,
+  undiciFetch,
+} from '@qaroom/testing-utils/http'
 import { afterEach, describe, expect, it } from 'vitest'
 import { createPaymentClient } from './payment-client'
 
@@ -36,7 +41,9 @@ describe('createPaymentClient.charge mapping', () => {
 
   it('maps any non-captured provider status to declined', async () => {
     up = mockUpstream()
-    up.pool(BASE).intercept({ path: '/charges', method: 'POST' }).reply(200, { id: 'ch_x', status: 'pending' })
+    up.pool(BASE)
+      .intercept({ path: '/charges', method: 'POST' })
+      .reply(200, { id: 'ch_x', status: 'pending' })
 
     const auth = await createPaymentClient(BASE, undiciFetch).charge(REQ)
 
@@ -54,7 +61,9 @@ describe('createPaymentClient.charge mapping', () => {
 
   it('trims a trailing slash from the base URL (the intercept on /charges still matches)', async () => {
     up = mockUpstream()
-    up.pool(BASE).intercept({ path: '/charges', method: 'POST' }).reply(200, { id: 'ch_z', status: 'captured' })
+    up.pool(BASE)
+      .intercept({ path: '/charges', method: 'POST' })
+      .reply(200, { id: 'ch_z', status: 'captured' })
 
     const auth = await createPaymentClient(`${BASE}/`, undiciFetch).charge(REQ)
 
@@ -66,7 +75,9 @@ describe('createPaymentClient timeout', () => {
   it('aborts a hung charge with a TimeoutError once the bounded timeout elapses', async () => {
     const client = createPaymentClient(BASE, hangingFetch, 0)
 
-    await expect(client.charge({ ...REQ, idempotency_key: 'idem-timeout-1' })).rejects.toMatchObject({
+    await expect(
+      client.charge({ ...REQ, idempotency_key: 'idem-timeout-1' }),
+    ).rejects.toMatchObject({
       name: 'TimeoutError',
     })
   })

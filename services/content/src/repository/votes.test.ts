@@ -1,5 +1,5 @@
 import { LamportGate, VOTE_CAST_EVENT, VOTE_CAST_VERSION, voteCast } from '@qaroom/contracts'
-import { pgliteRows, setupRepoTest, type RepoTest } from '@qaroom/testing-utils/harness'
+import { pgliteRows, type RepoTest, setupRepoTest } from '@qaroom/testing-utils/harness'
 import { sql } from 'drizzle-orm'
 import { afterEach, beforeEach, describe, expect, it } from 'vitest'
 import { NO_FAULTS } from '../config/faults'
@@ -25,7 +25,12 @@ let ctx: RepoTest<ContentDb>
 let deps: RepoDeps
 
 const newPost = () =>
-  createPost(ctx.db, deps, { communityId: COMMUNITY, authorId: AUTHOR, title: 'votable', body: 'b' })
+  createPost(ctx.db, deps, {
+    communityId: COMMUNITY,
+    authorId: AUTHOR,
+    title: 'votable',
+    body: 'b',
+  })
 
 const voteRowCount = async (postId: string): Promise<number> => {
   const rows = await pgliteRows<{ n: number }>(
@@ -43,7 +48,12 @@ const voteEvents = () =>
 
 beforeEach(async () => {
   ctx = await setupRepoTest<ContentDb>({ applyMigrations: (db) => ensureSchema(db) })
-  deps = { clock: ctx.clock, ids: ctx.ids, lamport: new LamportGate(ctx.ids), faults: { ...NO_FAULTS } }
+  deps = {
+    clock: ctx.clock,
+    ids: ctx.ids,
+    lamport: new LamportGate(ctx.ids),
+    faults: { ...NO_FAULTS },
+  }
 })
 
 afterEach(async () => {

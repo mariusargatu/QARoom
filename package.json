@@ -86,7 +86,7 @@
     ]
   },
   "devDependencies": {
-    "@biomejs/biome": "^2.2.0",
+    "@biomejs/biome": "2.5.0",
     "@qaroom/contracts": "workspace:*",
     "@qaroom/testing-utils": "workspace:*",
     "@types/node": "^24.0.0",
