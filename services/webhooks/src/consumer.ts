@@ -1,11 +1,4 @@
-import {
-  DONATIONS_FEED_SUBJECT,
-  FLAGS_FEED_SUBJECT,
-  MODERATION_FEED_SUBJECT,
-  POSTS_FEED_SUBJECT,
-  VOTES_FEED_SUBJECT,
-  WebhookEventType,
-} from '@qaroom/contracts'
+import { ALL_FEED_SUBJECTS, WebhookEventType } from '@qaroom/contracts'
 import type { Clock, IdGenerator } from '@qaroom/determinism'
 import {
   consumeDurable,
@@ -32,14 +25,8 @@ export const WEBHOOK_FANOUT_DURABLE = 'webhooks-fanout'
  */
 export const WEBHOOK_FANOUT_MAX_DELIVERIES = 5
 
-/** The five entity-level feed subjects webhooks fans out (all communities). */
-export const WEBHOOK_FEED_SUBJECTS = [
-  POSTS_FEED_SUBJECT,
-  VOTES_FEED_SUBJECT,
-  FLAGS_FEED_SUBJECT,
-  DONATIONS_FEED_SUBJECT,
-  MODERATION_FEED_SUBJECT,
-]
+/** The five entity-level feed subjects webhooks fans out (all communities), from the contract. */
+export const WEBHOOK_FEED_SUBJECTS = ALL_FEED_SUBJECTS
 
 /** Map a NATS `event-name` header to a `WebhookEventType`, or null if it is not a feed event. */
 export function classifyEventType(eventName: string): WebhookEventType | null {

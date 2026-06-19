@@ -50,6 +50,15 @@ export function wsFrameFor(payload: unknown): FrameInput | null {
 export const WS_FEED_DURABLE = 'gateway-ws-feed'
 
 /**
+ * The subjects the gateway WS/poll feed binds its durable to: flag + donation changes across every
+ * community, and DELIBERATELY not content's post/vote events (those reach external subscribers via
+ * webhooks and the moderator, never the in-app WS stream). Exported as one constant so the binding
+ * below and the routing guard in `tests/feed-routing.spec.ts` read the same source — a future edit
+ * that adds content events to the feed must change this constant, and the guard documents the gap.
+ */
+export const WS_FEED_SUBJECTS = [FLAGS_FEED_SUBJECT, DONATIONS_FEED_SUBJECT]
+
+/**
  * Integration surface (NOT unit-tested — no broker in the test loop, mirroring the
  * `@qaroom/messaging` relay). Subscribe a durable JetStream consumer over the flag/donation
  * subjects and publish each event to the in-memory `CommunityEventStream` that drives both the
@@ -75,7 +84,7 @@ export async function startWsFeed(
     {
       stream: QAROOM_STREAM,
       durable: WS_FEED_DURABLE,
-      filterSubjects: [FLAGS_FEED_SUBJECT, DONATIONS_FEED_SUBJECT],
+      filterSubjects: WS_FEED_SUBJECTS,
     },
     {
       spanName: 'gateway.event.process',
