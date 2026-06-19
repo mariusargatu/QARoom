@@ -35,11 +35,31 @@ interface Scope {
 
 // Backend services on the shared v8 config + the existing merged web lane.
 const SCOPES: Scope[] = [
-  { runner: 'coverage:content', dir: 'services/content/coverage', scope: 'services/content', tool: 'v8' },
-  { runner: 'coverage:donations', dir: 'services/donations/coverage', scope: 'services/donations', tool: 'v8' },
+  {
+    runner: 'coverage:content',
+    dir: 'services/content/coverage',
+    scope: 'services/content',
+    tool: 'v8',
+  },
+  {
+    runner: 'coverage:donations',
+    dir: 'services/donations/coverage',
+    scope: 'services/donations',
+    tool: 'v8',
+  },
   { runner: 'coverage:flags', dir: 'services/flags/coverage', scope: 'services/flags', tool: 'v8' },
-  { runner: 'coverage:gateway', dir: 'services/gateway/coverage', scope: 'services/gateway', tool: 'v8' },
-  { runner: 'coverage:identity', dir: 'services/identity/coverage', scope: 'services/identity', tool: 'v8' },
+  {
+    runner: 'coverage:gateway',
+    dir: 'services/gateway/coverage',
+    scope: 'services/gateway',
+    tool: 'v8',
+  },
+  {
+    runner: 'coverage:identity',
+    dir: 'services/identity/coverage',
+    scope: 'services/identity',
+    tool: 'v8',
+  },
   {
     runner: 'coverage',
     dir: 'services/web/coverage/merged',
@@ -92,7 +112,9 @@ for (const s of SCOPES) {
     seeds: {},
   })
   folded += 1
-  report.push(`  ${s.runner}: lines ${metrics.lines.pct}%, branches ${metrics.branches.pct ?? '?'}%`)
+  report.push(
+    `  ${s.runner}: lines ${metrics.lines.pct}%, branches ${metrics.branches.pct ?? '?'}%`,
+  )
 }
 
 // Drift guard: warn loudly if a service declares a `test:coverage` script but is absent from SCOPES
@@ -114,4 +136,6 @@ if (folded === 0) {
   process.stderr.write('no coverage reports found — run the per-service coverage lanes first\n')
   process.exit(2)
 }
-process.stdout.write(`folded ${folded} coverage runner(s) into summary.json\n${report.join('\n')}\n`)
+process.stdout.write(
+  `folded ${folded} coverage runner(s) into summary.json\n${report.join('\n')}\n`,
+)

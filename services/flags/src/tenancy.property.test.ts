@@ -16,8 +16,12 @@ describe('flag tenancy isolation (property)', () => {
             { event: 'EnableRequested' },
             { 'idempotency-key': nextKey() },
           )
-          const inA = await ctx.request.get(`/api/communities/${SAMPLE.communityA}/flags/${flagKey}`)
-          const inB = await ctx.request.get(`/api/communities/${SAMPLE.communityB}/flags/${flagKey}`)
+          const inA = await ctx.request.get(
+            `/api/communities/${SAMPLE.communityA}/flags/${flagKey}`,
+          )
+          const inB = await ctx.request.get(
+            `/api/communities/${SAMPLE.communityB}/flags/${flagKey}`,
+          )
 
           expect((inA.json as { state: string }).state).toBe('Enabling')
           // The other tenant is untouched — still at the initial Off state.

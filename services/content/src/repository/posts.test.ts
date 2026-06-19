@@ -4,7 +4,7 @@ import {
   POST_CREATED_VERSION,
   postCreated,
 } from '@qaroom/contracts'
-import { pgliteRows, setupRepoTest, type RepoTest } from '@qaroom/testing-utils/harness'
+import { pgliteRows, type RepoTest, setupRepoTest } from '@qaroom/testing-utils/harness'
 import { sql } from 'drizzle-orm'
 import { afterEach, beforeEach, describe, expect, it } from 'vitest'
 import { NO_FAULTS } from '../config/faults'
@@ -36,11 +36,21 @@ const outboxRows = () =>
   )
 
 const seed = (input: { communityId: string; title: string }) =>
-  createPost(ctx.db, deps, { communityId: input.communityId, authorId: AUTHOR, title: input.title, body: 'b' })
+  createPost(ctx.db, deps, {
+    communityId: input.communityId,
+    authorId: AUTHOR,
+    title: input.title,
+    body: 'b',
+  })
 
 beforeEach(async () => {
   ctx = await setupRepoTest<ContentDb>({ applyMigrations: (db) => ensureSchema(db) })
-  deps = { clock: ctx.clock, ids: ctx.ids, lamport: new LamportGate(ctx.ids), faults: { ...NO_FAULTS } }
+  deps = {
+    clock: ctx.clock,
+    ids: ctx.ids,
+    lamport: new LamportGate(ctx.ids),
+    faults: { ...NO_FAULTS },
+  }
 })
 
 afterEach(async () => {
@@ -94,7 +104,11 @@ describe('repository/posts', () => {
     await seed({ communityId: OTHER, title: 'theirs' })
     const scoped = await listFeed(ctx.db, deps, COMMUNITY)
     expect(scoped.map((p) => p.title)).toEqual(['mine'])
-    const leaky = await listFeed(ctx.db, { ...deps, faults: { ...NO_FAULTS, tenantLeak: true } }, COMMUNITY)
+    const leaky = await listFeed(
+      ctx.db,
+      { ...deps, faults: { ...NO_FAULTS, tenantLeak: true } },
+      COMMUNITY,
+    )
     expect(leaky.length).toBe(2)
   })
 })

@@ -11,17 +11,27 @@ describe('idempotent post creation (property)', () => {
       withResource(
         () => setupContentTest(),
         async (ctx) => {
-          const first = await ctx.request.post(`/api/communities/${SAMPLE.communityA}/posts`, body, {
-            'idempotency-key': key,
-          })
-          const second = await ctx.request.post(`/api/communities/${SAMPLE.communityA}/posts`, body, {
-            'idempotency-key': key,
-          })
+          const first = await ctx.request.post(
+            `/api/communities/${SAMPLE.communityA}/posts`,
+            body,
+            {
+              'idempotency-key': key,
+            },
+          )
+          const second = await ctx.request.post(
+            `/api/communities/${SAMPLE.communityA}/posts`,
+            body,
+            {
+              'idempotency-key': key,
+            },
+          )
           const state = await ctx.request.get('/system/state')
 
           expect(first.status).toBe(201)
           expect(second.json).toEqual(first.json)
-          expect((state.json as { models: { posts: { count: number } } }).models.posts.count).toBe(1)
+          expect((state.json as { models: { posts: { count: number } } }).models.posts.count).toBe(
+            1,
+          )
         },
       ),
   )

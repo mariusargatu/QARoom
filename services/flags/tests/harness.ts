@@ -4,7 +4,12 @@ import {
   type RolloutTransitionRecord,
 } from '@qaroom/contracts'
 import type { SeedConfig } from '@qaroom/testing-utils/harness'
-import { asServiceDb, injectClient, nextIdempotencyKey, setupServiceTest } from '@qaroom/testing-utils/harness'
+import {
+  asServiceDb,
+  injectClient,
+  nextIdempotencyKey,
+  setupServiceTest,
+} from '@qaroom/testing-utils/harness'
 import { buildApp } from '../src/app'
 import type { FlagsDb } from '../src/db/client'
 import { ensureSchema } from '../src/db/migrate'

@@ -1,5 +1,5 @@
 import { COMM_GENERAL, CommunityId } from '@qaroom/contracts'
-import { setupRepoTest, type RepoTest } from '@qaroom/testing-utils/harness'
+import { type RepoTest, setupRepoTest } from '@qaroom/testing-utils/harness'
 import { afterEach, beforeEach, describe, expect, it } from 'vitest'
 import { runContentBackfill } from './backfill'
 import type { ContentDb } from './client'

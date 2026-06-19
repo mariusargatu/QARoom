@@ -32,7 +32,10 @@ export async function castVote(
     await tx
       .insert(votes)
       .values({ postId, voterId, value, createdAt: castAt })
-      .onConflictDoUpdate({ target: [votes.postId, votes.voterId], set: { value, createdAt: castAt } })
+      .onConflictDoUpdate({
+        target: [votes.postId, votes.voterId],
+        set: { value, createdAt: castAt },
+      })
     const agg = await tx
       .select({ s: sql<number>`coalesce(sum(${votes.value}), 0)::int` })
       .from(votes)

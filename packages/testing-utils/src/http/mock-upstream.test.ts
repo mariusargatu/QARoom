@@ -1,5 +1,5 @@
 import { afterEach, describe, expect, it } from 'vitest'
-import { hangingFetch, mockUpstream, type MockUpstream, undiciFetch } from './mock-upstream'
+import { hangingFetch, type MockUpstream, mockUpstream, undiciFetch } from './mock-upstream'
 
 describe('mockUpstream', () => {
   // Restore in afterEach (not inline) so a rejecting fetch can't skip it and leak the net-disabled

@@ -11,7 +11,10 @@ describe('pglite helpers', () => {
 
   it('freshPglite + pgliteRows run a query and return typed rows', async () => {
     const { db, close } = freshPglite()
-    const rows = await pgliteRows<{ n: number }>(db as unknown as MigrationTarget, sql`SELECT 1::int AS n`)
+    const rows = await pgliteRows<{ n: number }>(
+      db as unknown as MigrationTarget,
+      sql`SELECT 1::int AS n`,
+    )
     await close()
     expect(rows[0]?.n).toBe(1)
   })
@@ -22,7 +25,10 @@ describe('pglite helpers', () => {
         await db.execute(sql.raw('CREATE TABLE thing (id text)'))
       },
     })
-    const rows = await pgliteRows<{ count: number }>(ctx.db, sql`SELECT count(*)::int AS count FROM thing`)
+    const rows = await pgliteRows<{ count: number }>(
+      ctx.db,
+      sql`SELECT count(*)::int AS count FROM thing`,
+    )
     await ctx.close()
     expect(rows[0]?.count).toBe(0)
     expect(ctx.clock.now().toISOString()).toBe('2026-01-01T00:00:00.000Z')

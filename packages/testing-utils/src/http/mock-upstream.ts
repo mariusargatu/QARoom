@@ -1,4 +1,9 @@
-import { fetch as realUndiciFetch, getGlobalDispatcher, MockAgent, setGlobalDispatcher } from 'undici'
+import {
+  getGlobalDispatcher,
+  MockAgent,
+  fetch as realUndiciFetch,
+  setGlobalDispatcher,
+} from 'undici'
 
 /**
  * The fetch to INJECT into a client under test. It is undici's own `fetch`, which honors the MockAgent

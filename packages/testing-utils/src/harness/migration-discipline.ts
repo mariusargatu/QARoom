@@ -1,9 +1,9 @@
+import { PGlite } from '@electric-sql/pglite'
 import { sql } from 'drizzle-orm'
+import { drizzle } from 'drizzle-orm/pglite'
 import { afterEach, beforeEach, describe, expect, it } from 'vitest'
 import { asServiceDb, pgliteRows } from './pglite'
 import type { MigrationTarget } from './setup-service-test'
-import { PGlite } from '@electric-sql/pglite'
-import { drizzle } from 'drizzle-orm/pglite'
 
 /** Minimal reversible-migration shape (matches @qaroom/contracts composeMigrations output). */
 export interface ReversibleMigration<Db> {

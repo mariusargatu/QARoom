@@ -24,6 +24,7 @@ export const WEBHOOK_SIGNATURE_SCHEME = {
   algorithm: 'HMAC-SHA256',
   signature_header: WEBHOOK_SIGNATURE_HEADER,
   timestamp_header: WEBHOOK_TIMESTAMP_HEADER,
+  // biome-ignore lint/suspicious/noTemplateCurlyInString: documents the signature format for subscribers; the `${…}` is literal text, not an interpolation.
   format: 'v1=hex(hmac_sha256(secret, `${timestamp}.${body}`))',
 } as const
 

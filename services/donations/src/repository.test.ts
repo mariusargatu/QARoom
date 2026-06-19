@@ -1,9 +1,5 @@
-import {
-  DONATION_STATE_CHANGED_EVENT,
-  donationStateChanged,
-  LamportGate,
-} from '@qaroom/contracts'
-import { pgliteRows, setupRepoTest, type RepoTest } from '@qaroom/testing-utils/harness'
+import { DONATION_STATE_CHANGED_EVENT, donationStateChanged, LamportGate } from '@qaroom/contracts'
+import { pgliteRows, type RepoTest, setupRepoTest } from '@qaroom/testing-utils/harness'
 import { sql } from 'drizzle-orm'
 import { afterEach, beforeEach, describe, expect, it } from 'vitest'
 import type { DonationsDb } from './db/client'
@@ -23,8 +19,12 @@ import {
 const COMMUNITY = 'comm_01HZY0K7M3QF8VN2J5RX9TB4CD'
 const DONOR = 'user_01HZY0K7M3QF8VN2J5RX9TB4CF'
 
-const captures: PaymentClient = { charge: async () => ({ provider_ref: 'pay_1', status: 'captured' }) }
-const declines: PaymentClient = { charge: async () => ({ provider_ref: 'pay_2', status: 'declined' }) }
+const captures: PaymentClient = {
+  charge: async () => ({ provider_ref: 'pay_1', status: 'captured' }),
+}
+const declines: PaymentClient = {
+  charge: async () => ({ provider_ref: 'pay_2', status: 'declined' }),
+}
 const errors: PaymentClient = {
   charge: async () => {
     throw new Error('provider down')
@@ -77,7 +77,10 @@ describe('repository/createDonation', () => {
   it('records a Captured donation and stages a DonationStateChanged outbox event when the provider captures', async () => {
     await enable()
     const res = await createDonation(ctx.db, deps(captures), input())
-    expect(res).toMatchObject({ ok: true, donation: { status: 'Captured', community_id: COMMUNITY } })
+    expect(res).toMatchObject({
+      ok: true,
+      donation: { status: 'Captured', community_id: COMMUNITY },
+    })
     const rows = await outboxRows()
     expect(rows.length).toBe(1)
     expect(rows[0]?.subject).toBe(donationStateChanged(COMMUNITY))

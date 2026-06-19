@@ -1,7 +1,7 @@
-import { defineConfig } from 'vitest/config'
 // Self-reference via the package export (not a relative path): the Vitest config loader resolves
 // package exports but not extensionless relative .ts imports at config-load time.
 import { contentionAwareTimeout } from '@qaroom/testing-utils/vitest-timeouts'
+import { defineConfig } from 'vitest/config'
 
 export interface ServiceConfigOptions {
   /**
