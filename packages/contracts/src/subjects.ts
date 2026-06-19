@@ -96,6 +96,20 @@ export const VOTES_FEED_SUBJECT = `${ROOT}.${CONTENT}.votes.>`
 export const MODERATION_FEED_SUBJECT = `${ROOT}.${MODERATOR}.decision.>`
 
 /**
+ * The canonical fan-out set: every entity-level feed subject, in publish-grammar order. The
+ * webhooks-service binds its durable to exactly this (it fans all five domain events out to external
+ * subscribers). Defined ONCE here so the consumer binding and the routing/seam tests import the same
+ * array instead of re-listing it — a re-listed copy silently drifts when the set changes.
+ */
+export const ALL_FEED_SUBJECTS: string[] = [
+  POSTS_FEED_SUBJECT,
+  VOTES_FEED_SUBJECT,
+  FLAGS_FEED_SUBJECT,
+  DONATIONS_FEED_SUBJECT,
+  MODERATION_FEED_SUBJECT,
+]
+
+/**
  * AsyncAPI address for the gateway's server→client WebSocket push (Milestone 5). Not a NATS
  * subject the broker routes — it documents the WS channel — but it follows the same grammar so
  * the AsyncAPI generator places `community_id` at the fixed third position.
@@ -112,6 +126,31 @@ export const VOTE_CAST_ADDRESS = `${ROOT}.${CONTENT}.votes.{community_id}.cast`
 export const FLAG_STATE_CHANGED_ADDRESS = `${ROOT}.${FLAGS}.flag.{community_id}.changed`
 export const DONATION_STATE_CHANGED_ADDRESS = `${ROOT}.${DONATIONS}.donation.{community_id}.changed`
 export const MODERATION_DECISION_RECORDED_ADDRESS = `${ROOT}.${MODERATOR}.decision.{community_id}.recorded`
+
+/**
+ * Does a concrete subject fall under a NATS filter subject? Implements the two JetStream
+ * wildcards against the dot-tokenized grammar: `*` matches exactly one token, `>` matches one
+ * or more trailing tokens (and is only legal as the final token). A `>` with nothing after it
+ * is rejected — JetStream requires at least one token for `>` to match. Used by the
+ * producer↔consumer routing cross-check (a service publishing `postCreated(c)` must be SELECTED
+ * by every consumer's filter, e.g. `POSTS_FEED_SUBJECT` / `postsCreatedAnyCommunity()`), so a
+ * community-position drift that the golden-string test would miss fails here instead.
+ */
+export function subjectMatchesFilter(filter: string, subject: string): boolean {
+  const filterTokens = filter.split('.')
+  const subjectTokens = subject.split('.')
+  for (let i = 0; i < filterTokens.length; i += 1) {
+    const token = filterTokens[i]
+    if (token === '>') {
+      // `>` is terminal and greedy: it matches the rest, but only if at least one token remains.
+      return i === filterTokens.length - 1 && subjectTokens.length > i
+    }
+    if (i >= subjectTokens.length) return false
+    if (token === '*') continue
+    if (token !== subjectTokens[i]) return false
+  }
+  return filterTokens.length === subjectTokens.length
+}
 
 export interface ParsedSubject {
   service: string

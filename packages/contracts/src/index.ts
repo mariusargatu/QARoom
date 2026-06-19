@@ -198,6 +198,7 @@ export {
 } from './snapshot'
 export type { ParsedSubject } from './subjects'
 export {
+  ALL_FEED_SUBJECTS,
   contentPostsForCommunity,
   DONATION_STATE_CHANGED_ADDRESS,
   DONATIONS_FEED_SUBJECT,
@@ -217,6 +218,7 @@ export {
   postCreated,
   postsCreatedAnyCommunity,
   QAROOM_STREAM_SUBJECTS,
+  subjectMatchesFilter,
   VOTE_CAST_ADDRESS,
   VOTES_FEED_SUBJECT,
   voteCast,
