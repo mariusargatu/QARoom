@@ -4,9 +4,9 @@ import { BOUNDARY_REGISTRY } from './lib/manifests/boundary-registry'
 /**
  * Render the breadth table from the boundary registry (the 2026-06-11 critique's consistency fix:
  * three hand-maintained boundary tables had drifted; now one source renders the table that lives in
- * docs/02-architecture.md and `pnpm claims:verify` byte-gates it).
+ * ARCHITECTURE.md §3 and `pnpm claims:verify` byte-gates it).
  *
- *   pnpm boundaries:render   print the block (for injection into docs/02 + the gate)
+ *   pnpm boundaries:render   print the block (for injection into ARCHITECTURE.md §3 + the gate)
  */
 
 export const BOUNDARIES_START =

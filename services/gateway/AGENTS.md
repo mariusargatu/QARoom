@@ -57,6 +57,6 @@ pnpm --filter @qaroom/gateway openapi:generate  # regenerate openapi.yaml from Z
 - The REST plane is **unauthenticated by design** (ADR-0022): the principal is the
   `X-Principal-Id` header (falls back to IP). Edge JWT enforcement is deliberately omitted; the
   gateway consumes identity's JWKS contract (`src/jwks-client.ts`) and redeems WS tickets, but
-  never decodes tokens. Real edge credentials are the parked Milestone 13 (`docs/04-roadmap.md`),
+  never decodes tokens. Real edge credentials are the parked Milestone 13 (`ARCHITECTURE.md` §7),
   which would supersede ADR-0022.
 - Rate-limit state is in-memory; the gateway is stateless otherwise (no database).

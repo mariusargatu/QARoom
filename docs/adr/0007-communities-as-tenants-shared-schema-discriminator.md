@@ -45,4 +45,4 @@ Isolation remains a **property**: `services/identity/src/tenancy.property.test.t
 
 - [ADR-0001](0001-foundational-decisions.md): Commitment 9 (communities-as-tenants), Commitment 13 (`tenant_resolution`).
 - [ADR-0008](0008-jwt-signing-key-model-and-rotation-contract.md): the JWT that carries the `memberships` claim derived from this registry.
-- `docs/04-roadmap.md`: Milestone 2 exit criteria.
+- `AGENTS.md` "Milestone awareness": Milestone 2.

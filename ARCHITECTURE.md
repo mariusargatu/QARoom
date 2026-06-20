@@ -3,16 +3,17 @@
 > **Thesis: testability is an architectural property, not a phase.**
 > The system is shaped so it can be tested, and the tests are shaped to the system's
 > boundaries. Neither is bolted on. This is the one-page mental model that connects the
-> two; the depth lives in [`docs/02-architecture.md`](docs/02-architecture.md) (system),
-> [`docs/03-testing-strategy.md`](docs/03-testing-strategy.md) (testing), and the ADRs in
-> [`docs/adr/`](docs/adr/). Read this first, then descend.
+> two. The system, the testing, and the decisions all live here now; the living detail is one
+> layer down — the **diagrams** in the [Structurizr model site](https://mariusargatu.github.io/QARoom/architecture/),
+> the **decisions** in [`docs/adr/`](docs/adr/), and the **enforced contracts** in the code
+> ([where the truth lives](#8-where-the-truth-lives)). Read this first, then descend.
 
 QARoom is a multi-tenant social platform (communities, posts, votes, donations behind a
 flag) built as a *specimen*. The product is the demonstration that defense-in-depth-and-breadth
 testing can be an emergent property of how a distributed system is built. Every architectural
 choice "points back to one or more testing techniques it enables"
 ([ADR-0001](docs/adr/0001-foundational-decisions.md)); every testing technique sits at the
-architectural boundary it defends ([docs/03 §5](docs/03-testing-strategy.md)). The two halves
+architectural boundary it defends (the boundary map in §3). The two halves
 are the same decision viewed from opposite ends.
 
 The ethos throughout: **complexity must earn its place** — the architecture is "sized exactly
@@ -31,27 +32,19 @@ those demonstrations credible" ([ADR-0001](docs/adr/0001-foundational-decisions.
 <sub>These counts are read from the source (the manifest + the folders on disk), not typed by hand. `pnpm stats:render` writes this line and `pnpm claims:verify` fails the build if it drifts. Live test totals come from a CI run's `test-results/summary.json` artifact (gitignored here); `pnpm prove` reads them locally.</sub>
 <!-- stats:end -->
 
-```
-  web (React/Vite)
-       │  REST (one origin, *.localhost via Traefik)
-       ▼
-   gateway (Fastify edge) ──proxies──► identity (JWT/JWKS), moderation reads  [ADR-0022]
-       │
-       ├── content ─┐
-       ├── flags    │  each owns its own PostgreSQL (one logical DB per service)
-       ├── donations│
-       └── identity ┘
-            │
-            ▼  publish typed events
-        NATS JetStream  (qaroom.<service>.<entity>.<community_id>.<event>)
-            │
-            ├──► moderator-agent (Python: RAG over per-community policy corpus)  [ADR-0018/0020]
-            └──► webhooks (outbound delivery edge)                              [ADR-0019]
+**The shape, in one breath:** the React/Vite `web` SPA reaches one origin (`*.localhost` via Traefik); the Fastify `gateway` edge proxies every upstream over HTTP (and fronts identity + moderation reads, [ADR-0022](docs/adr/0022-gateway-fronts-identity-and-moderation-for-the-web-edge.md)); `content`, `flags`, `donations`, and `identity` each own a Postgres; state-change events flow over **NATS JetStream** (`qaroom.<service>.<entity>.<community_id>.<event>`, `community_id` fixed at position 3) to the Python `moderator-agent` (RAG, [ADR-0018](docs/adr/0018-moderator-agent-architecture.md)/[0020](docs/adr/0020-moderator-rag-and-eval-stack.md)) and the `webhooks` delivery edge ([ADR-0019](docs/adr/0019-webhooks-as-a-tested-delivery-edge.md)). Cross-cutting: OpenTelemetry (`tenant.id` on every span) → Collector → Jaeger + Prometheus/Grafana; Tracetest; Microcks; Chaos Mesh + Litmus. Everything runs on Kubernetes — k3d local via Tilt, KinD in CI.
 
-  cross-cutting: OpenTelemetry (tenant.id on every span) → Collector → Jaeger + Prometheus/Grafana;
-  Tracetest (trace-as-assertion); Microcks (payment virtualization); Chaos Mesh + Litmus (faults).
-  Everything runs on Kubernetes: k3d local via Tilt, KinD in CI.
-```
+**The living picture** — context, containers, components, the create-post trace, the deployment topology — is the [Structurizr model site](https://mariusargatu.github.io/QARoom/architecture/), generated from [`docs/structurizr/`](docs/structurizr/) and grounded in `services/*`. The five event channels (logical names; the literal subject tokens are `posts`/`votes`/`flag`/`donation`/`decision` + `created`/`cast`/`changed`/`changed`/`recorded`):
+
+| Event | Publisher | Consumers |
+|---|---|---|
+| `post.created` | content | moderator-agent (wildcard → review); webhooks |
+| `vote.cast` | content | webhooks |
+| `flag.state.changed` | flags | donations (→ `flag_cache`); gateway (→ WS feed); webhooks |
+| `donation.state.changed` | donations | gateway (→ WS feed); webhooks |
+| `moderation.decision.recorded` | moderator-agent | webhooks |
+
+Each service owns one Postgres (moderator adds pgvector); every DB also carries the messaging substrate it needs (`outbox` / `processed_events` / `idempotency_responses`).
 
 **Synchronous REST** carries queries and external-facing calls; **NATS JetStream** carries all
 cross-service *state-change events*. The split is "along observation, not preference: the writer
@@ -67,7 +60,7 @@ property-based isolation tests.
 
 The service roster, and the *one* boundary each exists to teach (full table:
 [`scripts/lib/manifests/boundary-registry.ts`](scripts/lib/manifests/boundary-registry.ts),
-rendered into [docs/02](docs/02-architecture.md)):
+rendered into the boundary map in §3):
 
 | Service | Role | Boundary it teaches |
 |---|---|---|
@@ -86,7 +79,7 @@ rendered into [docs/02](docs/02-architecture.md)):
 ## 2. The reasoning spine: what makes the system testable
 
 Four properties are deliberately engineered *into the system* so that whole classes of tests
-become possible. These are preconditions, not afterthoughts ([docs/03 §7](docs/03-testing-strategy.md)).
+become possible. These are preconditions, not afterthoughts.
 
 - **Determinism, injected everywhere** ([ADR-0001](docs/adr/0001-foundational-decisions.md) Commitment 6).
   Time is `clock.now()`, IDs are `idGenerator.next()`, randomness is `randomness.next()` — real in
@@ -106,7 +99,7 @@ become possible. These are preconditions, not afterthoughts ([docs/03 §7](docs/
   state. **Do not invent any other state-inspection mechanism.**
 
   One create-post request, captured from the live cluster, is a single 35-span trace across
-  `content → moderator-agent → webhooks` — the five-node RAG trajectory and the NATS hops all in
+  `content → moderator-agent → webhooks` — the six-node RAG trajectory and the NATS hops all in
   one tree, every span tenant-scoped. This is the structure the assertions run against:
 
   [![A create-post request as one 35-span cross-service trace](docs/assets/jaeger-trace.png)](docs/assets/jaeger-trace.png)
@@ -142,8 +135,8 @@ decision in these runs was made by `gpt-5-nano`, the cost-effective model the ev
 ## 3. The testing architecture: a honeycomb, exploded by boundary
 
 The test pyramid is a monolith's shape — unit-heavy, integration-thin. Microservices invert it
-because **most bugs live *between* services**, so QARoom adopts the **honeycomb** (Spotify's model;
-[docs/03 §4](docs/03-testing-strategy.md)): a thin cap, a thin
+because **most bugs live *between* services**, so QARoom adopts the **honeycomb** (Spotify's model):
+a thin cap, a thin
 base, and a fat integration band carrying the weight — "made granular: every technique is a cell."
 
 ```
@@ -164,30 +157,32 @@ honeycomb-by-boundary is **chosen** because the bugs that matter are cross-servi
 async, and state drift*. The sharper move is the **boundary lens**: the fat middle is not left
 undifferentiated — it is split so that **every architectural seam gets the technique that defends
 it, with more than one stacked there** (depth), across all ~12 boundaries (breadth).
-[docs/03 §5](docs/03-testing-strategy.md) calls this map "the central artifact of the strategy":
+this map is "the central artifact of the strategy":
 a reader should be able to name the technique defending any boundary. Techniques are placed "where
 the boundary it protects actually lives, not where it is convenient."
 
 ### The boundary map (the central artifact)
 
-| Boundary | Defending technique(s) | What it catches |
-|---|---|---|
-| **Trust** (client→gateway) | Schemathesis fuzz + RFC 7807 conformance; web-side shared-Zod + golden-journey | Crash on hostile input; spec-violating errors |
-| **Process** (service↔service) | Pact v4 + Schemathesis on provider, cross-checked vs published OpenAPI | Consumer-perceived breakage; contract drift between two services |
-| **Async** (events over NATS) | Typed Zod events + outbox + `processed_events` dedup + Pact message + Tracetest propagation | Message-shape drift; lost / duplicated / reordered delivery |
-| **State** (rollout, webhook delivery, migration) | XState + `@xstate/graph` + Playwright MBT; reverse-conformance on transition spans | Mid-transition bugs; off-model transitions the system should never enter |
-| **Temporal** | Injected Clock; FakeClock advanced explicitly; lint bans `new Date()` | TTL/expiry/backoff bugs, reproduced without sleeps |
-| **Tenancy** | fast-check operation sequences, three-tenant interleave | Cross-tenant leakage nobody wrote an example for (the bug class only PBT catches systematically) |
-| **Identity issuance** | JWT property tests + JWKS contract; rotation as a state machine | Key-rotation drift; `kid` mismatch; expired-token acceptance |
-| **WebSocket push** | AsyncAPI + Microcks-async + Playwright WS; polling-parity; one-use ticket | WS↔polling drift; protocol regressions; stale/unauthorized socket |
-| **Observability** | Tracetest assertions on trace structure | Unexpected calls; missing spans; a span without `tenant.id` |
-| **External LLM** | RAG grounding + DeepEval/DeepTeam/PyRIT + abstain path + metamorphic + LangGraph reverse-conformance | Hallucinated/overconfident dispositions; phrasing-sensitivity; prompt-injection / OWASP-LLM |
-| **External payment** | Microcks mock + injectable client seam + RFC 7807 `dependency_failure` + HTTPChaos | Provider faulting/declining; REST contract drift |
-| **Delivery edge** (outbound webhooks) | HMAC-SHA256 (timestamp bound in) + SSRF guard + capped-jittered retry contract + delivery XState + MBT | Forged/replayed deliveries; internal-address callbacks; dropped delivery; retry drift |
+This table is the one **gated** projection of [`scripts/lib/manifests/boundary-registry.ts`](scripts/lib/manifests/boundary-registry.ts) — `pnpm boundaries:render` writes it and `pnpm claims:verify` fails the build if it drifts. The per-technique depth (what each catches that nothing else does, the chaos and metamorphic detail) lives in the tests themselves and the [detection matrix](docs/detection-matrix.md).
 
-The three honeycomb bands are scoped by *cost*: the cap explicitly does **not** cover I/O, time,
-or integration (so it stays thin); the integration band carries the weight; the E2E base
-(k6, chaos) runs merge-to-main / nightly, never per-PR ([docs/03 §4](docs/03-testing-strategy.md)).
+<!-- boundaries:start (generated by `pnpm boundaries:render`; do not edit) -->
+| Boundary | What can break | Lead technique |
+|---|---|---|
+| Trust (client to gateway) | malformed or hostile input | Schemathesis fuzzing, RFC 7807 errors; on the web→gateway consumer side, the shared-Zod contract and the golden-journey harness (run via the gauntlet) |
+| Process (service to service) | a contract drifts between two services | Pact v4 contracts, cross-checked against the published OpenAPI |
+| Async (events over NATS) | a lost, duplicated, or reordered event | typed events, outbox, dedup, async Pact, Tracetest |
+| State (rollouts, webhook delivery, migration) | an illegal state transition | XState machines, reverse-conformance, model-based testing |
+| Temporal | logic that depends on the wall clock | an injected `Clock`, no real time in non-test code |
+| Tenancy (communities as tenants) | one tenant reads another tenant's data | property-based isolation tests |
+| Identity issuance (JWT and JWKS) | a token signed with a retired key, a rotation that strands sessions | JWKS contract tests, rotation as a state machine |
+| WebSocket push | a stale socket, an unauthorized subscription, push/poll divergence | one-use ticket auth, polling-parity tests |
+| Observability | a span without its tenant, a trace that breaks | every span carries `tenant.id`, checked live |
+| External dependency (the LLM moderator) | a hallucinated or overconfident decision | retrieval grounding, eval, red-team, an abstain path |
+| External payment (donations to the payment provider) | the payment provider faults, declines, or its REST contract drifts | a Microcks contract mock, an injectable payment-client seam, RFC 7807 `dependency_failure` on a fault |
+| Delivery edge (outbound webhooks) | a replayed, dropped, or unsafe delivery | HMAC signing, SSRF guard, at-least-once with retries |
+<!-- boundaries:end -->
+
+Re-sorted by **cost tier** (the same portfolio, by where it runs): **Tier A — in-process** (Vitest/pytest, no cluster: unit, fast-check property, Zod, injected Clock, Pact REST + message, Pact↔OpenAPI cross-check, PGlite integration, Storybook + Playwright CT, Stryker mutation on the locked modules); **Tier B — cluster-live** (k3d: Schemathesis stateful, EvoMaster, model-based E2E, Tracetest reverse-conformance, Microcks, Chaos Mesh + Litmus, k6 vs SLOs, scenario replay); **Tier C — LLM evaluation** (key-gated: DeepEval, DeepTeam, PyRIT, metamorphic, LangGraph reverse-conformance). The honeycomb bands are scoped by that cost: the cap does **not** cover I/O, time, or integration (so it stays thin); the integration band carries the weight; the E2E base (k6, chaos) runs merge-to-main / nightly, never per-PR.
 
 ---
 
@@ -195,9 +190,11 @@ or integration (so it stays thin); the integration band carries the weight; the 
 
 A test suite's silent failure mode is *drift* — an artifact regenerated from one source so a
 change in code silently changes the meaning of a test. QARoom's answer
-([docs/03 §6](docs/03-testing-strategy.md), [ADR-0001](docs/adr/0001-foundational-decisions.md)
+([ADR-0001](docs/adr/0001-foundational-decisions.md)
 Commitment 3): **for every contract, at least two independently-authored artifacts express the
-truth, and verification fails loudly when they disagree.** Zod is the single source; OpenAPI/
+truth, and verification fails loudly when they disagree.** The three fuzzers stay distinct because
+each asks a different question: **fast-check** is invariant-driven, **Schemathesis** is
+schema-driven, **EvoMaster** is search-driven. Zod is the single source; OpenAPI/
 AsyncAPI are *generated and committed* (a reviewable diff, never silently regenerated). The four
 contract tools never collapse into one because each checks a *different direction of agreement*:
 
@@ -214,7 +211,7 @@ single manifest the `prove` CLI and skimmer project from — with `pnpm claims:v
 empirically proving each gate goes RED when its toggle is set, so the manifest "can never decay
 into theater."
 
-**Honestly admitted** ([docs/03 §6](docs/03-testing-strategy.md)): this discipline has real cost —
+**Honestly admitted:** this discipline has real cost —
 adding one field to a donation request touches the Zod schema, the consumer Pact test, the handler,
 the regenerated+diff-reviewed OpenAPI, and possibly the XState model. Accepted, because the
 alternative — silent drift — destroys the value of having tests at all.
@@ -261,6 +258,27 @@ per-service Postgres the process boundary is a function call, not a contract. *T
 "testability is an architectural property" means here — and why the system was sized to expose
 exactly these seams, no more.
 
+### Running it: deployment, cost, and SLOs
+
+Everything is one local cluster (`pnpm dev` → k3d via Tilt; the topology is the [Structurizr Deployment view](https://mariusargatu.github.io/QARoom/architecture/)). Three ordering facts are load-bearing: Postgres and NATS come up before the services; the OTel Collector starts after Jaeger and Tracetest so its export clients resolve; and each per-worktree ephemeral namespace (`scripts/spin-up-ephemeral.sh`) gets its **own** NATS so events and consumer state never leak between environments.
+
+The SLOs are demo-grade teaching values — the single source is in-code `SLO_TARGETS` (`packages/contracts/src/slos.ts`), pinned to the table in [`docs/slos.md`](docs/slos.md) by `slos.test.ts` and projected to the k6 thresholds by `pnpm k6:gen`. Real enough that a load test has a target, lax enough to run on a laptop, so "SLO regression" is a defined failure mode (e.g. `POST …/posts` p50/p95/p99 = 50 / 200 / 500 ms, error < 0.5%).
+
+The only lane that spends real money is LLM evaluation; it is cost-bounded before it runs, and the estimate is itself a derived, drift-gated figure:
+
+<!-- cost:start (generated by `pnpm cost:render --readme`; do not edit) -->
+**LLM run cost (estimate).** One on-demand eval run, `openai:gpt-5-nano-2025-08-07`, at vendored prices:
+
+| Lane | Est. tokens | Est. cost |
+|---|--:|--:|
+| `gold-deepeval` | 99,140 | $0.0071 |
+| `deepteam-owasp` | 1,600 | $0.0004 |
+| `pyrit-nightly` | 12,000 | $0.0027 |
+| **total** | **112,740** | **$0.0102** |
+
+<sub>Pre-flight estimate, not a measured bill: the eval harnesses (DeepEval/DeepTeam/PyRIT) report no token usage, so `pnpm --filter @qaroom/moderator-agent eval:cost` bounds the run against `MODERATOR_EVAL_BUDGET_TOKENS` and `cost:ledger` stamps the actual per-run record (with date) into `test-results/cost-ledger.json`. Prices are vendored in `evals/cost-model.json` — the `gpt-5.5` rate is a placeholder (no public price exists for a pinned future-dated model). Numbers derive from that file; `pnpm claims:verify` fails if this block drifts.</sub>
+<!-- cost:end -->
+
 ---
 
 ## 6. Decisions and their reasoning
@@ -304,45 +322,36 @@ below is a *what + why (+ what it rejected)*; follow the link for the full rejec
 
 ## 7. What this architecture deliberately omits (and why)
 
-Honesty about scope is part of the deliverable. The full list lives in
-[docs/02 "What this architecture deliberately omits"](docs/02-architecture.md); the load-bearing ones:
+Honesty about scope is part of the deliverable. The omissions are part of the contract:
 
-- **No service mesh** — Chaos Mesh + Litmus + manual OTel propagation cover the same ground; a
-  mesh "would bury the testing story under wiring."
-- **No edge authentication at the gateway** — it routes and proxies without enforcing JWTs;
-  rate-limiting keys on a principal header or IP. (Parked for a future Milestone 13.)
-- **No real OAuth, no real payments, no multi-region, no i18n** — each would add cost without
-  teaching a *new* technique. The payment provider is Microcks-mocked so donations still exercises
-  an untrusted-external-boundary defense.
-- **No SAST/DAST, no visual-regression, no a11y-as-a-milestone** — out of scope for the
-  architectural lens (web *does* run Storybook a11y checks). `toMatchSnapshot()` is forbidden.
-- **At the strategy level** ([docs/03 §11](docs/03-testing-strategy.md)): full-suite mutation
-  testing, BDD/Gherkin (MBT serves the same role), differential testing, microbenchmarks — and
-  **coverage as a target** ("coverage is a vanity metric; confidence per dollar is the real
-  currency"). Every tool must demonstrate a *distinct* testing philosophy or it is excluded.
+- **No service mesh** (Istio/Linkerd) — Chaos Mesh + Litmus + manual OTel propagation cover the same ground; a mesh would bury the testing story under wiring.
+- **No edge authentication at the gateway** — it routes and proxies (incl. the ADR-0022 identity/moderation passthroughs) without enforcing JWTs; rate-limiting keys on a caller-supplied principal header or IP. Impersonation is trivial — an accepted property of a demo, not a hidden vulnerability. Parked for a future Milestone 13.
+- **No real OAuth / federated identity, no real payments, no multi-region, no i18n** — each adds cost without teaching a *new* technique. The payment provider is Microcks-mocked, so donations still exercises an untrusted-external-boundary defense.
+- **No production-grade security testing** (SAST/DAST/dependency scanning), **no visual-regression**, **no accessibility-as-a-milestone** — out of the architectural lens (web *does* run Storybook a11y checks). `toMatchSnapshot()` is forbidden repo-wide.
+- **No MCP server per service** in v1 — designed-for-later; the seam is Commitment 7's `/system/capabilities`. (The cross-service variant shipped in Milestone 10, ADR-0006.)
+- **At the strategy level:** full-suite mutation testing (Stryker runs the locked critical-modules list only), BDD/Gherkin (MBT serves the same role), differential testing, microbenchmarks — and **coverage as a target** ("coverage is a vanity metric; confidence per dollar is the real currency"). Every tool must demonstrate a *distinct* testing philosophy or it is excluded.
+
+The architecture is sized exactly for v1, but every seam needed for likely v2/v3 work is in place — webhooks (ADR-0019) paid that off: it consumed the existing event bus and added no new commitment.
 
 ---
 
-## 8. Going deeper
+## 8. Where the truth lives
 
-- **System depth:** [`docs/02-architecture.md`](docs/02-architecture.md) — the boundary table,
-  the data planes, the deliberate-omissions list in full.
-- **Testing depth:** [`docs/03-testing-strategy.md`](docs/03-testing-strategy.md) — §4 the
-  honeycomb bands, §5 the technique-to-boundary map, §6 triangulation, §7 the determinism +
-  observability preconditions, §11 explicit exclusions, §12 the SLO table.
-- **The decisions:** [`docs/adr/`](docs/adr/) — start with the immutable
-  [0001](docs/adr/0001-foundational-decisions.md), then the ADR that touches your change.
-- **The proof, not the claim:** [`docs/detection-matrix.md`](docs/detection-matrix.md) —
-  every deliberate-bug toggle armed one at a time against the whole battery. It is brutally
-  honest: most cells are **misses** (at the committed snapshot it renders far more misses than
-  catches across the measured grid), and a miss is "empirical blindness, not an assumption." The
-  grid is rendered by `pnpm matrix:render` and drift-gated by `pnpm matrix:verify`.
-- **Everything at once:** [`docs/gauntlet.md`](docs/gauntlet.md) — one orchestrated run of every
-  technique against one live system (`pnpm gauntlet`), with honest *infra / gate / observe*
-  failure semantics and recorded skips. The complement to per-PR CI.
-- **The contracts of the repo itself:** [`scripts/lib/manifests/boundary-registry.ts`](scripts/lib/manifests/boundary-registry.ts)
-  (the source the breadth table renders from) and [`scripts/lib/manifests/claims.ts`](scripts/lib/manifests/claims.ts)
-  (the manifest `pnpm claims:verify` proves can never decay into theater).
+This doc is the landscape; the **truth** is in the code, the contracts, and the running system —
+derived or enforced, never hand-copied. One authoritative home per concern:
+
+| Concern | Source of truth |
+|---|---|
+| API + event contracts | Zod in [`packages/contracts/`](packages/contracts/) — OpenAPI/AsyncAPI generated + committed; `oasdiff` / `asyncapi:verify` gate breaking changes |
+| Decisions + rationale (the WHY) | [`docs/adr/`](docs/adr/) — start at the immutable [0001](docs/adr/0001-foundational-decisions.md); the [model site](https://mariusargatu.github.io/QARoom/architecture/) renders them read-only |
+| Conventions | enforced, not written: [`tools/eslint-plugin-qaroom`](tools/eslint-plugin-qaroom) + Biome + the drift gates (conventions that aren't enforced rot) |
+| Diagrams (context / container / component / deployment / testing) | the [Structurizr model site](https://mariusargatu.github.io/QARoom/architecture/), generated from [`docs/structurizr/`](docs/structurizr/) grounded in `services/*` |
+| State machines | hand-authored XState / LangGraph in [`packages/contracts/src/machines/`](packages/contracts/) + each service's `/system/state` |
+| Boundaries + falsifiable claims | the manifests [`boundary-registry.ts`](scripts/lib/manifests/boundary-registry.ts) + [`claims.ts`](scripts/lib/manifests/claims.ts) (§3 + §4 here are gated projections of them) |
+| Evidence (counts, verdicts, catches/misses) | [`test-results/summary.json`](test-results/) (derived counts), [`docs/claims.md`](docs/claims.md) (live verdicts), [`docs/detection-matrix.md`](docs/detection-matrix.md) (the brutally-honest catch/miss grid — mostly misses; drift-gated by `pnpm matrix:verify`) |
+| Failure behavior | [`docs/failure-modes.md`](docs/failure-modes.md), paired 1:1 with [`chaos-experiments/`](chaos-experiments/) |
+| A guided read of the code | [`docs/code-tour.md`](docs/code-tour.md) — file:line anchors, gated by `pnpm tour:verify` |
+| Everything at once | `pnpm gauntlet` — every technique against one live system, honest infra/gate/observe semantics ([`docs/gauntlet.md`](docs/gauntlet.md)) |
 
 > Start anywhere; everything links back to the thesis. **The system is shaped to be testable;
 > the tests are shaped to the system's boundaries.**

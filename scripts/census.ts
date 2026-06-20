@@ -13,7 +13,7 @@ import { resolve } from 'node:path'
  *                 wired into nothing is dead code that looks alive. Allowlist a genuinely manual
  *                 subject by id WITH a reason; the gate prints the reason so it is never silent.
  *   (b2) MISSING  every `scripts/<name>` cited in a front-door doc (root AGENTS.md,
- *                 docs/02-architecture.md, docs/adr/*.md) must exist on disk. This is the reverse
+ *                 ARCHITECTURE.md, docs/adr/*.md) must exist on disk. This is the reverse
  *                 of the stale-reference class: scripts/spin-up-ephemeral.sh was cited for twelve
  *                 milestones before the file existed.
  *   (b3) ID DRIFT every well-known community-id literal hard-copied into a live shell script
@@ -116,7 +116,7 @@ function missingFailures(): string[] {
         .filter((f) => /\.md$/.test(f))
         .map((f) => `docs/adr/${f}`)
     : []
-  const sources = ['AGENTS.md', 'docs/02-architecture.md', ...adrFiles]
+  const sources = ['AGENTS.md', 'ARCHITECTURE.md', ...adrFiles]
 
   return sources.flatMap((src) => {
     const tokens = [...new Set(read(src).match(SCRIPT_REF) ?? [])]

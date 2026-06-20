@@ -155,4 +155,6 @@ globals) and review. `ruff` covers Python style; file-length discipline is obser
 - [ADR-0009] Kubernetes/Helm + the dev-plaintext secret posture reused here.
 - [ADR-0012] the reverse-conformance discipline the LangGraph workflow reuses.
 - [ADR-0017] the testing techniques for this service.
-- `docs/04-roadmap.md` §Milestone 9; `services/moderator-agent/AGENTS.md`.
+- [`AGENTS.md`](../../AGENTS.md) "Milestone awareness" (Milestone 9); `services/moderator-agent/AGENTS.md`.
+- [`docs/spikes/06-test-name-rule.md`](../spikes/06-test-name-rule.md): the `test-name-shape` lint
+  rule named in Decision 8 among the TS conventions that have no ruff equivalent for this Python service.

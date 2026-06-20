@@ -52,4 +52,4 @@ Milestones 0–2 ran on Docker Compose + `tsx`. Commitment 1 fixes Kubernetes (k
 ## Related decisions
 - [ADR-0001](0001-foundational-decisions.md): Commitments 1, 7, 9, 12.
 - [ADR-0007](0007-communities-as-tenants-shared-schema-discriminator.md) / [ADR-0008](0008-jwt-signing-key-model-and-rotation-contract.md): the tenancy + identity boundaries now traced with `tenant.id`.
-- `docs/04-roadmap.md` Milestone 3; `packages/otel/AGENTS.md`; `docs/slos.md`.
+- `AGENTS.md` "Milestone awareness" (Milestone 3); `packages/otel/AGENTS.md`; `docs/slos.md`.

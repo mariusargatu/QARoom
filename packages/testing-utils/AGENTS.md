@@ -1,7 +1,7 @@
 # testing-utils
 
-The test code as a system (docs/03 §9): harness, generators, matchers, determinism doubles, and
-the Pact↔OpenAPI cross-check. **Production code must never import from here.** Read the repo-root
+The test code as a system: harness, generators, matchers, determinism doubles, and the
+Pact↔OpenAPI cross-check. **Production code must never import from here.** Read the repo-root
 `AGENTS.md` first.
 
 ## What lives here
@@ -21,6 +21,17 @@ the Pact↔OpenAPI cross-check. **Production code must never import from here.**
 - `screenplay-ct/`: `createComponentActor` (Milestone 8): binds a Playwright CT `mount()` result to
   the `InteractWithComponent` ability. The ONLY place that imports `@playwright/experimental-ct-react`,
   so the core `screenplay/` stays CT-free. CTs mount static JSX (`mount(<Component {...args} />)`).
+
+## Property-based testing discipline
+
+fast-check's model is *many cheap iterations*; match `numRuns` to per-iteration cost.
+
+- **Unit (pure, no I/O):** the sweet spot — high `numRuns` (global default 100). Prefer a property over examples wherever an invariant exists (`resolveFaults`, `breakerSignal`, retry-schedule math, `rowToPost`).
+- **Integration (a PGlite app per iteration):** modest `numRuns` (10–15). A fresh harness per run is expensive — do not crank it. Build the harness *inside* the predicate via `withResource(acquire, use)` (`@qaroom/testing-utils/harness`): the lint-safe home for the `try/finally` (predicates can't contain `try` under the no-conditional-in-test rule), so a failing iteration or shrink replay never leaks the wasm-backed PGlite instance.
+- **System (live cluster):** fast-check is the wrong tool — property-style fuzzing here is **Schemathesis** (stateful-links over the OpenAPI) and **EvoMaster**, not fast-check.
+- **Sequences:** when the invariant is about a *sequence* (rollout transitions, migration edges, multi-tenant interleavings), use `fc.commands` against a model rather than rebuilding a harness per input (the Milestone-7 rollout-traversal + migration-edge suites). This also keeps integration `numRuns` honest: one long command sequence covers more than many short rebuilds.
+
+Determinism is automatic: the global seed is pinned once (`configureFastCheck` → `fc.configureGlobal({ seed, numRuns })` in the shared setup), so a reported counter-example replays via `VITEST_SEED=<n>`. The arbitraries in `generators/` are the real asset — reach for an existing one first.
 
 ## Test layout conventions (all milestones)
 

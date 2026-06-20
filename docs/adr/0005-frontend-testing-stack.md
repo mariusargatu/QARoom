@@ -59,8 +59,8 @@ The web frontend and its tests need a stack. The naive choice (React Testing Lib
 
 ## Related decisions
 
-- `docs/04-roadmap.md` Milestone 5 (MBT + Screenplay + atomic frontend) and Milestone 8 (Storybook + CT).
-- `docs/03-testing-strategy.md` §4 (Component + Model-based E2E layers), `docs/01-vision.md` (testability-as-architecture).
+- `AGENTS.md` "Milestone awareness": Milestone 5 (MBT + Screenplay + atomic frontend) and Milestone 8 (Storybook + CT).
+- `ARCHITECTURE.md` §3 (Component + Model-based E2E layers in the honeycomb), `ARCHITECTURE.md` (testability-as-architecture).
 - Sibling ADRs: [ADR-0003](0003-websocket-mock-strategy.md) (WS), [ADR-0004](0004-code-intelligence-stack.md), [ADR-0016](0016-testing-your-tests.md) (the load/mutation/fuzz half of Milestone 8).
 
 ## Implementation notes (Milestone 8, 2026-06-04)

@@ -1,8 +1,8 @@
 # QARoom: Code Tour
 
-Docs `01`-`05` argue the thesis: *every boundary has a categorical failure mode and a named testing technique that defends it.* This document makes it concrete. It follows **one request**, `POST /api/communities/{id}/posts`, from the client edge to Postgres, and at each hop names the boundary it crosses and the technique that guards it, with `file:line` anchors you can click.
+`ARCHITECTURE.md` argues the thesis: *every boundary has a categorical failure mode and a named testing technique that defends it.* This document makes it concrete. It follows **one request**, `POST /api/communities/{id}/posts`, from the client edge to Postgres, and at each hop names the boundary it crosses and the technique that guards it, with `file:line` anchors you can click.
 
-Read this after `01-vision.md` if you want the *idea*, or first if you want the *code*.
+Read this after `ARCHITECTURE.md` if you want the *idea*, or first if you want the *code*.
 
 ## Entry points: what to open per service
 
@@ -36,7 +36,7 @@ A client `POST`s a new post. The gateway fronts content-service; content owns th
    - technique: **property test** [`idempotency.property.test.ts:9`](../services/content/src/idempotency.property.test.ts#L9) (`same Idempotency-Key`)
 7. **persistence** · Write under single-writer discipline: advisory lock -> insert -> one row, one mapper.
    - code: [`repository/posts.ts:39`](../services/content/src/repository/posts.ts#L39) (`createPost`); lock [`repository/posts.ts:57`](../services/content/src/repository/posts.ts#L57) (`advisoryLock`)
-   - technique: **advisory lock + `SELECT … FOR UPDATE`** (Commitment 4); property test [`single-writer.property.test.ts:20`](../services/content/src/single-writer.property.test.ts#L20) (`whatever the interleaving`)
+   - technique: **advisory lock + `SELECT … FOR UPDATE`** (Commitment 4); property test [`single-writer.property.test.ts:27`](../services/content/src/single-writer.property.test.ts#L27) (`whatever the interleaving`)
 8. **observability** · Every tracked write funnels through the lamport gate.
    - code: [`repository/posts.ts:61`](../services/content/src/repository/posts.ts#L61) (`deps.lamport.bump`) -> [`lamport.ts:55`](../packages/contracts/src/lamport.ts#L55) (`bump`)
    - technique: **`/system/state`** is pinnable by `snapshot_id`
@@ -45,7 +45,7 @@ A client `POST`s a new post. The gateway fronts content-service; content owns th
    - technique: **contract re-parse**: the response cannot drift from the schema
 10. **tenancy boundary** · A community's posts never leak to another community.
     - code: data partition (`community_id`)
-    - technique: **fast-check** property [`tenancy.property.test.ts:31`](../services/content/src/tenancy.property.test.ts#L31) (`only in their own feed`)
+    - technique: **fast-check** property [`tenancy.property.test.ts:36`](../services/content/src/tenancy.property.test.ts#L36) (`only in their own feed`)
 11. **process boundary (provider side)** · The gateway pact is verified against a *real* content + Postgres.
     - code: [`provider.verify.ts:13`](../services/content/tests/contracts/provider.verify.ts#L13) (`runProviderVerification`)
     - technique: **Pact** provider verification (Testcontainers)

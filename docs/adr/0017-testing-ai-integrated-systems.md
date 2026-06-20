@@ -141,4 +141,5 @@ extensible per-runner `output`.
 - [ADR-0012] reverse conformance via OTel transition spans, reused verbatim for LangGraph.
 - [ADR-0015] the regression catalog a reified eval/metamorphic finding lands in.
 - [ADR-0018] the moderator-agent's architecture (Python tooling, action seam, dedup asymmetry).
-- `docs/03-testing-strategy.md` §4 (portfolio); `docs/04-roadmap.md` §Milestone 9.
+- [`ARCHITECTURE.md`](../../ARCHITECTURE.md) §3 (the testing portfolio);
+  [`AGENTS.md`](../../AGENTS.md) "Milestone awareness" (Milestone 9).

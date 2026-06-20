@@ -96,7 +96,7 @@ assertion language embedded in CRDs would fight that grain.
 - **No chaos / table-top only.** Loses the verification that mitigations actually fire under
   fault; the deliberate-bug demos would be untestable.
 - **Service-mesh fault injection (Istio/Linkerd).** Adds a mesh the architecture deliberately
-  omits (`docs/02-architecture.md`); far too heavy for the teaching goal.
+  omits ([`ARCHITECTURE.md`](../../ARCHITECTURE.md) §7); far too heavy for the teaching goal.
 - **Native Litmus/Chaos-Mesh probes as the assertion.** A second opaque assertion language;
   cannot express response-*shape* invariants (RFC 7807) and buries the property inside the CRD,
   breaking "replay from the manifest" and TS-ecosystem consistency.
@@ -107,4 +107,4 @@ assertion language embedded in CRDs would fight that grain.
 - [ADR-0011](0011-async-dedup-outbox-msgid-processed-events.md): the dedup/outbox mitigations
   experiments 01–03 exercise.
 - `docs/failure-modes.md`: the per-experiment expected-behaviour spec (change both or neither).
-- `docs/04-roadmap.md` §Milestone 6.
+- [`AGENTS.md`](../../AGENTS.md) "Milestone awareness" (Milestone 6).

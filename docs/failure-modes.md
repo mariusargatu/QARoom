@@ -1,5 +1,9 @@
 # Failure modes (Milestone 6)
 
+> **Section order:** these entries are not in strict numeric order; each carries a stable
+> `<a id="NN-…">` anchor, so the `failure-modes.md#NN` cross-references elsewhere resolve regardless
+> of position. Pair each entry with its like-numbered `chaos-experiments/NN-*.yaml`.
+
 Every chaos experiment in `chaos-experiments/` is paired with an entry here (change both or
 neither). Each entry states the **trigger**, the **steady-state property** the system must keep
 under that fault, the **mitigation** that makes it true, and the **deliberate-bug demo** that

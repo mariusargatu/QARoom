@@ -11,7 +11,7 @@
 
 ADR-0001 Commitment 3 says async drift is "gated in CI by `@asyncapi/diff` (or a thin
 custom check if `@asyncapi/diff` proves insufficient, see Milestone 0 spike)." Milestone 0
-spike 5 (`docs/spikes/05-asyncapi-drift-gate.md`) ran that evaluation.
+spike 5 ([docs/spikes/05-asyncapi-drift-gate.md](../spikes/05-asyncapi-drift-gate.md)) ran that evaluation.
 
 Finding: `@asyncapi/diff@0.5.0` reliably **detects** structural changes (it emits a
 precise JSON-pointer change list) but its default **classification** is unfit for our
