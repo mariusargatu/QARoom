@@ -3,7 +3,7 @@ import { resolve } from 'node:path'
 import { pathToFileURL } from 'node:url'
 
 /**
- * Render the QARoom "LLM run cost" projection: a drift-gated block (lives in docs/03-testing-strategy.md)
+ * Render the QARoom "LLM run cost" projection: a drift-gated block (lives in ARCHITECTURE.md §5)
  * showing what one on-demand eval run is estimated to cost, per lane, at the vendored prices in
  * services/moderator-agent/evals/cost-model.json. Mirrors render-stats.ts: side-effect-free renderer +
  * markers, byte-gated by claims-verify.ts. STABLE by construction — it carries the estimate + dollars
@@ -13,7 +13,7 @@ import { pathToFileURL } from 'node:url'
  * never disagree.
  *
  *   pnpm cost:render            print the block
- *   pnpm cost:render --readme   same (for injection into docs/03 + the gate)
+ *   pnpm cost:render --readme   same (for injection into ARCHITECTURE.md §5 + the gate)
  */
 
 const ROOT = process.cwd()

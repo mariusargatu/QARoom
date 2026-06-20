@@ -35,8 +35,9 @@ The full orchestrated [gauntlet](docs/gauntlet.md) (`pnpm gauntlet`) adds the re
 
 ## Where to start
 
-- **[ARCHITECTURE.md](ARCHITECTURE.md)**: the system, the testing, and the reasoning for each, on one page.
-- **[docs/](docs/)**: the numbered docs in order, plus the evidence: the [detection matrix](docs/detection-matrix.md) (most cells are honest *misses*), the [claims](docs/claims.md) (the dare), the [gauntlet](docs/gauntlet.md).
+- **[ARCHITECTURE.md](ARCHITECTURE.md)**: the system, the testing, and the reasoning for each, on one page — and the map of where every other truth lives.
+- **The model site** ([mariusargatu.github.io/QARoom/architecture](https://mariusargatu.github.io/QARoom/architecture/)): the living C4 + testing diagrams and the decision log, generated from [`docs/structurizr/`](docs/structurizr/).
+- **The evidence**: the [detection matrix](docs/detection-matrix.md) (most cells are honest *misses*), the [claims](docs/claims.md) (the dare), the [gauntlet](docs/gauntlet.md); decisions in [`docs/adr/`](docs/adr/).
 - **[AGENTS.md](AGENTS.md)**: the front door for LLM agents (with `/system/capabilities` and the qaroom-mcp tool surface).
 
 ## License

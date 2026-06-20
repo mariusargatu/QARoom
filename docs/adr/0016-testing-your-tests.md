@@ -7,8 +7,8 @@
   *implementation* decisions only; it does **not** modify any ADR-0001 commitment. The frontend
   component-testing stack of Milestone 8 is recorded separately in [ADR-0005](0005-frontend-testing-stack.md)
   and is deliberately not re-decided here. Builds on the determinism trio (Commitment 6), the SLO
-  table (`docs/slos.md` / Doc 03 §12), the locked critical-modules list (Doc 03 §11), and the
-  regression catalog (ADR-0015).
+  table ([`docs/slos.md`](../slos.md)), the locked critical-modules list (governed by this ADR,
+  Decision 1), and the regression catalog (ADR-0015).
 
 ## Context
 
@@ -28,14 +28,14 @@ scenario replay. Three techniques answer a *different* question and so are the c
   Milestone 0 and became observable in Milestone 3; Milestone 8 finally *enforces* it.
 
 All three are expensive and slow, which is *why* they land last and run only in the nightly/weekly/
-merge lanes (Doc 03 §8), never on the PR-fast path. The architecture earned them: determinism (so a
+merge lanes ([`ARCHITECTURE.md`](../../ARCHITECTURE.md) §3, the cost tiers), never on the PR-fast path. The architecture earned them: determinism (so a
 surviving mutant or a fuzz finding is reproducible) and the SLO table (so load has a target) are
 preconditions that already exist.
 
 ## Decision
 
 **1. Stryker is scoped to the locked critical-modules list, never full-suite.** The list is governed
-in **Doc 03 §11** as the single source of truth: voting score logic, flag resolution, donation
+**by this ADR** as the single source of truth: voting score logic, flag resolution, donation
 gating, RFC 7807 envelope construction, `LamportGate`, branded ID parsers, rate-limit token bucket,
 circuit-breaker signal mapping, and the WS-ticket one-use/expiry store (the last two added in the
 2026-06-19 addendum below). Each owning package carries a scoped `stryker.config.json` +
@@ -50,7 +50,7 @@ its guard remains `ids.test.ts` + the `brandedIdPattern` drift test). Each confi
 **Governance: adding a module to the list is an ADR; removing one requires a retrospective.**
 
 **2. EvoMaster runs black-box, nightly, per the Milestone-0 spike.** Pinned **v6.0.0** (Java 17), the
-version the spike (`docs/spikes/01-evomaster.md`) validated against TS Fastify. Note the roadmap's
+version the spike ([`docs/spikes/01-evomaster.md`](../spikes/01-evomaster.md)) validated against TS Fastify. Note the roadmap's
 "EvoMaster v3" string predates the spike; v6 is the real pin. Invocation:
 `--blackBox true --schema file://services/<name>/openapi.yaml --base <url> --outputFormat JS_JEST
 --outputFolder services/<name>/tests/evomaster-generated --seed 42 --maxTime 10m`. The fixed seed
@@ -126,7 +126,7 @@ unit tests, not product modules.
 
 ## Rejected alternatives
 
-- **Full-suite mutation testing.** Too slow to demonstrate well; Doc 03 §11 already excludes it.
+- **Full-suite mutation testing.** Too slow to demonstrate well; [`ARCHITECTURE.md`](../../ARCHITECTURE.md) §7 already excludes it.
 - **Schemathesis stateful-links *as the EvoMaster replacement*.** Not needed: the M0 spike passed,
   so EvoMaster ships. The contingency stands documented: had the spike failed, a deeper Schemathesis
   `--phases stateful` story would have run nightly instead. Schemathesis stays in the portfolio for
@@ -144,5 +144,11 @@ unit tests, not product modules.
 - [ADR-0001] Commitments 6 (determinism) and 14 (machine-readable test outputs).
 - [ADR-0005] the frontend testing stack: the other half of Milestone 8, not re-decided here.
 - [ADR-0015] scenarios as first-class artifacts: the catalog an EvoMaster finding lands in.
-- `docs/03-testing-strategy.md` §4 (portfolio), §8 (feedback loops), §11 (critical-modules SSOT),
-  §12 (SLOs); `docs/04-roadmap.md` §Milestone 8; `docs/spikes/01-evomaster.md`.
+- [`ARCHITECTURE.md`](../../ARCHITECTURE.md) §3 (the honeycomb portfolio + cost tiers) and §7
+  (full-suite mutation deliberately omitted); the locked critical-modules list is governed by this
+  ADR (Decision 1) and scoped in each package's `stryker.config.json`; [`docs/slos.md`](../slos.md)
+  (the SLO table); [`AGENTS.md`](../../AGENTS.md) "Milestone awareness" (Milestone 8).
+- [`docs/spikes/01-evomaster.md`](../spikes/01-evomaster.md): the black-box EvoMaster validation (v6,
+  TS Fastify) this decision pins to; [`docs/spikes/02-schemathesis-stateful.md`](../spikes/02-schemathesis-stateful.md):
+  the stateful-links fuzzing that covers the create->vote sequence EvoMaster's black-box search can't,
+  the complementarity recorded in Context and Rejected alternatives above.

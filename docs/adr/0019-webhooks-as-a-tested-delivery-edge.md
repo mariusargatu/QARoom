@@ -9,7 +9,7 @@
   reverse-conformance; and how it deploys and is tested on the shared substrate. It does **not**
   modify [ADR-0001](0001-foundational-decisions.md). It consumes the existing event seam and adds no
   new commitment. It realizes the "designed-for-later webhooks seam" recorded in
-  [docs/02-architecture.md](../02-architecture.md).
+  [`ARCHITECTURE.md`](../../ARCHITECTURE.md) §7.
 
 ## Context
 
@@ -137,4 +137,4 @@ story of Commitment 17) rather than a new one.
 - [ADR-0012](0012-feature-rollout-state-machine-and-reverse-conformance.md): the state-machine +
   reverse-conformance discipline reused for the delivery machine.
 - [ADR-0014](0014-chaos-as-property-check.md): chaos-as-property; the new failure-modes §08 entry.
-- `docs/04-roadmap.md` §Milestone 11; `services/webhooks/AGENTS.md`.
+- [`AGENTS.md`](../../AGENTS.md) "Milestone awareness" (Milestone 11); `services/webhooks/AGENTS.md`.

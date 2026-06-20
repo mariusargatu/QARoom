@@ -266,13 +266,13 @@ function main(): void {
       checkBlock('ARCHITECTURE.md', 'stats', STATS_START, STATS_END, renderStatsBlock),
     ],
     [
-      'docs/03 cost',
-      checkBlock('docs/03-testing-strategy.md', 'cost', COST_START, COST_END, renderCostBlock),
+      'ARCHITECTURE.md cost',
+      checkBlock('ARCHITECTURE.md', 'cost', COST_START, COST_END, renderCostBlock),
     ],
     [
-      'docs/02 boundaries',
+      'ARCHITECTURE.md boundaries',
       checkBlock(
-        'docs/02-architecture.md',
+        'ARCHITECTURE.md',
         'boundaries',
         BOUNDARIES_START,
         BOUNDARIES_END,

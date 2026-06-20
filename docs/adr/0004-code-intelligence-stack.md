@@ -2,7 +2,7 @@
 
 - **Status:** Accepted
 - **Date:** 2026-05-29
-- **Records:** how the coding agent comprehends this codebase, and the ladder for scaling that comprehension as QARoom grows. A Milestone 1 implementation choice that realizes the "agent-hospitable substrate" principle (docs/01-vision). It does **not** modify any ADR-0001 commitment.
+- **Records:** how the coding agent comprehends this codebase, and the ladder for scaling that comprehension as QARoom grows. A Milestone 1 implementation choice that realizes the "agent-hospitable substrate" principle (`ARCHITECTURE.md`). It does **not** modify any ADR-0001 commitment.
 
 ## Context
 
@@ -44,5 +44,5 @@ Rule of thumb: orientation files + agentic search are the floor and never go awa
 
 ## Related decisions
 
-- `docs/01-vision.md` (agent-hospitable substrate principle), `AGENTS.md` ("Code intelligence" section).
+- `ARCHITECTURE.md` (agent-hospitable substrate principle), `AGENTS.md` ("Code intelligence" section).
 - Sibling Milestone decisions: [ADR-0002](0002-asyncapi-drift-gate.md), [ADR-0003](0003-websocket-mock-strategy.md).

@@ -2,7 +2,7 @@ import { existsSync, readFileSync } from 'node:fs'
 import { dirname, resolve } from 'node:path'
 
 /**
- * `pnpm tour:verify`: the code-tour anchor gate. docs/00-tour.md pitches "file:line anchors you
+ * `pnpm tour:verify`: the code-tour anchor gate. docs/code-tour.md pitches "file:line anchors you
  * can click"; this gate is what keeps that sentence true. The tour once drifted silently (anchors
  * pointed at the vote route while narrating create-post) because nothing verified them. For every
  * anchor of the form [`name.ts:N`](../path/to/name.ts#LN):
@@ -16,7 +16,7 @@ import { dirname, resolve } from 'node:path'
  */
 
 const ROOT = process.cwd()
-const TOUR = resolve(ROOT, 'docs/00-tour.md')
+const TOUR = resolve(ROOT, 'docs/code-tour.md')
 
 const ANCHOR = /\[`([^`\]]+?):(\d+)`\]\(([^)#\s]+)#L(\d+)\)(\s*\(`([^`]+)`\))?/g
 
@@ -66,7 +66,7 @@ function verify(): Failure[] {
   if (count === 0) {
     failures.push({
       anchor: '(none)',
-      detail: 'no [`file:line`](path#L) anchors found in docs/00-tour.md: format drift?',
+      detail: 'no [`file:line`](path#L) anchors found in docs/code-tour.md: format drift?',
     })
   }
   process.stdout.write(`tour:verify: ${count} anchors checked\n`)
@@ -78,7 +78,7 @@ function main(): void {
   if (failures.length > 0) {
     for (const f of failures) process.stderr.write(`  ✗ ${f.anchor}: ${f.detail}\n`)
     process.stderr.write(
-      `\ntour:verify FAILED: ${failures.length} drifted anchor(s) in docs/00-tour.md\n`,
+      `\ntour:verify FAILED: ${failures.length} drifted anchor(s) in docs/code-tour.md\n`,
     )
     process.exit(1)
   }

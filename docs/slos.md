@@ -1,7 +1,8 @@
 # Service-level objectives
 
-This document mirrors the SLO table in `docs/03-testing-strategy.md` §12 and is the
-single place to look up an endpoint's performance target. The numbers are introduced as
+This is the prose home of the SLO table — pinned equal to `SLO_TARGETS` in
+`packages/contracts/src/slos.ts` by `slos.test.ts` (the gate), and the single place to look up
+an endpoint's performance target. `ARCHITECTURE.md` §5 links here. The numbers are introduced as
 a **skeleton in Milestone 0** and **exercised by k6 against the local k3d cluster in Milestone 8**.
 Documenting them upfront means every endpoint added in Milestones 1–7 has a target it must
 meet before it lands, and "SLO regression" becomes a defined failure mode in the load

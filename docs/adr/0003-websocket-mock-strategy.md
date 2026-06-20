@@ -3,7 +3,7 @@
 - **Status:** Accepted (provisional: revisit at Milestone 5 Microcks-async validation)
 - **Date:** 2026-05-29
 - **Amends:** The Milestone 5 roadmap entry (WebSocket push + service virtualization) and the
-  WebSocket-boundary row of the testing-technique table in `docs/02-architecture.md`. Does
+  WebSocket-boundary row of the boundary map in `ARCHITECTURE.md` §3. Does
   not supersede any ADR-0001 commitment (Commitment 11 is unchanged).
 - **Provenance:** spike 4 **deferred** the Microcks-async WS evaluation under the Milestone-0
   time box; it did **not** refute it. This decision is therefore provisional: it sets a
@@ -11,7 +11,7 @@
 
 ## Context
 
-Milestone 0 spike 4 (`docs/spikes/04-microcks-async-ws.md`) evaluated whether Microcks-async
+Milestone 0 spike 4 ([docs/spikes/04-microcks-async-ws.md](../spikes/04-microcks-async-ws.md)) evaluated whether Microcks-async
 can serve a WebSocket AsyncAPI mock that Playwright can read. The Microcks images are
 available, but serving a WS binding requires a 3-container async ensemble (Microcks +
 async-minion + broker). Validating that end-to-end, including a Playwright WS read, is

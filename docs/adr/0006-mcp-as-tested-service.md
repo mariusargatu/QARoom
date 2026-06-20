@@ -2,7 +2,7 @@
 
 - **Status:** Accepted, built in Milestone 10 (`services/qaroom-mcp`), 2026-06-05.
 - **Date:** 2026-06-02 (proposed); 2026-06-05 (accepted, as built)
-- **Records:** the decision that, when QARoom builds an MCP server, it is a single **cross-service** server treated as a first-class *tested* QARoom service, realizing the "designed-for-later" MCP seam in `docs/02-architecture.md`. Informed by a May-2026 landscape scan. Does **not** modify any ADR-0001 commitment, and does **not** violate the "no MCP servers *per service* in v1" omission (this is one cross-service server, post-v1). Built as Milestone 10, movement 1.
+- **Records:** the decision that, when QARoom builds an MCP server, it is a single **cross-service** server treated as a first-class *tested* QARoom service, realizing the "designed-for-later" MCP seam in `ARCHITECTURE.md` §7. Informed by a May-2026 landscape scan. Does **not** modify any ADR-0001 commitment, and does **not** violate the "no MCP servers *per service* in v1" omission (this is one cross-service server, post-v1). Built as Milestone 10, movement 1.
 
 ## As built (Milestone 10)
 
@@ -102,6 +102,6 @@ unchanged; `scripts/mcp-verify.ts` paths were updated to `services/qaroom-mcp`.
 
 ## Related decisions
 
-- `docs/04-roadmap.md`: the Milestone-10 candidate (the tested MCP server + agentic-CI demonstration).
+- `AGENTS.md` "Milestone awareness": the Milestone-10 entry (the tested MCP server + agentic-CI demonstration).
 - [ADR-0004](0004-code-intelligence-stack.md): code-intelligence stack (agentic search + LSP, no RAG); Serena MCP is the code-navigation counterpart this server complements.
-- `docs/02-architecture.md`: the "designed-for-later" MCP seam this realizes.
+- `ARCHITECTURE.md` §7: the "designed-for-later" MCP seam this realizes.

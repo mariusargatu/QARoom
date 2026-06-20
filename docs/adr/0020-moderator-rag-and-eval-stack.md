@@ -82,4 +82,4 @@ The frozen `summary.json` envelope is untouched. The `promptfoo` runner is repla
 - [ADR-0017](0017-testing-ai-integrated-systems.md): superseded tool choices (Promptfoo -> DeepEval; red-team added). Metamorphic + reverse-conformance + cost-guard/key-gate retained.
 - [ADR-0018](0018-moderator-agent-architecture.md), extended: the moderator becomes a retrieval-grounded RAG agent (FR1–FR6).
 - [ADR-0006](0006-mcp-as-tested-service.md): tool-result prompt-injection as a `failure-modes.md` entry; the red-team surface here feeds it.
-- `docs/04-roadmap.md`: **Milestone 12** (this re-scope; replaced the dropped DST candidate) and Milestone 9 (the original agentic moderator it extends).
+- [`AGENTS.md`](../../AGENTS.md) "Milestone awareness": **Milestone 12** (this re-scope; replaced the dropped DST candidate) and Milestone 9 (the original agentic moderator it extends).

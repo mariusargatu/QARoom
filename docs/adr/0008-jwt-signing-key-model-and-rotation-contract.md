@@ -2,7 +2,7 @@
 
 - **Status:** Accepted
 - **Date:** 2026-06-03
-- **Records:** how identity-service signs, publishes, and rotates JWT signing keys in Milestone 2, and why JWT issuance is treated as a tested surface rather than a trusted one. Implements the identity-issuance boundary in `docs/02-architecture.md`; does not modify any ADR-0001 commitment.
+- **Records:** how identity-service signs, publishes, and rotates JWT signing keys in Milestone 2, and why JWT issuance is treated as a tested surface rather than a trusted one. Implements the identity-issuance boundary in `ARCHITECTURE.md` §3; does not modify any ADR-0001 commitment.
 
 ## Context
 
@@ -55,4 +55,4 @@ Gateway JWT *enforcement* (verifying bearer tokens on proxied routes, checking t
 
 - [ADR-0001](0001-foundational-decisions.md): Commitment 6 (determinism), Commitment 13 (RFC 7807 `authentication`).
 - [ADR-0007](0007-communities-as-tenants-shared-schema-discriminator.md): the registry whose memberships become the JWT `memberships` claim.
-- `docs/02-architecture.md`: the identity-issuance boundary and its testing technique.
+- `ARCHITECTURE.md` §3: the identity-issuance boundary and its testing technique.

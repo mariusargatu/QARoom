@@ -1,6 +1,6 @@
 # AGENTS.md
 
-You are working on **QARoom**, a multi-tenant social platform built to demonstrate testing-driven architecture. This file is your quick reference. Read it first, then read the docs in `docs/` in numbered order. Per-package conventions live in each package's own `AGENTS.md` (loaded as you navigate there): keep this root file lean. *Reviewed through Milestone 12.*
+You are working on **QARoom**, a multi-tenant social platform built to demonstrate testing-driven architecture. This file is your quick reference. Read it first, then [`ARCHITECTURE.md`](ARCHITECTURE.md) for the one-page landscape (system + testing + decisions + the "where the truth lives" map). Per-package conventions live in each package's own `AGENTS.md` (loaded as you navigate there): keep this root file lean. *Reviewed through Milestone 12.*
 
 ## Commands
 
@@ -58,7 +58,7 @@ pnpm replay:load <scenario-name>
 # testing-the-tests (Milestone 8 onwards)
 pnpm k6:gen                                   # project SLO_TARGETS -> load-tests thresholds
 pnpm k6:results                               # fold a k6 load run into summary.json
-pnpm stryker:critical && pnpm stryker:results # mutation testing on the docs/03 §11 modules
+pnpm stryker:critical && pnpm stryker:results # mutation testing on the locked critical modules (ADR-0016)
 pnpm evomaster && pnpm evomaster:results      # EvoMaster v6 black-box fuzzing (needs Java + live content)
 pnpm --filter @qaroom/web test:stories        # Storybook play() + a11y, headless (Chromium)
 pnpm --filter @qaroom/web ct                  # Playwright Component Tests
@@ -76,10 +76,10 @@ Reach for a repo-map or code graph only if cross-service scale ever makes agenti
 
 ## Repository layout
 
-- `services/`: one directory per microservice (`content`, `gateway`, `identity`, `flags`, `donations`, and the React/Vite `web` frontend as of Milestone 5; the Python `moderator-agent` as of Milestone 9; `webhooks` as of Milestone 11; the cross-service `qaroom-mcp` server as of Milestone 10, relocated from `packages/` in Phase 3 — ADR-0006). Each backend has its own `AGENTS.md`, `openapi.yaml`, `src/`, and `Dockerfile`; `web` adds an atomic-design component library (see `services/web/docs/atomic-structure.md`). `moderator-agent` is the one Python service: `uv`/FastAPI/LangGraph, not pnpm/tsx (ADR-0018). `qaroom-mcp` is the read-first MCP tool surface over the services' capabilities (no `openapi.yaml`/`Dockerfile` — it is not cluster-deployed; four typed gates, ADR-0006). (The per-service `chart/` sketch was superseded in Milestone 3 by the shared `packages/helm-template/` + `deploy/<service>/values.yaml`.)
-- `packages/`: shared code, seven packages: `contracts/` (the Zod schema authority: OpenAPI/AsyncAPI generated from it, hand-authored XState machines in `contracts/src/machines/` (invoke-free + context-free), branded IDs, the boundary registry + falsifiable-claims manifest), `determinism/` (the injectable `Clock`/`IdGenerator`/`Randomness` interfaces + production implementations, Commitment 6), `otel/` (OpenTelemetry SDK wiring, `tenant.id` span processor, propagation primitives), `messaging/` (the NATS JetStream layer on `otel`: outbox, `processed_events` dedup, `idempotency_responses`, `subjects.ts` builders, relay), `service-kit/` (the shared Fastify service runtime: Problem Details, health + `/system/*` routes, capabilities, DB, env, idempotency), `testing-utils/` (fixtures, generators, matchers, harness, `contract-crosscheck/`), and `helm-template/` (the shared `qaroom-service` chart). (`qaroom-mcp` moved to `services/` in Phase 3 — it is a tested service, not a shared library, and importing service operation registries from `packages/` was a layering inversion.)
+- `services/`: one directory per microservice ([`content`](services/content/AGENTS.md), [`gateway`](services/gateway/AGENTS.md), [`identity`](services/identity/AGENTS.md), [`flags`](services/flags/AGENTS.md), [`donations`](services/donations/AGENTS.md), and the React/Vite [`web`](services/web/AGENTS.md) frontend as of Milestone 5; the Python [`moderator-agent`](services/moderator-agent/AGENTS.md) as of Milestone 9; [`webhooks`](services/webhooks/AGENTS.md) as of Milestone 11; the cross-service [`qaroom-mcp`](services/qaroom-mcp/AGENTS.md) server as of Milestone 10, relocated from `packages/` in Phase 3 — ADR-0006). Each backend has its own `AGENTS.md`, `openapi.yaml`, `src/`, and `Dockerfile`; `web` adds an atomic-design component library (see [`services/web/docs/atomic-structure.md`](services/web/docs/atomic-structure.md)). `moderator-agent` is the one Python service: `uv`/FastAPI/LangGraph, not pnpm/tsx (ADR-0018). `qaroom-mcp` is the read-first MCP tool surface over the services' capabilities (no `openapi.yaml`/`Dockerfile` — it is not cluster-deployed; four typed gates, ADR-0006). (The per-service `chart/` sketch was superseded in Milestone 3 by the shared `packages/helm-template/` + `deploy/<service>/values.yaml`.)
+- `packages/`: shared code, seven packages: [`contracts/`](packages/contracts/AGENTS.md) (the Zod schema authority: OpenAPI/AsyncAPI generated from it, hand-authored XState machines in `contracts/src/machines/` (invoke-free + context-free), branded IDs, the `subjects.ts` subject-grammar builders, the boundary registry + falsifiable-claims manifest), `determinism/` (the injectable `Clock`/`IdGenerator`/`Randomness` interfaces + production implementations, Commitment 6), [`otel/`](packages/otel/AGENTS.md) (OpenTelemetry SDK wiring, `tenant.id` span processor, propagation primitives), `messaging/` (the NATS JetStream layer on `otel`: outbox, `processed_events` dedup, `idempotency_responses`, relay), `service-kit/` (the shared Fastify service runtime: Problem Details, health + `/system/*` routes, capabilities, DB, env, idempotency), [`testing-utils/`](packages/testing-utils/AGENTS.md) (fixtures, generators, matchers, harness, `contract-crosscheck/`), and `helm-template/` (the shared `qaroom-service` chart). (`qaroom-mcp` moved to `services/` in Phase 3 — it is a tested service, not a shared library, and importing service operation registries from `packages/` was a layering inversion.)
 - `deploy/`: per-service Helm values (`<service>/values.yaml`) and `observability/` manifests (OTel Collector, Jaeger, Prometheus, Grafana). `Tiltfile` at the repo root drives the local cluster.
-- `docs/`: architecture, strategy, roadmap, conventions, ADRs. Read in numbered order.
+- `docs/`: [`docs/adr/`](docs/adr/) (the decisions), [`docs/structurizr/`](docs/structurizr/) (the C4 + testing model + published site), and the living evidence (`claims.md`, `detection-matrix.md`, `code-tour.md`, `gauntlet.md`, `failure-modes.md`). The one-page landscape is the root `ARCHITECTURE.md`.
 - `chaos-experiments/`: Chaos Mesh and Litmus YAML (Milestone 6 onwards).
 - `scripts/`: orchestration scripts. `bootstrap-k3d.sh`/`teardown-k3d.sh`, `smoke.sh`, `check-tenant-spans.ts`, `aggregate-test-results.ts`.
 - `.claude/`: agent definitions and skills.
@@ -106,8 +106,8 @@ These are enforced by lint and CI. Violating them will fail the build.
 
 For any non-trivial change:
 
-1. **Read the relevant docs first.** `ARCHITECTURE.md` for the one-page mental model (system + testing + the reasoning, linking down to the rest); `docs/02-architecture.md` for the system shape; `docs/03-testing-strategy.md` for testing decisions; `docs/05-conventions.md` for what's enforced; the relevant ADR.
-2. **Identify which boundary your change touches.** Use the boundary table in `docs/02-architecture.md`. Your change should use the testing technique that defends that boundary.
+1. **Read the relevant docs first.** `ARCHITECTURE.md` is the one-page mental model — system, testing, decisions, and the "where the truth lives" map; the relevant ADR for the WHY; `tools/eslint-plugin-qaroom` + the drift gates for what's enforced.
+2. **Identify which boundary your change touches.** Use the boundary map in [`ARCHITECTURE.md`](ARCHITECTURE.md#3-the-testing-architecture-a-honeycomb-exploded-by-boundary) §3. Your change should use the testing technique that defends that boundary.
 3. **For schema changes:** edit the Zod schema in `packages/contracts/`, run `pnpm openapi:generate`, commit both. CI will gate breaking changes via `oasdiff`.
 4. **For state machine changes:** edit the XState machine in `packages/contracts/machines/`, update the conformance test, update any MBT-generated tests.
 5. **For new endpoints:** they must have an `operationId` (camelCase), a `summary`, a `description`, at least one example per response code, and a Pact consumer test from whoever calls them.
@@ -145,13 +145,13 @@ QARoom is built across 12 milestones (M1-M12) on an M0 foundation; the table bel
 | 5 | flags-service, donations-service, web frontend, XState, MBT, reverse-conformance via OTel + Tracetest, Microcks, WebSocket push (JWT-via-subprotocol auth) + polling parity, Screenplay foundation | Chaos, scenario replay, agent |
 | 6 | Chaos Mesh, Litmus, chaos experiments (chaos manifests captured into snapshot for replay), failure-modes.md | Scenario replay, agent |
 | 7 | qaroom-replay CLI, /system/snapshot endpoints with versioned bundle manifest, regression catalog | Agent |
-| 8 | k6 vs SLOs, Stryker mutation (docs/03 §11 modules), EvoMaster v6 black-box (M0 spike passed), Storybook 10 + Vitest 4 + Playwright CT + unified coverage, ADR-0016 | Agent |
+| 8 | k6 vs SLOs, Stryker mutation (locked critical modules), EvoMaster v6 black-box (M0 spike passed), Storybook 10 + Vitest 4 + Playwright CT + unified coverage, ADR-0016 | Agent |
 | 9 | moderator-agent (Python `uv`/FastAPI/LangGraph + pgvector), structured outputs (Pydantic↔Zod cross-language gate), Promptfoo golden-set evals (OpenAI), metamorphic paraphrase-invariance + deliberate prompt-bug demo, LangGraph reverse-conformance (xstate.transition spans), per-run cost guard, ADR-0017, ADR-0018 | - |
-| 10 | `services/qaroom-mcp`: the cross-service MCP server as a first-class tested service (ADR-0006). Read-first tool surface (capabilities proxy + RFC 7807 tool errors + read resources + conventions oracle), both transports (in-memory + JSON-RPC/Fastify), four typed gates (manifest drift + breaking-change classifier, RFC 7807 property tests, determinism-trio golden transcript, property + metamorphic tool I/O cross-checked vs `/system/capabilities` + `openapi.yaml`). Movement 2 (agentic-CI demonstration) documented in `docs/agentic-ci-demo.md`. Mutating `callTool` deferred to a second pass. | - |
+| 10 | `services/qaroom-mcp`: the cross-service MCP server as a first-class tested service (ADR-0006). Read-first tool surface (capabilities proxy + RFC 7807 tool errors + read resources + conventions oracle), both transports (in-memory + JSON-RPC/Fastify), four typed gates (manifest drift + breaking-change classifier, RFC 7807 property tests, determinism-trio golden transcript, property + metamorphic tool I/O cross-checked vs `/system/capabilities` + `openapi.yaml`). Movement 2 (agentic-CI demonstration) documented in ADR-0006 + `docs/agentic-ci/goals.json`. Mutating `callTool` deferred to a second pass. | - |
 | 11 | `services/webhooks`, outbound delivery edge (ADR-0019): pure consumer of all five NATS channels, subscription CRUD (gateway-proxied), durable delivery ledger + relay-shaped worker, hand-authored webhook-delivery XState machine + reverse-conformance + MBT, deterministic capped-jittered retry contract, HMAC-SHA256 signing (timestamp bound in), SSRF guard, at-least-once + receiver dedup. Six env-toggled deliberate-bug demos. | - |
 | 12 | moderator v2, retrieval-grounded RAG agent (ADR-0020): per-community policy corpus in pgvector, 6-node trajectory (retrieve->rerank->gather_precedent->draft->self_check->record; two-stage retrieval, ADR-0021), citation-bearing `disposition ∈ {approve,remove,escalate_to_human}` (`cited_rules`/`precedents`/`departs_from_precedent`/`rationale`) + abstain/escalate path, prompt-injection input guard (`guard.py`, failure-modes). DeepEval (RAG + agentic + G-Eval) / DeepTeam (OWASP LLM Top 10) / PyRIT eval+red-team stack, key-gated; **Promptfoo dropped**. Breaking event v2 (verdict->disposition). | - |
 
-Always check the current milestone before introducing infrastructure that doesn't yet exist. The roadmap in `docs/04-roadmap.md` has full exit criteria per milestone.
+Always check the current milestone before introducing infrastructure that doesn't yet exist. The milestone table above, plus the ADRs, record scope per milestone.
 
 ## CI gates
 
@@ -167,7 +167,7 @@ The merge bar (enforced by the dispatched lanes, and required of any PR before m
 
 ## Where to ask "is this in scope?"
 
-If a change feels like it crosses an architectural commitment, read `docs/adr/0001-foundational-decisions.md` and check the rejected alternatives. The deliberate exclusions list is in `docs/02-architecture.md` section "What this architecture deliberately omits."
+If a change feels like it crosses an architectural commitment, read `docs/adr/0001-foundational-decisions.md` and check the rejected alternatives. The deliberate exclusions list is in [`ARCHITECTURE.md`](ARCHITECTURE.md#7-what-this-architecture-deliberately-omits-and-why) §7 ("What this architecture deliberately omits").
 
 If still unsure, do not invent. Open a discussion in the PR or wait for input.
 

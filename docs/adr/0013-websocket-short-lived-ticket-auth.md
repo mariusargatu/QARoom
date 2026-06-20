@@ -62,4 +62,4 @@ long-lived credential.
 ## Related decisions
 
 - [ADR-0003](0003-websocket-mock-strategy.md) (WS testing), [ADR-0008](0008-jwt-signing-key-model-and-rotation-contract.md)
-  (JWT model), `docs/04-roadmap.md` Milestone 5 (Commitment 11 polling parity).
+  (JWT model), [`AGENTS.md`](../../AGENTS.md) "Milestone awareness" (Milestone 5, Commitment 11 polling parity).

@@ -125,4 +125,4 @@ footnote.
 - [ADR-0001](0001-foundational-decisions.md) Commitments 6, 7, 8.
 - [ADR-0014](0014-chaos-as-property-check.md): chaos manifests are captured verbatim into the
   bundle (Commitment 6).
-- `docs/04-roadmap.md` §Milestone 7.
+- [`AGENTS.md`](../../AGENTS.md) "Milestone awareness" (Milestone 7).

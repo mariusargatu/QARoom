@@ -57,7 +57,9 @@ moderation reads) auto-join the MCP tool surface (widening, non-breaking).
 - Gateway route integration tests cover every new route (passthrough, edge-400 on malformed ids,
   502 on unreachable upstream, Authorization-forwarding for WS tickets).
 - The gateway->identity **Pact** grows from JWKS-only to the bootstrap/session surface, with
-  matching provider state handlers in identity, verified against a real Postgres.
+  matching provider state handlers in identity, verified against a real Postgres. Each new
+  interaction is additionally checked against the regenerated `openapi.yaml` by the Pact<->OpenAPI
+  cross-check ([`docs/spikes/03-pact-oas-crosscheck.md`](../spikes/03-pact-oas-crosscheck.md)).
 - Moderation reads are **integration-tested at the gateway only**: the moderator-agent is Python
   and not a Pact provider. `createWsTicket` is likewise integration-tested, not pacted: a recorded
   interaction cannot supply a live ES256-signed bearer (mirrors the long-standing un-pacted

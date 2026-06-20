@@ -79,4 +79,7 @@ the endpoint, catch it.
 
 - [ADR-0005](0005-frontend-testing-stack.md) (MBT generation options, Screenplay seam),
   [ADR-0010](0010-sync-vs-async-and-otel-propagation-contract.md) (OTel propagation),
-  `docs/04-roadmap.md` Milestone 5, the Milestone-2 migration machine.
+  [`AGENTS.md`](../../AGENTS.md) "Milestone awareness" (Milestone 5), the Milestone-2 migration machine.
+- [`docs/spikes/07-mbt-edge-coverage.md`](../spikes/07-mbt-edge-coverage.md): stateful PBT
+  (`fc.commands`) + a provable all-transitions claim driven from this rollout machine, extending the
+  MBT story this ADR records.
