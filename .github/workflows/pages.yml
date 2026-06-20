@@ -44,7 +44,10 @@ jobs:
       - name: Generate the Structurizr model site at /architecture/
         run: |
           # pinned by digest = structurizr-site-generatr v1.6.0 (reproducible). The repo root is
-          # mounted so `!adrs ../adr` in workspace.dsl resolves to docs/adr.
+          # mounted so `!adrs ../adr` in workspace.dsl resolves to docs/adr. The image runs as a
+          # NON-root user (`generatr`), which cannot create build/ in the runner-owned checkout —
+          # so pre-create the output dir world-writable before the container writes into it.
+          mkdir -p build/site && chmod -R 777 build
           docker run --rm -v "$PWD:/var/model" \
             ghcr.io/avisi-cloud/structurizr-site-generatr@sha256:dc91858de351d430e92fb0f72c1580e7827f52c37f67d1dcd8a3b4d23b34c472 \
             generate-site -w docs/structurizr/workspace.dsl
