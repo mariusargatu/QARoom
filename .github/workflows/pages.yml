@@ -1,9 +1,10 @@
-# Static GitHub Pages deploy for the interactive site under `site/`.
+# Static GitHub Pages deploy. Serves the hand-authored overview at /QARoom/ and the generated
+# Structurizr model site (C4 + testing diagrams + the ADR decision log) at /QARoom/architecture/.
 #
-# This is the ONLY push-triggered workflow in the repo, and it is scoped to `site/**`: ci.yml
-# stays deliberately dispatch-only (see its header). The site is static HTML — no build step —
-# so this job just uploads `site/` and deploys it. One-time owner action required before the
-# first run: Settings -> Pages -> Build and deployment -> Source = "GitHub Actions".
+# This is the ONLY push-triggered workflow in the repo; ci.yml stays deliberately dispatch-only
+# (see its header). The model site is GENERATED here with structurizr-site-generatr — that is a
+# site build, NOT a test lane, so the dispatch-only discipline on ci.yml is intact. One-time owner
+# action before the first run: Settings -> Pages -> Build and deployment -> Source = "GitHub Actions".
 name: Pages
 
 on:
@@ -11,6 +12,8 @@ on:
     branches: [main]
     paths:
       - 'site/**'
+      - 'docs/structurizr/**'
+      - 'docs/adr/**'
       - '.github/workflows/pages.yml'
   workflow_dispatch:
 
@@ -34,8 +37,21 @@ jobs:
       - uses: actions/configure-pages@v5
         with:
           enablement: true
+      - name: Stage the hand-authored overview at the site root
+        run: |
+          mkdir -p _site
+          cp -R site/. _site/
+      - name: Generate the Structurizr model site at /architecture/
+        run: |
+          # pinned by digest = structurizr-site-generatr v1.6.0 (reproducible). The repo root is
+          # mounted so `!adrs ../adr` in workspace.dsl resolves to docs/adr.
+          docker run --rm -v "$PWD:/var/model" \
+            ghcr.io/avisi-cloud/structurizr-site-generatr@sha256:dc91858de351d430e92fb0f72c1580e7827f52c37f67d1dcd8a3b4d23b34c472 \
+            generate-site -w docs/structurizr/workspace.dsl
+          mkdir -p _site/architecture
+          cp -R build/site/. _site/architecture/
       - uses: actions/upload-pages-artifact@v3
         with:
-          path: site
+          path: _site
       - id: deployment
         uses: actions/deploy-pages@v4

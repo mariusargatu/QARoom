@@ -67,3 +67,10 @@ services/moderator-agent/.deepeval/
 
 # Scenario-replay run artifacts (capture/replay + gauntlet/seam-A bundles) — regenerable, never source.
 scenarios/
+
+# Structurizr: Lite working files + the generated static site (built in CI Pages, never committed).
+docs/structurizr/.structurizr/
+docs/structurizr/workspace.json
+/build/
+/_site/
+.playwright-mcp/

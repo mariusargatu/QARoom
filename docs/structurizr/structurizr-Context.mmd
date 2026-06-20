@@ -1,0 +1,31 @@
+graph LR
+  linkStyle default fill:#ffffff
+
+  subgraph diagram ["QARoom - System Context"]
+    style diagram fill:#ffffff,stroke:#ffffff
+
+    1["<div style='font-weight: bold'>Community Member</div><div style='font-size: 70%; margin-top: 0px'>[Person]</div><div style='font-size: 80%; margin-top:10px'>Posts, votes, and donates<br />within a community (a<br />tenant).</div>"]
+    style 1 fill:#08427b,stroke:#052e56,color:#ffffff
+    2["<div style='font-weight: bold'>Human Moderator</div><div style='font-size: 70%; margin-top: 0px'>[Person]</div><div style='font-size: 80%; margin-top:10px'>Reviews escalated content;<br />reads citation-bearing<br />moderation decisions. The<br />moderator-agent proposes; a<br />human enforces.</div>"]
+    style 2 fill:#08427b,stroke:#052e56,color:#ffffff
+    3["<div style='font-weight: bold'>Integrator</div><div style='font-size: 70%; margin-top: 0px'>[Person]</div><div style='font-size: 80%; margin-top:10px'>Owns an external system that<br />subscribes to QARoom<br />webhooks; registers<br />subscriptions through the<br />gateway.</div>"]
+    style 3 fill:#08427b,stroke:#052e56,color:#ffffff
+    4["<div style='font-weight: bold'>OpenAI</div><div style='font-size: 70%; margin-top: 0px'>[Software System]</div><div style='font-size: 80%; margin-top:10px'>LLM (gpt-5-nano) + embeddings<br />for the moderator-agent:<br />rerank, draft, self-check,<br />corpus/retrieval embeddings.</div>"]
+    style 4 fill:#8a8a8a,stroke:#606060,color:#ffffff
+    5["<div style='font-weight: bold'>Payment Provider</div><div style='font-size: 70%; margin-top: 0px'>[Software System]</div><div style='font-size: 80%; margin-top:10px'>Charges a donation.<br />Virtualized in-cluster by a<br />Microcks mock<br />(payment-provider.openapi.yaml);<br />a stub double in tests.</div>"]
+    style 5 fill:#8a8a8a,stroke:#606060,color:#ffffff
+    6["<div style='font-weight: bold'>External Webhook Receiver</div><div style='font-size: 70%; margin-top: 0px'>[Software System]</div><div style='font-size: 80%; margin-top:10px'>Third-party HTTPS endpoint<br />that consumes signed QARoom<br />events (HMAC-SHA256,<br />at-least-once). A dev echo<br />sink runs in-cluster.</div>"]
+    style 6 fill:#8a8a8a,stroke:#606060,color:#ffffff
+    7["<div style='font-weight: bold'>Observability + Eval Backplane</div><div style='font-size: 70%; margin-top: 0px'>[Software System]</div><div style='font-size: 80%; margin-top:10px'>OTel Collector to Jaeger +<br />Prometheus/Grafana; Tracetest<br />(trace-as-assertion);<br />Langfuse (LLM traces).<br />Modeled per-component in the<br />deployment view.</div>"]
+    style 7 fill:#8a8a8a,stroke:#606060,color:#ffffff
+    8["<div style='font-weight: bold'>QARoom</div><div style='font-size: 70%; margin-top: 0px'>[Software System]</div><div style='font-size: 80%; margin-top:10px'>A multi-tenant social<br />platform (communities of<br />posts, votes, feature-gated<br />donations, RAG moderation,<br />outbound webhooks) built as a<br />specimen: testability as an<br />architectural property.</div>"]
+    style 8 fill:#dddddd,stroke:#9a9a9a,color:#ffffff
+
+    1-- "<div>Posts, votes, donates</div><div style='font-size: 70%'>[HTTPS]</div>" -->8
+    2-- "<div>Reads moderation decisions</div><div style='font-size: 70%'>[HTTPS]</div>" -->8
+    3-- "<div>Registers webhook<br />subscriptions</div><div style='font-size: 70%'>[HTTPS]</div>" -->8
+    8-- "<div>Delivers signed events<br />(HMAC-SHA256, at-least-once)</div><div style='font-size: 70%'>[HTTPS]</div>" -->6
+    8-- "<div>Charges a donation<br />(Microcks-virtualized)</div><div style='font-size: 70%'>[HTTP/JSON]</div>" -->5
+    8-- "<div>Reranks, drafts, self-checks;<br />embeds corpus + queries</div><div style='font-size: 70%'>[HTTPS]</div>" -->4
+    8-. "<div>Exports spans/metrics (every<br />span carries tenant.id)</div><div style='font-size: 70%'>[OTLP]</div>" .->7
+  end

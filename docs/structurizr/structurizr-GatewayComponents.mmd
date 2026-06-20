@@ -1,0 +1,47 @@
+graph LR
+  linkStyle default fill:#ffffff
+
+  subgraph diagram ["QARoom - gateway - Components"]
+    style diagram fill:#ffffff,stroke:#ffffff
+
+    20["<div style='font-weight: bold'>content-service</div><div style='font-size: 70%; margin-top: 0px'>[Container: TypeScript / Fastify :8081]</div><div style='font-size: 80%; margin-top:10px'>Posts and votes within<br />communities. Transactional<br />outbox; recomputed score;<br />community-scoped feed. The<br />Milestone-0 service and the<br />fleet template.</div>"]
+    style 20 fill:#1168bd,stroke:#0b4884,color:#ffffff
+    28["<div style='font-weight: bold'>identity-service</div><div style='font-size: 70%; margin-top: 0px'>[Container: TypeScript / Fastify :8082]</div><div style='font-size: 80%; margin-top:10px'>Communities, users,<br />memberships, sessions; ES256<br />JWT issuance + JWKS with<br />Clock-driven key rotation;<br />one-use WS tickets.</div>"]
+    style 28 fill:#1168bd,stroke:#0b4884,color:#ffffff
+    55["<div style='font-weight: bold'>NATS JetStream</div><div style='font-size: 70%; margin-top: 0px'>[Container: NATS]</div><div style='font-size: 80%; margin-top:10px'>The durable event backbone.<br />Subject grammar<br />qaroom.<service>.<entity>.<community_id>.<event>;<br />community_id fixed at<br />position 3. duplicate_window<br />5m; at-least-once + outbox +<br />processed_events dedup.</div>"]
+    style 55 fill:#5d3c8c,stroke:#412a62,color:#ffffff
+
+    subgraph 10 ["gateway"]
+      style 10 fill:#ffffff,stroke:#0b4884,color:#0b4884
+
+      11["<div style='font-weight: bold'>proxy routes</div><div style='font-size: 70%; margin-top: 0px'>[Component: TS]</div><div style='font-size: 80%; margin-top:10px'>Per-domain Fastify route<br />groups (content, identity,<br />flags, donations, webhooks,<br />moderation reads).<br />Re-validate branded ids +<br />Idempotency-Key at the edge;<br />never trust the caller.</div>"]
+      style 11 fill:#438dd5,stroke:#2e6295,color:#ffffff
+      12["<div style='font-weight: bold'>rate limiter</div><div style='font-size: 70%; margin-top: 0px'>[Component: TS]</div><div style='font-size: 80%; margin-top:10px'>Per-IP + per X-Principal-Id<br />token bucket. 429 with<br />failure_domain: rate_limit.<br />State is per-process,<br />in-memory.</div>"]
+      style 12 fill:#438dd5,stroke:#2e6295,color:#ffffff
+      13["<div style='font-weight: bold'>upstream clients</div><div style='font-size: 70%; margin-top: 0px'>[Component: TS]</div><div style='font-size: 80%; margin-top:10px'>Thin HTTP client per upstream<br />(content/identity/flags/donations/webhooks/moderator/tickets)<br />over the bound caller; map<br />upstream faults to 502.</div>"]
+      style 13 fill:#438dd5,stroke:#2e6295,color:#ffffff
+      14["<div style='font-weight: bold'>upstream-call</div><div style='font-size: 70%; margin-top: 0px'>[Component: TS]</div><div style='font-size: 80%; margin-top:10px'>Bounded HTTP caller with<br />AbortSignal timeout (5s<br />default, tunable via<br />GATEWAY_UPSTREAM_TIMEOUT_MS).</div>"]
+      style 14 fill:#438dd5,stroke:#2e6295,color:#ffffff
+      15["<div style='font-weight: bold'>circuit-breaker</div><div style='font-size: 70%; margin-top: 0px'>[Component: TS]</div><div style='font-size: 80%; margin-top:10px'>Consecutive-failure breaker<br />(threshold 5; cooldown +<br />jitter from injected<br />Randomness; half-open trial).<br />Guards each upstream.</div>"]
+      style 15 fill:#438dd5,stroke:#2e6295,color:#ffffff
+      16["<div style='font-weight: bold'>ws-upgrade</div><div style='font-size: 70%; margin-top: 0px'>[Component: TS]</div><div style='font-size: 80%; margin-top:10px'>/ws upgrade handler.<br />Validates a one-use 30s<br />ticket<br />(Sec-WebSocket-Protocol)<br />against identity before<br />upgrading (ADR-0013).</div>"]
+      style 16 fill:#438dd5,stroke:#2e6295,color:#ffffff
+      17["<div style='font-weight: bold'>event stream</div><div style='font-size: 70%; margin-top: 0px'>[Component: TS]</div><div style='font-size: 80%; margin-top:10px'>NATS consumer + per-community<br />WebSocket feed. Relays<br />flag/donation changes as<br />WsEnvelopes; a polling<br />endpoint serves the same<br />events (Commitment 11).</div>"]
+      style 17 fill:#438dd5,stroke:#2e6295,color:#ffffff
+      18["<div style='font-weight: bold'>jwks client</div><div style='font-size: 70%; margin-top: 0px'>[Component: TS]</div><div style='font-size: 80%; margin-top:10px'>Consumes identity's JWKS<br />contract (Pact-verified). The<br />gateway does NOT enforce JWTs<br />inbound (deliberate,<br />ADR-0022).</div>"]
+      style 18 fill:#438dd5,stroke:#2e6295,color:#ffffff
+      19["<div style='font-weight: bold'>operations registry</div><div style='font-size: 70%; margin-top: 0px'>[Component: TS]</div><div style='font-size: 80%; margin-top:10px'>Aggregates domain operations<br />into openapi.yaml +<br />/system/capabilities +<br />/system/limits.</div>"]
+      style 19 fill:#438dd5,stroke:#2e6295,color:#ffffff
+    end
+
+    11-. "<div>Throttled by</div><div style='font-size: 70%'>[in-proc]</div>" .->12
+    11-. "<div>Serves /system/capabilities +<br />/system/limits</div><div style='font-size: 70%'>[in-proc]</div>" .->19
+    11-. "<div>Dispatches to</div><div style='font-size: 70%'>[in-proc]</div>" .->13
+    13-. "<div>Calls over</div><div style='font-size: 70%'>[in-proc]</div>" .->14
+    14-. "<div>Guarded by</div><div style='font-size: 70%'>[in-proc]</div>" .->15
+    13-- "<div>Proxies</div><div style='font-size: 70%'>[HTTP/JSON]</div>" -->20
+    16-- "<div>Redeems WS ticket before<br />upgrade</div><div style='font-size: 70%'>[HTTP/JSON]</div>" -->28
+    18-- "<div>Fetches JWKS (Pact-verified)</div><div style='font-size: 70%'>[HTTP/JSON]</div>" -->28
+    17-. "<div>Consumes domain events for<br />the WS feed</div><div style='font-size: 70%'>[NATS]</div>" .->55
+    20-. "<div>Publishes post.created,<br />vote.cast</div><div style='font-size: 70%'>[NATS]</div>" .->55
+  end
