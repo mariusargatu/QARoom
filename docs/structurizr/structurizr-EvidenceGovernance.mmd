@@ -1,0 +1,28 @@
+graph LR
+  linkStyle default fill:#ffffff
+
+  subgraph diagram ["Testing: evidence + governance"]
+    style diagram fill:#ffffff,stroke:#ffffff
+
+    subgraph group1 ["Evidence + governance"]
+      style group1 fill:#ffffff,stroke:#cccccc,color:#cccccc,stroke-dasharray:5
+
+      235("<div style='font-weight: bold'>test-results/summary.json</div><div style='font-size: 70%; margin-top: 0px'>[frozen schema]</div><div style='font-size: 80%; margin-top:10px'>The envelope every runner<br />folds into; what agentic CI<br />consumes</div>")
+      style 235 fill:#b91c1c,stroke:#811313,color:#ffffff
+      236("<div style='font-weight: bold'>pnpm claims:verify</div><div style='font-size: 70%; margin-top: 0px'>[gate]</div><div style='font-size: 80%; margin-top:10px'>Every claim resolves +<br />empirically goes RED under<br />its toggle; byte-gates the<br />rendered boundary/claim<br />tables</div>")
+      style 236 fill:#b91c1c,stroke:#811313,color:#ffffff
+      237("<div style='font-weight: bold'>pnpm matrix:verify</div><div style='font-size: 70%; margin-top: 0px'>[gate]</div><div style='font-size: 80%; margin-top:10px'>The bug x technique detection<br />matrix does not drift<br />(hash-stamped)</div>")
+      style 237 fill:#b91c1c,stroke:#811313,color:#ffffff
+      238("<div style='font-weight: bold'>pnpm boundaries:render</div><div style='font-size: 70%; margin-top: 0px'>[gate]</div><div style='font-size: 80%; margin-top:10px'>The README/02/03 boundary<br />tables are projections of<br />boundary-registry.ts</div>")
+      style 238 fill:#b91c1c,stroke:#811313,color:#ffffff
+      239("<div style='font-weight: bold'>pnpm mcp:verify</div><div style='font-size: 70%; margin-top: 0px'>[gate]</div><div style='font-size: 80%; margin-top:10px'>MCP manifest drift + typed<br />breaking-change classifier</div>")
+      style 239 fill:#b91c1c,stroke:#811313,color:#ffffff
+      240("<div style='font-weight: bold'>pnpm gauntlet</div><div style='font-size: 70%; margin-top: 0px'>[orchestrator]</div><div style='font-size: 80%; margin-top:10px'>Every technique, one<br />orchestrated run vs one live<br />system; honest<br />infra/gate/observe semantics</div>")
+      style 240 fill:#b91c1c,stroke:#811313,color:#ffffff
+    end
+
+
+    236-. "<div>reads evidence from</div><div style='font-size: 70%'></div>" .->235
+    237-. "<div>reads evidence from</div><div style='font-size: 70%'></div>" .->235
+    240-. "<div>folds every lane into</div><div style='font-size: 70%'></div>" .->235
+  end

@@ -1,0 +1,88 @@
+graph LR
+  linkStyle default fill:#ffffff
+
+  subgraph diagram ["QARoom - Containers"]
+    style diagram fill:#ffffff,stroke:#ffffff
+
+    1["<div style='font-weight: bold'>Community Member</div><div style='font-size: 70%; margin-top: 0px'>[Person]</div><div style='font-size: 80%; margin-top:10px'>Posts, votes, and donates<br />within a community (a<br />tenant).</div>"]
+    style 1 fill:#08427b,stroke:#052e56,color:#ffffff
+    2["<div style='font-weight: bold'>Human Moderator</div><div style='font-size: 70%; margin-top: 0px'>[Person]</div><div style='font-size: 80%; margin-top:10px'>Reviews escalated content;<br />reads citation-bearing<br />moderation decisions. The<br />moderator-agent proposes; a<br />human enforces.</div>"]
+    style 2 fill:#08427b,stroke:#052e56,color:#ffffff
+    3["<div style='font-weight: bold'>Integrator</div><div style='font-size: 70%; margin-top: 0px'>[Person]</div><div style='font-size: 80%; margin-top:10px'>Owns an external system that<br />subscribes to QARoom<br />webhooks; registers<br />subscriptions through the<br />gateway.</div>"]
+    style 3 fill:#08427b,stroke:#052e56,color:#ffffff
+    4["<div style='font-weight: bold'>OpenAI</div><div style='font-size: 70%; margin-top: 0px'>[Software System]</div><div style='font-size: 80%; margin-top:10px'>LLM (gpt-5-nano) + embeddings<br />for the moderator-agent:<br />rerank, draft, self-check,<br />corpus/retrieval embeddings.</div>"]
+    style 4 fill:#8a8a8a,stroke:#606060,color:#ffffff
+    5["<div style='font-weight: bold'>Payment Provider</div><div style='font-size: 70%; margin-top: 0px'>[Software System]</div><div style='font-size: 80%; margin-top:10px'>Charges a donation.<br />Virtualized in-cluster by a<br />Microcks mock<br />(payment-provider.openapi.yaml);<br />a stub double in tests.</div>"]
+    style 5 fill:#8a8a8a,stroke:#606060,color:#ffffff
+    6["<div style='font-weight: bold'>External Webhook Receiver</div><div style='font-size: 70%; margin-top: 0px'>[Software System]</div><div style='font-size: 80%; margin-top:10px'>Third-party HTTPS endpoint<br />that consumes signed QARoom<br />events (HMAC-SHA256,<br />at-least-once). A dev echo<br />sink runs in-cluster.</div>"]
+    style 6 fill:#8a8a8a,stroke:#606060,color:#ffffff
+
+    subgraph 8 ["QARoom"]
+      style 8 fill:#ffffff,stroke:#9a9a9a,color:#9a9a9a
+
+      10["<div style='font-weight: bold'>gateway</div><div style='font-size: 70%; margin-top: 0px'>[Container: TypeScript / Fastify :8080]</div><div style='font-size: 80%; margin-top:10px'>The external trust boundary.<br />Proxies every upstream over<br />HTTP (circuit-broken,<br />rate-limited); WS upgrade +<br />ticket redemption;<br />per-community event feed.<br />Enforces no JWT inbound<br />(ADR-0022).</div>"]
+      style 10 fill:#1168bd,stroke:#0b4884,color:#ffffff
+      20["<div style='font-weight: bold'>content-service</div><div style='font-size: 70%; margin-top: 0px'>[Container: TypeScript / Fastify :8081]</div><div style='font-size: 80%; margin-top:10px'>Posts and votes within<br />communities. Transactional<br />outbox; recomputed score;<br />community-scoped feed. The<br />Milestone-0 service and the<br />fleet template.</div>"]
+      style 20 fill:#1168bd,stroke:#0b4884,color:#ffffff
+      28["<div style='font-weight: bold'>identity-service</div><div style='font-size: 70%; margin-top: 0px'>[Container: TypeScript / Fastify :8082]</div><div style='font-size: 80%; margin-top:10px'>Communities, users,<br />memberships, sessions; ES256<br />JWT issuance + JWKS with<br />Clock-driven key rotation;<br />one-use WS tickets.</div>"]
+      style 28 fill:#1168bd,stroke:#0b4884,color:#ffffff
+      29["<div style='font-weight: bold'>flags-service</div><div style='font-size: 70%; margin-top: 0px'>[Container: TypeScript / Fastify :8083]</div><div style='font-size: 80%; margin-top:10px'>Per-community feature-flag<br />rollout. A flag value IS the<br />state of a hand-authored<br />XState rollout machine<br />(Off/Enabling/Canary/Enabled/Disabling).<br />Publishes flag.state.changed.</div>"]
+      style 29 fill:#1168bd,stroke:#0b4884,color:#ffffff
+      30["<div style='font-weight: bold'>donations-service</div><div style='font-size: 70%; margin-top: 0px'>[Container: TypeScript / Fastify :8084]</div><div style='font-size: 80%; margin-top:10px'>Per-community donations,<br />gated by the donations flag<br />(projected flag_cache),<br />settled via the payment<br />provider. Amounts in integer<br />minor units.</div>"]
+      style 30 fill:#1168bd,stroke:#0b4884,color:#ffffff
+      31["<div style='font-weight: bold'>moderator-agent</div><div style='font-size: 70%; margin-top: 0px'>[Container: Python / FastAPI / LangGraph :8086]</div><div style='font-size: 80%; margin-top:10px'>The one Python service<br />(uv/FastAPI/LangGraph).<br />Retrieval-grounded RAG<br />moderator over a<br />per-community policy corpus<br />(pgvector). Proposes a<br />citation-bearing disposition;<br />never enforces.</div>"]
+      style 31 fill:#1168bd,stroke:#0b4884,color:#ffffff
+      46["<div style='font-weight: bold'>webhooks-service</div><div style='font-size: 70%; margin-top: 0px'>[Container: TypeScript / Fastify :8087]</div><div style='font-size: 80%; margin-top:10px'>The outbound delivery edge<br />(ADR-0019). Pure consumer of<br />all five NATS channels;<br />durable delivery ledger;<br />at-least-once; HMAC-SHA256<br />signing; SSRF guard;<br />deterministic capped-jittered<br />retry. Publishes nothing.</div>"]
+      style 46 fill:#1168bd,stroke:#0b4884,color:#ffffff
+      54["<div style='font-weight: bold'>qaroom-mcp</div><div style='font-size: 70%; margin-top: 0px'>[Container: TypeScript / MCP]</div><div style='font-size: 80%; margin-top:10px'>Read-first cross-service MCP<br />tool surface over the<br />services' capabilities<br />(capabilities proxy + RFC<br />7807 tool errors + read<br />resources + conventions<br />oracle). In-memory +<br />JSON-RPC. NOT<br />cluster-deployed (ADR-0006).</div>"]
+      style 54 fill:#1168bd,stroke:#0b4884,color:#ffffff
+      55["<div style='font-weight: bold'>NATS JetStream</div><div style='font-size: 70%; margin-top: 0px'>[Container: NATS]</div><div style='font-size: 80%; margin-top:10px'>The durable event backbone.<br />Subject grammar<br />qaroom.<service>.<entity>.<community_id>.<event>;<br />community_id fixed at<br />position 3. duplicate_window<br />5m; at-least-once + outbox +<br />processed_events dedup.</div>"]
+      style 55 fill:#5d3c8c,stroke:#412a62,color:#ffffff
+      56[("<div style='font-weight: bold'>content DB</div><div style='font-size: 70%; margin-top: 0px'>[Container: Postgres 18]</div><div style='font-size: 80%; margin-top:10px'>posts, votes, outbox,<br />processed_events,<br />idempotency_responses.</div>")]
+      style 56 fill:#2f5d8c,stroke:#204162,color:#ffffff
+      57[("<div style='font-weight: bold'>identity DB</div><div style='font-size: 70%; margin-top: 0px'>[Container: Postgres 18]</div><div style='font-size: 80%; margin-top:10px'>users, communities,<br />memberships, sessions,<br />signing_keys (ES256 JWKs),<br />idempotency_responses.</div>")]
+      style 57 fill:#2f5d8c,stroke:#204162,color:#ffffff
+      58[("<div style='font-weight: bold'>flags DB</div><div style='font-size: 70%; margin-top: 0px'>[Container: Postgres 18]</div><div style='font-size: 80%; margin-top:10px'>flags (rollout state) +<br />outbox + processed_events +<br />idempotency_responses.</div>")]
+      style 58 fill:#2f5d8c,stroke:#204162,color:#ffffff
+      59[("<div style='font-weight: bold'>donations DB</div><div style='font-size: 70%; margin-top: 0px'>[Container: Postgres 18]</div><div style='font-size: 80%; margin-top:10px'>donations, flag_cache<br />(projected), outbox,<br />processed_events,<br />idempotency_responses.</div>")]
+      style 59 fill:#2f5d8c,stroke:#204162,color:#ffffff
+      60[("<div style='font-weight: bold'>moderator DB</div><div style='font-size: 70%; margin-top: 0px'>[Container: Postgres 18 + pgvector]</div><div style='font-size: 80%; margin-top:10px'>moderation_decisions +<br />citations, idempotency,<br />policy_corpus + knowledge<br />(pgvector embeddings).</div>")]
+      style 60 fill:#2f5d8c,stroke:#204162,color:#ffffff
+      61[("<div style='font-weight: bold'>webhooks DB</div><div style='font-size: 70%; margin-top: 0px'>[Container: Postgres 18]</div><div style='font-size: 80%; margin-top:10px'>webhook_subscriptions,<br />webhook_deliveries (the<br />at-least-once ledger),<br />processed_events,<br />idempotency_responses.</div>")]
+      style 61 fill:#2f5d8c,stroke:#204162,color:#ffffff
+      9["<div style='font-weight: bold'>web</div><div style='font-size: 70%; margin-top: 0px'>[Container: TypeScript / React / Vite]</div><div style='font-size: 80%; margin-top:10px'>React 19 / Vite 7 SPA.<br />Atomic-design component<br />library; WS feed with polling<br />parity; drives the SAME<br />XState rollout machine the<br />server does.</div>"]
+      style 9 fill:#1168bd,stroke:#0b4884,color:#ffffff
+    end
+
+    10-. "<div>Consumes domain events for<br />the WS feed</div><div style='font-size: 70%'>[NATS]</div>" .->55
+    1-- "<div>Posts, votes, donates</div><div style='font-size: 70%'>[HTTPS]</div>" -->9
+    2-- "<div>Reads moderation decisions</div><div style='font-size: 70%'>[HTTPS]</div>" -->9
+    3-- "<div>Registers webhook<br />subscriptions</div><div style='font-size: 70%'>[HTTPS]</div>" -->10
+    46-- "<div>Delivers signed events<br />(HMAC-SHA256, at-least-once)</div><div style='font-size: 70%'>[HTTPS]</div>" -->6
+    30-- "<div>Charges a donation<br />(Microcks-virtualized)</div><div style='font-size: 70%'>[HTTP/JSON]</div>" -->5
+    31-- "<div>Reranks, drafts, self-checks;<br />embeds corpus + queries</div><div style='font-size: 70%'>[HTTPS]</div>" -->4
+    9-- "<div>REST + WS feed (one origin,<br />*.localhost via Traefik)</div><div style='font-size: 70%'>[HTTPS / WSS]</div>" -->10
+    10-. "<div>WS push to the live feed<br />(polling parity)</div><div style='font-size: 70%'>[WSS]</div>" .->9
+    10-- "<div>Proxies posts/votes/feed</div><div style='font-size: 70%'>[HTTP/JSON]</div>" -->20
+    10-- "<div>Proxies<br />users/communities/sessions;<br />JWKS; redeems WS tickets</div><div style='font-size: 70%'>[HTTP/JSON]</div>" -->28
+    10-- "<div>Proxies flag resolve/rollout</div><div style='font-size: 70%'>[HTTP/JSON]</div>" -->29
+    10-- "<div>Proxies donations</div><div style='font-size: 70%'>[HTTP/JSON]</div>" -->30
+    10-- "<div>Proxies subscription CRUD</div><div style='font-size: 70%'>[HTTP/JSON]</div>" -->46
+    10-- "<div>Proxies moderation-decision<br />reads (ADR-0022)</div><div style='font-size: 70%'>[HTTP/JSON]</div>" -->31
+    20-. "<div>Publishes post.created,<br />vote.cast</div><div style='font-size: 70%'>[NATS]</div>" .->55
+    29-. "<div>Publishes flag.state.changed</div><div style='font-size: 70%'>[NATS]</div>" .->55
+    30-. "<div>Publishes<br />donation.state.changed</div><div style='font-size: 70%'>[NATS]</div>" .->55
+    31-. "<div>Publishes<br />moderation.decision.recorded</div><div style='font-size: 70%'>[NATS]</div>" .->55
+    55-. "<div>flag.state.changed -><br />flag_cache projection<br />(durable)</div><div style='font-size: 70%'>[NATS]</div>" .->30
+    55-. "<div>post.created (cross-tenant<br />wildcard) -> review (durable)</div><div style='font-size: 70%'>[NATS]</div>" .->31
+    55-. "<div>flag/donation changes -> WS<br />feed (durable)</div><div style='font-size: 70%'>[NATS]</div>" .->10
+    55-. "<div>All five domain events -><br />fan-out (durable)</div><div style='font-size: 70%'>[NATS]</div>" .->46
+    54-- "<div>Reads /system/capabilities +<br />read-only tools</div><div style='font-size: 70%'>[HTTP/JSON]</div>" -->10
+    54-- "<div>Reads operation registry +<br />read-only tools</div><div style='font-size: 70%'>[HTTP/JSON]</div>" -->20
+    20-- "<div>Reads/writes (advisory lock +<br />FOR UPDATE)</div><div style='font-size: 70%'>[SQL]</div>" -->56
+    28-- "<div>Reads/writes</div><div style='font-size: 70%'>[SQL]</div>" -->57
+    29-- "<div>Reads/writes</div><div style='font-size: 70%'>[SQL]</div>" -->58
+    30-- "<div>Reads/writes</div><div style='font-size: 70%'>[SQL]</div>" -->59
+    31-- "<div>Reads/writes + vector recall</div><div style='font-size: 70%'>[SQL]</div>" -->60
+    46-- "<div>Reads/writes (delivery<br />ledger)</div><div style='font-size: 70%'>[SQL]</div>" -->61
+  end

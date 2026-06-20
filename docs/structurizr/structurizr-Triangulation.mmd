@@ -1,0 +1,46 @@
+graph LR
+  linkStyle default fill:#ffffff
+
+  subgraph diagram ["Testing: contract triangulation"]
+    style diagram fill:#ffffff,stroke:#ffffff
+
+    subgraph group1 ["Contract triangulation"]
+      style group1 fill:#ffffff,stroke:#cccccc,color:#cccccc,stroke-dasharray:5
+
+      223["<div style='font-weight: bold'>Zod schemas</div><div style='font-size: 70%; margin-top: 0px'>[single source]</div><div style='font-size: 80%; margin-top:10px'>The single source of truth<br />(@qaroom/contracts)</div>"]
+      style 223 fill:#15803d,stroke:#0e592a,color:#ffffff
+      224["<div style='font-weight: bold'>OpenAPI (generated, committed)</div><div style='font-size: 70%; margin-top: 0px'>[artifact]</div><div style='font-size: 80%; margin-top:10px'>Per-service openapi.yaml;<br />byte-identical to a fresh<br />regen</div>"]
+      style 224 fill:#1d4ed8,stroke:#143697,color:#ffffff
+      225["<div style='font-weight: bold'>AsyncAPI (generated, committed)</div><div style='font-size: 70%; margin-top: 0px'>[artifact]</div><div style='font-size: 80%; margin-top:10px'>Event channels;<br />@asyncapi/diff drift gate<br />(ADR-0002)</div>"]
+      style 225 fill:#1d4ed8,stroke:#143697,color:#ffffff
+      226["<div style='font-weight: bold'>Pact files (consumer-authored)</div><div style='font-size: 70%; margin-top: 0px'>[artifact]</div><div style='font-size: 80%; margin-top:10px'>An independent second source<br />of truth</div>"]
+      style 226 fill:#1d4ed8,stroke:#143697,color:#ffffff
+      227("<div style='font-weight: bold'>oasdiff</div><div style='font-size: 70%; margin-top: 0px'>[spec-was vs spec-now]</div><div style='font-size: 80%; margin-top:10px'>Undeclared breaking changes<br />over time</div>")
+      style 227 fill:#b91c1c,stroke:#811313,color:#ffffff
+    end
+
+    subgraph group2 ["Tier A - in-process (Vitest / pytest)"]
+      style group2 fill:#ffffff,stroke:#cccccc,color:#cccccc,stroke-dasharray:5
+
+      159["<div style='font-weight: bold'>Pact v4 (REST contract)</div><div style='font-size: 70%; margin-top: 0px'>[Tier A]</div><div style='font-size: 80%; margin-top:10px'>Consumer<->provider<br />behaviour; JWKS contract</div>"]
+      style 159 fill:#0f766e,stroke:#0a524d,color:#ffffff
+      161["<div style='font-weight: bold'>Pact <-> OpenAPI cross-check</div><div style='font-size: 70%; margin-top: 0px'>[Tier A]</div><div style='font-size: 80%; margin-top:10px'>Static pact-vs-published-spec<br />shape agreement</div>"]
+      style 161 fill:#0f766e,stroke:#0a524d,color:#ffffff
+    end
+
+    subgraph group3 ["Tier B - cluster-live (k3d)"]
+      style group3 fill:#ffffff,stroke:#cccccc,color:#cccccc,stroke-dasharray:5
+
+      165["<div style='font-weight: bold'>Schemathesis (stateful)</div><div style='font-size: 70%; margin-top: 0px'>[Tier B]</div><div style='font-size: 80%; margin-top:10px'>Spec-vs-running-impl fuzzing;<br />stateful links;<br />5xx/crashes/spec-violations</div>"]
+      style 165 fill:#0f766e,stroke:#0a524d,color:#ffffff
+    end
+
+
+    223-. "<div>generates</div><div style='font-size: 70%'></div>" .->224
+    223-. "<div>generates</div><div style='font-size: 70%'></div>" .->225
+    226-. "<div>cross-checked vs</div><div style='font-size: 70%'></div>" .->224
+    161-. "<div>static shape agreement</div><div style='font-size: 70%'></div>" .->224
+    227-. "<div>diffs over time</div><div style='font-size: 70%'></div>" .->224
+    165-. "<div>spec vs running impl</div><div style='font-size: 70%'></div>" .->224
+    159-. "<div>authored by the consumer</div><div style='font-size: 70%'></div>" .->226
+  end
