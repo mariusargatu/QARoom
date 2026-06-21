@@ -1,0 +1,64 @@
+# Invariant-source guard (verifiable-invariants experiment, ADR-0024 Phase 4).
+#
+# ADVISORY, not blocking. It flags any PR that touches an INVARIANT SOURCE (the Zod contract
+# authority, the formal specs, the falsifiable-claim manifests) by printing the diff and emitting a
+# warning, so a reviewer is reminded: invariant sources are not edited to make a check pass — a
+# change here needs an ADR and human sign-off (see AGENTS.md "Invariant sources").
+#
+# Like pages.yml, this runs NO build/test lane — it only inspects the diff — so the deliberate
+# dispatch-only discipline on ci.yml (its build/test lanes) stays intact. The HARD gate is CODEOWNERS
+# + branch protection ("Require review from Code Owners"); this job is the visible flag next to it.
+name: Invariant guard
+
+on:
+  pull_request:
+    paths:
+      - 'packages/contracts/**'
+      - 'spec/**'
+      - 'scripts/lib/manifests/claims.ts'
+      - 'scripts/lib/manifests/detection-matrix.ts'
+      - 'docs/adr/0001-foundational-decisions.md'
+
+permissions:
+  contents: read
+
+jobs:
+  flag:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          fetch-depth: 0
+      - name: Flag invariant-source changes
+        env:
+          BASE_SHA: ${{ github.event.pull_request.base.sha }}
+          HEAD_SHA: ${{ github.event.pull_request.head.sha }}
+        run: |
+          set -euo pipefail
+          PATHS='packages/contracts/ spec/ scripts/lib/manifests/claims.ts scripts/lib/manifests/detection-matrix.ts docs/adr/0001-foundational-decisions.md'
+          changed=$(git diff --name-only "$BASE_SHA" "$HEAD_SHA" -- $PATHS || true)
+          if [ -z "$changed" ]; then
+            echo "No invariant sources touched." | tee -a "$GITHUB_STEP_SUMMARY"
+            exit 0
+          fi
+          {
+            echo "## :rotating_light: This PR edits invariant sources"
+            echo
+            echo "These are single-source-of-truth definitions. Per ADR-0024 / AGENTS.md, an invariant"
+            echo "source is **not** edited to make a check pass — a deliberate change needs an ADR and"
+            echo "human (Code Owner) sign-off. Confirm the derived enforcements still follow."
+            echo
+            echo '### Files'
+            echo '```'
+            echo "$changed"
+            echo '```'
+          } | tee -a "$GITHUB_STEP_SUMMARY"
+          # A non-fatal warning annotation per file (advisory — never fails the PR).
+          while IFS= read -r f; do
+            [ -n "$f" ] && echo "::warning file=$f::Invariant source changed — ADR + Code Owner review required (ADR-0024)."
+          done <<< "$changed"
+          echo
+          echo "### Diff"
+          # `|| true`: head closes the pipe early, so git takes SIGPIPE (141); under pipefail that
+          # would fail the step. This job is advisory — never let the diff print fail the PR.
+          git diff "$BASE_SHA" "$HEAD_SHA" -- $PATHS | head -400 || true

@@ -111,6 +111,24 @@ export const TOGGLES: DetectionToggle[] = z.array(DetectionToggle).parse([
       'redder) and caught only by the k6 SLO threshold: performance bugs need a performance gate.',
   },
   {
+    id: 'vote-out-of-range',
+    env: { name: 'CONTENT_BUG_VOTE_OUT_OF_RANGE', value: '1' },
+    component: 'content',
+    readSite: { file: 'services/content/src/config/faults.ts', timing: 'construction-time' },
+    guard: 'unguarded',
+    designatedCatcher:
+      'services/content/src/repository/votes.test.ts (Zod-derived ±1 property) + DB CHECK votes_value_check',
+    claimId: 'vote-value-in-band',
+    tiers: ['in-proc'],
+    selfToggling: [],
+    notes:
+      'Phase-1 of the verifiable-invariants experiment (ADR-0024). Writes value*7 instead of the ' +
+      'validated ±1; the DB CHECK (derived from contracts VOTE_VALUES) rejects it, turning the ' +
+      'vote-value property red. Backs the permanent `vote-value-in-band` claim ' +
+      '(pnpm prove vote-value-in-band --break). The DB constraint is a SECOND independent catcher: ' +
+      'any votes.spec/test that casts a vote also reds under this toggle (constraint violation).',
+  },
+  {
     id: 'tenant-leak',
     env: { name: 'CONTENT_BUG_TENANT_LEAK', value: '1' },
     component: 'content',

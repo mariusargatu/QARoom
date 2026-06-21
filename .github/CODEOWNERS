@@ -1,0 +1,24 @@
+# Code owners for QARoom's INVARIANT SOURCES (verifiable-invariants experiment, ADR-0024 Phase 4).
+#
+# These paths are single-source-of-truth definitions: a Zod contract here is derived into the DB
+# constraint, the runtime validator, the OpenAPI doc, and the property generator; a TLA+ spec here
+# is bound to the delivery worker. Weakening one quietly weakens every enforcement downstream — the
+# exact failure mode the experiment exists to prevent. They require a HUMAN (not bot) review.
+#
+# This file only ASSIGNS owners. To make owner review REQUIRED, the repo owner must enable, in
+# Settings -> Branches -> branch protection for `main`: "Require a pull request before merging" +
+# "Require review from Code Owners". Until then this is advisory (paired with the invariant-guard
+# workflow, which flags any PR touching these paths).
+
+# The Zod schema authority — the one definition the whole derivation chain hangs off.
+/packages/contracts/**            @mariusargatu
+
+# Formal specs (TLA+ and any future spec/ models) bound to runtime assertions.
+/spec/**                          @mariusargatu
+
+# The falsifiable-claim + detection-matrix manifests: the single source for what is provably guarded.
+/scripts/lib/manifests/claims.ts            @mariusargatu
+/scripts/lib/manifests/detection-matrix.ts  @mariusargatu
+
+# The immutable foundational decisions (already frozen by AGENTS.md "Do not touch").
+/docs/adr/0001-foundational-decisions.md    @mariusargatu

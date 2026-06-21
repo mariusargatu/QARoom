@@ -33,6 +33,10 @@ dev = [
     "pytest-asyncio>=0.25",
     "ruff>=0.9",
     "pyright>=1.1.390",
+    # CrossHair symbolic-execution gate (ADR-0024, Phase 2): proves the self_check safety contracts
+    # over the REAL decision function — no counterexample within budget for the guarded path, a
+    # concrete counterexample when a MODERATOR_DISABLE_* toggle is armed. Bounded, not a total proof.
+    "crosshair-tool>=0.0.78",
 ]
 # The eval / red-team stack (ADR-0020). DELIBERATELY a separate, NOT-installed-by-default group: it is
 # heavy (DeepEval + DeepTeam + PyRIT pull large dependency trees) and key-gated — the default

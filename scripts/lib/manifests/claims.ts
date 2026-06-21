@@ -220,6 +220,35 @@ const RAW: Claim[] = [
     tier: 'simulate',
   },
   {
+    // Phase-1 of the verifiable-invariants experiment (experiment/verifiable-invariants, ADR-0024):
+    // the ±1 rule is defined ONCE (contracts' VOTE_VALUES) and DERIVED into the Zod boundary schema,
+    // the DB CHECK (votes_value_check), the OpenAPI doc, and the fast-check arbitrary. The toggle
+    // writes an out-of-range value; the DB CHECK rejects it and this property goes red.
+    id: 'vote-value-in-band',
+    claim:
+      'A stored vote is exactly +1 or -1, so a post score can only ever equal (upvotes − downvotes); an out-of-range value can neither enter the votes table nor inflate the score. The ±1 rule lives in one place (VOTE_VALUES) and the request schema, DB CHECK, OpenAPI, and property generator all derive from it.',
+    boundary: 'process-rest',
+    registryRow: 'process-rest',
+    technique: 'property test (Zod-derived ±1 arbitrary) over the real castVote + DB CHECK',
+    toggle: 'CONTENT_BUG_VOTE_OUT_OF_RANGE',
+    gate: {
+      cmd: 'pnpm',
+      args: [
+        '--filter',
+        '@qaroom/content',
+        'exec',
+        'vitest',
+        'run',
+        '-t',
+        // vitest -t is a REGEX: the test name's literal `+`/`-` would be quantifiers, matching
+        // zero tests (a false GREEN). Filter on a regex-safe substring of the same test name.
+        'score reconciles to upvotes minus downvotes',
+      ],
+    },
+    evidence: { runner: '@qaroom/content', field: 'passed' },
+    tier: 'simulate',
+  },
+  {
     id: 'tenant-isolation',
     claim:
       "A community's feed contains exactly its own posts and never another tenant's, even under an arbitrary interleave of cross-community writes (Commitment 9).",

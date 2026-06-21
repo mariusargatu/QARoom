@@ -40,6 +40,7 @@ export const resolveFaults = (env: NodeJS.ProcessEnv = process.env): FaultConfig
   tenantLeak: env.CONTENT_BUG_TENANT_LEAK === '1',
   voteSlowMs: parseVoteSlowMs(env.CONTENT_BUG_VOTE_SLOW_MS),
   syncPublish: env.CHAOS_SYNC_PUBLISH === '1',
+  voteOutOfRange: env.CONTENT_BUG_VOTE_OUT_OF_RANGE === '1',
 })
 
 /**
@@ -52,4 +53,5 @@ export const NO_FAULTS: FaultConfig = Object.freeze({
   tenantLeak: false,
   voteSlowMs: 0,
   syncPublish: false,
+  voteOutOfRange: false,
 })

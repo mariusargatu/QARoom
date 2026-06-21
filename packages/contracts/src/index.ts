@@ -227,7 +227,14 @@ export { Capabilities, Capability, SYSTEM_OPERATIONS, SystemState } from './syst
 export { RunnerResult, SCHEMA_VERSION, TestResultsSummary } from './test-results-schema'
 export { RedeemTicketRequest, RedeemTicketResponse, TicketResponse } from './ticket'
 export { CreateUserRequest, User } from './user'
-export { CastVoteRequest, CastVoteResponse, VoteValue } from './vote'
+export {
+  CastVoteRequest,
+  CastVoteResponse,
+  VOTE_VALUES,
+  VoteValue,
+  type VoteValueT,
+  voteValueCheckSql,
+} from './vote'
 export {
   CreateWebhookRequest,
   isPublicHttpsUrl,

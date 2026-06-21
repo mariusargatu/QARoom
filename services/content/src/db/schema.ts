@@ -1,5 +1,7 @@
+import { voteValueCheckSql } from '@qaroom/contracts'
 import { idempotencyResponses } from '@qaroom/messaging/schema'
-import { integer, pgTable, primaryKey, text, timestamp } from 'drizzle-orm/pg-core'
+import { sql } from 'drizzle-orm'
+import { check, integer, pgTable, primaryKey, text, timestamp } from 'drizzle-orm/pg-core'
 
 /**
  * content-service persistence. `community_id` is the tenancy discriminator
@@ -21,10 +23,17 @@ export const votes = pgTable(
   {
     postId: text('post_id').notNull(),
     voterId: text('voter_id').notNull(),
+    // The ±1 invariant lives at the database boundary, not just in the request schema: the CHECK
+    // predicate is DERIVED from contracts' VOTE_VALUES (voteValueCheckSql), so a `7` cannot enter
+    // the table even if some future caller bypasses the Zod parse — and `score = sum(value)` can
+    // therefore only ever equal (upvotes − downvotes). One rule, enforced at the real boundary.
     value: integer('value').notNull(),
     createdAt: timestamp('created_at', { withTimezone: true }).notNull(),
   },
-  (t) => [primaryKey({ columns: [t.postId, t.voterId] })],
+  (t) => [
+    primaryKey({ columns: [t.postId, t.voterId] }),
+    check('votes_value_check', sql.raw(voteValueCheckSql('value'))),
+  ],
 )
 
 // idempotency_responses is the shared @qaroom/messaging table (one shape across services).

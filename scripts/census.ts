@@ -34,9 +34,17 @@ interface AllowEntry {
 }
 
 // (b1) escape hatch: a fold-script or :verify gate invoked only by hand (not CI, not the gauntlet
-// plan). Empty today — every subject is wired into a lane. Add { name, reason } ONLY with a stated
-// justification; an allowlisted orphan is reported (with its reason), never suppressed.
-const ALLOWLIST: readonly AllowEntry[] = []
+// plan). Add { name, reason } ONLY with a stated justification; an allowlisted orphan is reported
+// (with its reason), never suppressed.
+const ALLOWLIST: readonly AllowEntry[] = [
+  {
+    name: 'moderator:verify',
+    reason:
+      'CrossHair symbolic gate (ADR-0024 Phase 2) — deliberately off the blocking lane: needs uv + the ' +
+      'crosshair-tool dev dep + a per-condition time budget. Run by hand or wire into a future ' +
+      'moderator CI lane.',
+  },
+]
 
 const CI_PATH = '.github/workflows/ci.yml'
 const PLAN_PATH = 'scripts/lib/gauntlet-plan.ts'
