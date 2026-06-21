@@ -16,8 +16,11 @@ import { dateFromEpochMillis, type Randomness } from '@qaroom/determinism'
 import { createDrainLoop, rowsOf, type SqlExecutor } from '@qaroom/messaging'
 import { traced, withTenant } from '@qaroom/otel'
 import { sql } from 'drizzle-orm'
+import { assertLegalDeliveryCommit } from './delivery-invariant'
 import type { WorkerDeps } from './deps'
 import { isDelivered } from './sender'
+
+const MAX_ATTEMPTS = WEBHOOK_RETRY_POLICY.max_attempts
 
 const DEFAULT_BATCH = 50
 // Auto-quarantine: a subscription that dead-letters this many deliveries in a row is Disabled
@@ -113,12 +116,16 @@ export function createDeliveryWorker(deps: WorkerDeps): DeliveryWorker {
   async function persist(
     tx: SqlExecutor,
     id: string,
+    from: WebhookDeliveryStateName,
     status: WebhookDeliveryStateName,
     attempt: number,
     nextAttemptAt: string | null,
     lastStatusCode: number | null,
     nowIso: string,
   ): Promise<void> {
+    // The model↔code binding (ADR-0024, Phase 3): every committed transition must be a legal edge of
+    // spec/tla/WebhookDelivery.tla. Structural only, so it never fights the semantic chaos demos.
+    assertLegalDeliveryCommit(from, status, attempt, MAX_ATTEMPTS)
     await tx.execute(sql`
       UPDATE webhook_deliveries
       SET status = ${status}, attempt = ${attempt}, next_attempt_at = ${nextAttemptAt},
@@ -159,7 +166,7 @@ export function createDeliveryWorker(deps: WorkerDeps): DeliveryWorker {
         applyWebhookDeliveryEvent('Delivering', 'DeliverySucceeded', { clock: deps.clock, sink })
       }
       const code = result.kind === 'success' ? result.status : null
-      await persist(tx, row.id, 'Delivered', row.attempt, null, code, nowIso)
+      await persist(tx, row.id, row.status, 'Delivered', row.attempt, null, code, nowIso)
       // A success ends the dead-letter streak.
       await tx.execute(sql`
         UPDATE webhook_subscriptions
@@ -173,7 +180,7 @@ export function createDeliveryWorker(deps: WorkerDeps): DeliveryWorker {
     // dropping the event instead of retrying. The at-least-once property catches it.
     if (chaosEnabled('CHAOS_WEBHOOK_DROP_ON_FAIL')) {
       applyWebhookDeliveryEvent('Delivering', 'DeliverySucceeded', { clock: deps.clock, sink })
-      await persist(tx, row.id, 'Delivered', row.attempt, null, null, nowIso)
+      await persist(tx, row.id, row.status, 'Delivered', row.attempt, null, null, nowIso)
       return
     }
 
@@ -185,6 +192,7 @@ export function createDeliveryWorker(deps: WorkerDeps): DeliveryWorker {
       await persist(
         tx,
         row.id,
+        row.status,
         'Retrying',
         row.attempt + 1,
         nextAtDate.toISOString(),
@@ -195,7 +203,7 @@ export function createDeliveryWorker(deps: WorkerDeps): DeliveryWorker {
     }
 
     applyWebhookDeliveryEvent('Delivering', 'RetriesExhausted', { clock: deps.clock, sink })
-    await persist(tx, row.id, 'DeadLettered', row.attempt + 1, null, lastCode, nowIso)
+    await persist(tx, row.id, row.status, 'DeadLettered', row.attempt + 1, null, lastCode, nowIso)
     // Increment the streak, and auto-quarantine (→ Disabled) once it hits the threshold.
     await tx.execute(sql`
       UPDATE webhook_subscriptions

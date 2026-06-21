@@ -1,7 +1,12 @@
-import { composeMigrations, type Migration } from '@qaroom/contracts'
+import { composeMigrations, type Migration, voteValueCheckSql } from '@qaroom/contracts'
 import { messagingFragment } from '@qaroom/messaging/migrations'
 import { sql } from 'drizzle-orm'
 import type { SqlExecutor } from './client'
+
+// The ±1 vote-value CHECK predicate, derived from contracts' VOTE_VALUES (single source) — the
+// migration never hand-types the bounds. Used both inline in CREATE TABLE (fresh databases) and in
+// the idempotent ALTER below (databases created before this constraint existed).
+const VOTE_VALUE_CHECK = voteValueCheckSql('value')
 
 /**
  * The content-service domain tables as reversible migration fragments so the up→down→up→up
@@ -43,8 +48,21 @@ const votesMigration: Migration<SqlExecutor> = {
         voter_id text NOT NULL,
         value integer NOT NULL,
         created_at timestamptz NOT NULL,
-        PRIMARY KEY (post_id, voter_id)
+        PRIMARY KEY (post_id, voter_id),
+        CONSTRAINT votes_value_check CHECK (${VOTE_VALUE_CHECK})
       )`),
+    )
+    // Idempotent forward-fill for databases created before the CHECK existed: ADD CONSTRAINT is not
+    // IF-NOT-EXISTS-able in Postgres, so guard on pg_constraint. Fresh tables already carry it from
+    // the CREATE above; this is a no-op there. Predicate derived from VOTE_VALUES (same source).
+    await tx.execute(
+      sql.raw(`DO $$ BEGIN
+        IF NOT EXISTS (
+          SELECT 1 FROM pg_constraint WHERE conname = 'votes_value_check' AND conrelid = 'votes'::regclass
+        ) THEN
+          ALTER TABLE votes ADD CONSTRAINT votes_value_check CHECK (${VOTE_VALUE_CHECK});
+        END IF;
+      END $$`),
     )
   },
   async down(tx) {

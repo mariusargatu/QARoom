@@ -13,11 +13,13 @@ const BOOLEAN_TOGGLES = [
   'CONTENT_BUG_FEED_REVERSED',
   'CONTENT_BUG_TENANT_LEAK',
   'CHAOS_SYNC_PUBLISH',
+  'CONTENT_BUG_VOTE_OUT_OF_RANGE',
 ] as const
 const FIELD_OF = {
   CONTENT_BUG_FEED_REVERSED: 'feedReversed',
   CONTENT_BUG_TENANT_LEAK: 'tenantLeak',
   CHAOS_SYNC_PUBLISH: 'syncPublish',
+  CONTENT_BUG_VOTE_OUT_OF_RANGE: 'voteOutOfRange',
 } as const
 
 describe('resolveFaults (property)', () => {
@@ -50,6 +52,7 @@ describe('resolveFaults (property)', () => {
       expect(typeof faults.feedReversed).toBe('boolean')
       expect(typeof faults.tenantLeak).toBe('boolean')
       expect(typeof faults.syncPublish).toBe('boolean')
+      expect(typeof faults.voteOutOfRange).toBe('boolean')
       expect(faults.voteSlowMs).toBe(0)
     },
   )
@@ -60,6 +63,7 @@ describe('resolveFaults (property)', () => {
       tenantLeak: false,
       voteSlowMs: 0,
       syncPublish: false,
+      voteOutOfRange: false,
     })
     expect(Object.isFrozen(NO_FAULTS)).toBe(true)
   })

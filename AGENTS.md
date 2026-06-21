@@ -120,6 +120,26 @@ For any non-trivial change:
 - `packages/contracts/test-results-schema.ts`: the schema for `test-results/summary.json` is frozen.
 - `chaos-experiments/*.yaml`: each is paired with a documented expected-behavior assertion in `docs/failure-modes.md`. Change both or neither.
 
+## Invariant sources (do not weaken to make a check pass)
+
+Some definitions are a *single source of truth* that derives every downstream enforcement: a Zod
+contract in `packages/contracts/` derives the DB constraint, the runtime validator, the OpenAPI doc,
+and the property generator; a TLA+ spec in `spec/` is bound to a runtime assertion in the service.
+These are **invariant sources** (ADR-0024). The rule, enforced socially by `.github/CODEOWNERS` + the
+`invariant-guard` workflow and culturally here:
+
+- **Never weaken an invariant, schema, DB constraint, spec, or its falsifier to make a red check go
+  green.** A red means fix the code or surface the conflict — not loosen the rule. That is the exact
+  failure mode the experiment exists to prevent.
+- **One definition, derived everywhere.** Do not re-state a rule (e.g. the vote `±1` bound) in a
+  second place; derive it from the one source. Duplicated bounds are a bug to fix, not a pattern.
+- **A change to an invariant source is a deliberate decision**, not a side effect of another task. It
+  needs its own ADR and human (Code Owner) sign-off. Do not edit the invariant and its implementation
+  in the same change — if a task seems to require it, STOP and write a short proposal.
+
+Covered paths: `packages/contracts/**`, `spec/**`, the falsifiable-claim + detection-matrix manifests
+(`scripts/lib/manifests/{claims,detection-matrix}.ts`), and `docs/adr/0001-foundational-decisions.md`.
+
 ## Where state lives
 
 QARoom is a *deliberately* multi-state system. When you need to find the truth about something, look here first.

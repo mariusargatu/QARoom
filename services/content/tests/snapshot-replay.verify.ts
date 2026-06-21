@@ -46,6 +46,7 @@ const faults: FaultConfig = {
   tenantLeak: false,
   voteSlowMs: 0,
   syncPublish: false,
+  voteOutOfRange: false,
 }
 const app = buildApp({
   db,

@@ -14,12 +14,12 @@ Every deliberate-bug toggle in the repo, armed one at a time, against the whole 
 
 Abbreviated columns: pact-oas = pact-oas-crosscheck, rev-conf = reverse-conformance, py-conf = py-conformance.
 
-**Totals: 27 caught, 104 missed, 131 cells measured** (167 grid positions not applicable or not yet run). Baseline: `475c7ac4df22` (1 standing red, fast-check seed 12648430). Last render: 2026-06-10T16:25:48.193Z. A frozen, hash-stamped snapshot of every cell is committed at [docs/evidence/detection-matrix.snapshot.json](evidence/detection-matrix.snapshot.json), so the grid is verifiable without cloning the gitignored artifact.
+**Totals: 27 caught, 104 missed, 131 cells measured** (177 grid positions not applicable or not yet run). Baseline: `475c7ac4df22` (1 standing red, fast-check seed 12648430). Last render: 2026-06-10T16:25:48.193Z. A frozen, hash-stamped snapshot of every cell is committed at [docs/evidence/detection-matrix.snapshot.json](evidence/detection-matrix.snapshot.json), so the grid is verifiable without cloning the gitignored artifact.
 
 ## The grid at a glance
 
 > **27 catches. 104 recorded misses. The misses are the point.**
-> Every deliberate bug in this repo is armed, one at a time, against every testing technique. A filled cell is a catch. A hollow cell is a technique that ran and stayed green: measured blindness, recorded instead of hidden. The 167 faint cells are not applicable or not yet run.
+> Every deliberate bug in this repo is armed, one at a time, against every testing technique. A filled cell is a catch. A hollow cell is a technique that ran and stayed green: measured blindness, recorded instead of hidden. The 177 faint cells are not applicable or not yet run.
 
 <picture>
 <source media="(prefers-color-scheme: dark)" srcset="assets/detection-matrix-dark.svg">
@@ -42,6 +42,7 @@ Abbreviated columns: pact-oas = pact-oas-crosscheck, rev-conf = reverse-conforma
 | `tenant-span-drop` | ✓ | ✗ | ✗ | ✗ | ✗ | ✗ | ✗ | n/a | n/a | n/a |
 | `feed-reversed` | ✗ | ✓ | ✗ | ✗ | ✗ | ✗ | ✗ | n/a | n/a | n/a |
 | `vote-slow` | ✗ | ✗ | ✗ | ✗ | ✗ | ✗ | ✗ | n/a | n/a | n/a |
+| `vote-out-of-range` | n/r | n/r | n/r | n/r | n/r | n/r | n/r | n/a | n/a | n/a |
 | `tenant-leak` | n/r | n/r | n/r | n/r | n/r | n/r | n/r | n/a | n/a | n/a |
 | `canary-misroutes` | ✗ | ✓ | ✗ | ✓ | ✗ | ✗ | ✗ | n/a | n/a | n/a |
 | `disable-circuit-breaker` | ✗ | ✗ | ✗ | ✗ | ✗ | ✗ | ✗ | n/a | n/a | n/a |
@@ -124,6 +125,14 @@ Abbreviated columns: pact-oas = pact-oas-crosscheck, rev-conf = reverse-conforma
 - **caught by 1 group(s)** (k6@cluster); detection breadth 1, blast radius 1 file(s):
   - `live:k6 (exit 99)`
 - notes: H3 probe: predicted MISSED by every functional technique in-proc (suites get slower, not redder) and caught only by the k6 SLO threshold: performance bugs need a performance gate.
+
+### `vote-out-of-range`: `CONTENT_BUG_VOTE_OUT_OF_RANGE=1`
+
+- component: content; read at services/content/src/config/faults.ts (construction-time)
+- designated catcher: services/content/src/repository/votes.test.ts (Zod-derived ±1 property) + DB CHECK votes_value_check
+- permanent claim: `vote-value-in-band` (pnpm prove vote-value-in-band --break)
+- not run yet
+- notes: Phase-1 of the verifiable-invariants experiment (ADR-0024). Writes value*7 instead of the validated ±1; the DB CHECK (derived from contracts VOTE_VALUES) rejects it, turning the vote-value property red. Backs the permanent `vote-value-in-band` claim (pnpm prove vote-value-in-band --break). The DB constraint is a SECOND independent catcher: any votes.spec/test that casts a vote also reds under this toggle (constraint violation).
 
 ### `tenant-leak`: `CONTENT_BUG_TENANT_LEAK=1`
 

@@ -19,6 +19,12 @@ export interface FaultConfig {
   voteSlowMs: number
   /** Drain the outbox on the request path, undoing the relay's isolation (chaos demo). */
   syncPublish: boolean
+  /**
+   * Write an out-of-range vote value (instead of the validated ±1) so the ±1 invariant is violated
+   * on demand. The DB CHECK (votes_value_check) rejects it and the vote-value property test goes
+   * red — the empirical falsifier for the `vote-value-in-band` claim. 0/false = off.
+   */
+  voteOutOfRange: boolean
 }
 
 /** What `buildApp` receives. `lamport` and `faults` are optional; the app fills sane defaults. */
