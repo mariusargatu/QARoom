@@ -99,6 +99,38 @@ describe('repository/posts', () => {
     expect(feed.length).toBe(50)
   })
 
+  it('listFeed returns a stable total order for posts sharing a createdAt instant (PK tiebreak)', async () => {
+    // Three posts at the SAME seeded instant — no clock.advance between them, so `createdAt` ties.
+    // desc(createdAt) alone leaves the tie order unspecified (Postgres guarantees nothing); the
+    // desc(id) tiebreak must pin newest-created-first. SeededIdGenerator mints ids monotonically,
+    // so creation order is id-ascending and the deterministic newest-first order is its reverse.
+    const created = []
+    for (const title of ['first', 'second', 'third']) {
+      created.push(await seed({ communityId: COMMUNITY, title }))
+    }
+    const expectedNewestFirst = [...created].reverse().map((p) => p.title)
+
+    const once = await listFeed(ctx.db, deps, COMMUNITY)
+    const twice = await listFeed(ctx.db, deps, COMMUNITY)
+    // The exact total order (newest-created first at the tie), and it is reproducible across calls.
+    expect(once.map((p) => p.title)).toEqual(expectedNewestFirst)
+    expect(twice.map((p) => p.title)).toEqual(expectedNewestFirst)
+  })
+
+  it('the injected feed-reversed fault sorts the feed oldest-first instead of newest-first', async () => {
+    for (const title of ['oldest', 'middle', 'newest']) {
+      await seed({ communityId: COMMUNITY, title })
+      ctx.clock.advance(1000)
+    }
+    const reversed = await listFeed(
+      ctx.db,
+      { ...deps, faults: { ...NO_FAULTS, feedReversed: true } },
+      COMMUNITY,
+    )
+    // The regression demo flips the createdAt sort to ascending; the PK tiebreak stays desc(id).
+    expect(reversed.map((p) => p.title)).toEqual(['oldest', 'middle', 'newest'])
+  })
+
   it('listFeed is scoped to its community; the injected tenant-leak fault returns every tenant', async () => {
     await seed({ communityId: COMMUNITY, title: 'mine' })
     await seed({ communityId: OTHER, title: 'theirs' })

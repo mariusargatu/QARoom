@@ -44,6 +44,19 @@ describe('KeyStore.current', () => {
   })
 })
 
+describe('KeyStore.ensureCurrent', () => {
+  it('returns the existing current key on a second call rather than minting a second one', async () => {
+    const first = await keyStore.ensureCurrent()
+    expect(await keyCount()).toBe(1)
+
+    // The second call takes the lock, finds the current row already present, and returns it —
+    // the race-handling branch that `current()` short-circuits past on the read path.
+    const second = await keyStore.ensureCurrent()
+    expect(second.kid).toBe(first.kid)
+    expect(await keyCount()).toBe(1)
+  })
+})
+
 describe('KeyStore.rotate', () => {
   it('demotes the current key to previous and mints a distinct new current', async () => {
     const old = await keyStore.current()
@@ -62,6 +75,18 @@ describe('KeyStore.jwksEligible grace window', () => {
     // Advance to JUST inside the grace window so grace duration is actually exercised — without an
     // advance the filter collapses to `graceMs >= 0` and a grace-too-short (graceMs→0) mutant survives.
     ctx.clock.advance(GRACE_MS - 1)
+
+    const eligible = await keyStore.jwksEligible()
+    expect(eligible.map((k) => k.kid).sort()).toEqual([old.kid, fresh.kid].sort())
+  })
+
+  it('keeps a rotated-out key at the exact grace boundary (now === retiredAt + graceMs is still eligible)', async () => {
+    const old = await keyStore.current()
+    const fresh = await keyStore.rotate() // retiredAt is set to clock.now() here
+
+    // Land EXACTLY on the closing instant: now === retiredAt + graceMs. The window is inclusive
+    // (`>=`), so the rotated-out key is still eligible. A `>=`→`>` off-by-one would drop it here.
+    ctx.clock.advance(GRACE_MS)
 
     const eligible = await keyStore.jwksEligible()
     expect(eligible.map((k) => k.kid).sort()).toEqual([old.kid, fresh.kid].sort())

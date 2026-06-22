@@ -78,3 +78,25 @@ describe('donation reads', () => {
     expect((res.json as { donations: unknown[] }).donations).toHaveLength(1)
   })
 })
+
+describe('donations model state surfaced through /system/state', () => {
+  it('reports a zero donation count before any donation is recorded', async () => {
+    const ctx = await setupDonationsTest()
+    const state = await ctx.request.get('/system/state')
+    await ctx.close()
+    const body = state.json as { service: string; models: { donations: { count: number } } }
+    expect(state.status).toBe(200)
+    expect(body.service).toBe('donations')
+    expect(body.models.donations.count).toBe(0)
+  })
+
+  it('counts each recorded donation in the donations model after a capture', async () => {
+    const ctx = await setupDonationsTest()
+    await enableDonations(ctx, SAMPLE.communityA)
+    await create(ctx)
+    const state = await ctx.request.get('/system/state')
+    await ctx.close()
+    const body = state.json as { models: { donations: { count: number } } }
+    expect(body.models.donations.count).toBe(1)
+  })
+})

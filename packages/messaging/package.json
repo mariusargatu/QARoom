@@ -28,7 +28,9 @@
   },
   "devDependencies": {
     "@electric-sql/pglite": "^0.2.0",
+    "@electric-sql/pglite-socket": "0.2.4",
     "@qaroom/testing-utils": "workspace:*",
+    "@testcontainers/postgresql": "^10.28.0",
     "fast-check": "catalog:",
     "tsx": "^4.19.0",
     "typescript": "^5.7.0",

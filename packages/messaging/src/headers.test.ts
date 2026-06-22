@@ -1,7 +1,16 @@
+import type { MsgHdrs } from '@nats-io/nats-core'
 import { startInMemoryTelemetry, trace } from '@qaroom/otel'
 import { describe, expect, it } from 'vitest'
-import { buildEventHeaders, readEventHeaders } from './headers'
+import { buildEventHeaders, headersToRecord, readEventHeaders } from './headers'
 import { HEADER } from './types'
+
+/** A minimal MsgHdrs double: only `keys()` and `get()` are exercised by headersToRecord. */
+function fakeHeaders(entries: Record<string, string>): MsgHdrs {
+  return {
+    keys: () => Object.keys(entries),
+    get: (key: string) => entries[key] ?? '',
+  } as unknown as MsgHdrs
+}
 
 const SAMPLE = {
   eventId: 'evt_00000000000000000000000000',
@@ -30,6 +39,24 @@ describe('readEventHeaders recovers what a publisher stamped', () => {
       eventName: 'post.created',
       communityId: SAMPLE.communityId,
     })
+  })
+})
+
+describe('headersToRecord flattens a received MsgHdrs into a plain record', () => {
+  it('returns an empty record when no headers are present', () => {
+    expect(headersToRecord(undefined)).toEqual({})
+  })
+
+  it('copies every non-empty header key/value pair', () => {
+    const record = headersToRecord(
+      fakeHeaders({ [HEADER.msgId]: 'evt_1', [HEADER.tenant]: 'comm_1' }),
+    )
+    expect(record).toEqual({ [HEADER.msgId]: 'evt_1', [HEADER.tenant]: 'comm_1' })
+  })
+
+  it('drops keys whose value is empty', () => {
+    const record = headersToRecord(fakeHeaders({ [HEADER.msgId]: 'evt_1', blank: '' }))
+    expect(record).toEqual({ [HEADER.msgId]: 'evt_1' })
   })
 })
 

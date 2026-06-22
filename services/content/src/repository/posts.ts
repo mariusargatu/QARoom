@@ -83,7 +83,13 @@ export async function listFeed(
     .select()
     .from(posts)
     .where(deps.faults.tenantLeak ? sql`true` : eq(posts.communityId, communityId))
-    .orderBy(deps.faults.feedReversed ? asc(posts.createdAt) : desc(posts.createdAt))
+    // Tiebreak on the primary key so posts sharing a `createdAt` instant come back in a stable
+    // total order. `id` is monotonic with creation (SeededIdGenerator/ULID), so `desc(id)` keeps
+    // the newest-first intent at the tie; without it Postgres makes no ordering guarantee for ties.
+    .orderBy(
+      deps.faults.feedReversed ? asc(posts.createdAt) : desc(posts.createdAt),
+      desc(posts.id),
+    )
     .limit(limit)
   return rows.map(rowToPost)
 }

@@ -77,6 +77,39 @@ describe('identity-service HTTP behaviour', () => {
     expect(claims.memberships.map((m) => m.community_id)).toContain(SAMPLE.communityGeneral)
   })
 
+  it('the session token carries each membership role exactly as granted (moderator and owner are not collapsed)', async () => {
+    const userId = (await createUser('mallory')).json as { id: string }
+    const staff = (
+      await ctx.request.post(
+        '/api/communities',
+        { slug: 'staff', name: 'Staff' },
+        { 'idempotency-key': 'comm-staff' },
+      )
+    ).json as { id: string }
+    // Grant DISTINCT roles in two communities so a hardcoded role collapses at least one of them.
+    await ctx.request.post(
+      `/api/communities/${SAMPLE.communityGeneral}/members`,
+      { user_id: userId.id, role: 'moderator' },
+      { 'idempotency-key': 'join-mod' },
+    )
+    await ctx.request.post(
+      `/api/communities/${staff.id}/members`,
+      { user_id: userId.id, role: 'owner' },
+      { 'idempotency-key': 'join-owner' },
+    )
+    const res = await ctx.request.post(
+      '/api/sessions',
+      { user_id: userId.id },
+      { 'idempotency-key': 'session-roles' },
+    )
+    expect(res.status).toBe(201)
+    const claims = await ctx.issuer.verify((res.json as { access_token: string }).access_token)
+    const roleFor = (communityId: string) =>
+      claims.memberships.find((m) => m.community_id === communityId)?.role
+    expect(roleFor(SAMPLE.communityGeneral)).toBe('moderator')
+    expect(roleFor(staff.id)).toBe('owner')
+  })
+
   it('the JWKS endpoint serves the ES256 signing key whose kid matches the issued token', async () => {
     const userId = (await createUser('carol')).json as { id: string }
     const session = (

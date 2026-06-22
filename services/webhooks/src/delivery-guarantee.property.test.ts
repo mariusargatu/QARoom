@@ -19,11 +19,24 @@ import {
 const FAIL: SendResult = { kind: 'http_error', status: 500 }
 const OK: SendResult = { kind: 'success', status: 200 }
 
+// A spread of non-2xx codes a receiver can return — including the "looks final" 410 (Gone) and the
+// "slow down" 429, which a naive classifier might wrongly treat as terminal Delivered.
+const HTTP_ERROR_STATUSES = [400, 404, 410, 429, 500, 503] as const
+
 async function deliveryStatus(ctx: Awaited<ReturnType<typeof setupWebhooksTest>>): Promise<string> {
   const rows = rowsOf<{ status: string }>(
     await ctx.db.execute(sql`SELECT status FROM webhook_deliveries LIMIT 1`),
   )
   return rows[0]?.status ?? 'missing'
+}
+
+async function lastStatusCode(
+  ctx: Awaited<ReturnType<typeof setupWebhooksTest>>,
+): Promise<number | null> {
+  const rows = rowsOf<{ last_status_code: number | null }>(
+    await ctx.db.execute(sql`SELECT last_status_code FROM webhook_deliveries LIMIT 1`),
+  )
+  return rows[0]?.last_status_code ?? null
 }
 
 /**
@@ -32,22 +45,26 @@ async function deliveryStatus(ctx: Awaited<ReturnType<typeof setupWebhooksTest>>
  * status is consistent with what the receiver actually returned.
  */
 describe('at-least-once delivery guarantee', () => {
-  test.prop([fc.integer({ min: 0, max: 12 })], { numRuns: 25 })(
+  test.prop([fc.integer({ min: 0, max: 12 }), fc.constantFrom(...HTTP_ERROR_STATUSES)], {
+    numRuns: 25,
+  })(
     'every delivery reaches a terminal state and Delivered implies the receiver returned 2xx',
-    (failuresBeforeSuccess) =>
+    (failuresBeforeSuccess, failStatus) =>
       withResource(
         () => setupWebhooksTest(),
         async (ctx) => {
           const sub = await seedSubscription(ctx)
           await enqueueDelivery(ctx, { subscriptionId: sub.id })
+          const fail: SendResult = { kind: 'http_error', status: failStatus }
           const sender: RecordingSender = scriptedSender([
-            ...Array.from({ length: failuresBeforeSuccess }, () => FAIL),
+            ...Array.from({ length: failuresBeforeSuccess }, () => fail),
             OK,
           ])
           const worker = makeWorker(ctx, sender)
           await drainToQuiescence(ctx, worker)
 
           const status = await deliveryStatus(ctx)
+          const code = await lastStatusCode(ctx)
           const calls = sender.calls.length
 
           // A delivery is never stuck mid-flight.
@@ -58,6 +75,10 @@ describe('at-least-once delivery guarantee', () => {
           expect(calls).toBe(
             withinBudget ? failuresBeforeSuccess + 1 : WEBHOOK_RETRY_POLICY.max_attempts,
           )
+          // Delivered implies the persisted last_status_code is the 2xx the receiver actually
+          // returned — a non-2xx error code (e.g. 410/429) wrongly marked Delivered fails here.
+          // A DeadLettered delivery records the last failing code instead.
+          expect(code).toBe(withinBudget ? OK.status : failStatus)
         },
       ),
   )

@@ -82,6 +82,25 @@ describe('repository/votes', () => {
     expect(await castVote(ctx.db, deps, MISSING_POST, VOTER, 1)).toBeNull()
   })
 
+  it('the injected vote-slow fault adds latency to the write path but leaves the result correct', async () => {
+    const post = await newPost()
+    // A small fixed delay arms the SLO-regression branch; the recomputed score and the single
+    // stored votes row must be exactly as on the no-delay path — the fault changes timing, not state.
+    const slowDeps: RepoDeps = { ...deps, faults: { ...NO_FAULTS, voteSlowMs: 5 } }
+    expect(await castVote(ctx.db, slowDeps, post.id, VOTER, 1)).toBe(1)
+    expect(await voteRowCount(post.id)).toBe(1)
+  })
+
+  it('the injected out-of-range fault writes a ±7 value and the DB CHECK rejects it (the ±1 falsifier)', async () => {
+    const post = await newPost()
+    // voteOutOfRange multiplies the validated ±1 by 7; the votes_value_check CONSTRAINT (derived from
+    // contracts' VOTE_VALUES) must reject the write at the table boundary — the empirical falsifier for
+    // the vote-value-in-band claim. The transaction aborts, so no out-of-band row can ever persist.
+    const buggyDeps: RepoDeps = { ...deps, faults: { ...NO_FAULTS, voteOutOfRange: true } }
+    await expect(castVote(ctx.db, buggyDeps, post.id, VOTER, 1)).rejects.toThrow()
+    expect(await voteRowCount(post.id)).toBe(0)
+  })
+
   it('castVote stages a VoteCastEvent on the outbox carrying the recomputed score', async () => {
     const post = await newPost()
     await castVote(ctx.db, deps, post.id, VOTER, 1)
@@ -93,7 +112,44 @@ describe('repository/votes', () => {
     expect(event?.payload.post_id).toBe(post.id)
     expect(event?.payload.score).toBe(1)
   })
+
+  it('on a NET-NEGATIVE score, the vote.cast event carries the SIGNED score (== persisted posts.score), not its magnitude', async () => {
+    // Three distinct downvotes drive the post net-negative: score == -3. The single +1 exemplar
+    // above cannot tell `score: vote.score` apart from `score: Math.abs(vote.score)` — both yield 1.
+    // A negative score is the oracle that pins the sign: the published score must equal the score
+    // persisted on the post row (the `tx.update(posts).set({ score })` write path), which is -3.
+    const post = await newPost()
+    let lastScore: number | null = null
+    for (const voter of NET_NEGATIVE_VOTERS) {
+      lastScore = await castVote(ctx.db, deps, post.id, voter, -1)
+    }
+    expect(lastScore).toBe(-3)
+
+    const persisted = await pgliteRows<{ score: number }>(
+      ctx.db,
+      sql`SELECT score FROM posts WHERE id = ${post.id}`,
+    )
+    const persistedScore = persisted[0]?.score ?? Number.NaN
+    expect(persistedScore).toBe(-3)
+
+    // The last staged vote.cast event is the third (score -3); its wire score must match the row.
+    const published = await pgliteRows<{ score: number }>(
+      ctx.db,
+      sql`SELECT (payload->>'score')::int AS score FROM outbox
+          WHERE event_name = ${VOTE_CAST_EVENT} ORDER BY id DESC LIMIT 1`,
+    )
+    const publishedScore = published[0]?.score ?? Number.NaN
+    expect(publishedScore).toBe(persistedScore)
+    expect(publishedScore).toBe(-3)
+  })
 })
+
+// Three distinct voters so a net-negative score (-3) is reachable; ±1 keeps each vote in-band.
+const NET_NEGATIVE_VOTERS = [
+  'user_01HZY0K7M3QF8VN2J5RX9TB411',
+  'user_01HZY0K7M3QF8VN2J5RX9TB412',
+  'user_01HZY0K7M3QF8VN2J5RX9TB413',
+] as const
 
 // Three voters, drawn by index so a sequence can change a voter's mind (last write wins).
 const VOTERS = [
