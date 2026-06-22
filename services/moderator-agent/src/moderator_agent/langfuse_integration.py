@@ -176,7 +176,12 @@ class LangfuseClient:
 
     # ── LLM connection (the default evaluator model the judges/playground use) ─────────────────────
     async def ensure_llm_connection(
-        self, *, provider: str, adapter: str, secret_key: str, custom_models: list[str] | None = None
+        self,
+        *,
+        provider: str,
+        adapter: str,
+        secret_key: str,
+        custom_models: list[str] | None = None,
     ) -> None:
         """Upsert (by ``provider``) the LLM connection Langfuse's evaluators + playground use — i.e.
         the DEFAULT EVALUATOR MODEL and its API key. PUT is an upsert, so it is idempotent and survives

@@ -31,6 +31,7 @@ dependencies = [
 dev = [
     "pytest>=8.3",
     "pytest-asyncio>=0.25",
+    "pytest-cov>=6.0",
     "ruff>=0.9",
     "pyright>=1.1.390",
     # CrossHair symbolic-execution gate (ADR-0024, Phase 2): proves the self_check safety contracts
@@ -90,6 +91,17 @@ reportTypedDictNotRequiredAccess = "none"
 [tool.pytest.ini_options]
 asyncio_mode = "auto"
 testpaths = ["tests"]
+# Coverage is opt-in (pass --cov on the coverage lane), NOT in addopts: the default `uv run pytest`
+# the detection matrix and other lanes call must stay coverage-free (fast, and the integration/llm
+# skips would understate it). The gate lane runs: uv run pytest --cov --cov-fail-under=<floor>.
+
+[tool.coverage.run]
+source = ["src/moderator_agent"]
+omit = ["*/__main__.py"]
+
+[tool.coverage.report]
+show_missing = true
+exclude_also = ["if TYPE_CHECKING:", "raise NotImplementedError", "\\.\\.\\."]
 markers = [
     "integration: requires a live Postgres (skipped unless QAROOM_TEST_DATABASE_URL is set)",
     "llm: hits the real OpenAI API (skipped unless OPENAI_API_KEY is set)",

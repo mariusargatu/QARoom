@@ -11,7 +11,7 @@ name: CI
 #   light   (every dispatch): verify, claims, contracts, fuzz, fuzz-identity, fuzz-webhooks,
 #                             web-stories, moderator        — in-process, no cluster, fast lane
 #   merge   (light +):        chart, cluster-smoke, tracetest, web-ct   — KinD cluster + chart + CT
-#   nightly (merge +):        load, mutation, evomaster, chaos          — heavy / search / chaos
+#   nightly (merge +):        load, mutation, evomaster, chaos, coverage — heavy / search / chaos / floor gate
 # Evals (moderator-evals: golden + DeepEval + DeepTeam) run on the `schedule` cron OR on a dispatch
 # with `run_evals: true`; they are gated OUT of every tier so the cron fires evals only. PyRIT stays
 # gauntlet-only (`pnpm gauntlet --pyrit`). The terminal `summary-envelope` job (needs: every folding
@@ -267,7 +267,9 @@ jobs:
         working-directory: services/moderator-agent
         env:
           QAROOM_TEST_DATABASE_URL: postgresql://qaroom:qaroom@localhost:5432/qaroom_moderator
-        run: uv run pytest -q
+        # --cov-fail-under is the Python half of the coverage floor gate (the TS half is the nightly
+        # `coverage` job). Runs here, with the DB up, so integration paths count toward the floor.
+        run: uv run pytest -q --cov --cov-fail-under=74
       - name: Fold moderator runner into summary.json
         if: always()
         run: pnpm moderator:results || true
@@ -550,6 +552,20 @@ jobs:
           name: partial-chaos
           path: test-results/chaos.json
           if-no-files-found: warn
+
+  # Coverage floor gate (nightly — instrumentation is too heavy for the fast lanes). Runs LINE
+  # coverage for every TS package against a committed floor and fails on a drop, so coverage cannot
+  # drift down unnoticed. The moderator (Python) half is gated in its own `moderator` job via
+  # `pytest --cov-fail-under`; `uv` is absent here, so that target is skipped gracefully. `services/web`
+  # is a deferred separate effort and is intentionally not yet floored.
+  coverage:
+    if: github.event_name == 'workflow_dispatch' && inputs.tier == 'nightly'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: ./.github/actions/setup-workspace
+      - name: Coverage floor gate
+        run: pnpm coverage
 
   # EVAL tier (the schedule cron's sole payload, or any dispatch with run_evals: true). NEVER gated to
   # a `tier` — it must be excluded from the build/cluster lanes so the cron fires evals only (ADR-0017,

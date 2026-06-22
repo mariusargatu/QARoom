@@ -45,7 +45,10 @@ def build_ledger(generated_at: str, commit: str | None) -> dict:
         "basis": "estimate",
         "budget_tokens": budget,
         "within_budget": total_tokens <= budget,
-        "lanes": [{"name": l.name, "tokens": l.tokens, "usd": l.usd, "basis": "estimate"} for l in lanes],
+        "lanes": [
+            {"name": lane.name, "tokens": lane.tokens, "usd": lane.usd, "basis": "estimate"}
+            for lane in lanes
+        ],
         "total_tokens": total_tokens,
         "total_usd": total_usd,
     }

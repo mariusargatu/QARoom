@@ -61,6 +61,7 @@ _LANGFUSE_DROP_SUBSTR = (" http send", " http receive")
 def _drop_from_langfuse(name: str) -> bool:
     return name in _LANGFUSE_DROP_EXACT or any(s in name for s in _LANGFUSE_DROP_SUBSTR)
 
+
 _TENANT: contextvars.ContextVar[str] = contextvars.ContextVar(
     "qaroom_tenant_id", default=SYSTEM_TENANT
 )

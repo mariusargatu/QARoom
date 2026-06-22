@@ -16,5 +16,6 @@ extraEnv:
 gc:
   enabled: true
   package: "@qaroom/flags"
-  # image defaults to qaroom/flags. For live Tilt, add a restart-free `qaroom/flags-gc`
-  # alias (Tiltfile) and set it here so docker_build_with_restart does not clobber `command`.
+  # Restart-free alias of flags' image (built plain in the Tiltfile), so Tilt's
+  # docker_build_with_restart cannot clobber the CronJob command into the dev-server boot.
+  image: qaroom/flags-gc

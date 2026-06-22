@@ -20,4 +20,6 @@ gc:
   package: "@qaroom/webhooks"
   # No outbox (publishes nothing, ADR-0019); the job sweeps processed_events + idempotency_responses.
   # webhook_deliveries is deliberately retained (audit ledger) — see the job entrypoint.
-  # image defaults to qaroom/webhooks. For live Tilt, add a restart-free `qaroom/webhooks-gc` alias.
+  # Restart-free alias of webhooks' image (built plain in the Tiltfile), so Tilt's
+  # docker_build_with_restart cannot clobber the CronJob command into the dev-server boot.
+  image: qaroom/webhooks-gc

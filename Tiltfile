@@ -34,16 +34,21 @@ for name, port in services:
     )
     k8s_yaml(helm('packages/helm-template', name=name, namespace='qaroom', values=['deploy/%s/values.yaml' % name]))
 
-# The gc-dedup CronJob reuses content's code but must run its OWN command (the hourly TTL job,
+# The gc-dedup CronJob reuses a service's code but must run its OWN command (the hourly TTL job,
 # not the server). `docker_build_with_restart` bakes the server entrypoint + restart wrapper into
-# every container using `qaroom/content`, which clobbers the CronJob's `command` — so the job gets
-# a plain, restart-free image alias (same Dockerfile, no entrypoint injection).
-docker_build(
-    'qaroom/content-gc',
-    '.',
-    dockerfile='services/content/Dockerfile',
-    only=['pnpm-workspace.yaml', 'package.json', 'pnpm-lock.yaml', 'packages', 'services/content', 'tools'],
-)
+# EVERY container using `qaroom/<svc>`, which clobbers the CronJob's `command` — so each gc-enabled
+# service gets a plain, restart-free image alias (same Dockerfile, no entrypoint injection) that the
+# CronJob references via `gc.image` in its values.yaml. Building it for content alone (the old bug)
+# left donations/flags/identity/webhooks CronJobs on the restart image, where Tilt clobbered their
+# command into the dev-server boot — they crashed or hung hourly and never swept (Commitment 17).
+gc_services = ['content', 'identity', 'flags', 'donations', 'webhooks']
+for gc_name in gc_services:
+    docker_build(
+        'qaroom/%s-gc' % gc_name,
+        '.',
+        dockerfile='services/%s/Dockerfile' % gc_name,
+        only=['pnpm-workspace.yaml', 'package.json', 'pnpm-lock.yaml', 'packages', 'services/%s' % gc_name, 'tools'],
+    )
 
 # Web frontend: a Vite build served by `vite preview` (static SPA), no tsx entrypoint.
 docker_build(

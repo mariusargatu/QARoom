@@ -21,6 +21,11 @@ spec:
   jobTemplate:
     spec:
       backoffLimit: {{ .Values.gc.backoffLimit }}
+      # With concurrencyPolicy: Forbid, a job that never terminates (e.g. one whose command was
+      # clobbered into the long-lived dev server, as Tilt did before the gc.image fix) blocks EVERY
+      # later schedule forever — the CronJob silently stops firing. A deadline kills a stuck job so
+      # the next schedule runs; the real sweep finishes in seconds, far under this bound.
+      activeDeadlineSeconds: {{ .Values.gc.activeDeadlineSeconds }}
       template:
         metadata:
           labels:
