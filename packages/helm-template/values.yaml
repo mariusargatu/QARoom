@@ -72,6 +72,9 @@ gc:
   image: ""
   schedule: "0 * * * *"
   backoffLimit: 1
+  # Caps a hung job's lifetime so concurrencyPolicy: Forbid cannot deadlock the schedule forever
+  # (the real sweep takes seconds; 600s only fires on a genuinely stuck job).
+  activeDeadlineSeconds: 600
   successfulJobsHistoryLimit: 3
   failedJobsHistoryLimit: 3
   resources:

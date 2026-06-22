@@ -14,4 +14,6 @@ gc:
   enabled: true
   package: "@qaroom/identity"
   # identity has neither outbox nor processed_events; the job sweeps idempotency_responses only.
-  # image defaults to qaroom/identity. For live Tilt, add a restart-free `qaroom/identity-gc` alias.
+  # Restart-free alias of identity's image (built plain in the Tiltfile), so Tilt's
+  # docker_build_with_restart cannot clobber the CronJob command into the dev-server boot.
+  image: qaroom/identity-gc

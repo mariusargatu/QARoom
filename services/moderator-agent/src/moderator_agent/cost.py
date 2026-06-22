@@ -15,7 +15,7 @@ measured usage alongside the estimate.
 from __future__ import annotations
 
 import json
-from dataclasses import dataclass, field
+from dataclasses import dataclass
 from pathlib import Path
 
 _EVALS = Path(__file__).resolve().parents[2] / "evals"
@@ -35,24 +35,22 @@ def load_cost_model(path: Path = _COST_MODEL) -> dict:
     return json.loads(path.read_text())
 
 
-def usd_for_tokens(
-    model: str, input_tokens: int, output_tokens: int, prices: dict
-) -> float:
+def usd_for_tokens(model: str, input_tokens: int, output_tokens: int, prices: dict) -> float:
     """Dollars for a token split at the vendored per-1M rates. Unknown model -> 0.0 (never raises;
     a missing price is a telemetry gap, not a run failure — mirrors llm.py's usage-metadata stance)."""
     rate = prices.get(model)
     if rate is None:
         return 0.0
-    return (
-        input_tokens * rate["input_per_1m"] + output_tokens * rate["output_per_1m"]
-    ) / 1_000_000
+    return (input_tokens * rate["input_per_1m"] + output_tokens * rate["output_per_1m"]) / 1_000_000
 
 
 def _round(usd: float) -> float:
     return round(usd, 6)
 
 
-def estimate_lanes(model: str, system_chars: int, gold_posts: list[str], cost_model: dict) -> list[LaneCost]:
+def estimate_lanes(
+    model: str, system_chars: int, gold_posts: list[str], cost_model: dict
+) -> list[LaneCost]:
     """Pre-flight token + dollar estimate per eval lane, from the cost-model heuristics. The gold/DeepEval
     lane is the one the legacy guard sized; deepteam and pyrit are added so the ceiling actually bounds
     the red-team lanes the old estimate missed (PyRIT multi-turn was the one unbounded cost)."""

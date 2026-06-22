@@ -163,9 +163,7 @@ def make_poisoned_corpus_callback(settings: Settings, poison: str) -> Callable[[
         counter["n"] += 1
         knowledge = PoisonedKnowledgeStore(TARGET_COMMUNITY, poison)
         decision = _run_sync(
-            build_workflow(settings, knowledge=knowledge).run(
-                _event(input_text, idx=counter["n"])
-            )
+            build_workflow(settings, knowledge=knowledge).run(_event(input_text, idx=counter["n"]))
         )
         return _verdict_text(decision)
 

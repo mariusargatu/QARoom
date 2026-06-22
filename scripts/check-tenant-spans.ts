@@ -1,5 +1,6 @@
 import { resolve } from 'node:path'
 import { foldRunner } from './lib/fold-runner'
+import { type AuditSpan, auditSpans } from './lib/tenant-span-audit'
 
 /**
  * Milestone 3 exit criterion: scan recent traces and FAIL if any span lacks `tenant.id`
@@ -17,6 +18,16 @@ import { foldRunner } from './lib/fold-runner'
  *   TENANT_SPAN_LIMIT     traces per service (default 50; a full battery needs more)
  *   --fold                also fold a `tenant-spans` runner into test-results/summary.json
  *
+ * FALSIFIER MODE (`TENANT_SPAN_SINCE_START=1`): audit only spans that started after this process
+ * began, polling Jaeger until fresh spans appear (up to TENANT_SPAN_FRESH_TIMEOUT_MS, default 60s,
+ * every TENANT_SPAN_POLL_MS, default 5s). `prove tenant-span-everywhere --break` arms the drop and
+ * rolls the pods; the whole-window audit would also see pre-arming spans that still carry tenant.id
+ * and, if it ran before fresh spans landed, false-green — which claims:verify then mislabels
+ * THEATER (a real load-induced flake observed under a concurrent cold test sweep). Auditing only
+ * post-arming spans makes the verdict deterministic: the always-on flags outbox relay emits fresh
+ * spans within seconds, so an armed run reliably shows a dropped stamp (red) and a clean run shows a
+ * present one (green). The default (no flag) keeps the whole-window behavior the gauntlet needs.
+ *
  * Falsifiable via CHAOS_TENANT_SPAN_DROP=1 on the target services (packages/otel
  * tenant-span-processor): with the stamp dropped, this gate MUST go red.
  */
@@ -31,47 +42,76 @@ const LOOKBACK = process.env.TENANT_SPAN_LOOKBACK ?? '1h'
 const LIMIT = Number(process.env.TENANT_SPAN_LIMIT ?? '50')
 const fold = process.argv.includes('--fold')
 
+// Falsifier mode: audit only spans newer than this process's start. `new Date()` is legitimate
+// here — this is build tooling, not the deterministic service runtime (the Clock rule covers the
+// latter, as scripts/lib/fold-runner.ts notes).
+const sinceStart = process.env.TENANT_SPAN_SINCE_START === '1'
+const auditStartMs = Date.now()
+const sinceMs = sinceStart ? auditStartMs : null
+const freshTimeoutMs = Number(process.env.TENANT_SPAN_FRESH_TIMEOUT_MS ?? '60000')
+const pollMs = Number(process.env.TENANT_SPAN_POLL_MS ?? '5000')
+
 interface JaegerTag {
   key: string
   value: unknown
 }
 interface JaegerSpan {
   operationName: string
+  startTime: number
   tags: JaegerTag[]
 }
 interface JaegerTrace {
   spans: JaegerSpan[]
 }
 
-let total = 0
-let offenders = 0
-const perService: { service: string; spans: number; offenders: number }[] = []
+const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms))
 
-for (const service of SERVICES) {
-  const res = await fetch(
-    `${JAEGER}/api/traces?service=${service}&lookback=${LOOKBACK}&limit=${LIMIT}`,
-  )
-  if (!res.ok) {
-    process.stderr.write(`failed to query Jaeger for service=${service}: HTTP ${res.status}\n`)
-    process.exit(2)
-  }
-  const body = (await res.json()) as { data?: JaegerTrace[] }
-  const traces = body.data ?? []
-  let serviceSpans = 0
-  let serviceOffenders = 0
-  for (const trace of traces) {
-    for (const span of trace.spans) {
-      serviceSpans += 1
-      const hasTenant = span.tags.some((t) => t.key === 'tenant.id')
-      if (!hasTenant) {
-        serviceOffenders += 1
-        process.stderr.write(`✗ span without tenant.id: ${service} :: ${span.operationName}\n`)
+async function collectSpans(): Promise<AuditSpan[]> {
+  const spans: AuditSpan[] = []
+  for (const service of SERVICES) {
+    const res = await fetch(
+      `${JAEGER}/api/traces?service=${service}&lookback=${LOOKBACK}&limit=${LIMIT}`,
+    )
+    if (!res.ok) {
+      process.stderr.write(`failed to query Jaeger for service=${service}: HTTP ${res.status}\n`)
+      process.exit(2)
+    }
+    const body = (await res.json()) as { data?: JaegerTrace[] }
+    for (const trace of body.data ?? []) {
+      for (const span of trace.spans) {
+        spans.push({
+          service,
+          operationName: span.operationName,
+          startTimeMicros: span.startTime,
+          hasTenantId: span.tags.some((t) => t.key === 'tenant.id'),
+        })
       }
     }
   }
-  total += serviceSpans
-  offenders += serviceOffenders
-  perService.push({ service, spans: serviceSpans, offenders: serviceOffenders })
+  return spans
+}
+
+// In falsifier mode, wait until fresh (post-start) spans exist before judging, so an audit that
+// races ahead of the rolled pods' first spans does not false-green. A whole-window run audits once.
+let spans = await collectSpans()
+if (sinceStart) {
+  const deadline = auditStartMs + freshTimeoutMs
+  while (spans.filter((s) => s.startTimeMicros / 1000 >= auditStartMs).length === 0) {
+    if (Date.now() >= deadline) {
+      process.stderr.write(
+        `no spans newer than process start after ${freshTimeoutMs}ms — drive traffic first ` +
+          '(falsifier mode needs fresh post-arming spans to audit)\n',
+      )
+      process.exit(2)
+    }
+    await sleep(pollMs)
+    spans = await collectSpans()
+  }
+}
+
+const { total, offenders, offenderLabels } = auditSpans(spans, sinceMs)
+for (const label of offenderLabels) {
+  process.stderr.write(`✗ span without tenant.id: ${label}\n`)
 }
 
 if (total === 0) {
@@ -79,8 +119,11 @@ if (total === 0) {
   process.exit(2)
 }
 
+const windowLabel = sinceStart
+  ? `since process start (${freshTimeoutMs}ms wait)`
+  : `lookback=${LOOKBACK}`
 process.stdout.write(
-  `checked ${total} spans across ${SERVICES.length} services (lookback=${LOOKBACK}, limit=${LIMIT}/svc); ${offenders} missing tenant.id\n`,
+  `checked ${total} spans across ${SERVICES.length} services (${windowLabel}, limit=${LIMIT}/svc); ${offenders} missing tenant.id\n`,
 )
 
 if (fold) {
@@ -94,9 +137,8 @@ if (fold) {
       runner: 'jaeger-tenant-span-audit',
       total_spans: total,
       offenders,
-      lookback: LOOKBACK,
+      lookback: sinceStart ? 'since-start' : LOOKBACK,
       limit_per_service: LIMIT,
-      services: perService,
     },
     seeds: {},
   })
