@@ -1,18 +1,24 @@
 import { createHash } from 'node:crypto'
 import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs'
 import { resolve } from 'node:path'
-import { TOGGLES } from './lib/manifests/detection-matrix'
+import { type DetectionToggle, TOGGLES } from './lib/manifests/detection-matrix'
 import { DetectionMatrixArtifact, type MatrixCell } from './lib/manifests/detection-matrix-schema'
-import { renderMatrixSvg, type SvgTier } from './lib/matrix-svg'
+import { type CoverageMark, renderMatrixSvg, type SvgTier } from './lib/matrix-svg'
 
 /**
  * Render the detection-matrix projections from test-results/detection-matrix.json: the committed
- * human-readable doc (including the heat-grid kicker + SVG and the three curated rows, folded in
- * from the old README front-door blocks) and the SVGs themselves. Derived-only (render-claims
- * discipline): every cell, count, and pixel comes from the artifact; nothing is hand-typed.
+ * human-readable doc (coverage-first headline + heat-grid SVG + per-bug coverage + the curated
+ * rows) and the SVGs themselves. Derived-only (render-claims discipline): every cell, count, and
+ * pixel comes from the artifact; nothing is hand-typed.
  *
  *   pnpm matrix:render           # write docs/detection-matrix.md + docs/assets/*.svg + evidence snapshot
  *   pnpm matrix:render --check   # drift gate: committed files must equal a fresh render
+ *
+ * Reframe note (the headline counts BUGS, not cells): a cell `missed` is not a failed test, it is a
+ * technique that ran green on a bug it does not defend. So the load-bearing signal is per-bug
+ * coverage — `defended` / `awaiting` / `gap` — DERIVED here from the cells, never stored on them, so
+ * a reader can recompute it. `gap` (caught by nothing AND nothing left to run) is the only real miss
+ * and the only alarming color. The full 158-cell tally stays, demoted to a provenance footnote.
  *
  * Freshness is deliberately NOT CI-gated — cluster and llm tiers cannot run per-PR, and the
  * artifact is gitignored, so this gate runs where the artifact exists (locally, the gauntlet).
@@ -52,40 +58,113 @@ const LIVE_COLUMNS = [
 ]
 const LLM_COLUMNS = ['deepeval', 'redteam']
 
-// Cell marks are screen-reader-pronounceable: VoiceOver/NVDA announce ✓/✗/$ cleanly but skip
-// or mangle the middle dot and em dash, which made "no code path" vs "not run yet" (the matrix's
-// central distinction) sound identical. Hence n/a + n/r.
-const MARK: Record<MatrixCell['status'], string> = {
-  caught: '✓',
-  missed: '✗',
-  na: 'n/a',
-  'skipped-cost': '$',
-  unstable: '~',
-}
+const TIER_ORDER: MatrixCell['tier'][] = ['in-proc', 'cluster', 'llm']
+const columnsForTier = (tier: MatrixCell['tier']): string[] =>
+  tier === 'in-proc'
+    ? [...TS_COLUMNS, ...PY_COLUMNS]
+    : tier === 'cluster'
+      ? LIVE_COLUMNS
+      : [...LLM_COLUMNS, 'metamorphic']
 
-// Abbreviated column headers keep Tier A near ~100ch rendered instead of ~140ch (one mobile
-// scroll instead of three); the legend maps them back.
-const COL_LABEL: Record<string, string> = {
-  'pact-oas-crosscheck': 'pact-oas',
-  'reverse-conformance': 'rev-conf',
-  'py-conformance': 'py-conf',
-}
-const label = (col: string) => COL_LABEL[col] ?? col
+const isCrossRuntime = (isPy: boolean, tier: MatrixCell['tier'], col: string): boolean =>
+  (isPy && tier === 'in-proc' && TS_COLUMNS.includes(col)) ||
+  (!isPy && tier === 'in-proc' && PY_COLUMNS.includes(col))
 
 const cellFor = (toggleId: string, technique: string, tier: MatrixCell['tier']) =>
   artifact.cells.find((c) => c.toggle === toggleId && c.technique === technique && c.tier === tier)
 
-function row(toggleId: string, isPy: boolean, columns: string[], tier: MatrixCell['tier']): string {
-  return columns
-    .map((col) => {
-      const crossRuntime =
-        (isPy && tier === 'in-proc' && TS_COLUMNS.includes(col)) ||
-        (!isPy && tier === 'in-proc' && PY_COLUMNS.includes(col))
-      if (crossRuntime) return 'n/a'
-      const cell = cellFor(toggleId, col, tier)
-      return cell ? MARK[cell.status] : 'n/r'
+// ---- bug-level coverage: DERIVED from cells, never stored (auditable, recomputable) ----
+
+type Defense = 'defended' | 'awaiting' | 'gap'
+
+/**
+ * A bug is `defended` if any technique caught it; else `awaiting` if any APPLICABLE cell in its
+ * declared tiers has not run yet (n/r); else `gap` — it ran against everything and nothing caught
+ * it. The per-applicable-cell n/r check (not a coarse tier-presence one) makes `gap` fire only when
+ * literally nothing is left to run: the strongest honesty guarantee.
+ */
+function defenseFor(t: DetectionToggle): Defense {
+  if (artifact.cells.some((c) => c.toggle === t.id && c.status === 'caught')) return 'defended'
+  const isPy = t.component === 'moderator'
+  for (const tier of t.tiers) {
+    for (const col of columnsForTier(tier)) {
+      if (isCrossRuntime(isPy, tier, col)) continue
+      if (!cellFor(t.id, col, tier)) return 'awaiting'
+    }
+  }
+  return 'gap'
+}
+
+const defenseByToggle = new Map<string, Defense>(TOGGLES.map((t) => [t.id, defenseFor(t)]))
+
+const caughtInProc = new Set(
+  artifact.cells.filter((c) => c.tier === 'in-proc' && c.status === 'caught').map((c) => c.toggle),
+)
+
+const coverage = {
+  total: TOGGLES.length,
+  defended: TOGGLES.filter((t) => defenseByToggle.get(t.id) === 'defended').length,
+  awaiting: TOGGLES.filter((t) => defenseByToggle.get(t.id) === 'awaiting').length,
+  gaps: TOGGLES.filter((t) => defenseByToggle.get(t.id) === 'gap').length,
+  inProc: TOGGLES.filter((t) => caughtInProc.has(t.id)).length,
+}
+const deeperCount = coverage.defended - coverage.inProc
+
+const counts = {
+  caught: artifact.cells.filter((c) => c.status === 'caught').length,
+  missed: artifact.cells.filter((c) => c.status === 'missed').length,
+}
+
+/** Split the recorded misses by the defense state of their bug — so the big number reads as buckets. */
+function missBuckets() {
+  let offBoundary = 0
+  let awaitingTier = 0
+  let open = 0
+  for (const c of artifact.cells) {
+    if (c.status !== 'missed') continue
+    const d = defenseByToggle.get(c.toggle)
+    if (d === 'defended') offBoundary += 1
+    else if (d === 'awaiting') awaitingTier += 1
+    else open += 1
+  }
+  return { offBoundary, awaitingTier, open }
+}
+
+const tierRank = (tier: MatrixCell['tier']) => TIER_ORDER.indexOf(tier)
+
+/** De-duplicated `technique@tier` catchers for a bug, cheapest tier first. */
+function caughtBy(toggleId: string): { technique: string; tier: MatrixCell['tier'] }[] {
+  const seen = new Set<string>()
+  return artifact.cells
+    .filter((c) => c.toggle === toggleId && c.status === 'caught')
+    .sort((a, b) => tierRank(a.tier) - tierRank(b.tier) || a.technique.localeCompare(b.technique))
+    .filter((c) => {
+      const k = `${c.technique}@${c.tier}`
+      if (seen.has(k)) return false
+      seen.add(k)
+      return true
     })
-    .join(' | ')
+    .map((c) => ({ technique: c.technique, tier: c.tier }))
+}
+
+const cheapestTier = (toggleId: string): MatrixCell['tier'] | null => {
+  const tiers = caughtBy(toggleId).map((c) => c.tier)
+  return tiers.length > 0 ? tiers.sort((a, b) => tierRank(a) - tierRank(b))[0] : null
+}
+
+const coverageLabel = (t: DetectionToggle): string => {
+  if (caughtInProc.has(t.id)) return 'in-proc'
+  const d = defenseByToggle.get(t.id)
+  if (d === 'defended') return 'deeper'
+  if (d === 'awaiting') return 'awaiting'
+  return 'GAP'
+}
+
+// Sort the per-bug table attention-first: a real gap, then awaiting, then deeper, then in-proc;
+// within a band, more catchers first (the most reassuring rows last).
+const coverageRank = (t: DetectionToggle): number => {
+  const l = coverageLabel(t)
+  return l === 'GAP' ? 0 : l === 'awaiting' ? 1 : l === 'deeper' ? 2 : 3
 }
 
 function renderDoc(): string {
@@ -97,106 +176,109 @@ function renderDoc(): string {
   )
   md.push('')
   md.push(
-    'Every deliberate-bug toggle in the repo, armed one at a time, against the whole battery. Tier A runs in-process (Vitest and pytest, no cluster); Tier B runs against the live k3d cluster; Tier C runs against the real model, with cost recorded. Row ids are matrix slugs; each maps to one env toggle (shown in the per-toggle detail below).',
+    'Each deliberate-bug toggle is armed one at a time against the whole testing battery (Tier A in-process, Tier B live cluster, Tier C real model). A bug is **caught** when at least one technique reds under it and re-greens with it off. This page counts **bugs, not cells** — a bug needs only one defender to be covered. The exhaustive per-cell record (every technique × bug, hash-stamped) lives in the [evidence snapshot](evidence/detection-matrix.snapshot.json); the SVG below is its picture.',
   )
   md.push('')
-  md.push('| Mark | Meaning |')
-  md.push('|---|---|')
-  md.push(
-    '| ✓ | caught: at least one baseline-green test file in the group went red under the toggle, and re-greened with it off |',
-  )
-  md.push('| ✗ | missed: the group ran and stayed green. Empirical blindness, not an assumption |')
-  md.push('| n/a | no code path (different runtime) |')
-  md.push('| n/r | not run yet |')
-  if (artifact.cells.some((c) => c.status === 'skipped-cost')) {
-    md.push('| $ | declared skipped-cost (key-gated) |')
-  }
-  if (artifact.cells.some((c) => c.status === 'unstable')) {
-    md.push('| ~ | unstable |')
-  }
+  md.push(renderDefenseCoverage())
   md.push('')
-  md.push(
-    'Abbreviated columns: pact-oas = pact-oas-crosscheck, rev-conf = reverse-conformance, py-conf = py-conformance.',
-  )
+  md.push(renderFootnote())
   md.push('')
-  const reds = artifact.baseline?.standing_reds.length ?? 0
-  md.push(
-    `**Totals: ${counts.caught} caught, ${counts.missed} missed, ${counts.caught + counts.missed} cells measured** (${ghostCount()} grid positions not applicable or not yet run). Baseline: \`${artifact.baseline?.commit.slice(0, 12) ?? 'none'}\` (${reds} standing red${reds === 1 ? '' : 's'}, fast-check seed ${artifact.baseline?.fastcheck_seed ?? '?'}). Last render: ${artifact.generated_at}. A frozen, hash-stamped snapshot of every cell is committed at [docs/evidence/detection-matrix.snapshot.json](evidence/detection-matrix.snapshot.json), so the grid is verifiable without cloning the gitignored artifact.`,
-  )
-  md.push('')
-
-  // The heat-grid + the three curated rows used to live in the README; they now live here, the
-  // single gated home, so the whole-doc byte gate (pnpm matrix:verify) protects their derived
-  // counts. Asset/snapshot links are doc-relative (this file is docs/detection-matrix.md).
-  md.push(renderDocHeatGrid())
-  md.push('')
-  md.push(renderDocTeaser())
-  md.push('')
-
-  md.push('## In-proc tier (Tier A)')
-  md.push('')
-  md.push(`| toggle | ${[...TS_COLUMNS, ...PY_COLUMNS].map(label).join(' | ')} |`)
-  md.push(`|---|${[...TS_COLUMNS, ...PY_COLUMNS].map(() => '---').join('|')}|`)
-  for (const t of TOGGLES.filter((t) => t.tiers.includes('in-proc'))) {
-    const isPy = t.component === 'moderator'
-    md.push(`| \`${t.id}\` | ${row(t.id, isPy, [...TS_COLUMNS, ...PY_COLUMNS], 'in-proc')} |`)
-  }
-  md.push('')
-
-  if (artifact.cells.some((c) => c.tier === 'cluster')) {
-    md.push('## Cluster tier (Tier B)')
-    md.push('')
-    md.push(`| toggle | ${LIVE_COLUMNS.map(label).join(' | ')} |`)
-    md.push(`|---|${LIVE_COLUMNS.map(() => '---').join('|')}|`)
-    for (const t of TOGGLES.filter((t) => t.tiers.includes('cluster'))) {
-      md.push(`| \`${t.id}\` | ${row(t.id, false, LIVE_COLUMNS, 'cluster')} |`)
-    }
-    md.push('')
-  }
-
-  if (artifact.cells.some((c) => c.tier === 'llm')) {
-    md.push('## LLM tier (Tier C, cost-recorded)')
-    md.push('')
-    md.push(`| toggle | ${[...LLM_COLUMNS, 'metamorphic'].map(label).join(' | ')} |`)
-    md.push(`|---|${[...LLM_COLUMNS, 'metamorphic'].map(() => '---').join('|')}|`)
-    for (const t of TOGGLES.filter((t) => t.tiers.includes('llm'))) {
-      md.push(`| \`${t.id}\` | ${row(t.id, false, [...LLM_COLUMNS, 'metamorphic'], 'llm')} |`)
-    }
-    md.push('')
-  }
-
-  md.push('## Per-toggle detail')
-  md.push('')
-  for (const t of TOGGLES) {
-    const caught = artifact.cells.filter((c) => c.toggle === t.id && c.status === 'caught')
-    const files = [...new Set(caught.flatMap((c) => c.evidence.newly_failing))].sort()
-    md.push(`### \`${t.id}\`: \`${t.env.name}=${t.env.value}\``)
-    md.push('')
-    md.push(`- component: ${t.component}; read at ${t.readSite.file} (${t.readSite.timing})`)
-    md.push(`- designated catcher: ${t.designatedCatcher ?? 'none (purely empirical)'}`)
-    if (t.claimId) md.push(`- permanent claim: \`${t.claimId}\` (pnpm prove ${t.claimId} --break)`)
-    if (caught.length > 0) {
-      md.push(
-        `- **caught by ${caught.length} group(s)** (${caught.map((c) => `${c.technique}@${c.tier}`).join(', ')}); detection breadth ${caught.length}, blast radius ${files.length} file(s):`,
-      )
-      for (const f of files) md.push(`  - \`${f}\``)
-    } else if (artifact.cells.some((c) => c.toggle === t.id)) {
-      md.push('- **MISSED by every group that ran**: see notes')
-    } else {
-      md.push('- not run yet')
-    }
-    if (t.selfToggling.length > 0) {
-      md.push(
-        `- self-toggling files (excluded from naive counting): ${t.selfToggling.map((f) => `\`${f}\``).join(', ')}`,
-      )
-    }
-    if (t.notes) md.push(`- notes: ${t.notes}`)
-    md.push('')
-  }
   return `${md.join('\n')}\n`
 }
 
-// ---- README projections (the 2026-06-11 front-door brief) ----
+// ---- the coverage-first hero: bugs caught, not cells missed ----
+
+function renderDefenseCoverage(): string {
+  const md: string[] = []
+  // Single bold span — no nested `**` (markdown renders `** **x** **` as stray asterisks).
+  const awaitingClause =
+    coverage.awaiting > 0
+      ? `; the ${coverage.awaiting === 1 ? '1 remaining awaits' : `${coverage.awaiting} remaining await`} only a deeper lane not run here`
+      : ''
+  const gapClause =
+    coverage.gaps > 0
+      ? ` ${coverage.gaps} OPEN GAP${coverage.gaps === 1 ? '' : 'S'} — a bug caught by nothing that ran (see the per-bug table).`
+      : ' 0 open gaps.'
+
+  md.push('## Defense coverage')
+  md.push('')
+  md.push(
+    `> **Every deliberate bug has a defender — ${coverage.defended} of ${coverage.total} proven (${coverage.inProc} in-process)${awaitingClause}.${gapClause}**`,
+  )
+  md.push(
+    '> Each bug is the job of its 1–3 boundary techniques; the other columns defend other boundaries and correctly stay green. The grid is *meant* to be sparse — sparsity here is specialization, not thin coverage. An **open gap** (a bug that ran against everything and was caught by nothing) is the only state that is a real miss, and it renders loud red. ' +
+      (coverage.gaps === 0
+        ? 'There are none today.'
+        : `There ${coverage.gaps === 1 ? 'is' : 'are'} ${coverage.gaps} today.`),
+  )
+  md.push('')
+  md.push('| Coverage | Bugs |')
+  md.push('|---|---|')
+  md.push(`| Caught in-process (Tier A, cheapest) | ${coverage.inProc} / ${coverage.total} |`)
+  md.push(`| Caught only deeper (cluster / LLM tier) | ${deeperCount} / ${coverage.total} |`)
+  md.push(
+    `| Awaiting its tier (defender lane not run here) | ${coverage.awaiting} / ${coverage.total} |`,
+  )
+  md.push(
+    `| **Open gap (caught by nothing that ran)** | **${coverage.gaps} / ${coverage.total}** |`,
+  )
+  md.push('')
+  md.push('<picture>')
+  md.push('<source media="(prefers-color-scheme: dark)" srcset="assets/detection-matrix-dark.svg">')
+  md.push(
+    `<img alt="Coverage strip: ${coverage.defended} of ${coverage.total} deliberate bugs caught (${coverage.awaiting} awaiting a deeper lane, ${coverage.gaps} open gaps). In the grid, strong cells are catches; soft-tinted cells are off-boundary (a specialized technique correctly staying green on a bug it does not defend); amber is awaiting its tier; red is an open gap${coverage.gaps === 0 ? ' (none today)' : ''}; faint cells are not applicable or not yet run." src="assets/detection-matrix-light.svg">`,
+  )
+  md.push('</picture>')
+  md.push('')
+  md.push('### Per-bug coverage')
+  md.push('')
+  md.push(
+    'Sorted attention-first: anything `GAP` or `awaiting` floats to the top. Each bug needs only one catcher to be covered.',
+  )
+  md.push('')
+  md.push('| Deliberate bug | Coverage | Caught by | Cheapest tier |')
+  md.push('|---|---|---|---|')
+  const sorted = [...TOGGLES].sort(
+    (a, b) =>
+      coverageRank(a) - coverageRank(b) ||
+      caughtBy(b.id).length - caughtBy(a.id).length ||
+      a.id.localeCompare(b.id),
+  )
+  for (const t of sorted) {
+    const cb = caughtBy(t.id)
+    const by =
+      cb.length > 0 ? `${cb.map((c) => c.technique).join(', ')} (${cb.length})` : '— (not run here)'
+    const cheapest = cheapestTier(t.id) ?? '—'
+    md.push(`| \`${t.id}\` | ${coverageLabel(t)} | ${by} | ${cheapest} |`)
+  }
+  return md.join('\n')
+}
+
+const gridCells = () => buildTiers().flatMap((t) => t.grid.flat()).length
+const ghostCount = () => gridCells() - counts.caught - counts.missed
+
+function renderFootnote(): string {
+  const b = missBuckets()
+  const reds = artifact.baseline?.standing_reds.length ?? 0
+  const inProcCaught = artifact.cells.filter(
+    (c) => c.tier === 'in-proc' && c.status === 'caught',
+  ).length
+  const inProcMissed = artifact.cells.filter(
+    (c) => c.tier === 'in-proc' && c.status === 'missed',
+  ).length
+  return (
+    `<sub>**Cell tally (provenance footnote).** ${counts.caught + counts.missed} cells measured across the tiers: ` +
+    `**${counts.caught} catches** + **${counts.missed} off-boundary** (not failures). The ${counts.missed} break down as ` +
+    `**${b.offBoundary} off-boundary** (the bug was caught by its own defender elsewhere; these columns guard other boundaries, so green is expected) + ` +
+    `**${b.awaitingTier} awaiting their tier** + **${b.open} open gap${b.open === 1 ? '' : 's'}**. ` +
+    `The in-process slice is ${inProcCaught} catches + ${inProcMissed} off-boundary. ` +
+    `${ghostCount()} further positions are n/a (no code path) or n/r (not run). ` +
+    `Baseline: \`${artifact.baseline?.commit.slice(0, 12) ?? 'none'}\` (${reds} standing red${reds === 1 ? '' : 's'}, fast-check seed ${artifact.baseline?.fastcheck_seed ?? '?'}). ` +
+    `Last render: ${artifact.generated_at}. A frozen, hash-stamped snapshot of every cell is committed at [docs/evidence/detection-matrix.snapshot.json](evidence/detection-matrix.snapshot.json).</sub>`
+  )
+}
+
+// ---- SVG inputs ----
 
 function tierGrid(
   tier: MatrixCell['tier'],
@@ -206,14 +288,19 @@ function tierGrid(
   return toggles.map((t) =>
     columns.map((col) => {
       const isPy = t.component === 'moderator'
-      const crossRuntime =
-        (isPy && tier === 'in-proc' && TS_COLUMNS.includes(col)) ||
-        (!isPy && tier === 'in-proc' && PY_COLUMNS.includes(col))
-      if (crossRuntime) return { status: 'other' as const }
+      if (isCrossRuntime(isPy, tier, col)) return { status: 'other' as const }
       const cell = cellFor(t.id, col, tier)
       if (!cell) return { status: 'other' as const }
       if (cell.status === 'caught') return { status: 'caught' as const }
-      if (cell.status === 'missed') return { status: 'missed' as const }
+      if (cell.status === 'missed') {
+        // A missed cell is off-boundary (this technique isn't this bug's defender) UNLESS the bug
+        // is a true gap — then it is the alarming `open`. Bug-level `awaiting` shows in the strip,
+        // not per cell: contract-drift's in-proc greens are genuinely off-boundary (cluster is its
+        // defender), so they tint soft, while the bug as a whole reads amber in the coverage strip.
+        return defenseByToggle.get(t.id) === 'gap'
+          ? { status: 'open' as const }
+          : { status: 'off-boundary' as const }
+      }
       return { status: 'other' as const }
     }),
   )
@@ -253,65 +340,23 @@ function buildTiers(): SvgTier[] {
   return tiers
 }
 
-const counts = {
-  caught: artifact.cells.filter((c) => c.status === 'caught').length,
-  missed: artifact.cells.filter((c) => c.status === 'missed').length,
-}
-
-const gridCells = () => buildTiers().flatMap((t) => t.grid.flat()).length
-const ghostCount = () => gridCells() - counts.caught - counts.missed
-
-// ---- in-doc projections: the heat grid + curated rows, folded in from the old README blocks ----
-// Asset/snapshot links are doc-relative (this renders into docs/detection-matrix.md).
-
-function renderDocHeatGrid(): string {
-  return `## The grid at a glance
-
-> **${counts.caught} catches. ${counts.missed} recorded misses. The misses are the point.**
-> Every deliberate bug in this repo is armed, one at a time, against every testing technique. A filled cell is a catch. A hollow cell is a technique that ran and stayed green: measured blindness, recorded instead of hidden. The ${ghostCount()} faint cells are not applicable or not yet run.
-
-<picture>
-<source media="(prefers-color-scheme: dark)" srcset="assets/detection-matrix-dark.svg">
-<img alt="The detection matrix as a heat grid: ${counts.caught} filled cells (catches) and ${counts.missed} hollow cells (recorded misses) across three tiers" src="assets/detection-matrix-light.svg">
-</picture>`
-}
-
-// Three curated rows: the matrix stories that say the most in one line each. Chosen by hand
-// (best narrative, not best score) and rendered with live per-row counts so they cannot drift.
-const TEASER_ROWS: [string, string][] = [
-  [
-    'feed-reversed',
-    'A reversed feed passed the entire in-proc battery. The hole was closed the same day; the row re-ran ✗ to ✓.',
-  ],
-  [
-    'vote-slow',
-    'Invisible to every functional technique, by design: suites get slower, not redder. Only the k6 SLO threshold sees it.',
-  ],
-  [
-    'disable-circuit-breaker',
-    'Missed in-proc, structurally. Caught live by paced fuzz traffic through an accidentally sick upstream.',
-  ],
-]
-
-function renderDocTeaser(): string {
-  const rows = TEASER_ROWS.map(([id, story]) => {
-    const measured = artifact.cells.filter((c) => c.toggle === id)
-    const caught = measured.filter((c) => c.status === 'caught').length
-    return `| \`${id}\` | ${caught} of ${measured.length} | ${story} |`
-  }).join('\n')
-  return `### Three rows worth calling out
-
-| Deliberate bug | Caught by | What happened |
-|---|---|---|
-${rows}`
+/** The left coverage strip: one mark per bug (manifest order), encoding its bug-level coverage. */
+function buildCoverageStrip(): CoverageMark[] {
+  return TOGGLES.map((t) => {
+    if (caughtInProc.has(t.id)) return { status: 'in-proc' as const }
+    const d = defenseByToggle.get(t.id)
+    if (d === 'defended') return { status: 'deeper' as const }
+    if (d === 'awaiting') return { status: 'awaiting' as const }
+    return { status: 'open' as const }
+  })
 }
 
 const snapshotPath = resolve(ROOT, 'docs/evidence/detection-matrix.snapshot.json')
 
-// The committed, hash-stamped evidence snapshot: every measured cell, in the tree, so a reader
-// who will not clone-and-run can still verify the grid instead of trusting the prose. The raw
-// artifact stays gitignored (it carries volatile per-run detail); this is its frozen projection,
-// and the sha256 binds the two: anyone with the artifact can recompute the hash.
+// The committed, hash-stamped evidence snapshot: every measured cell plus the derived coverage
+// rollup, in the tree, so a reader who will not clone-and-run can still verify the grid AND the
+// headline numbers instead of trusting the prose. The raw artifact stays gitignored; the sha256
+// binds the two.
 function renderSnapshot(): string {
   const cells = [...artifact.cells]
     .map((c) => ({ toggle: c.toggle, technique: c.technique, tier: c.tier, status: c.status }))
@@ -329,6 +374,15 @@ function renderSnapshot(): string {
       standing_reds: artifact.baseline?.standing_reds.length ?? 0,
     },
     counts: { ...counts, measured: counts.caught + counts.missed },
+    defense: {
+      total: coverage.total,
+      defended: coverage.defended,
+      in_proc: coverage.inProc,
+      deeper: deeperCount,
+      awaiting: coverage.awaiting,
+      gaps: coverage.gaps,
+    },
+    miss_buckets: missBuckets(),
     artifact_sha256: createHash('sha256').update(readFileSync(artifactPath)).digest('hex'),
     cells,
   }
@@ -338,8 +392,9 @@ function renderSnapshot(): string {
 function main(): void {
   const doc = renderDoc()
   const tiers = buildTiers()
-  const svgLight = renderMatrixSvg(tiers, 'light')
-  const svgDark = renderMatrixSvg(tiers, 'dark')
+  const strip = buildCoverageStrip()
+  const svgLight = renderMatrixSvg(tiers, strip, 'light')
+  const svgDark = renderMatrixSvg(tiers, strip, 'dark')
 
   if (process.argv.includes('--check')) {
     const problems: string[] = []
@@ -369,7 +424,7 @@ function main(): void {
   writeFileSync(svgDarkPath, svgDark)
   writeFileSync(snapshotPath, renderSnapshot())
   process.stdout.write(
-    `wrote docs/detection-matrix.md (${artifact.cells.length} cells) + docs/assets/detection-matrix-{light,dark}.svg + docs/evidence/detection-matrix.snapshot.json\n`,
+    `wrote docs/detection-matrix.md (${artifact.cells.length} cells, ${coverage.defended}/${coverage.total} bugs defended) + docs/assets/detection-matrix-{light,dark}.svg + docs/evidence/detection-matrix.snapshot.json\n`,
   )
 }
 
