@@ -14,6 +14,7 @@ import type { IdentityClient } from '../src/identity-client'
 import type { ModeratorClient } from '../src/moderator-client'
 import type { RateLimitConfig } from '../src/rate-limiter'
 import type { TicketClient } from '../src/ticket-client'
+import type { WebhooksClient } from '../src/webhooks-client'
 
 export interface GatewayTestOptions {
   rateLimit?: RateLimitConfig
@@ -21,6 +22,7 @@ export interface GatewayTestOptions {
   eventStream?: CommunityEventStream
   donations?: DonationsClient
   flags?: FlagsClient
+  webhooks?: WebhooksClient
   identity?: IdentityClient
   moderator?: ModeratorClient
 }
@@ -33,6 +35,7 @@ export function setupGatewayTest(content: ContentClient, options: GatewayTestOpt
     content,
     donations: options.donations,
     flags: options.flags,
+    webhooks: options.webhooks,
     identity: options.identity,
     moderator: options.moderator,
     tickets: options.tickets ?? noTickets(),
@@ -64,6 +67,21 @@ function unreachableClient<T>(methods: readonly string[]): T {
   return Object.fromEntries(methods.map((m) => [m, fail])) as unknown as T
 }
 
+/**
+ * Unlike `constantClient` (one reply for every method — which HIDES a route→method miswire), a
+ * recording client tags each method's response body with that method's own name. A route that
+ * binds to the WRONG client method then returns the wrong tag, so a per-route assertion that the
+ * body carries the EXPECTED method name catches the miswire. 200 keeps every reply a pass-through.
+ */
+function recordingClient<T>(methods: readonly string[]): T {
+  const tagged = (m: string) => async (): Promise<ClientResponse> => ({
+    status: 200,
+    body: { calledMethod: m },
+    contentType: 'application/json',
+  })
+  return Object.fromEntries(methods.map((m) => [m, tagged(m)])) as unknown as T
+}
+
 const CONTENT_METHODS = ['getFeed', 'getPost', 'createPost', 'castVote'] as const
 const DONATIONS_METHODS = ['listDonations', 'getDonation', 'createDonation'] as const
 const FLAGS_METHODS = ['resolveFlag', 'listFlags', 'advanceRollout'] as const
@@ -77,6 +95,15 @@ const IDENTITY_METHODS = [
   'createWsTicket',
 ] as const
 const MODERATOR_METHODS = ['listDecisions', 'getDecision'] as const
+const WEBHOOKS_METHODS = [
+  'createWebhook',
+  'listWebhooks',
+  'getWebhook',
+  'deleteWebhook',
+  'pauseWebhook',
+  'resumeWebhook',
+  'listWebhookDeliveries',
+] as const
 
 /** A content stub that returns the same response for every call. */
 export const constantContent = (response: ClientResponse): ContentClient =>
@@ -111,6 +138,25 @@ export const constantModerator = (response: ClientResponse): ModeratorClient =>
 /** A moderator stub whose every call throws (unreachable / timed-out). */
 export const unreachableModerator = (): ModeratorClient =>
   unreachableClient<ModeratorClient>(MODERATOR_METHODS)
+
+/** A webhooks stub returning the same response for every call. */
+export const constantWebhooks = (response: ClientResponse): WebhooksClient =>
+  constantClient<WebhooksClient>(WEBHOOKS_METHODS, response)
+/** A webhooks stub whose every call throws (unreachable / timed-out). */
+export const unreachableWebhooks = (): WebhooksClient =>
+  unreachableClient<WebhooksClient>(WEBHOOKS_METHODS)
+
+/** Method-tagging stubs (each reply carries `calledMethod`) — for route→method wiring assertions. */
+export const recordingContent = (): ContentClient => recordingClient<ContentClient>(CONTENT_METHODS)
+export const recordingDonations = (): DonationsClient =>
+  recordingClient<DonationsClient>(DONATIONS_METHODS)
+export const recordingFlags = (): FlagsClient => recordingClient<FlagsClient>(FLAGS_METHODS)
+export const recordingIdentity = (): IdentityClient =>
+  recordingClient<IdentityClient>(IDENTITY_METHODS)
+export const recordingModerator = (): ModeratorClient =>
+  recordingClient<ModeratorClient>(MODERATOR_METHODS)
+export const recordingWebhooks = (): WebhooksClient =>
+  recordingClient<WebhooksClient>(WEBHOOKS_METHODS)
 
 /** A ticket client that never recognizes any ticket (the default — no valid tickets). */
 export function noTickets(): TicketClient {

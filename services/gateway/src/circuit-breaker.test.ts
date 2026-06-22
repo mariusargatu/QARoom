@@ -71,6 +71,20 @@ describe('CircuitBreaker', () => {
     expect(b.allow()).toBe(true)
   })
 
+  it('admits only one half-open trial at a time, refusing a concurrent second probe', () => {
+    const clock = new FakeClock()
+    const b = breaker(clock)
+    b.record(false)
+    b.record(false)
+    b.record(false)
+    clock.advance(1000)
+    // First call past the cooldown takes the single half-open slot...
+    expect(b.allow()).toBe(true)
+    // ...a concurrent second caller (no record() yet) is refused so a sick provider isn't probed
+    // by every in-flight request at once.
+    expect(b.allow()).toBe(false)
+  })
+
   it('re-opens after a failed half-open trial', () => {
     const clock = new FakeClock()
     const b = breaker(clock)

@@ -63,6 +63,66 @@ function openSocket(
   })
 }
 
+/**
+ * Open a WS handshake we EXPECT to be rejected before the upgrade, and surface both the HTTP
+ * status and the RFC 7807 problem body the gateway returned. If the socket upgrades instead
+ * (the membership check was bypassed), reject loudly so the negative test fails clearly.
+ */
+function openSocketExpectingRejection(
+  url: string,
+  protocols: string[],
+): Promise<{ statusCode?: number; body: { type?: string; failure_domain?: string } }> {
+  return new Promise((resolve, reject) => {
+    const socket = new WebSocket(url, protocols)
+    socket.on('open', () => {
+      socket.close()
+      reject(new Error('handshake unexpectedly succeeded — the membership 403 check was bypassed'))
+    })
+    socket.on('unexpected-response', (_req, res) => {
+      const chunks: Buffer[] = []
+      res.on('data', (c: Buffer) => chunks.push(c))
+      res.on('end', () =>
+        resolve({ statusCode: res.statusCode, body: JSON.parse(Buffer.concat(chunks).toString()) }),
+      )
+    })
+    socket.on('error', () => {})
+  })
+}
+
+describe('WebSocket membership authorization (ws-not-a-member)', () => {
+  it('rejects the handshake (403 ws-not-a-member) when the principal is not a member of the requested community', async () => {
+    // PRINCIPAL is a member of SAMPLE.community only — request a DIFFERENT community.
+    const ctx = setupGatewayTest(constantContent({ status: 200, body: {}, contentType: null }), {
+      tickets: ticketStub({ tkt_good: PRINCIPAL }),
+    })
+    const url = await listen(ctx)
+    const rejection = await openSocketExpectingRejection(
+      `${url}/ws?community=${SAMPLE.communityOther}`,
+      ['ticket.tkt_good'],
+    )
+    expect(rejection.statusCode).toBe(403)
+    expect(rejection.body.type).toContain('ws-not-a-member')
+    expect(rejection.body.failure_domain).toBe('authorization')
+  }, 15000)
+
+  it('accepts the handshake and streams for a community the principal IS a member of (positive control)', async () => {
+    const ctx = setupGatewayTest(constantContent({ status: 200, body: {}, contentType: null }), {
+      tickets: ticketStub({ tkt_good: PRINCIPAL }),
+    })
+    const url = await listen(ctx)
+    const received: unknown[] = []
+    const socket = await openSocket(
+      `${url}/ws?community=${SAMPLE.community}`,
+      ['ticket.tkt_good'],
+      (m) => received.push(m),
+    )
+    ctx.eventStream.publish(flagFrame('Enabling', false))
+    await vi.waitFor(() => expect(received).toHaveLength(1), { timeout: 5000 })
+    socket.close()
+    expect(received).toHaveLength(1)
+  }, 15000)
+})
+
 describe('WebSocket ticket handshake', () => {
   it('rejects the handshake (401) when no ticket subprotocol is presented', async () => {
     const ctx = setupGatewayTest(constantContent({ status: 200, body: {}, contentType: null }))

@@ -4,6 +4,7 @@ import { sql } from 'drizzle-orm'
 import { afterEach, beforeEach, describe, expect, it } from 'vitest'
 import type { DonationsDb } from './db/client'
 import { ensureSchema } from './db/migrate'
+import { flagCache } from './db/schema'
 import type { RepoDeps } from './deps'
 import type { PaymentClient } from './payment-client'
 import {
@@ -113,6 +114,17 @@ describe('repository/flag-cache + reads', () => {
 
   it('getDonation returns null for an unknown id', async () => {
     expect(await getDonation(ctx.db, 'dntn_01HZY0K7M3QF8VN2J5RX9TB4ZZ')).toBeNull()
+  })
+
+  it('exposes the cached flag row through the typed flag_cache projection, matching the raw-SQL writer', async () => {
+    await enable()
+    const rows = await ctx.db.select().from(flagCache)
+    expect(rows.length).toBe(1)
+    expect(rows[0]).toMatchObject({
+      communityId: COMMUNITY,
+      flagKey: DONATIONS_FLAG,
+      enabled: true,
+    })
   })
 
   it('listDonations returns a community newest-first and honors a custom limit', async () => {

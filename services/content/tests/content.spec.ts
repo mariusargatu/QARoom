@@ -70,6 +70,16 @@ describe('content-service HTTP behaviour', () => {
     expectLamportAdvanced(before, after)
   })
 
+  it('casting a vote on a non-existent post returns a 404 problem+json in the not_found domain (no stored idempotent success)', async () => {
+    const res = await ctx.request.post(
+      '/api/posts/post_01HZY0K7M3QF8VN2J5RX9TB4ZZ/votes',
+      { voter_id: SAMPLE.user, value: 1 },
+      { 'idempotency-key': 'vote-missing' },
+    )
+    expectProblemContentType(res.contentType)
+    expectRFC7807(res.json, { status: 404, failureDomain: 'not_found' })
+  })
+
   it('a created post appears in its community feed inside an as_of envelope', async () => {
     await createSample('k3')
     const feed = await ctx.request.get(`/api/communities/${SAMPLE.communityA}/feed`)

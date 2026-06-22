@@ -1,8 +1,11 @@
+import { EXAMPLE_USER_ID } from '@qaroom/contracts'
 import { expectProblemContentType, expectRFC7807 } from '@qaroom/testing-utils/matchers'
 import { describe, expect, it } from 'vitest'
-import { constantContent, SAMPLE, setupGatewayTest } from './harness'
+import { constantContent, constantIdentity, SAMPLE, setupGatewayTest } from './harness'
 
 const okFeed = { status: 200, body: { ok: true }, contentType: 'application/json' }
+const json = (status: number) =>
+  ({ status, body: { ok: true }, contentType: 'application/json' }) as const
 
 describe('gateway rate limiting', () => {
   it('returns a 429 rate_limit problem with a Retry-After header once capacity is exceeded', async () => {
@@ -51,6 +54,32 @@ describe('gateway rate limiting', () => {
     expect((peek1.json as { reset_in_seconds: number }).reset_in_seconds).toBe(2)
     // Computed once in the limiter, not re-derived per read — so a second peek is identical.
     expect((peek2.json as { reset_in_seconds: number }).reset_in_seconds).toBe(2)
+  })
+
+  // The limiter must cover the WHOLE /api surface, not just /api/communities/* (scope-prefix bug).
+  it('rate-limits /api/users/:id once capacity is exceeded', async () => {
+    const { request } = setupGatewayTest(constantContent(okFeed), {
+      identity: constantIdentity(json(200)),
+      rateLimit: { capacity: 1, refillPerSec: 0 },
+    })
+    const first = await request.get(`/api/users/${EXAMPLE_USER_ID}`)
+    const second = await request.get(`/api/users/${EXAMPLE_USER_ID}`)
+    expect(first.status).toBe(200)
+    expect(second.status).toBe(429)
+    expectRFC7807(second.json, { status: 429, failureDomain: 'rate_limit' })
+  })
+
+  it('rate-limits /api/sessions once capacity is exceeded', async () => {
+    const { request } = setupGatewayTest(constantContent(okFeed), {
+      identity: constantIdentity(json(201)),
+      rateLimit: { capacity: 1, refillPerSec: 0 },
+    })
+    const body = { user_id: EXAMPLE_USER_ID }
+    const first = await request.post('/api/sessions', body, { 'idempotency-key': 'rl-s1' })
+    const second = await request.post('/api/sessions', body, { 'idempotency-key': 'rl-s2' })
+    expect(first.status).toBe(201)
+    expect(second.status).toBe(429)
+    expectRFC7807(second.json, { status: 429, failureDomain: 'rate_limit' })
   })
 
   it('is not applied to the /system surface', async () => {

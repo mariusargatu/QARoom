@@ -3,7 +3,7 @@ import { composeMigrations } from '@qaroom/contracts'
 import { sql } from 'drizzle-orm'
 import { drizzle } from 'drizzle-orm/pglite'
 import { describe, expect, it } from 'vitest'
-import { MESSAGING_MIGRATIONS } from './migrations'
+import { MESSAGING_MIGRATIONS, messagingFragment } from './migrations'
 import { rowsOf, type SqlExecutor } from './types'
 
 const composed = composeMigrations(MESSAGING_MIGRATIONS)
@@ -47,5 +47,24 @@ describe('messaging migration fragments are reversible and idempotent', () => {
     const afterNoOpUp = await messagingTables(db)
     expect(afterReUp).toEqual(afterFirstUp)
     expect(afterNoOpUp).toEqual(afterFirstUp)
+  })
+})
+
+describe('messagingFragment relabels the composed substrate as a named Migration', () => {
+  it('is named "messaging" so a full adopter can drop it into composeMigrations', () => {
+    expect(messagingFragment.name).toBe('messaging')
+  })
+
+  it('creates every messaging table on up', async () => {
+    const db = freshDb()
+    await messagingFragment.up(db)
+    expect(await messagingTables(db)).toEqual(MESSAGING_TABLES)
+  })
+
+  it('drops every messaging table on down', async () => {
+    const db = freshDb()
+    await messagingFragment.up(db)
+    await messagingFragment.down(db)
+    expect(await messagingTables(db)).toEqual([])
   })
 })
