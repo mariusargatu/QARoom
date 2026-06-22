@@ -1,16 +1,29 @@
 {
-  "generated_at": "2026-06-10T16:25:48.193Z",
+  "generated_at": "2026-06-21T20:50:32.985Z",
   "baseline": {
-    "commit": "475c7ac4df22ab0a52cd1640f7c4912dc88d610c",
+    "commit": "bcea3c1cbfe33d63a41a2b82df983fe1eeb8a9aa",
     "fastcheck_seed": 12648430,
-    "standing_reds": 1
+    "standing_reds": 0
   },
   "counts": {
-    "caught": 27,
-    "missed": 104,
-    "measured": 131
+    "caught": 34,
+    "missed": 124,
+    "measured": 158
   },
-  "artifact_sha256": "0707dbf271552a3581806af6f32456ad61c3f85f83201e6be36f46c7c591c2ab",
+  "defense": {
+    "total": 23,
+    "defended": 22,
+    "in_proc": 18,
+    "deeper": 4,
+    "awaiting": 1,
+    "gaps": 0
+  },
+  "miss_buckets": {
+    "offBoundary": 117,
+    "awaitingTier": 7,
+    "open": 0
+  },
+  "artifact_sha256": "d6cc8205305953332bc24e3e1a515a11ec903b6edd2f2073c8e2e28d840fca8e",
   "cells": [
     {
       "toggle": "canary-misroutes",
@@ -68,6 +81,48 @@
     },
     {
       "toggle": "canary-misroutes",
+      "technique": "unit",
+      "tier": "in-proc",
+      "status": "caught"
+    },
+    {
+      "toggle": "contract-drift",
+      "technique": "integration",
+      "tier": "in-proc",
+      "status": "missed"
+    },
+    {
+      "toggle": "contract-drift",
+      "technique": "mbt",
+      "tier": "in-proc",
+      "status": "missed"
+    },
+    {
+      "toggle": "contract-drift",
+      "technique": "pact",
+      "tier": "in-proc",
+      "status": "missed"
+    },
+    {
+      "toggle": "contract-drift",
+      "technique": "pact-oas-crosscheck",
+      "tier": "in-proc",
+      "status": "missed"
+    },
+    {
+      "toggle": "contract-drift",
+      "technique": "property",
+      "tier": "in-proc",
+      "status": "missed"
+    },
+    {
+      "toggle": "contract-drift",
+      "technique": "reverse-conformance",
+      "tier": "in-proc",
+      "status": "missed"
+    },
+    {
+      "toggle": "contract-drift",
       "technique": "unit",
       "tier": "in-proc",
       "status": "missed"
@@ -227,6 +282,42 @@
       "technique": "redteam",
       "tier": "llm",
       "status": "missed"
+    },
+    {
+      "toggle": "moderator-disable-approve-guard",
+      "technique": "metamorphic",
+      "tier": "in-proc",
+      "status": "missed"
+    },
+    {
+      "toggle": "moderator-disable-approve-guard",
+      "technique": "py-conformance",
+      "tier": "in-proc",
+      "status": "missed"
+    },
+    {
+      "toggle": "moderator-disable-approve-guard",
+      "technique": "py-unit",
+      "tier": "in-proc",
+      "status": "caught"
+    },
+    {
+      "toggle": "moderator-disable-corpus-guard",
+      "technique": "metamorphic",
+      "tier": "in-proc",
+      "status": "missed"
+    },
+    {
+      "toggle": "moderator-disable-corpus-guard",
+      "technique": "py-conformance",
+      "tier": "in-proc",
+      "status": "missed"
+    },
+    {
+      "toggle": "moderator-disable-corpus-guard",
+      "technique": "py-unit",
+      "tier": "in-proc",
+      "status": "caught"
     },
     {
       "toggle": "moderator-disable-input-guard",
@@ -439,6 +530,48 @@
       "status": "caught"
     },
     {
+      "toggle": "tenant-leak",
+      "technique": "integration",
+      "tier": "in-proc",
+      "status": "missed"
+    },
+    {
+      "toggle": "tenant-leak",
+      "technique": "mbt",
+      "tier": "in-proc",
+      "status": "missed"
+    },
+    {
+      "toggle": "tenant-leak",
+      "technique": "pact",
+      "tier": "in-proc",
+      "status": "missed"
+    },
+    {
+      "toggle": "tenant-leak",
+      "technique": "pact-oas-crosscheck",
+      "tier": "in-proc",
+      "status": "missed"
+    },
+    {
+      "toggle": "tenant-leak",
+      "technique": "property",
+      "tier": "in-proc",
+      "status": "caught"
+    },
+    {
+      "toggle": "tenant-leak",
+      "technique": "reverse-conformance",
+      "tier": "in-proc",
+      "status": "missed"
+    },
+    {
+      "toggle": "tenant-leak",
+      "technique": "unit",
+      "tier": "in-proc",
+      "status": "missed"
+    },
+    {
       "toggle": "tenant-span-drop",
       "technique": "smoke",
       "tier": "cluster",
@@ -551,6 +684,48 @@
       "technique": "unit",
       "tier": "in-proc",
       "status": "missed"
+    },
+    {
+      "toggle": "vote-out-of-range",
+      "technique": "integration",
+      "tier": "in-proc",
+      "status": "caught"
+    },
+    {
+      "toggle": "vote-out-of-range",
+      "technique": "mbt",
+      "tier": "in-proc",
+      "status": "missed"
+    },
+    {
+      "toggle": "vote-out-of-range",
+      "technique": "pact",
+      "tier": "in-proc",
+      "status": "missed"
+    },
+    {
+      "toggle": "vote-out-of-range",
+      "technique": "pact-oas-crosscheck",
+      "tier": "in-proc",
+      "status": "missed"
+    },
+    {
+      "toggle": "vote-out-of-range",
+      "technique": "property",
+      "tier": "in-proc",
+      "status": "caught"
+    },
+    {
+      "toggle": "vote-out-of-range",
+      "technique": "reverse-conformance",
+      "tier": "in-proc",
+      "status": "missed"
+    },
+    {
+      "toggle": "vote-out-of-range",
+      "technique": "unit",
+      "tier": "in-proc",
+      "status": "caught"
     },
     {
       "toggle": "vote-slow",

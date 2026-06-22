@@ -4,13 +4,17 @@
  * Derived entirely from the committed matrix render inputs; no clock, no randomness, so the same
  * artifact always yields byte-identical SVGs (`pnpm matrix:render --check` gates them).
  *
- * Cell semantics follow the design brief: a catch is a filled slate cell, a miss is a hollow cell
- * (an honest gap, not a red alarm), everything else (no code path, not run, key-gated, unstable)
- * is near-invisible. The full per-cell truth lives in docs/detection-matrix.md; this is the shape.
+ * Reframed to read coverage-first (the design brief): a left COVERAGE STRIP shows each bug's
+ * bug-level coverage (every bug should have a defender), and the grid is a relevance gradient, NOT
+ * pass/fail — a catch is a strong fill, an off-boundary green is a soft tint that RECEDES (a
+ * specialized technique correctly ignoring a bug it does not defend, not a hole), and the only
+ * alarming color is `open` red (a bug caught by nothing that ran). With zero open gaps the image
+ * contains no red, which itself reads as "nothing is exposed". The full per-cell truth lives in
+ * docs/detection-matrix.md; this is the shape.
  */
 
 export interface SvgCell {
-  status: 'caught' | 'missed' | 'other'
+  status: 'caught' | 'off-boundary' | 'open' | 'other'
 }
 
 export interface SvgTier {
@@ -19,102 +23,160 @@ export interface SvgTier {
   grid: SvgCell[][]
 }
 
+/** One mark in the left coverage strip — a bug's bug-level coverage, not a single cell. */
+export interface CoverageMark {
+  status: 'in-proc' | 'deeper' | 'awaiting' | 'open'
+}
+
 const CELL = 12
 const GAP = 3
 const TIER_GAP = 14
 const TOP = 22
 const PAD = 2
+const CHAR = 5.4 // ~px per character at font-size 10, for width/legend layout
 
 interface Palette {
   caught: string
-  missedStroke: string
+  offBoundary: string
+  open: string
   other: string
+  coverDeeper: string
+  coverAwaiting: string
   label: string
 }
 
 // DESIGN.md slate (oklch 0.470 0.078 262) and its dark-surface counterpart, pre-converted to hex
-// because GitHub serves these SVGs through <img>, where external CSS cannot reach.
+// because GitHub serves these SVGs through <img>, where external CSS cannot reach. Off-boundary is
+// a soft tint BETWEEN caught and ghost (recedes, not a hole); open is the sole alarming red.
 const LIGHT: Palette = {
   caught: '#3f669a',
-  missedStroke: '#c3c9d3',
+  offBoundary: '#dbe2ec',
+  open: '#c0392b',
   other: '#eef0f4',
+  coverDeeper: '#9db3d2',
+  coverAwaiting: '#b08a4a',
   label: '#6b7280',
 }
 const DARK: Palette = {
   caught: '#8fb0dc',
-  missedStroke: '#4a4f58',
+  offBoundary: '#2c333d',
+  open: '#e06c5b',
   other: '#1e2126',
+  coverDeeper: '#5f7ba6',
+  coverAwaiting: '#caa45f',
   label: '#9aa0aa',
 }
 
-export function renderMatrixSvg(tiers: SvgTier[], variant: 'light' | 'dark'): string {
-  const p = variant === 'light' ? LIGHT : DARK
-  const rows = Math.max(...tiers.map((t) => t.grid.length))
-  const height = TOP + rows * (CELL + GAP) + PAD
+const fillRect = (x: number, y: number, fill: string) =>
+  `<rect x="${x}" y="${y}" width="${CELL}" height="${CELL}" rx="2" fill="${fill}"/>`
 
-  let x = PAD
-  let labelExtent = 0
+const gridCellSvg = (cell: SvgCell, x: number, y: number, p: Palette): string => {
+  if (cell.status === 'caught') return fillRect(x, y, p.caught)
+  if (cell.status === 'open') return fillRect(x, y, p.open)
+  if (cell.status === 'off-boundary') return fillRect(x, y, p.offBoundary)
+  return fillRect(x, y, p.other)
+}
+
+const coverColor = (mark: CoverageMark, p: Palette): string =>
+  mark.status === 'in-proc'
+    ? p.caught
+    : mark.status === 'deeper'
+      ? p.coverDeeper
+      : mark.status === 'awaiting'
+        ? p.coverAwaiting
+        : p.open
+
+export function renderMatrixSvg(
+  tiers: SvgTier[],
+  coverage: CoverageMark[],
+  variant: 'light' | 'dark',
+): string {
+  const p = variant === 'light' ? LIGHT : DARK
+  const maxRows = Math.max(coverage.length, ...tiers.map((t) => t.grid.length))
+  const height = TOP + maxRows * (CELL + GAP) + PAD
+
   const groups: string[] = []
+  let labelExtent = 0
+
+  // Left coverage strip: one tall column, one cell per bug (manifest order).
+  let x = PAD
+  groups.push(
+    `<text x="${x}" y="${TOP - 9}" font-family="ui-sans-serif, system-ui, sans-serif" font-size="10" fill="${p.label}">coverage</text>`,
+  )
+  for (let r = 0; r < coverage.length; r++) {
+    groups.push(fillRect(x, TOP + r * (CELL + GAP), coverColor(coverage[r], p)))
+  }
+  const stripLabelW = Math.ceil('coverage'.length * CHAR)
+  labelExtent = Math.max(labelExtent, x + stripLabelW)
+  // Advance past the wider of the 1-cell strip and its label, so "coverage" never collides with the
+  // first tier's caption; the extra space doubles as a visual break between summary strip and grid.
+  x += Math.max(CELL, stripLabelW) + TIER_GAP + GAP
+
+  // Tier grids.
   for (const tier of tiers) {
     const cols = tier.grid[0]?.length ?? 0
-    const cells: string[] = []
     for (let r = 0; r < tier.grid.length; r++) {
       for (let c = 0; c < cols; c++) {
-        const cell = tier.grid[r][c]
-        const cx = x + c * (CELL + GAP)
-        const cy = TOP + r * (CELL + GAP)
-        if (cell.status === 'caught') {
-          cells.push(
-            `<rect x="${cx}" y="${cy}" width="${CELL}" height="${CELL}" rx="2" fill="${p.caught}"/>`,
-          )
-        } else if (cell.status === 'missed') {
-          cells.push(
-            `<rect x="${cx + 0.5}" y="${cy + 0.5}" width="${CELL - 1}" height="${CELL - 1}" rx="2" fill="none" stroke="${p.missedStroke}"/>`,
-          )
-        } else {
-          cells.push(
-            `<rect x="${cx}" y="${cy}" width="${CELL}" height="${CELL}" rx="2" fill="${p.other}"/>`,
-          )
-        }
+        groups.push(gridCellSvg(tier.grid[r][c], x + c * (CELL + GAP), TOP + r * (CELL + GAP), p))
       }
     }
-    const width = cols * (CELL + GAP) - GAP
     groups.push(
       `<text x="${x}" y="${TOP - 9}" font-family="ui-sans-serif, system-ui, sans-serif" font-size="10" fill="${p.label}">${tier.label}</text>`,
-      ...cells,
     )
-    // ~5.4px per character at font-size 10: keeps the last tier's label inside the viewBox even
-    // when its grid is narrower than its caption (Tier C is 3 columns wide).
-    labelExtent = Math.max(labelExtent, x + Math.ceil(tier.label.length * 5.4))
-    x += width + TIER_GAP + GAP
+    labelExtent = Math.max(labelExtent, x + Math.ceil(tier.label.length * CHAR))
+    x += cols * (CELL + GAP) - GAP + TIER_GAP + GAP
   }
-  const width = Math.max(x - TIER_GAP + PAD, labelExtent + PAD)
+  const gridWidth = x - TIER_GAP - GAP + PAD
 
+  // Cell tallies (grid only — the strip is bug-level, summarized in the desc).
   const all = tiers.flatMap((t) => t.grid.flat())
   const caught = all.filter((c) => c.status === 'caught').length
-  const missed = all.filter((c) => c.status === 'missed').length
-  const ghosts = all.length - caught - missed
+  const offBoundary = all.filter((c) => c.status === 'off-boundary').length
+  const open = all.filter((c) => c.status === 'open').length
+  const ghosts = all.filter((c) => c.status === 'other').length
 
-  // Microlegend: the skeptic this image exists for is the reader who counts squares; all three
-  // visual states get named so the faint cells read as "not measured", never as hidden data.
+  // Coverage tallies (strip) for the desc.
+  const cov = {
+    inProc: coverage.filter((m) => m.status === 'in-proc').length,
+    deeper: coverage.filter((m) => m.status === 'deeper').length,
+    awaiting: coverage.filter((m) => m.status === 'awaiting').length,
+    open: coverage.filter((m) => m.status === 'open').length,
+  }
+  const defended = cov.inProc + cov.deeper
+
+  // Microlegend: four named grid states, laid out left-to-right with measured advances so long
+  // labels never collide. `open gap (0)` is shown even at zero — the absence is the positive signal.
   const ly = height - 12
-  const lt = (x: number, text: string) =>
-    `<text x="${x}" y="${ly + 9}" font-family="ui-sans-serif, system-ui, sans-serif" font-size="10" fill="${p.label}">${text}</text>`
-  const legend = [
-    `<rect x="${PAD}" y="${ly}" width="${CELL}" height="${CELL}" rx="2" fill="${p.caught}"/>`,
-    lt(PAD + CELL + 5, `caught (${caught})`),
-    `<rect x="${PAD + 86}" y="${ly}" width="${CELL - 1}" height="${CELL - 1}" rx="2" fill="none" stroke="${p.missedStroke}"/>`,
-    lt(PAD + 86 + CELL + 5, `missed (${missed})`),
-    `<rect x="${PAD + 174}" y="${ly}" width="${CELL}" height="${CELL}" rx="2" fill="${p.other}"/>`,
-    lt(PAD + 174 + CELL + 5, `not run or n/a (${ghosts})`),
-  ].join('\n')
+  let lx = PAD
+  const legendParts: string[] = []
+  const entry = (fill: string, text: string) => {
+    legendParts.push(fillRect(lx, ly, fill))
+    legendParts.push(
+      `<text x="${lx + CELL + 5}" y="${ly + 9}" font-family="ui-sans-serif, system-ui, sans-serif" font-size="10" fill="${p.label}">${text}</text>`,
+    )
+    lx += CELL + 5 + Math.ceil(text.length * CHAR) + 16
+  }
+  entry(p.caught, `caught (${caught})`)
+  entry(p.offBoundary, `off-boundary, ran green (${offBoundary})`)
+  entry(p.open, `open gap (${open})`)
+  entry(p.other, `n/a or not run (${ghosts})`)
+  const legendWidth = lx + PAD
+
+  const width = Math.max(gridWidth, labelExtent + PAD, legendWidth)
   const fullHeight = height + 22
 
+  const desc =
+    `Coverage strip: ${defended} of ${coverage.length} deliberate bugs caught ` +
+    `(${cov.awaiting} awaiting a deeper lane, ${cov.open} open gaps). In the grid, strong cells are ` +
+    `catches; soft-tinted cells are off-boundary — a specialized technique correctly staying green ` +
+    `on a bug it does not defend; red is an open gap${open === 0 ? ' (none today)' : ''}; faint cells ` +
+    `are not applicable or not yet run. Full per-cell detail is in docs/detection-matrix.md.`
+
   return `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 ${width} ${fullHeight}" width="${width}" height="${fullHeight}" role="img" aria-labelledby="t d">
-<title id="t">The detection matrix: deliberate bugs versus testing techniques</title>
-<desc id="d">A grid of ${caught + missed} measured cells across ${tiers.length} tiers, plus ${ghosts} unmeasured positions. ${caught} filled cells are catches; ${missed} hollow cells are recorded misses; faint cells are not applicable or not yet run. Full per-cell detail is in docs/detection-matrix.md.</desc>
+<title id="t">The detection matrix: every deliberate bug versus the techniques that defend it</title>
+<desc id="d">${desc}</desc>
 ${groups.join('\n')}
-${legend}
+${legendParts.join('\n')}
 </svg>
 `
 }
