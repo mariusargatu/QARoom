@@ -1,0 +1,91 @@
+# Reviewer agents (ADR-0026).
+#
+# One LLM judge per touched boundary (scripts/reviewer-agent.ts), reading that boundary's guardrail
+# (its AGENTS.md) + the diff, posting findings to the PR thread for the implementation agent to fix.
+# This is the piece that scales review with PR count (humans don't). Blocks Lane A on any P2+
+# finding. Cost is stamped per run into test-results/reviewer-cost.json (OBSERVE-ONLY, no cap —
+# ADR-0026 measure-first) and uploaded as an artifact so the per-PR $ distribution can be read off real
+# runs before a ceiling is set.
+#
+# When no OPENAI_API_KEY is configured the model call is skipped and the workflow posts an honest
+# "NOT machine-reviewed" note — it never posts a green it did not earn. Make it a required status
+# check only once the judges have been meta-evaluated (ADR-0026).
+name: Reviewer agents
+
+on:
+  pull_request:
+    types: [opened, synchronize, reopened, ready_for_review]
+  workflow_dispatch: {}
+
+permissions:
+  contents: read
+  pull-requests: write
+
+jobs:
+  review:
+    if: ${{ !github.event.pull_request.draft }}
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - uses: ./.github/actions/setup-workspace
+
+      - name: Which boundaries does this PR touch?
+        id: boundaries
+        env:
+          BASE_SHA: ${{ github.event.pull_request.base.sha }}
+          HEAD_SHA: ${{ github.event.pull_request.head.sha }}
+        run: |
+          set -euo pipefail
+          # Map each changed file to its module (services/<x> | packages/<x> | top dir) — the unit a
+          # per-boundary judge reviews. Same notion as the classifier's boundaryOf; kept inline here
+          # so this job has no dependency on the router job's outputs.
+          git diff --name-only "$BASE_SHA" "$HEAD_SHA" \
+            | awk -F/ '/^(services|packages)\//{print $1"/"$2; next} {print $1}' \
+            | sort -u > /tmp/boundaries.txt
+          echo "Touched boundaries:" | tee -a "$GITHUB_STEP_SUMMARY"
+          sed 's/^/- /' /tmp/boundaries.txt | tee -a "$GITHUB_STEP_SUMMARY"
+          { echo 'list<<__EOF__'; cat /tmp/boundaries.txt; echo '__EOF__'; } >> "$GITHUB_OUTPUT"
+
+      - name: Run per-boundary judges
+        id: judge
+        env:
+          OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
+          GH_TOKEN: ${{ github.token }}
+          PR: ${{ github.event.pull_request.number }}
+          BASE_SHA: ${{ github.event.pull_request.base.sha }}
+          HEAD_SHA: ${{ github.event.pull_request.head.sha }}
+        run: |
+          set -uo pipefail
+          if [ -z "${OPENAI_API_KEY:-}" ]; then
+            {
+              echo "**Reviewer agents** — no model key configured, so no boundary was judged. This PR"
+              echo "was NOT machine-reviewed; route by the human lanes (B/C) until a key is set (ADR-0026)."
+              echo
+              echo "Boundaries that WOULD be reviewed:"
+              sed 's/^/- /' /tmp/boundaries.txt
+            } > /tmp/reviewer-note.md
+            gh pr comment "$PR" --body-file /tmp/reviewer-note.md
+            echo "::notice::reviewer-agents — model call skipped (no OPENAI_API_KEY)."
+            exit 0
+          fi
+          # One judge per boundary. Each writes its findings to the step summary and appends its cost
+          # to test-results/reviewer-cost.json; a P2+ finding exits the judge non-zero, which we
+          # accumulate so the job (and Lane A) fails if ANY boundary is blocked.
+          blocked=0
+          while IFS= read -r b; do
+            [ -n "$b" ] || continue
+            pnpm tsx scripts/reviewer-agent.ts "$b" "$BASE_SHA" "$HEAD_SHA" || blocked=1
+          done < /tmp/boundaries.txt
+          if [ -f test-results/reviewer-cost.json ]; then
+            gh pr comment "$PR" --body-file <(printf '%s\n' '**Reviewer agents** ran — see the run summary for findings and the reviewer-cost artifact for per-boundary $ (observe-only, no cap yet).')
+          fi
+          [ "$blocked" -eq 0 ] || { echo "::error::reviewer-agents found P2+ findings — Lane A blocked."; exit 1; }
+
+      - name: Upload reviewer cost ledger (measure-first, ADR-0026)
+        if: ${{ always() && hashFiles('test-results/reviewer-cost.json') != '' }}
+        uses: actions/upload-artifact@v4
+        with:
+          name: reviewer-cost
+          path: test-results/reviewer-cost.json

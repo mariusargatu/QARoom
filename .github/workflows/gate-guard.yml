@@ -1,0 +1,63 @@
+# Gate-self-weakening guard (ADR-0026).
+#
+# At 10 agents, the laziest path to a green check is to EDIT THE GATE. This flags any PR that
+# changes an enforcement script (a gate) AND other code in the same diff — the exact move the
+# router sends to Lane B (a human must read it), and the move AGENTS.md forbids ("never weaken a
+# check to make a red go green").
+#
+# ADVISORY, like invariant-guard.yml: it annotates, it does not fail the build. The HARD teeth are
+# (1) the router routing such PRs to Lane B so they can't auto-merge, and (2) branch protection
+# requiring a human on Lane B. This job is the visible flag beside them. It runs NO build/test lane.
+name: Gate guard
+
+on:
+  pull_request:
+    paths:
+      - 'scripts/**'
+      - 'tools/eslint-plugin-qaroom/**'
+      - '.github/workflows/**'
+
+permissions:
+  contents: read
+
+jobs:
+  flag:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - name: Flag gate-self-weakening
+        env:
+          BASE_SHA: ${{ github.event.pull_request.base.sha }}
+          HEAD_SHA: ${{ github.event.pull_request.head.sha }}
+        run: |
+          set -euo pipefail
+          GATE_GLOBS='scripts/ tools/eslint-plugin-qaroom/ .github/workflows/'
+          all=$(git diff --name-only "$BASE_SHA" "$HEAD_SHA")
+          gate=$(echo "$all" | grep -E '^(scripts/|tools/eslint-plugin-qaroom/|\.github/workflows/)' || true)
+          other=$(echo "$all" | grep -vE '^(scripts/|tools/eslint-plugin-qaroom/|\.github/workflows/)' || true)
+          if [ -z "$gate" ] || [ -z "$other" ]; then
+            echo "No gate-self-weakening: a diff touches a gate AND non-gate code together to trip this." \
+              | tee -a "$GITHUB_STEP_SUMMARY"
+            exit 0
+          fi
+          {
+            echo "## :warning: This PR edits an enforcement gate AND other code"
+            echo
+            echo "Editing a gate (lint rule, gate script, CI workflow) in the same diff as the code it"
+            echo "checks is how a red check gets quietly turned green. The router sends this to **Lane B**"
+            echo "— a human must confirm the gate was strengthened, not weakened (AGENTS.md, ADR-0024)."
+            echo
+            echo '### Gate files'
+            echo '```'
+            echo "$gate"
+            echo '```'
+            echo '### Other files'
+            echo '```'
+            echo "$other"
+            echo '```'
+          } | tee -a "$GITHUB_STEP_SUMMARY"
+          while IFS= read -r f; do
+            [ -n "$f" ] && echo "::warning file=$f::Gate edited alongside code — Lane B, human review required."
+          done <<< "$gate"
