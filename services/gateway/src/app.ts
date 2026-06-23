@@ -34,6 +34,7 @@ export function buildGatewayApp(deps: GatewayDeps): FastifyInstance {
   const routeDeps: GatewayRouteDeps = {
     content: deps.content,
     tickets: deps.tickets,
+    verifyToken: deps.verifyToken,
     clock: deps.clock,
     ids: deps.ids,
     randomness: deps.randomness,

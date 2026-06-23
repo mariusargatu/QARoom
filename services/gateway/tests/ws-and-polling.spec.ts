@@ -10,7 +10,7 @@ import { expectWsEventMatchesPolling } from '@qaroom/testing-utils/matchers'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import { WebSocket } from 'ws'
 import type { FrameInput } from '../src/event-stream'
-import { constantContent, SAMPLE, setupGatewayTest, ticketStub } from './harness'
+import { constantContent, MEMBER_TOKEN, SAMPLE, setupGatewayTest, ticketStub } from './harness'
 
 const PRINCIPAL: RedeemTicketResponse = {
   user_id: UserId.parse(SAMPLE.user),
@@ -121,16 +121,49 @@ describe('WebSocket membership authorization (ws-not-a-member)', () => {
     socket.close()
     expect(received).toHaveLength(1)
   }, 15000)
+})
 
-  // KNOWN GAP, tracked in the ledger (not just in an events-routes.ts comment): the polling fallback
-  // `GET /api/communities/:cid/events` enforces NO membership — a non-member reads any community's
-  // stream. The WS path's `ws-not-a-member` 403 has no polling-path equivalent. The REST plane is
-  // unauthenticated by design until Milestone 13 (no REST edge-auth primitive yet — the one-use WS
-  // ticket does not fit repeated polling), so this is a pending TODO, not a failing assertion. When
-  // M13 lands, turn this into the polling analogue of the ws-not-a-member 403 test above.
-  it.todo(
-    'enforces community membership on the polling path (403) once Milestone 13 REST edge-auth lands',
-  )
+// The polling analogue of ws-not-a-member (ADR-0025): the REST events path enforces the SAME edge
+// auth + membership the WS upgrade does. Replaces the former M13 `it.todo` gap marker.
+describe('Polling membership authorization (events REST, ADR-0025)', () => {
+  const bearer = (token: string) => ({ authorization: `Bearer ${token}` })
+
+  it('rejects an unauthenticated poll with 401 (no bearer token)', async () => {
+    const ctx = setupGatewayTest(constantContent({ status: 200, body: {}, contentType: null }))
+    const res = await ctx.request.get(`/api/communities/${SAMPLE.community}/events`)
+    expect(res.status).toBe(401)
+    expect((res.json as { failure_domain?: string }).failure_domain).toBe('authentication')
+  })
+
+  it('rejects a poll bearing an unknown token with 401', async () => {
+    const ctx = setupGatewayTest(constantContent({ status: 200, body: {}, contentType: null }))
+    const res = await ctx.request.get(
+      `/api/communities/${SAMPLE.community}/events`,
+      bearer('tok_nope'),
+    )
+    expect(res.status).toBe(401)
+  })
+
+  it('rejects a non-member with 403 not-a-member (the cross-tenant read is refused)', async () => {
+    // MEMBER_TOKEN is a member of SAMPLE.community only — poll a DIFFERENT community.
+    const ctx = setupGatewayTest(constantContent({ status: 200, body: {}, contentType: null }))
+    const res = await ctx.request.get(
+      `/api/communities/${SAMPLE.communityOther}/events`,
+      bearer(MEMBER_TOKEN),
+    )
+    expect(res.status).toBe(403)
+    expect((res.json as { type?: string }).type).toContain('not-a-member')
+    expect((res.json as { failure_domain?: string }).failure_domain).toBe('authorization')
+  })
+
+  it('allows a member to poll their own community (positive control, 200)', async () => {
+    const ctx = setupGatewayTest(constantContent({ status: 200, body: {}, contentType: null }))
+    const res = await ctx.request.get(
+      `/api/communities/${SAMPLE.community}/events`,
+      bearer(MEMBER_TOKEN),
+    )
+    expect(res.status).toBe(200)
+  })
 })
 
 describe('WebSocket ticket handshake', () => {
@@ -194,7 +227,9 @@ describe('WebSocket / polling parity (Commitment 11)', () => {
     await vi.waitFor(() => expect(wsReceived).toHaveLength(3), { timeout: 5000 })
     socket.close()
 
-    const poll = await ctx.request.get(`/api/communities/${SAMPLE.community}/events`)
+    const poll = await ctx.request.get(`/api/communities/${SAMPLE.community}/events`, {
+      authorization: `Bearer ${MEMBER_TOKEN}`,
+    })
     const polled = (poll.json as EventPage).events
     // The two transports must agree exactly for the window.
     expectWsEventMatchesPolling(wsReceived, polled)

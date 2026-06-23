@@ -5,10 +5,11 @@ import { boundCaller, type ClientResponse, type UpstreamClientOptions } from './
  * keys. This is the **Pact consumer** for the identity-issuance boundary:
  * `tests/contracts/identity.consumer.spec.ts` exercises this client against a Pact mock
  * and emits `services/gateway/pacts/gateway-identity.json`, which identity verifies as the
- * provider. Token *verification/enforcement* at the gateway is deliberately omitted
- * (ADR-0022: the gateway fronts identity unauthenticated; real edge credentials are the
- * parked Milestone 13, which would supersede ADR-0022). The gateway consumes the JWKS
- * contract only and never decodes tokens. Keep it a thin, injectable seam.
+ * provider. As of ADR-0025 the gateway DOES verify tokens at the edge for the events read:
+ * `token-verifier.ts` consumes this same JWKS client and verifies ES256 locally to enforce
+ * membership (the polling analogue of `ws-not-a-member`). This client stays a thin, injectable
+ * seam that only fetches the JWKS; the decode/verify lives in the verifier. (The rest of the
+ * proxy surface is still unauthenticated per ADR-0022 — edge auth there remains future work.)
  *
  * It now rides the same bounded-timeout seam (`boundCaller` -> `upstreamCall`) as every other
  * upstream client: a partitioned identity-service fast-fails at the upstream timeout instead of

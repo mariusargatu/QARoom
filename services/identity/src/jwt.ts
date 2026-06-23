@@ -1,11 +1,16 @@
-import { AccessTokenClaims, type MembershipClaim, type UserId } from '@qaroom/contracts'
+import {
+  ACCESS_TOKEN_ISSUER,
+  AccessTokenClaims,
+  type MembershipClaim,
+  type UserId,
+} from '@qaroom/contracts'
 import { type Clock, unixSeconds } from '@qaroom/determinism'
 import { problem } from '@qaroom/service-kit'
 import { decodeProtectedHeader, importJWK, jwtVerify, SignJWT } from 'jose'
 import type { KeyStore } from './keys'
 
-/** Token issuer identity. Tokens are validated against this `iss`. */
-export const ISSUER = 'https://qaroom.dev/identity'
+/** Token issuer identity. Tokens are validated against this `iss`. Single source: @qaroom/contracts. */
+export const ISSUER = ACCESS_TOKEN_ISSUER
 
 export interface IssueInput {
   sub: UserId

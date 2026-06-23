@@ -11,11 +11,11 @@
     "measured": 158
   },
   "defense": {
-    "total": 23,
+    "total": 24,
     "defended": 22,
     "in_proc": 18,
     "deeper": 4,
-    "awaiting": 1,
+    "awaiting": 2,
     "gaps": 0
   },
   "miss_buckets": {

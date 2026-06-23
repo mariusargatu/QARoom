@@ -222,6 +222,22 @@ export const TOGGLES: DetectionToggle[] = z.array(DetectionToggle).parse([
       'live against openapi.yaml, where `cursor` is required and additionalProperties is false); the ' +
       'polling-parity integration test asserts only the events array, not the cursor.',
   },
+  {
+    id: 'events-skip-membership',
+    env: { name: 'GATEWAY_BUG_SKIP_EVENTS_AUTHZ', value: '1' },
+    component: 'gateway',
+    readSite: { file: 'services/gateway/src/events-routes.ts', timing: 'call-time' },
+    guard: 'unguarded',
+    designatedCatcher:
+      'gateway membership negative test (tests/ws-and-polling.spec.ts: a non-member poll must 403)',
+    claimId: 'events-polling-membership',
+    tiers: ['in-proc', 'cluster'],
+    selfToggling: [],
+    notes:
+      'Skips the membership check on GET /api/communities/:id/events so an authenticated non-member ' +
+      "reads another tenant's event stream — the cross-tenant leak the edge auth closes (ADR-0025). " +
+      'The membership 403 test is the designated catcher; the polling-parity test only checks shape.',
+  },
   // ── webhooks (Milestone 11: each property file self-arms its demo describe) ──
   {
     id: 'webhook-sign-body-only',
