@@ -23,7 +23,10 @@ permissions:
 
 jobs:
   review:
-    if: ${{ !github.event.pull_request.draft }}
+    # Skip dependabot PRs: the pipeline targets agent-authored PRs (ADR-0026), and dependabot runs
+    # can't see the OPENAI_API_KEY Actions secret anyway (GitHub withholds it from the bot context),
+    # so judging is impossible — don't post a confusing "skipped" note on every dep bump.
+    if: ${{ !github.event.pull_request.draft && github.actor != 'dependabot[bot]' }}
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
