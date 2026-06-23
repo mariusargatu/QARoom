@@ -14,6 +14,7 @@ import { CommunityId, SessionId, UserId } from './ids'
  */
 export const ACCESS_TOKEN_ISSUER = 'https://qaroom.dev/identity'
 
+// Derived everywhere: DB constraint, runtime validator, OpenAPI doc, property generator.
 /** One membership entry as carried in the JWT `memberships` claim. */
 export const MembershipClaim = z
   .object({ community_id: CommunityId, role: Role })
