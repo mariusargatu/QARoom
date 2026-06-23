@@ -77,6 +77,8 @@
     "tour:verify": "tsx scripts/verify-tour-anchors.ts",
     "chaos:verify": "tsx scripts/chaos-verify.ts",
     "census": "tsx scripts/census.ts",
+    "pr:classify": "tsx scripts/pr-classify-run.ts",
+    "reviewer:review": "tsx scripts/reviewer-agent.ts",
     "moderator:results": "tsx scripts/moderator-results.ts",
     "deepeval:results": "tsx scripts/deepeval-results.ts",
     "deepteam:results": "tsx scripts/deepteam-results.ts",

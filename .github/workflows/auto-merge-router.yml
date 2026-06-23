@@ -1,0 +1,87 @@
+# Auto-merge router (ADR-0026).
+#
+# Classifies every PR into a lane (A bot-merge / B pre-digested human / C Code Owner) from what it
+# touches, labels it, and comments WHY. For Lane A it enables GitHub auto-merge — but only once the
+# rollout is opted in (see ROLLOUT below), so by default this is ADVISORY: it labels + explains and
+# merges nothing. That matches the ADR-0026 ratchet: watch the labels for a week, then turn on
+# auto-merge for one boundary at a time.
+#
+# The decision is the pure classifier in scripts/pr-classify.ts (unit-tested); this workflow is just
+# I/O. It runs NO build/test lane, so the dispatch-only discipline on ci.yml stays intact — the
+# actual gates (verify, reviewer-agents) are required status checks enforced by branch protection,
+# and GitHub auto-merge waits for them before landing a Lane A PR.
+name: Auto-merge router
+
+on:
+  pull_request:
+    types: [opened, synchronize, reopened, ready_for_review]
+
+permissions:
+  contents: read
+  pull-requests: write
+
+jobs:
+  route:
+    if: ${{ !github.event.pull_request.draft }}
+    runs-on: ubuntu-latest
+    env:
+      # ROLLOUT (ADR-0026): keep false until the classifier has been watched in advisory mode. When
+      # true, Lane A PRs arm auto-merge. To scope the first rollout to services/content only (§8.3),
+      # restrict this workflow's `paths:` trigger or add a boundary check before flipping it on —
+      # don't claim a scope the YAML doesn't enforce.
+      AUTO_MERGE_ENABLED: 'false'
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - uses: ./.github/actions/setup-workspace
+
+      - name: Classify the PR
+        id: classify
+        env:
+          BASE_SHA: ${{ github.event.pull_request.base.sha }}
+          HEAD_SHA: ${{ github.event.pull_request.head.sha }}
+        run: pnpm tsx scripts/pr-classify-run.ts "$BASE_SHA" "$HEAD_SHA"
+
+      - name: Apply lane label
+        env:
+          GH_TOKEN: ${{ github.token }}
+          PR: ${{ github.event.pull_request.number }}
+          LANE: ${{ steps.classify.outputs.lane }}
+        run: |
+          set -euo pipefail
+          # One lane label at a time: drop the others, add this one. Labels are created on demand.
+          for l in A B C; do
+            [ "$l" = "$LANE" ] || gh pr edit "$PR" --remove-label "lane-$l" 2>/dev/null || true
+          done
+          gh label create "lane-$LANE" --color ededed --force >/dev/null 2>&1 || true
+          gh pr edit "$PR" --add-label "lane-$LANE"
+
+      - name: Comment the rationale
+        env:
+          GH_TOKEN: ${{ github.token }}
+          PR: ${{ github.event.pull_request.number }}
+          LANE: ${{ steps.classify.outputs.lane }}
+          REASONS: ${{ steps.classify.outputs.reasons }}
+        run: |
+          set -euo pipefail
+          {
+            echo "**Auto-merge router → Lane $LANE**"
+            echo
+            echo "$REASONS" | sed 's/^/- /'
+            echo
+            echo "_Lane A merges without a human; B is human-reads-the-summary; C needs a Code Owner._"
+          } > /tmp/router-comment.md
+          gh pr comment "$PR" --body-file /tmp/router-comment.md
+
+      - name: Enable auto-merge (Lane A, rollout-gated)
+        if: ${{ steps.classify.outputs.lane == 'A' && env.AUTO_MERGE_ENABLED == 'true' }}
+        env:
+          GH_TOKEN: ${{ github.token }}
+          PR: ${{ github.event.pull_request.number }}
+        run: |
+          set -euo pipefail
+          # GitHub auto-merge waits for required status checks (verify, reviewer-agents) + the merge
+          # queue before landing — this only arms it. Squash to keep main linear.
+          gh pr merge "$PR" --auto --squash
+          echo "Auto-merge armed for Lane A PR #$PR (waits for required checks)."
