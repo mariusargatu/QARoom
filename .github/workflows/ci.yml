@@ -69,7 +69,10 @@ jobs:
         run: pnpm lint
 
       - name: Typecheck
-        run: pnpm typecheck
+        # Exclude the Python moderator-agent: its pyright runs in the dedicated moderator dispatch
+        # lane (with a uv env). This in-process verify lane has no uv, so its turbo `typecheck` task
+        # would always fail here. JS/TS only.
+        run: pnpm exec turbo run typecheck --filter=!@qaroom/moderator-agent
 
       # Orchestration-tier tests (scripts/**/*.test.ts) — the honesty layer's own false-green guards
       # (census fail-on-recorded-failure, fold-merge, tenant-span audit). `scripts/` is not a
