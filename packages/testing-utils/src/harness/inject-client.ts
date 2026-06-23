@@ -9,7 +9,7 @@ export interface NormalizedResponse {
 }
 
 export interface RequestClient {
-  get(url: string): Promise<NormalizedResponse>
+  get(url: string, headers?: Record<string, string>): Promise<NormalizedResponse>
   post(url: string, body: unknown, headers?: Record<string, string>): Promise<NormalizedResponse>
 }
 
@@ -27,8 +27,8 @@ export function injectClient(app: FastifyInstance): RequestClient {
   })
 
   return {
-    async get(url) {
-      return normalize(await app.inject({ method: 'GET', url }))
+    async get(url, headers = {}) {
+      return normalize(await app.inject({ method: 'GET', url, headers }))
     },
     async post(url, body, headers = {}) {
       return normalize(

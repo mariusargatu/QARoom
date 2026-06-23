@@ -331,6 +331,29 @@ const RAW: Claim[] = [
     evidence: { runner: 'k6', field: 'passed' },
     tier: 'live',
   },
+  {
+    id: 'events-polling-membership',
+    claim:
+      "The events polling read enforces community membership: an authenticated non-member is refused (403 not-a-member), so the REST fallback cannot leak another tenant's event stream — the same isolation the WS upgrade enforces at the edge (ADR-0025).",
+    boundary: 'tenancy',
+    registryRow: 'tenancy',
+    technique: 'gateway edge token verification + membership check (negative test)',
+    toggle: 'GATEWAY_BUG_SKIP_EVENTS_AUTHZ',
+    gate: {
+      cmd: 'pnpm',
+      args: [
+        '--filter',
+        '@qaroom/gateway',
+        'exec',
+        'vitest',
+        'run',
+        '-t',
+        'rejects a non-member with 403 not-a-member',
+      ],
+    },
+    evidence: { runner: '@qaroom/gateway', field: 'passed' },
+    tier: 'simulate',
+  },
 ]
 
 /** The validated manifest. Throws at import if any claim violates the schema. */

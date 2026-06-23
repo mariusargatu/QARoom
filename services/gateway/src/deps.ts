@@ -8,6 +8,7 @@ import type { IdentityClient } from './identity-client'
 import type { ModeratorClient } from './moderator-client'
 import type { RateLimitConfig, RateLimiter } from './rate-limiter'
 import type { TicketClient } from './ticket-client'
+import type { TokenVerifier } from './token-verifier'
 import type { WebhooksClient } from './webhooks-client'
 
 /** What `buildGatewayApp` receives. `lamport`/`rateLimit`/`eventStream` optional with defaults. */
@@ -21,6 +22,9 @@ export interface GatewayDeps {
   moderator?: ModeratorClient
   /** Redeems WebSocket tickets against identity-service (ADR-0013). */
   tickets: TicketClient
+  /** Verifies bearer access tokens at the REST edge to enforce membership (ADR-0025). Required so
+   * the events polling path cannot silently fall open to a cross-tenant read. */
+  verifyToken: TokenVerifier
   clock: Clock
   ids: IdGenerator
   randomness: Randomness
@@ -36,6 +40,7 @@ export interface GatewayDeps {
 export interface GatewayRouteDeps {
   content: ContentClient
   tickets: TicketClient
+  verifyToken: TokenVerifier
   clock: Clock
   ids: IdGenerator
   randomness: Randomness

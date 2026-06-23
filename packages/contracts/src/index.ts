@@ -180,6 +180,7 @@ export {
 } from './openapi/params'
 export { CreatePostRequest, Feed, Post } from './post'
 export {
+  ACCESS_TOKEN_ISSUER,
   AccessTokenClaims,
   AccessTokenResponse,
   CreateSessionRequest,

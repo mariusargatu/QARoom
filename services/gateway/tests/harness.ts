@@ -1,9 +1,12 @@
 import {
+  ACCESS_TOKEN_ISSUER,
+  AccessTokenClaims,
   EXAMPLE_COMMUNITY_ID,
   EXAMPLE_POST_ID,
   EXAMPLE_USER_ID,
   type RedeemTicketResponse,
 } from '@qaroom/contracts'
+import { problem } from '@qaroom/service-kit'
 import { createSeededDeps, injectClient } from '@qaroom/testing-utils/harness'
 import { buildGatewayApp } from '../src/app'
 import type { ClientResponse, ContentClient } from '../src/content-client'
@@ -14,11 +17,13 @@ import type { IdentityClient } from '../src/identity-client'
 import type { ModeratorClient } from '../src/moderator-client'
 import type { RateLimitConfig } from '../src/rate-limiter'
 import type { TicketClient } from '../src/ticket-client'
+import type { TokenVerifier } from '../src/token-verifier'
 import type { WebhooksClient } from '../src/webhooks-client'
 
 export interface GatewayTestOptions {
   rateLimit?: RateLimitConfig
   tickets?: TicketClient
+  verifyToken?: TokenVerifier
   eventStream?: CommunityEventStream
   donations?: DonationsClient
   flags?: FlagsClient
@@ -39,6 +44,7 @@ export function setupGatewayTest(content: ContentClient, options: GatewayTestOpt
     identity: options.identity,
     moderator: options.moderator,
     tickets: options.tickets ?? noTickets(),
+    verifyToken: options.verifyToken ?? tokenVerifierStub({ [MEMBER_TOKEN]: sampleMemberClaims() }),
     clock: deps.clock,
     ids: deps.ids,
     randomness: deps.randomness,
@@ -182,3 +188,42 @@ export const SAMPLE = {
   post: EXAMPLE_POST_ID,
   user: EXAMPLE_USER_ID,
 } as const
+
+/** A bearer token the default verifier accepts: a member of SAMPLE.community only. */
+export const MEMBER_TOKEN = 'tok_member'
+
+/** Decoded claims for MEMBER_TOKEN — a member of SAMPLE.community, nothing else. */
+export function sampleMemberClaims(): AccessTokenClaims {
+  return AccessTokenClaims.parse({
+    sub: EXAMPLE_USER_ID,
+    iss: ACCESS_TOKEN_ISSUER,
+    iat: 0,
+    exp: 9_999_999_999,
+    memberships: [{ community_id: EXAMPLE_COMMUNITY_ID, role: 'member' }],
+  })
+}
+
+/**
+ * A TokenVerifier double: maps a bearer token to its decoded claims (the crypto lives in the real
+ * token-verifier, unit-tested separately against jose). An unknown/missing token throws the same
+ * RFC 7807 401 the real verifier does, so route-level 401 handling is exercised honestly.
+ */
+export function tokenVerifierStub(byToken: Record<string, AccessTokenClaims>): TokenVerifier {
+  return {
+    verify: async (authorization) => {
+      const token = authorization?.match(/^Bearer (.+)$/)?.[1]
+      const claims = token ? byToken[token] : undefined
+      if (!claims) {
+        throw problem({
+          slug: 'token-invalid',
+          title: 'Authentication failed',
+          status: 401,
+          failure_domain: 'authentication',
+          detail: 'stub verifier: unknown or missing bearer token',
+          retryable: false,
+        })
+      }
+      return claims
+    },
+  }
+}

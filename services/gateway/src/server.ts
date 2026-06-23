@@ -8,8 +8,10 @@ import { startWsFeed } from './event-consumer'
 import { CommunityEventStream } from './event-stream'
 import { createFlagsClient } from './flags-client'
 import { createIdentityClient } from './identity-client'
+import { createJwksClient } from './jwks-client'
 import { createModeratorClient } from './moderator-client'
 import { createTicketClient } from './ticket-client'
+import { createTokenVerifier } from './token-verifier'
 import { upstreamTimeoutMs } from './upstream-call'
 import { createWebhooksClient } from './webhooks-client'
 
@@ -51,6 +53,12 @@ runServer(
       identity: createIdentityClient(identityBaseUrl, { timeoutMs }),
       moderator: createModeratorClient(moderatorBaseUrl, { timeoutMs }),
       tickets: createTicketClient(identityBaseUrl),
+      // Edge token verification for REST membership enforcement (ADR-0025): consume identity's JWKS
+      // through the bounded-timeout client, verify ES256 locally (no per-poll round-trip).
+      verifyToken: createTokenVerifier(
+        createJwksClient(identityBaseUrl, { timeoutMs }),
+        deps.clock,
+      ),
       eventStream,
       ...deps,
     })

@@ -8,6 +8,12 @@ import { CommunityId, SessionId, UserId } from './ids'
  * Unix seconds (JWT NumericDate), computed from the injected Clock — never wall-clock.
  */
 
+/**
+ * The access-token issuer (JWT `iss`). ONE definition, derived everywhere: identity signs with it,
+ * the gateway edge verifies against it (ADR-0025). A token whose `iss` differs is rejected.
+ */
+export const ACCESS_TOKEN_ISSUER = 'https://qaroom.dev/identity'
+
 /** One membership entry as carried in the JWT `memberships` claim. */
 export const MembershipClaim = z
   .object({ community_id: CommunityId, role: Role })

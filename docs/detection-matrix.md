@@ -6,19 +6,19 @@ Each deliberate-bug toggle is armed one at a time against the whole testing batt
 
 ## Defense coverage
 
-> **Every deliberate bug has a defender — 22 of 23 proven (18 in-process); the 1 remaining awaits only a deeper lane not run here. 0 open gaps.**
+> **Every deliberate bug has a defender — 22 of 24 proven (18 in-process); the 2 remaining await only a deeper lane not run here. 0 open gaps.**
 > Each bug is the job of its 1–3 boundary techniques; the other columns defend other boundaries and correctly stay green. The grid is *meant* to be sparse — sparsity here is specialization, not thin coverage. An **open gap** (a bug that ran against everything and was caught by nothing) is the only state that is a real miss, and it renders loud red. There are none today.
 
 | Coverage | Bugs |
 |---|---|
-| Caught in-process (Tier A, cheapest) | 18 / 23 |
-| Caught only deeper (cluster / LLM tier) | 4 / 23 |
-| Awaiting its tier (defender lane not run here) | 1 / 23 |
-| **Open gap (caught by nothing that ran)** | **0 / 23** |
+| Caught in-process (Tier A, cheapest) | 18 / 24 |
+| Caught only deeper (cluster / LLM tier) | 4 / 24 |
+| Awaiting its tier (defender lane not run here) | 2 / 24 |
+| **Open gap (caught by nothing that ran)** | **0 / 24** |
 
 <picture>
 <source media="(prefers-color-scheme: dark)" srcset="assets/detection-matrix-dark.svg">
-<img alt="Coverage strip: 22 of 23 deliberate bugs caught (1 awaiting a deeper lane, 0 open gaps). In the grid, strong cells are catches; soft-tinted cells are off-boundary (a specialized technique correctly staying green on a bug it does not defend); amber is awaiting its tier; red is an open gap (none today); faint cells are not applicable or not yet run." src="assets/detection-matrix-light.svg">
+<img alt="Coverage strip: 22 of 24 deliberate bugs caught (2 awaiting a deeper lane, 0 open gaps). In the grid, strong cells are catches; soft-tinted cells are off-boundary (a specialized technique correctly staying green on a bug it does not defend); amber is awaiting its tier; red is an open gap (none today); faint cells are not applicable or not yet run." src="assets/detection-matrix-light.svg">
 </picture>
 
 ### Per-bug coverage
@@ -28,6 +28,7 @@ Sorted attention-first: anything `GAP` or `awaiting` floats to the top. Each bug
 | Deliberate bug | Coverage | Caught by | Cheapest tier |
 |---|---|---|---|
 | `contract-drift` | awaiting | — (not run here) | — |
+| `events-skip-membership` | awaiting | — (not run here) | — |
 | `sync-publish` | deeper | chaos, k6 (2) | cluster |
 | `disable-circuit-breaker` | deeper | schemathesis (1) | cluster |
 | `upstream-timeout` | deeper | schemathesis (1) | cluster |
@@ -51,5 +52,5 @@ Sorted attention-first: anything `GAP` or `awaiting` floats to the top. Each bug
 | `webhook-sign-body-only` | in-proc | property (1) | in-proc |
 | `webhook-unstable-delivery-id` | in-proc | property (1) | in-proc |
 
-<sub>**Cell tally (provenance footnote).** 158 cells measured across the tiers: **34 catches** + **124 off-boundary** (not failures). The 124 break down as **117 off-boundary** (the bug was caught by its own defender elsewhere; these columns guard other boundaries, so green is expected) + **7 awaiting their tier** + **0 open gaps**. The in-process slice is 26 catches + 100 off-boundary. 150 further positions are n/a (no code path) or n/r (not run). Baseline: `bcea3c1cbfe3` (0 standing reds, fast-check seed 12648430). Last render: 2026-06-21T20:50:32.985Z. A frozen, hash-stamped snapshot of every cell is committed at [docs/evidence/detection-matrix.snapshot.json](evidence/detection-matrix.snapshot.json).</sub>
+<sub>**Cell tally (provenance footnote).** 158 cells measured across the tiers: **34 catches** + **124 off-boundary** (not failures). The 124 break down as **117 off-boundary** (the bug was caught by its own defender elsewhere; these columns guard other boundaries, so green is expected) + **7 awaiting their tier** + **0 open gaps**. The in-process slice is 26 catches + 100 off-boundary. 167 further positions are n/a (no code path) or n/r (not run). Baseline: `bcea3c1cbfe3` (0 standing reds, fast-check seed 12648430). Last render: 2026-06-21T20:50:32.985Z. A frozen, hash-stamped snapshot of every cell is committed at [docs/evidence/detection-matrix.snapshot.json](evidence/detection-matrix.snapshot.json).</sub>
 
