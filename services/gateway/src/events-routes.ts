@@ -8,6 +8,15 @@ import type { GatewayRouteDeps } from './deps'
  * /api/communities/:cid/events?after=<seq>` returns the same envelopes the WS connection would
  * push for that window, so a client without WebSocket support is never blind to an event. The
  * parity test asserts the two paths return identical sequences.
+ *
+ * ACCESS CONTROL — KNOWN GAP (REST edge auth is Milestone 13, deferred). The WS upgrade
+ * (`ws-upgrade.ts`) enforces ticket auth AND community membership (403 `ws-not-a-member`); this
+ * polling path performs NO authentication or membership check. The "parity" with the WS stream is
+ * DATA-SHAPE parity (identical envelopes), NOT access-control parity — so `ws-not-a-member` must
+ * not be presented as an enforced cross-tenant isolation control while this path is open. Closing
+ * it needs a REST edge-auth primitive: the one-use WS ticket does not fit repeated polling. The gap
+ * is tracked in the test ledger as a pending marker (`it.todo` in tests/ws-and-polling.spec.ts), not
+ * prose alone, so a future implementer inherits the polling analogue of the ws-not-a-member test.
  */
 // Strict on HTTP (a negative cursor is a client error → validation 400, matching the spec's
 // minimum: 0); the WS upgrade keeps event-stream.ts's lenient cursorFromQuery — a bad query

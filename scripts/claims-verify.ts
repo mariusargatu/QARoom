@@ -4,7 +4,7 @@ import { resolve } from 'node:path'
 import { BOUNDARY_REGISTRY } from './lib/manifests/boundary-registry'
 import { CLAIMS, type Claim } from './lib/manifests/claims'
 import { BOUNDARIES_END, BOUNDARIES_START, renderBoundariesBlock } from './render-boundaries'
-import { README_END, README_START, renderReadmeBlock } from './render-claims'
+import { README_END, README_START, renderClaimsMarkdown, renderReadmeBlock } from './render-claims'
 import { COST_END, COST_START, renderCostBlock } from './render-cost'
 import { renderStatsBlock, STATS_END, STATS_START } from './render-stats'
 import { deriveFoldedRunnerNames } from './test-results-verify'
@@ -132,15 +132,24 @@ function checkTeeth(claim: Claim): Result {
       }
     }
   }
-  // Run the real falsifier. prove --break exits 0 iff the gate genuinely went red.
+  // Run the real falsifier. prove --break exits 0 = gate went red (falsifiable), 1 = gate stayed
+  // green (THEATER), 2 = the gate could not run at all (a missing prerequisite like `uv`). All three
+  // non-zero outcomes fail the gate, but 2 must NOT read as THEATER: the teeth never ran, so the
+  // honest verdict is "prerequisite missing", not "claim is theater" (that distinction is the whole
+  // point — a no-uv box cannot silently pass the moderator teeth).
   const run = spawnSync('pnpm', ['prove', claim.id, '--break'], {
     cwd: ROOT,
     encoding: 'utf8',
     env: { ...process.env, NO_COLOR: '1' },
   })
-  return run.status === 0
-    ? { ok: true, detail: 'gate went RED when toggled (falsifiable)' }
-    : { ok: false, detail: 'gate stayed GREEN with the toggle set: THEATER' }
+  if (run.status === 0) return { ok: true, detail: 'gate went RED when toggled (falsifiable)' }
+  if (run.status === 2) {
+    return {
+      ok: false,
+      detail: `gate could not run (missing prerequisite for \`${claim.gate.cmd}\`): teeth never ran`,
+    }
+  }
+  return { ok: false, detail: 'gate stayed GREEN with the toggle set: THEATER' }
 }
 
 // Each front-door projection (README claims/stats blocks) is a STABLE rendering of source truth,
@@ -171,23 +180,23 @@ function checkBlock(
     : { ok: false, detail: `${name} block in ${file} is STALE: re-run the renderer and paste it` }
 }
 
-// claims.md carries LIVE numbers (verdicts off summary.json), so byte-gating it would be flaky
-// across environments (the exact volatility render-stats.ts documents). Gate the STABLE fact
-// instead: the rendered page must agree with the manifest's claim COUNT. This is the failure
-// mode that rotted once (a projection said 3 claims while the manifest had 6) unnoticed.
+// docs/claims.md no longer carries live numbers (the verdict columns were dropped — it is now a pure
+// manifest projection: claim, boundary, toggle, falsify command). That makes it byte-gateable like
+// the ARCHITECTURE.md block, so gate it that way: the committed page must be byte-identical to
+// `renderClaimsMarkdown()`. A row-COUNT check let a reword/rename of any claim drift the front-door
+// page silently while the count stayed N == CLAIMS.length — the exact stale-front-door failure this
+// machinery exists to prevent.
 function checkClaimsPage(): Result {
   const mdPath = resolve(ROOT, 'docs/claims.md')
   if (!existsSync(mdPath)) {
     return { ok: false, detail: 'docs/claims.md missing: run pnpm claims:render' }
   }
-  const mdRows = (readFileSync(mdPath, 'utf8').match(/`pnpm prove /g) ?? []).length
-  if (mdRows !== CLAIMS.length) {
-    return {
-      ok: false,
-      detail: `claims.md renders ${mdRows} claims, manifest has ${CLAIMS.length}: run pnpm claims:render`,
-    }
-  }
-  return { ok: true, detail: `claims.md agrees with the manifest (${CLAIMS.length} claims)` }
+  return readFileSync(mdPath, 'utf8') === renderClaimsMarkdown()
+    ? {
+        ok: true,
+        detail: `claims.md is byte-identical to the manifest projection (${CLAIMS.length} claims)`,
+      }
+    : { ok: false, detail: 'docs/claims.md is STALE: re-run pnpm claims:render and commit' }
 }
 
 // Root AGENTS.md is the agent front door, and its Commands block rots the same way the README
@@ -225,6 +234,7 @@ function main(): void {
   process.stdout.write(`claims:verify: ${CLAIMS.length} claims\n`)
   let failed = 0
   let deferred = 0
+  let stale = 0
   for (const claim of CLAIMS) {
     const checks: [string, Result][] = [
       ['taxonomy', checkTaxonomy(claim)],
@@ -240,6 +250,9 @@ function main(): void {
       // falsifier could not run here (live tier, no cluster). Surface it distinctly so a green run
       // never silently hides teeth that were never exercised.
       if (deferrals.length > 0) deferred += 1
+      // STALE evidence (runner valid but absent from this summary.json snapshot) is NOT "resolves
+      // live" — tally it so the green headline cannot claim live evidence it does not have.
+      if (warns.length > 0) stale += 1
       const mark = deferrals.length > 0 ? '⏸' : '✓'
       const teeth = deferrals.length > 0 ? 'teeth DEFERRED' : 'teeth'
       const note = warns.length > 0 ? ` (${warns.map(([n]) => `${n}: stale`).join(', ')})` : ''
@@ -296,6 +309,11 @@ function main(): void {
   process.stdout.write(
     `\nclaims:verify: ${deferred} deferred (live-tier teeth pending a reachable cluster${deferred > 0 ? ' — re-run on the cluster to falsify' : ''})\n`,
   )
+  if (stale > 0) {
+    process.stdout.write(
+      `claims:verify: ${stale} evidence STALE (runner valid but absent from this summary.json — regenerate with a full run; CI's fresh summary resolves them)\n`,
+    )
+  }
 
   if (failed > 0) {
     process.stderr.write(
@@ -303,8 +321,12 @@ function main(): void {
     )
     process.exit(1)
   }
+  // Honest headline: every claim is well-formed, wired, and FALSIFIABLE on demand (the teeth ran).
+  // It does NOT assert the evidence resolves live — `stale` of them point at a runner absent from
+  // this snapshot, and `deferred` had their teeth deferred to a reachable cluster.
   process.stdout.write(
-    `\nclaims:verify ✓: every claim resolves live and is falsifiable on demand (${deferred} deferred)\n`,
+    `\nclaims:verify ✓: every claim is well-formed, wired, and falsifiable on demand` +
+      ` (${deferred} deferred${stale > 0 ? `, ${stale} evidence STALE — regenerate summary.json` : ''})\n`,
   )
 }
 

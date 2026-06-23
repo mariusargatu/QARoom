@@ -121,6 +121,16 @@ describe('WebSocket membership authorization (ws-not-a-member)', () => {
     socket.close()
     expect(received).toHaveLength(1)
   }, 15000)
+
+  // KNOWN GAP, tracked in the ledger (not just in an events-routes.ts comment): the polling fallback
+  // `GET /api/communities/:cid/events` enforces NO membership — a non-member reads any community's
+  // stream. The WS path's `ws-not-a-member` 403 has no polling-path equivalent. The REST plane is
+  // unauthenticated by design until Milestone 13 (no REST edge-auth primitive yet — the one-use WS
+  // ticket does not fit repeated polling), so this is a pending TODO, not a failing assertion. When
+  // M13 lands, turn this into the polling analogue of the ws-not-a-member 403 test above.
+  it.todo(
+    'enforces community membership on the polling path (403) once Milestone 13 REST edge-auth lands',
+  )
 })
 
 describe('WebSocket ticket handshake', () => {

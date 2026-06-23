@@ -1,10 +1,17 @@
 name: CI
 
-# DISPATCH-ONLY + one EVAL cron. There is deliberately NO `on: push` / `on: pull_request` (owner
-# decision): this is a build-in-public repo on a fresh private remote with no per-commit quota to
-# spend, so an automatic CI storm buys nothing. CI runs on demand from the Actions tab (pick a
-# `tier`), and ONE weekly `schedule` cron is the only automatic trigger — it fires the cost-bounded
-# EVAL tier alone (real-OpenAI evals), never the build/cluster lanes.
+# DISPATCH-FIRST + a PR light lane + one EVAL cron. The heavy tiers (chart/cluster/load/mutation/
+# chaos) run on demand from the Actions tab (pick a `tier`) — a build-in-public repo on a fresh
+# private remote gains nothing from an automatic CI storm on the expensive lanes. There are two
+# automatic triggers, both deliberately cheap:
+#   - `pull_request` runs ONLY the in-process light `verify` job (lint + typecheck + scripts tests +
+#     test + every in-proc drift gate that needs no `uv`/cluster) — no cluster, no key. claims:verify
+#     stays in the dispatch-only `claims` job because its moderator teeth need `uv` (pytest). This
+#     keeps the repo's thesis ("tests catch regressions") continuously verified and lets `verify`
+#     become a required status check. It runs on EVERY PR (no path filter): a path-filtered required
+#     check never reports on an excluded PR and deadlocks the merge, so verify must always report.
+#   - ONE weekly `schedule` cron fires the cost-bounded EVAL tier alone (real-OpenAI evals).
+# Everything else stays workflow_dispatch.
 #
 # Dispatch tiers (workflow_dispatch input `tier`, default `light`) are CUMULATIVE — light < merge <
 # nightly:
@@ -32,15 +39,27 @@ on:
         type: boolean
         default: false
   schedule:
-    # Weekly, Mondays 06:00 UTC — the ONLY automatic trigger. Fires the EVAL tier alone
-    # (moderator-evals + summary-envelope); every build/cluster job is gated to workflow_dispatch,
-    # so the cron stays cost-bounded to the keyed evals.
+    # Weekly, Mondays 06:00 UTC. Fires the EVAL tier alone (moderator-evals + summary-envelope);
+    # every build/cluster job is gated to workflow_dispatch, so the cron stays cost-bounded to the
+    # keyed evals.
     - cron: '0 6 * * 1'
+  # PR light lane (credibility crux): a pull request auto-runs ONLY the in-process `verify` job.
+  # Heavy lanes stay dispatch-only via their `github.event_name == 'workflow_dispatch'` guards, and
+  # summary-envelope is guarded off PRs, so a PR == verify only. NO `paths-ignore`: when `verify` is
+  # a required check, filtering it out for some PRs (e.g. site-only) leaves the check permanently
+  # "expected — waiting for status" and blocks merge. A site-only PR just runs the cheap verify lane;
+  # the static-site DEPLOY still belongs to pages.yml.
+  pull_request:
+
+# Least privilege for the build/test lanes: read-only on the repo. (pages.yml and invariant-guard
+# declare their own wider scopes where they genuinely need them.)
+permissions:
+  contents: read
 
 jobs:
   # LIGHT tier (runs on every dispatch; never on the schedule cron).
   verify:
-    if: github.event_name == 'workflow_dispatch'
+    if: github.event_name == 'workflow_dispatch' || github.event_name == 'pull_request'
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -51,6 +70,12 @@ jobs:
 
       - name: Typecheck
         run: pnpm typecheck
+
+      # Orchestration-tier tests (scripts/**/*.test.ts) — the honesty layer's own false-green guards
+      # (census fail-on-recorded-failure, fold-merge, tenant-span audit). `scripts/` is not a
+      # workspace package, so test-results:generate never sees it; run it here so these tests gate PRs.
+      - name: Test the orchestration scripts (false-green guards)
+        run: pnpm test:scripts
 
       - name: Test + aggregate results
         run: pnpm test-results:generate
@@ -63,8 +88,12 @@ jobs:
 
       # Backend v8 coverage (content + donations) folded as coverage:<svc> runners. Runs HERE (not
       # only in web-ct/summary-envelope) so it rides partial-verify into the final envelope; must come
-      # after test-results:generate, which rewrites the envelope from scratch.
+      # after test-results:generate, which rewrites the envelope from scratch. SKIPPED on the PR lane:
+      # it re-runs the 5 backend suites already run un-instrumented above (~2x backend test time), the
+      # coverage floor isn't enforced on PRs (the `coverage` job is dispatch-only), and the partial
+      # isn't folded on PRs (summary-envelope is guarded off PRs) — so on a PR it is pure wasted work.
       - name: Backend coverage (all 5 services) + fold into summary.json
+        if: github.event_name != 'pull_request'
         run: |
           pnpm --filter @qaroom/content --filter @qaroom/donations --filter @qaroom/flags --filter @qaroom/gateway --filter @qaroom/identity run test:coverage
           pnpm coverage:results
@@ -94,6 +123,11 @@ jobs:
       - name: Registry census (boundary registry / gate roster has no orphans or drift)
         run: pnpm census
 
+      # Detection-matrix drift gate (in-proc, no uv/cluster): the rendered docs/detection-matrix.md
+      # must agree with its manifest. An AGENTS-designated invariant source, so it must gate every PR.
+      - name: Verify detection matrix (census + rendered-matrix drift)
+        run: pnpm matrix:verify
+
       # The in-proc base envelope (vitest aggregate + mbt-edge-coverage, commit-stamped). The
       # terminal summary-envelope job reuses this as the base it folds the cluster/eval partials onto.
       - name: Upload the in-proc base summary partial
@@ -105,9 +139,10 @@ jobs:
           if-no-files-found: warn
 
   # Falsifiable-claims gate: prove the claim manifest cannot decay into theater. Needs BOTH pnpm
-  # (webhook-claim teeth = vitest) AND uv (moderator-claim teeth = pytest) — without uv, a moderator
-  # `prove --break` would error-out and read as a false RED (theater the gate exists to catch). So it
-  # regenerates the in-proc summary here (the runners the claims' evidence points at), then runs
+  # (webhook-claim teeth = vitest) AND uv (moderator-claim teeth = pytest). Without uv a moderator
+  # `prove --break` now exits 2 ("GATE DID NOT RUN") and claims:verify fails LOUDLY (no longer a
+  # false RED) — but this job provisions uv so the teeth actually run. So it regenerates the in-proc
+  # summary here (the runners the claims' evidence points at), then runs
   # claims:verify (evidence + wired + teeth + README block drift) and the matrix census. Live-tier
   # claims (tenant-spans, k6) skip their teeth — no cluster in this job — and resolve STALE-not-fatal.
   claims:
@@ -294,8 +329,10 @@ jobs:
         with:
           version: v4.1.1
       - name: Install kubeconform
+        # Pinned (was `releases/latest`): an unpinned `curl | sudo tar` from a moving release is a
+        # supply-chain foot-gun and makes the chart lane non-reproducible. Bump deliberately.
         run: |
-          curl -sSL https://github.com/yannh/kubeconform/releases/latest/download/kubeconform-linux-amd64.tar.gz \
+          curl -sSL https://github.com/yannh/kubeconform/releases/download/v0.6.7/kubeconform-linux-amd64.tar.gz \
             | sudo tar -xz -C /usr/local/bin kubeconform
       - name: Lint + validate chart releases
         run: |
@@ -559,7 +596,12 @@ jobs:
   # `pytest --cov-fail-under`; `uv` is absent here, so that target is skipped gracefully. `services/web`
   # is a deferred separate effort and is intentionally not yet floored.
   coverage:
-    if: github.event_name == 'workflow_dispatch' && inputs.tier == 'nightly'
+    # Merge bar (was nightly-only): the coverage floor runs at the `merge` tier, not just `nightly`,
+    # so the pre-merge dispatch a PR is gated by exercises it — else a coverage regression rides a
+    # merge-tier review through green. It stays DISPATCH-only (not on the automatic PR light lane):
+    # full v8 instrumentation is too heavy for every push, so the floor is enforced when you dispatch
+    # the merge tier before merge, not on each PR commit.
+    if: github.event_name == 'workflow_dispatch' && (inputs.tier == 'merge' || inputs.tier == 'nightly')
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -650,7 +692,9 @@ jobs:
       - evomaster
       - chaos
       - moderator-evals
-    if: always()
+    # `always()` so a skipped/failed dependency still assembles the envelope — but NOT on the PR
+    # light lane, where only `verify` runs and a full envelope is neither expected nor useful.
+    if: always() && github.event_name != 'pull_request'
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4

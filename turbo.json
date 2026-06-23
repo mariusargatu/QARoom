@@ -5,7 +5,7 @@
       "dependsOn": ["^build"]
     },
     "typecheck": {
-      "dependsOn": ["^build"]
+      "dependsOn": ["^typecheck"]
     },
     "openapi:generate": {
       "outputs": ["openapi.yaml", "src/**/openapi.yaml"]
@@ -14,7 +14,6 @@
       "outputs": ["asyncapi.yaml", "src/**/asyncapi.yaml"]
     },
     "test": {
-      "dependsOn": ["^build"],
       "outputs": ["test-results/**", "coverage/**"],
       "env": ["VITEST_SEED", "QAROOM_TEST_DATABASE_URL", "OPENAI_API_KEY"]
     }
