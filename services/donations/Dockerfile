@@ -1,6 +1,6 @@
 # donations-service image. Build context is the REPO ROOT (monorepo):
 #   docker build -f services/donations/Dockerfile -t qaroom/donations .
-FROM node:24-slim AS base
+FROM node:26-slim AS base
 ENV PNPM_HOME=/pnpm
 ENV PATH="$PNPM_HOME:$PATH"
 RUN corepack enable

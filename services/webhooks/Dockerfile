@@ -1,6 +1,6 @@
 # webhooks-service image. Build context is the REPO ROOT (monorepo):
 #   docker build -f services/webhooks/Dockerfile -t qaroom/webhooks .
-FROM node:24-slim AS base
+FROM node:26-slim AS base
 ENV PNPM_HOME=/pnpm
 ENV PATH="$PNPM_HOME:$PATH"
 RUN corepack enable
