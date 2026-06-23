@@ -65,12 +65,22 @@ jobs:
           REASONS: ${{ steps.classify.outputs.reasons }}
         run: |
           set -euo pipefail
+          case "$LANE" in
+            A) next="✅ **Qualifies for auto-merge.** Small, single-boundary, no gate or invariant touch — the kind of change the bot can land on its own once the required checks (\`verify\`, \`review\`) are green. _Auto-merge is in advisory mode right now, so a maintainer still clicks merge; this label records that it qualified._" ;;
+            B) next="👀 **A human should skim this first.** It crosses boundaries, is large, or edits an enforcement gate (\`scripts/\`, \`.github/workflows/\`, lint rules) — too much blast radius to merge unread." ;;
+            C) next="🔒 **Code Owner review required.** It touches an *invariant source* — a single-source-of-truth schema, spec, or manifest that derives downstream enforcement (DB constraints, validators, generated docs). Per ADR-0024 it can't be self-approved; see \`.github/CODEOWNERS\`." ;;
+            *) next="" ;;
+          esac
           {
-            echo "**Auto-merge router → Lane $LANE**"
+            echo "## 🚦 Auto-merge router → Lane $LANE"
+            echo
+            echo "I classified this PR automatically from the files it changes:"
             echo
             echo "$REASONS" | sed 's/^/- /'
             echo
-            echo "_Lane A merges without a human; B is human-reads-the-summary; C needs a Code Owner._"
+            echo "$next"
+            echo
+            echo "<sub>Lanes — **A**: bot-mergeable · **B**: human reads the summary · **C**: Code Owner sign-off. See ADR-0026.</sub>"
           } > /tmp/router-comment.md
           gh pr comment "$PR" --body-file /tmp/router-comment.md
 

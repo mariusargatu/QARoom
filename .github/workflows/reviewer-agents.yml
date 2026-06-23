@@ -60,28 +60,60 @@ jobs:
           set -uo pipefail
           if [ -z "${OPENAI_API_KEY:-}" ]; then
             {
-              echo "**Reviewer agents** — no model key configured, so no boundary was judged. This PR"
-              echo "was NOT machine-reviewed; route by the human lanes (B/C) until a key is set (ADR-0026)."
+              echo "## 🤖 Reviewer agents — skipped"
               echo
-              echo "Boundaries that WOULD be reviewed:"
+              echo "No \`OPENAI_API_KEY\` is configured, so no model judged this PR. **It was not"
+              echo "machine-reviewed** — route it through the human lanes (B/C) until a key is set"
+              echo "(ADR-0026). I never post a green I didn't earn."
+              echo
+              echo "Boundaries that *would* be reviewed:"
               sed 's/^/- /' /tmp/boundaries.txt
             } > /tmp/reviewer-note.md
             gh pr comment "$PR" --body-file /tmp/reviewer-note.md
             echo "::notice::reviewer-agents — model call skipped (no OPENAI_API_KEY)."
             exit 0
           fi
-          # One judge per boundary. Each writes its findings to the step summary and appends its cost
-          # to test-results/reviewer-cost.json; a P2+ finding exits the judge non-zero, which we
-          # accumulate so the job (and Lane A) fails if ANY boundary is blocked.
+          # One judge per boundary. Each appends its cost to test-results/reviewer-cost.json and
+          # prints {boundary, blocked, findings, usd} to stdout; a P0–P2 finding exits it non-zero.
+          # We capture each judge's JSON line to build one human-readable PR comment, and accumulate
+          # `blocked` so the job (and Lane A) fails if ANY boundary is blocked.
           blocked=0
+          : > /tmp/judge-out.jsonl
           while IFS= read -r b; do
             [ -n "$b" ] || continue
-            pnpm tsx scripts/reviewer-agent.ts "$b" "$BASE_SHA" "$HEAD_SHA" || blocked=1
+            if out=$(pnpm tsx scripts/reviewer-agent.ts "$b" "$BASE_SHA" "$HEAD_SHA"); then :; else blocked=1; fi
+            printf '%s\n' "$out" | tail -1 >> /tmp/judge-out.jsonl
           done < /tmp/boundaries.txt
-          if [ -f test-results/reviewer-cost.json ]; then
-            gh pr comment "$PR" --body-file <(printf '%s\n' '**Reviewer agents** ran — see the run summary for findings and the reviewer-cost artifact for per-boundary $ (observe-only, no cap yet).')
-          fi
-          [ "$blocked" -eq 0 ] || { echo "::error::reviewer-agents found P2+ findings — Lane A blocked."; exit 1; }
+          # `fromjson? // empty` keeps only the well-formed judge lines, so a crashed judge can't
+          # break the comment (it already flipped `blocked`).
+          j() { jq -R 'fromjson? // empty' /tmp/judge-out.jsonl; }
+          nf=$(j | jq -s '[.[].findings | length] | add // 0')
+          nb=$(j | jq -s '[.[] | select(.blocked)] | length')
+          cost=$(j | jq -s '[.[].usd] | add // 0')
+          model=$(jq -r '.[0].model // "gpt-5-nano"' test-results/reviewer-cost.json 2>/dev/null || echo gpt-5-nano)
+          {
+            echo "## 🤖 Reviewer agents"
+            echo
+            echo "One LLM judge per touched boundary read that boundary's \`AGENTS.md\` guardrail against"
+            echo "this diff. Findings rated **P0–P2 block Lane A**; **P3** is style and never blocks."
+            echo
+            printf '**%s finding(s)** · **%s blocking** · model `%s` · cost **$%.4f** (observe-only).\n' \
+              "$nf" "$nb" "$model" "$cost"
+            echo
+            if [ "$nf" -gt 0 ]; then
+              echo "| severity | where | rule | why |"
+              echo "|---|---|---|---|"
+              j | jq -rs '.[] | .findings[] | "| \(.severity) | `\(.file):\(.line)` | \(.rule) | \(.why) |"'
+              echo
+            fi
+            if [ "$nb" -gt 0 ]; then
+              echo "⛔ **Lane A is held** until the blocking (P0–P2) findings are resolved."
+            else
+              echo "✅ No blocking findings — nothing here stops an auto-merge."
+            fi
+          } > /tmp/reviewer-summary.md
+          gh pr comment "$PR" --body-file /tmp/reviewer-summary.md
+          [ "$blocked" -eq 0 ] || { echo "::error::reviewer-agents found P0–P2 findings — Lane A blocked."; exit 1; }
 
       - name: Upload reviewer cost ledger (measure-first, ADR-0026)
         if: ${{ always() && hashFiles('test-results/reviewer-cost.json') != '' }}

@@ -21,6 +21,7 @@ on:
 
 permissions:
   contents: read
+  pull-requests: write
 
 jobs:
   flag:
@@ -33,6 +34,8 @@ jobs:
         env:
           BASE_SHA: ${{ github.event.pull_request.base.sha }}
           HEAD_SHA: ${{ github.event.pull_request.head.sha }}
+          GH_TOKEN: ${{ github.token }}
+          PR: ${{ github.event.pull_request.number }}
         run: |
           set -euo pipefail
           PATHS='packages/contracts/ spec/ scripts/lib/manifests/claims.ts scripts/lib/manifests/detection-matrix.ts docs/adr/0001-foundational-decisions.md'
@@ -57,6 +60,26 @@ jobs:
           while IFS= read -r f; do
             [ -n "$f" ] && echo "::warning file=$f::Invariant source changed — ADR + Code Owner review required (ADR-0024)."
           done <<< "$changed"
+          # Also post a plain-English comment on the PR thread, so a human reading the conversation
+          # (not the Checks tab) sees the flag and what it asks of them.
+          {
+            echo "## 🔒 This PR edits an invariant source"
+            echo
+            echo "It changes a **single-source-of-truth** definition — a Zod contract, a formal spec, or a"
+            echo "falsifiable-claim / detection-matrix manifest. Each one *derives* the enforcement below it:"
+            echo "DB constraints, runtime validators, generated OpenAPI, property generators, bound assertions."
+            echo "Weakening one quietly weakens every check downstream — the exact failure mode this guard exists"
+            echo "to catch."
+            echo
+            echo "Per ADR-0024 / AGENTS.md this is a **deliberate** change: it needs an ADR and a **Code Owner**"
+            echo "sign-off (you can't self-approve it), not a quiet edit to turn a red check green."
+            echo
+            echo '### Files'
+            echo '```'
+            echo "$changed"
+            echo '```'
+          } > /tmp/invariant-comment.md
+          gh pr comment "$PR" --body-file /tmp/invariant-comment.md
           echo
           echo "### Diff"
           # `|| true`: head closes the pipe early, so git takes SIGPIPE (141); under pipefail that
