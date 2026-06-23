@@ -128,8 +128,11 @@ jobs:
 
       # Detection-matrix drift gate (in-proc, no uv/cluster): the rendered docs/detection-matrix.md
       # must agree with its manifest. An AGENTS-designated invariant source, so it must gate every PR.
-      - name: Verify detection matrix (census + rendered-matrix drift)
-        run: pnpm matrix:verify
+      - name: Verify detection matrix (census only)
+        # Census (manifest ↔ env read sites) is in-process. The rendered-matrix/SVG drift half of
+        # matrix:verify needs test-results/detection-matrix.json from a live `pnpm matrix` run, which
+        # this light lane doesn't do — that drift gate runs in the matrix dispatch lane.
+        run: pnpm tsx scripts/detection-matrix.ts --verify
 
       # The in-proc base envelope (vitest aggregate + mbt-edge-coverage, commit-stamped). The
       # terminal summary-envelope job reuses this as the base it folds the cluster/eval partials onto.
