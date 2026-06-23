@@ -21,9 +21,12 @@ import { z } from 'zod'
 
 const ROOT = resolve(import.meta.dirname, '..')
 
-// gpt-5-nano: the repo's cost-conscious default (matches the moderator; priced in cost-model.json).
-const MODEL = 'gpt-5-nano-2025-08-07'
-const PRICE = { inputPer1m: 0.05, outputPer1m: 0.4 }
+// gpt-5-mini: higher recall than nano on subtle guideline violations (auth bypasses, hardcoded
+// credentials) at a still-modest cost — the reviewer's job is to catch what lint can't. Prices are
+// a PLACEHOLDER you own (gpt-5-mini has no vendored rate in cost-model.json yet; correct from the
+// OpenAI pricing page). The cost stamp stays deterministic at rest, just approximate until then.
+const MODEL = 'gpt-5-mini'
+const PRICE = { inputPer1m: 0.25, outputPer1m: 2.0 }
 
 const Severity = z.enum(['P0', 'P1', 'P2', 'P3'])
 
