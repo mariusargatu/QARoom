@@ -1,0 +1,46 @@
+# Dependabot — keep the workspace deps, container base images, and Action versions current with
+# weekly PRs. Grouped so a bump lands as one reviewable PR per ecosystem, not a swarm (this is a
+# single-maintainer repo; PR noise is the thing to avoid). Security updates still open separately.
+version: 2
+updates:
+  # pnpm workspace — the root lockfile covers every package and service.
+  - package-ecosystem: npm
+    directory: /
+    schedule:
+      interval: weekly
+    open-pull-requests-limit: 5
+    groups:
+      npm:
+        patterns: ['*']
+
+  # Python moderator-agent — a uv project (pyproject.toml + uv.lock, no requirements.txt). The `pip`
+  # ecosystem cannot read uv.lock and would silently open zero PRs; `uv` is the native ecosystem.
+  - package-ecosystem: uv
+    directory: /services/moderator-agent
+    schedule:
+      interval: weekly
+    open-pull-requests-limit: 3
+    groups:
+      python:
+        patterns: ['*']
+
+  # Service container base images (node:24-slim, pgvector, etc.).
+  - package-ecosystem: docker
+    directories:
+      - /services/*
+    schedule:
+      interval: weekly
+    open-pull-requests-limit: 5
+    groups:
+      docker:
+        patterns: ['*']
+
+  # GitHub Actions across the workflows and the composite actions under .github/actions.
+  - package-ecosystem: github-actions
+    directory: /
+    schedule:
+      interval: weekly
+    open-pull-requests-limit: 5
+    groups:
+      actions:
+        patterns: ['*']

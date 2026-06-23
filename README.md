@@ -27,8 +27,8 @@ Just want the tests? No Docker needed: Postgres runs in-process via PGlite, so t
 
 ```bash
 pnpm install
-pnpm test            # full suite, no Docker (in-process PGlite)
-pnpm claims:verify   # every front-door claim is breakable on demand; nothing can go stale
+pnpm test-results:generate   # full suite, no Docker (in-process PGlite); writes test-results/summary.json
+pnpm claims:verify           # every front-door claim is breakable on demand; nothing can go stale
 ```
 
 The full orchestrated [gauntlet](docs/gauntlet.md) (`pnpm gauntlet`) adds the real-model tiers. Test numbers are read from a CI run's `test-results/summary.json`, never typed by hand.

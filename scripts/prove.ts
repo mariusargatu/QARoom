@@ -58,6 +58,17 @@ function runBreak(claim: Claim): number {
     env: { ...process.env, [claim.toggle]: '1' },
     encoding: 'utf8',
   })
+  // A spawn FAILURE (status === null: ENOENT for a missing `uv`/`pnpm`, a signal kill) is NOT the
+  // gate going red — the gate never ran. Treating it as red is the exact false-green this machine
+  // exists to catch (a no-uv box would report the moderator teeth "falsifiable" without running
+  // pytest). Surface it loudly and exit non-zero so the missing prerequisite cannot read as a pass.
+  if (run.status === null) {
+    process.stdout.write(
+      `  ${c.red('✗ GATE DID NOT RUN')}: spawning \`${claim.gate.cmd}\` failed (${run.error?.message ?? 'no exit status'}).\n` +
+        `  ${c.dim('install the gate prerequisite and re-run; a missing binary is NOT a falsified claim.')}\n`,
+    )
+    return 2
+  }
   const red = run.status !== 0 // a non-zero gate = the guarantee test FAILED = the bug was caught
   if (red) {
     const tail = `${run.stdout ?? ''}${run.stderr ?? ''}`

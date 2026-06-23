@@ -133,7 +133,7 @@ function vitestAggregatePresent(summary: TestResultsSummary): boolean {
 }
 
 /** Run the census; return the number of FATAL findings (0 = pass). All output is to stdout/stderr. */
-function runCensus(summary: TestResultsSummary, tier: Tier, folded: Set<string>): number {
+export function runCensus(summary: TestResultsSummary, tier: Tier, folded: Set<string>): number {
   const present = new Set(summary.runners.map((r) => r.name))
   const vitestRunners = summary.runners.filter((r) => r.output.runner === 'vitest').length
 
@@ -146,6 +146,15 @@ function runCensus(summary: TestResultsSummary, tier: Tier, folded: Set<string>)
   )
 
   const fatal: string[] = [...rosterDrift(folded)]
+
+  // A recorded failure is never "census clean". Schema + roster validity only prove the shape is
+  // right and the expected runners ran; a summary carrying totals.failed>0 (a crashed lane folded
+  // into the envelope, or a hand-edit) must turn the gate RED, not validate green. Belt-and-braces
+  // with `test-results:generate` (which already exits 1 on a live failure) so the FROZEN artifact is
+  // self-guarding even when re-verified in isolation.
+  if (summary.totals.failed > 0) {
+    fatal.push(`summary records ${summary.totals.failed} failed test(s) — not census-clean`)
+  }
 
   // The vitest aggregate is the one hard requirement of EVERY tier (catches an empty summary.json).
   if (vitestAggregatePresent(summary)) {

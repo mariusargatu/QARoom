@@ -10,7 +10,7 @@ COPY pnpm-workspace.yaml package.json pnpm-lock.yaml* ./
 COPY packages ./packages
 COPY services/webhooks ./services/webhooks
 COPY tools ./tools
-RUN pnpm install --frozen-lockfile=false
+RUN pnpm install --frozen-lockfile
 
 EXPOSE 8087
 ENV PORT=8087

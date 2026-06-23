@@ -14,7 +14,7 @@ COPY pnpm-workspace.yaml package.json pnpm-lock.yaml* tsconfig.base.json ./
 COPY packages ./packages
 COPY services/web ./services/web
 COPY tools ./tools
-RUN pnpm install --frozen-lockfile=false
+RUN pnpm install --frozen-lockfile
 
 ARG VITE_API_BASE_URL=""
 ENV VITE_API_BASE_URL=${VITE_API_BASE_URL}

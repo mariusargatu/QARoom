@@ -12,7 +12,7 @@ COPY pnpm-workspace.yaml package.json pnpm-lock.yaml* ./
 COPY packages ./packages
 COPY services/identity ./services/identity
 COPY tools ./tools
-RUN pnpm install --frozen-lockfile=false
+RUN pnpm install --frozen-lockfile
 
 EXPOSE 8082
 ENV PORT=8082
