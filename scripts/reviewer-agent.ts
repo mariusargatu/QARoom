@@ -28,12 +28,45 @@ const ROOT = resolve(import.meta.dirname, '..')
 const MODEL = 'gpt-5-mini'
 const PRICE = { inputPer1m: 0.25, outputPer1m: 2.0 }
 
+// Structured Outputs: constrain the model to the exact finding shape so any model (mini included)
+// can't drift the contract — severity stays in the P0–P3 enum, `line` is an integer or null. Without
+// this, a model returns plausible-but-off-schema JSON and the strict parser (rightly) throws.
+const RESPONSE_FORMAT = {
+  type: 'json_schema',
+  json_schema: {
+    name: 'reviewer_findings',
+    strict: true,
+    schema: {
+      type: 'object',
+      additionalProperties: false,
+      required: ['findings'],
+      properties: {
+        findings: {
+          type: 'array',
+          items: {
+            type: 'object',
+            additionalProperties: false,
+            required: ['severity', 'file', 'line', 'rule', 'why'],
+            properties: {
+              severity: { type: 'string', enum: ['P0', 'P1', 'P2', 'P3'] },
+              file: { type: 'string' },
+              line: { type: ['integer', 'null'] },
+              rule: { type: 'string' },
+              why: { type: 'string' },
+            },
+          },
+        },
+      },
+    },
+  },
+} as const
+
 const Severity = z.enum(['P0', 'P1', 'P2', 'P3'])
 
 export const Finding = z.object({
   severity: Severity,
   file: z.string(),
-  line: z.number().int().optional(),
+  line: z.number().int().nullable().optional(),
   rule: z.string(),
   why: z.string(),
 })
@@ -77,8 +110,8 @@ export function buildPrompt(guardrail: string, diff: string, boundary: string): 
     `You are the reviewer for the "${boundary}" boundary of the QARoom codebase.`,
     'Judge the diff ONLY against the guardrail below. Do not invent rules.',
     'Severity: P0 data loss/security, P1 correctness, P2 missing idempotency/timeout/contract drift,',
-    'P3 style (never blocks). Cite file and line. If clean, return an empty findings array.',
-    'Respond as JSON: {"findings":[{"severity","file","line","rule","why"}]}.',
+    'P3 style (never blocks). `severity` MUST be exactly one of P0,P1,P2,P3. `line` is an integer',
+    'or null. Cite file and line. If clean, return an empty findings array.',
     '',
     '=== GUARDRAIL ===',
     guardrail,
@@ -103,7 +136,7 @@ async function callModel(
     body: JSON.stringify({
       model: MODEL,
       messages: [{ role: 'user', content: prompt }],
-      response_format: { type: 'json_object' },
+      response_format: RESPONSE_FORMAT,
     }),
   })
   if (!res.ok) throw new Error(`OpenAI ${res.status}: ${await res.text()}`)
