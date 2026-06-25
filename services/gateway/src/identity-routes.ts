@@ -11,10 +11,11 @@ import type { FastifyInstance } from 'fastify'
 import type { GatewayRouteDeps } from './deps'
 import { forward, type Upstream } from './forward'
 import type { IdentityClient } from './identity-client'
+import { IDENTITY_UPSTREAM, upstreamTitle } from './upstreams'
 
 const IDENTITY: Upstream = {
-  slug: 'identity-unreachable',
-  title: 'Upstream identity-service unavailable',
+  slug: IDENTITY_UPSTREAM.slug,
+  title: upstreamTitle(IDENTITY_UPSTREAM.service),
   detail: 'identity-service did not respond (timed out or refused).',
 }
 

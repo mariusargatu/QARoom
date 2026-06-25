@@ -2,6 +2,7 @@ import { z } from 'zod'
 import { ModerationDisposition } from './events/moderation-decision-recorded'
 import { CommunityId, EventId, ModerationDecisionId, PostId, UserId } from './ids'
 import { AsOf } from './lamport'
+import { NO_NUL } from './no-nul'
 
 /**
  * Moderation-decision READ model (Milestone 12, ADR-0020). The moderator-agent (Python) owns the
@@ -14,10 +15,6 @@ import { AsOf } from './lamport'
  * This is a read projection, not a new wire contract: the cross-language gate
  * (`test_schemas_crosslang.py`) pins only the event schema, so this schema is purely additive.
  */
-
-// A rationale / precedent echoes user-derived content; mirror the post body's NUL guard.
-// biome-ignore lint/suspicious/noControlCharactersInRegex: rejecting the NUL byte is the whole point.
-const NO_NUL = /^[^\x00]*$/
 
 /** A grounded moderation decision recorded by the agent for one post. */
 export const ModerationDecision = z

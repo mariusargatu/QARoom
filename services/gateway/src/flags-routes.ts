@@ -4,10 +4,11 @@ import type { FastifyInstance } from 'fastify'
 import type { GatewayRouteDeps } from './deps'
 import type { FlagsClient } from './flags-client'
 import { forward, type Upstream } from './forward'
+import { FLAGS_UPSTREAM, upstreamTitle } from './upstreams'
 
 const FLAGS: Upstream = {
-  slug: 'flags-unreachable',
-  title: 'Upstream flags-service unavailable',
+  slug: FLAGS_UPSTREAM.slug,
+  title: upstreamTitle(FLAGS_UPSTREAM.service),
   detail: 'flags-service did not respond (timed out or refused).',
 }
 

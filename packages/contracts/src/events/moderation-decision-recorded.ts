@@ -1,10 +1,6 @@
 import { z } from 'zod'
 import { CommunityId, EventId, ModerationDecisionId, PostId, UserId } from '../ids'
-
-// A rationale / precedent echoes user-derived content; mirror the post body's NUL guard so a consumer
-// rejects un-storable text rather than discovering it at write time (see `./post-created.ts`).
-// biome-ignore lint/suspicious/noControlCharactersInRegex: rejecting the NUL byte is the whole point.
-const NO_NUL = /^[^\x00]*$/
+import { NO_NUL } from '../no-nul'
 
 /**
  * The agent's disposition for a post (Milestone 12, ADR-0020). The retrieval-grounded moderator

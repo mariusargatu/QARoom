@@ -1,11 +1,8 @@
 import { z } from 'zod'
 import { CommunityId, UserId } from './ids'
 import { AsOf } from './lamport'
+import { NO_NUL } from './no-nul'
 
-// Mirrors the post.ts NUL-byte stance: encode "no NUL" as a regex so the constraint
-// lands in the OpenAPI `pattern` and rejects un-storable input as a clean 400.
-// biome-ignore lint/suspicious/noControlCharactersInRegex: rejecting the NUL byte is the whole point.
-const NO_NUL = /^[^\x00]*$/
 /** A community slug is a short, human-readable, URL-safe handle (the 'general' default). */
 const slugField = () =>
   z

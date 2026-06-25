@@ -1,8 +1,7 @@
 import { z } from 'zod'
 import { UserId } from './ids'
+import { NO_NUL } from './no-nul'
 
-// biome-ignore lint/suspicious/noControlCharactersInRegex: rejecting the NUL byte is the whole point.
-const NO_NUL = /^[^\x00]*$/
 /** A handle is a unique, URL-safe login name. */
 const handleField = () =>
   z

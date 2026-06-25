@@ -17,6 +17,7 @@ import {
 import { IDENTITY_OPERATIONS } from './identity-operations'
 import { MODERATION_OPERATIONS } from './moderation-operations'
 import { upstreamUnreachable502, validation400 } from './problem-responses'
+import { CONTENT_UPSTREAM, DONATIONS_UPSTREAM, FLAGS_UPSTREAM } from './upstreams'
 import { WEBHOOK_OPERATIONS } from './webhooks-operations'
 
 /**
@@ -29,23 +30,17 @@ import { WEBHOOK_OPERATIONS } from './webhooks-operations'
 const notFound404 = problemResponse(404, 'post-not-found', 'Post not found', 'not_found', {
   description: 'The upstream resource does not exist.',
 })
-const upstream502 = upstreamUnreachable502(
-  'content-unreachable',
-  'content-service',
-  'content-service is unreachable.',
-)
+const upstream502 = upstreamUnreachable502(CONTENT_UPSTREAM, 'content-service is unreachable.')
 const rateLimited429 = problemResponse(429, 'rate-limited', 'Too many requests', 'rate_limit', {
   description: 'The per-principal rate limit was exceeded. Carries a Retry-After header.',
   retryable: true,
 })
 const donationsUnreachable502 = upstreamUnreachable502(
-  'donations-unreachable',
-  'donations-service',
+  DONATIONS_UPSTREAM,
   'donations-service is unreachable, timed out, or the gateway circuit breaker is open (chaos experiments 06/07). The upstream payment-provider 502 is also surfaced here.',
 )
 const flagsUnreachable502 = upstreamUnreachable502(
-  'flags-unreachable',
-  'flags-service',
+  FLAGS_UPSTREAM,
   'flags-service is unreachable or timed out.',
 )
 const donationsGated409 = problemResponse(
@@ -115,9 +110,7 @@ const RAW_OPERATIONS: readonly OasOperation[] = [
           },
         },
       },
-      validation400,
       upstream502,
-      rateLimited429,
     ],
   },
   {
@@ -131,9 +124,7 @@ const RAW_OPERATIONS: readonly OasOperation[] = [
     params: [communityIdParam],
     responses: [
       { code: 200, description: 'A page of community posts.', bodyRef: 'Feed' },
-      validation400,
       upstream502,
-      rateLimited429,
     ],
   },
   {
@@ -147,10 +138,8 @@ const RAW_OPERATIONS: readonly OasOperation[] = [
     params: [postIdParam],
     responses: [
       { code: 200, description: 'The post.', bodyRef: 'Post', example: EXAMPLE_POST },
-      validation400,
       notFound404,
       upstream502,
-      rateLimited429,
     ],
   },
   {
@@ -179,10 +168,8 @@ const RAW_OPERATIONS: readonly OasOperation[] = [
           },
         },
       },
-      validation400,
       notFound404,
       upstream502,
-      rateLimited429,
     ],
   },
   {
@@ -214,10 +201,8 @@ const RAW_OPERATIONS: readonly OasOperation[] = [
           },
         },
       },
-      validation400,
       donationsGated409,
       donationsUnreachable502,
-      rateLimited429,
     ],
   },
   {
@@ -237,9 +222,7 @@ const RAW_OPERATIONS: readonly OasOperation[] = [
         bodyRef: 'DonationList',
         example: { community_id: EXAMPLE_COMMUNITY_ID, donations: [EXAMPLE_DONATION] },
       },
-      validation400,
       donationsUnreachable502,
-      rateLimited429,
     ],
   },
   {
@@ -253,10 +236,8 @@ const RAW_OPERATIONS: readonly OasOperation[] = [
     params: [communityIdParam, donationIdParam],
     responses: [
       { code: 200, description: 'The donation.', bodyRef: 'Donation', example: EXAMPLE_DONATION },
-      validation400,
       donationNotFound404,
       donationsUnreachable502,
-      rateLimited429,
     ],
   },
   {
@@ -276,9 +257,7 @@ const RAW_OPERATIONS: readonly OasOperation[] = [
         bodyRef: 'FlagResolution',
         example: EXAMPLE_FLAG_RESOLUTION,
       },
-      validation400,
       flagsUnreachable502,
-      rateLimited429,
     ],
   },
   {
@@ -298,9 +277,7 @@ const RAW_OPERATIONS: readonly OasOperation[] = [
         bodyRef: 'FlagList',
         example: EXAMPLE_FLAG_LIST,
       },
-      validation400,
       flagsUnreachable502,
-      rateLimited429,
     ],
   },
   {
@@ -332,10 +309,8 @@ const RAW_OPERATIONS: readonly OasOperation[] = [
           },
         },
       },
-      validation400,
       rolloutConflict409,
       flagsUnreachable502,
-      rateLimited429,
     ],
   },
   {
@@ -357,11 +332,7 @@ const RAW_OPERATIONS: readonly OasOperation[] = [
         schema: { type: 'integer', minimum: 0 },
       },
     ],
-    responses: [
-      { code: 200, description: 'A page of push envelopes.', bodyRef: 'EventPage' },
-      validation400,
-      rateLimited429,
-    ],
+    responses: [{ code: 200, description: 'A page of push envelopes.', bodyRef: 'EventPage' }],
   },
   ...WEBHOOK_OPERATIONS,
   ...IDENTITY_OPERATIONS,

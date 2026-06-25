@@ -1,6 +1,6 @@
 import { expect, test } from '@playwright/test'
 import { rolloutMachine } from '@qaroom/contracts'
-import { shortestPaths } from '@qaroom/testing-utils/mbt'
+import { PR_MAX_DEPTH, shortestPaths } from '@qaroom/testing-utils/mbt'
 import { Actor, advanceRollout, BrowseTheWeb, theFlagState } from '@qaroom/testing-utils/screenplay'
 
 /**
@@ -17,7 +17,9 @@ import { Actor, advanceRollout, BrowseTheWeb, theFlagState } from '@qaroom/testi
  * cross-path shared state — the only honest way to replay independent model paths. The gateway REST
  * plane is unauthenticated by design, so a seeded localStorage token unlocks the routed UI.
  */
-const paths = shortestPaths(rolloutMachine, { maxDepth: 10 }).filter((p) => p.steps.length > 0)
+const paths = shortestPaths(rolloutMachine, { maxDepth: PR_MAX_DEPTH }).filter(
+  (p) => p.steps.length > 0,
+)
 
 // `process.pid` keeps slugs unique across runs (communities persist in the cluster) without a
 // clock/RNG — the determinism stance holds even in test setup.

@@ -1,13 +1,8 @@
 import { z } from 'zod'
 import { CommunityId, PostId, UserId } from './ids'
 import { AsOf } from './lamport'
+import { NO_NUL } from './no-nul'
 
-// Postgres `text` cannot store a NUL byte. Encoding "no NUL" as a regex makes the
-// constraint part of the OpenAPI `pattern` (so fuzzers don't generate NUL strings and
-// the schema agrees with the API) and rejects un-storable input as a clean 400. The
-// pattern is written with the `\x00` escape — text, never a literal NUL byte.
-// biome-ignore lint/suspicious/noControlCharactersInRegex: rejecting the NUL byte is the whole point.
-const NO_NUL = /^[^\x00]*$/
 const titleField = () => z.string().min(1).max(300).regex(NO_NUL, 'must not contain a NUL byte')
 const bodyField = () => z.string().max(40_000).regex(NO_NUL, 'must not contain a NUL byte')
 
