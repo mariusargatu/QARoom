@@ -1,7 +1,7 @@
 /**
  * Service Level Objectives — the single in-code source of truth for the latency / error targets
- * that k6 enforces in Milestone 8. Mirrors the table in `docs/slos.md` (and `docs/03-testing-strategy.md`
- * §12); `slos.test.ts` pins the two equal so the prose doc and the load gate cannot drift. k6 cannot
+ * that k6 enforces in Milestone 8. Mirrors the table in `docs/slos.md`; `slos.test.ts` pins the two
+ * equal so the prose doc and the load gate cannot drift. k6 cannot
  * import TypeScript, so `scripts/k6-gen-thresholds.ts` projects these into `load-tests/lib/*.gen.json`.
  *
  * Teaching values, not production claims (see `docs/slos.md`). `latencyMs: null` means deliberately

@@ -504,7 +504,7 @@ jobs:
           path: test-results/k6-*.json
           if-no-files-found: warn
 
-  # Mutation testing on the locked critical-modules list (docs/03 §11, ADR-0016). Nightly — Stryker
+  # Mutation testing on the locked critical-modules list (ADR-0016). Nightly — Stryker
   # re-runs each module's suite per mutant, far exceeding the PR-fast budget. The fast tier (pure
   # logic + in-process pglite) needs no cluster; each package enforces its own thresholds.break.
   mutation:

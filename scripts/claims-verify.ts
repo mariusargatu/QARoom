@@ -10,9 +10,11 @@ import { renderStatsBlock, STATS_END, STATS_START } from './render-stats'
 import { deriveFoldedRunnerNames } from './test-results-verify'
 
 /**
- * `pnpm claims:verify`: the manifest-resolves gate (sibling of mcp:verify / openapi:verify). The
- * linchpin that stops the falsifiable-claim manifest from decaying into theater. For every claim:
+ * `pnpm claims:verify`: the manifest-derived evidence gate (sibling of mcp:verify / openapi:verify).
+ * One mission — the manifest-derived evidence layer cannot decay into UNFALSIFIABLE claims OR STALE
+ * front-door projections. Two halves:
  *
+ * A. PER CLAIM (the falsifiable-claim manifest in ./lib/manifests/claims):
  *   1. SCHEMA      the manifest parses (enforced at import of ./lib/manifests/claims).
  *   2. EVIDENCE    the claim's evidence pointer resolves to a real runner in summary.json.
  *   3. WIRED       the toggle is read by real (non-test) service source: directly (process.env.X)
@@ -20,7 +22,14 @@ import { deriveFoldedRunnerNames } from './test-results-verify'
  *   4. TEETH       `prove <id> --break` actually turns the gate RED. A toggle that does not break its
  *                  named gate is theater: this is what string-grep gates miss, so we RUN it.
  *
- * Exits non-zero on any failure, so CI cannot ship a claim that cannot be falsified.
+ * B. FRONT-DOOR PROJECTIONS (each committed block must be byte-identical to its generator, so a
+ *    hand-edit cannot let the numbers a reader sees drift from the manifests):
+ *   - the ARCHITECTURE.md boundary / claims / cost / stats blocks (render-boundaries/claims/cost/stats),
+ *   - docs/claims.md (the rendered claims-manifest projection, checkClaimsPage),
+ *   - the AGENTS.md commands census (every documented `pnpm` command resolves to a real script).
+ *
+ * Exits non-zero on any failure, so CI cannot ship a claim that cannot be falsified or a front-door
+ * projection that has gone stale.
  */
 
 const ROOT = process.cwd()
