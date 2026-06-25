@@ -1,7 +1,4 @@
 export { BrowseTheWeb } from './abilities/browse-the-web'
-export { CallTheApi } from './abilities/call-the-api'
-export type { StreamSource } from './abilities/consume-the-stream'
-export { ConsumeTheStream } from './abilities/consume-the-stream'
 export { InteractWithComponent } from './abilities/interact-with-component'
 export type { Ability } from './ability'
 export { Actor } from './actor'

@@ -42,8 +42,6 @@ export interface GatewayRouteDeps {
   tickets: TicketClient
   verifyToken: TokenVerifier
   clock: Clock
-  ids: IdGenerator
-  randomness: Randomness
   lamport: LamportGate
   limiter: RateLimiter
   eventStream: CommunityEventStream
