@@ -66,6 +66,6 @@ The structural counts (boundaries, claims, views) are hand-maintained against th
 
 ## Maintaining this model
 
-Edit the `.dsl` files only; the `.mmd` exports are generated. See
+Edit the `.dsl` files only; the published site renders from them, and `.mmd` can be exported on demand. See
 [`../README.md`](../README.md) for the editing map and the Docker-based regenerate/validate
 commands (pinned `structurizr/cli` tag).

@@ -1,9 +1,12 @@
 # Structurizr — QARoom architecture (and testing architecture) as code
 
-The C4 model of QARoom **and** its testing architecture live here as Structurizr DSL. This is the
-single source for the architecture diagrams; the `structurizr-*.mmd` files next to it are
-**generated** from the DSL (don't hand-edit them). Grounded in `services/*`, `deploy/*`, and the
-manifests under `scripts/lib/manifests/` — the prose landscape is the root [`ARCHITECTURE.md`](../../ARCHITECTURE.md).
+The C4 model of QARoom **and** its testing architecture live here as Structurizr DSL — the single
+source for the architecture diagrams. The canonical rendered views are the **published model site**
+([mariusargatu.github.io/QARoom/architecture](https://mariusargatu.github.io/QARoom/architecture/)),
+regenerated from `workspace.dsl` on every push by `.github/workflows/pages.yml`; export local
+`structurizr-*.mmd`/PlantUML on demand with the CLI (below) — those exports are **not** committed.
+Grounded in `services/*`, `deploy/*`, and the manifests under `scripts/lib/manifests/` — the prose
+landscape is the root [`ARCHITECTURE.md`](../../ARCHITECTURE.md).
 
 The model is **split into many small files** so it stays diffable and maintainable: a PR that moves
 a service boundary touches one file, in the same commit. `workspace.dsl` is just the entry point
@@ -23,7 +26,7 @@ model/
     webhooks.dsl              webhooks delivery-edge components
   relationships.dsl           EVERY structural edge (context + container + component), one place
   testing.dsl                 the testing architecture: 12 boundaries, techniques (by tier),
-                              9 falsifiable claims, contract triangulation, governance gates
+                              11 falsifiable claims, contract triangulation, governance gates
   deployment.dsl              the k3d (local) deployment topology
 views/
   structural.dsl              C4 views: context, containers, 4 component, 4 dynamic, deployment
@@ -35,10 +38,11 @@ docs/                         embedded documentation (the Lite "Documentation" t
 The two embedded docs are [`docs/01-overview.md`](docs/01-overview.md) (the model + view index) and
 [`docs/components.md`](docs/components.md) (the four component breakdowns + dynamic flows).
 
-The counts in this doc are **projections of their sources of truth**, not hand-kept: the
-**12 boundaries** come from `scripts/lib/manifests/boundary-registry.ts`, the **9 falsifiable claims**
-from `scripts/lib/manifests/claims.ts`, and the **9 services** / **16 views** are on-disk
-(`services/*` / the views table below). Re-derive from those when they change.
+The counts in this doc are **hand-maintained projections** of their sources of truth (this folder is
+not drift-gated, unlike `ARCHITECTURE.md`): the **12 boundaries** come from
+`scripts/lib/manifests/boundary-registry.ts`, the **11 falsifiable claims** from
+`scripts/lib/manifests/claims.ts`, and the **9 services** / **16 views** are on-disk
+(`services/*` / the views table below). Re-derive and update them here when they change.
 
 ## Views
 
@@ -61,7 +65,9 @@ from `scripts/lib/manifests/claims.ts`, and the **9 services** / **16 views** ar
 | `Triangulation` | Custom | Zod source → four contract tools, four directions of agreement |
 | `EvidenceGovernance` | Custom | `summary.json` + the drift gates + the gauntlet |
 
-GitHub renders Mermaid inline — open any `structurizr-*.mmd` to see the diagram.
+Browse the rendered views on the **published model site**
+([/architecture](https://mariusargatu.github.io/QARoom/architecture/)), or run Structurizr Lite
+locally (below) for the interactive editor.
 
 ## Interactive editing (Structurizr Lite)
 
@@ -89,7 +95,7 @@ cd "$(git rev-parse --show-toplevel)"
 docker run --rm -v "$PWD:/work" -w /work structurizr/cli:2024.11.04 \
   validate -workspace docs/structurizr/workspace.dsl
 
-# regenerate the committed Mermaid views (one structurizr-<ViewKey>.mmd per view) into docs/structurizr/
+# export the Mermaid views on demand (one structurizr-<ViewKey>.mmd per view) into docs/structurizr/ — NOT committed
 docker run --rm -v "$PWD:/work" -w /work structurizr/cli:2024.11.04 \
   export -workspace docs/structurizr/workspace.dsl -format mermaid -output docs/structurizr
 ```
@@ -98,8 +104,8 @@ Other `-format` values: `plantuml`, `dot` (Graphviz), `json` (the Structurizr wo
 
 ## How to maintain
 
-Change the architecture in the DSL only, then regenerate the `.mmd` (above) in the same commit.
-The edit map:
+Change the architecture in the DSL only — the published site re-renders from it on push (there is
+no committed `.mmd` to maintain). The edit map:
 
 - **Add / change a service** → `model/platform.dsl` (container + its TESTING perspective),
   `model/relationships.dsl` (its edges), `model/deployment.dsl` (its pod + DB), and add a row to the
