@@ -49,7 +49,7 @@ export function moderationDecisionRecorded(communityId: CommunityId): string {
   return `${ROOT}.${MODERATOR}.decision.${communityId}.recorded`
 }
 
-/** Tenant-scoped subscription: every flags event for one community (the gateway WS/poll feed). */
+/** Tenant-scoped subscription: every flags event for one community (test-only; the gateway feed binds the entity-level `FLAGS_FEED_SUBJECT`). */
 export function flagsForCommunity(communityId: CommunityId): string {
   return `${ROOT}.${FLAGS}.flag.${communityId}.>`
 }
