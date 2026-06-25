@@ -6,6 +6,7 @@ import {
   type GeneratedStep,
   illegalPairs,
   modeledStates,
+  PR_MAX_DEPTH,
   shortestPaths,
 } from '@qaroom/testing-utils/mbt'
 import { afterAll, describe, expect, it } from 'vitest'
@@ -22,7 +23,7 @@ import { FLAG_URL, ROLLOUT_URL } from './commands'
  * so all of a state's illegal events are probed sequentially against one context.
  */
 
-const PATHS = shortestPaths(rolloutMachine, { maxDepth: 10 })
+const PATHS = shortestPaths(rolloutMachine, { maxDepth: PR_MAX_DEPTH })
 const PAIRS = illegalPairs(rolloutMachine)
 const STATES = modeledStates(rolloutMachine)
 

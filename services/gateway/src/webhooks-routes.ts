@@ -3,11 +3,12 @@ import { idempotencyKeyFrom } from '@qaroom/service-kit'
 import type { FastifyInstance } from 'fastify'
 import type { GatewayRouteDeps } from './deps'
 import { forward, type Upstream } from './forward'
+import { upstreamTitle, WEBHOOKS_UPSTREAM } from './upstreams'
 import type { WebhooksClient } from './webhooks-client'
 
 const WEBHOOKS: Upstream = {
-  slug: 'webhooks-unreachable',
-  title: 'Upstream webhooks-service unavailable',
+  slug: WEBHOOKS_UPSTREAM.slug,
+  title: upstreamTitle(WEBHOOKS_UPSTREAM.service),
   detail: 'webhooks-service did not respond (timed out or refused).',
 }
 

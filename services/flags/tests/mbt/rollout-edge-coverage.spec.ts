@@ -10,6 +10,7 @@ import {
   edgesOfPaths,
   type GeneratedStep,
   modeledStates,
+  PR_MAX_DEPTH,
   shortestPaths,
 } from '@qaroom/testing-utils/mbt'
 import { afterAll, describe, expect, it } from 'vitest'
@@ -27,7 +28,7 @@ import { ROLLOUT_URL } from './commands'
  * it detects output faults AND transfer faults), and assert the union reaches 7/7.
  */
 
-const PATHS = shortestPaths(rolloutMachine, { maxDepth: 10 })
+const PATHS = shortestPaths(rolloutMachine, { maxDepth: PR_MAX_DEPTH })
 const EDGES = allEdges(rolloutMachine)
 const PATH_EDGES = edgesOfPaths(PATHS, 'Off')
 const GAP = coverageReport(EDGES, PATH_EDGES).gap

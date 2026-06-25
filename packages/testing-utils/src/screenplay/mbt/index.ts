@@ -16,9 +16,4 @@ export {
   simplePaths,
 } from './generate-paths'
 export type { SystemUnderTest } from './model-validation'
-export {
-  assertModelMatchesSystem,
-  modeledEvents,
-  modeledInitialState,
-  modeledStates,
-} from './model-validation'
+export { assertModelMatchesSystem, modeledStates } from './model-validation'

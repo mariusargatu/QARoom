@@ -1,10 +1,6 @@
 import { z } from 'zod'
 import { CommunityId, EventId, PostId, UserId } from '../ids'
-
-// Postgres `text` cannot store a NUL byte; mirror the `Post` schema's guard so a consumer
-// rejects un-storable input rather than discovering it at write time (see `../post.ts`).
-// biome-ignore lint/suspicious/noControlCharactersInRegex: rejecting the NUL byte is the whole point.
-const NO_NUL = /^[^\x00]*$/
+import { NO_NUL } from '../no-nul'
 
 /**
  * Emitted when a post is created — subject `qaroom.content.posts.<community_id>.created`.

@@ -3,10 +3,11 @@ import { idempotencyKeyFrom } from '@qaroom/service-kit'
 import type { FastifyInstance } from 'fastify'
 import type { GatewayRouteDeps } from './deps'
 import { forward, type Upstream } from './forward'
+import { CONTENT_UPSTREAM, upstreamTitle } from './upstreams'
 
 const CONTENT: Upstream = {
-  slug: 'content-unreachable',
-  title: 'Upstream content-service unavailable',
+  slug: CONTENT_UPSTREAM.slug,
+  title: upstreamTitle(CONTENT_UPSTREAM.service),
   detail: 'content-service did not respond.',
 }
 
