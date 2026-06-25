@@ -1,7 +1,7 @@
 import { execFileSync } from 'node:child_process'
 
 /**
- * Run Stryker mutation testing across the critical-modules packages (docs/03 §11). Each package owns
+ * Run Stryker mutation testing across the critical-modules packages (ADR-0016). Each package owns
  * a scoped `stryker.config.json` + `vitest.stryker.config.ts` and enforces its own `thresholds.break`.
  * The fast tier (pure logic, in-process tests) runs by default. Two domain-critical modules
  * (content voting score, flags resolution) do NOT yet have a `stryker.config.json` — wiring them is

@@ -1,5 +1,6 @@
 import type { OasResponse } from '@qaroom/contracts'
 import { problemResponse } from '@qaroom/contracts'
+import { type UpstreamRef, upstreamTitle } from './upstreams'
 
 /**
  * Gateway-LOCAL RFC 7807 envelopes shared across the gateway's four operation files. NOT a barrel:
@@ -26,8 +27,8 @@ export const validation400: OasResponse = problemResponse(
  * identical. A future upstream that needs `retryable: false` must GROW a parameter here, not
  * hand-roll a seventh copy of the block this factory replaced.
  */
-export function upstreamUnreachable502(slug: string, service: string, detail: string): OasResponse {
-  return problemResponse(502, slug, `Upstream ${service} unavailable`, 'dependency_failure', {
+export function upstreamUnreachable502(ref: UpstreamRef, detail: string): OasResponse {
+  return problemResponse(502, ref.slug, upstreamTitle(ref.service), 'dependency_failure', {
     description: detail,
     retryable: true,
   })

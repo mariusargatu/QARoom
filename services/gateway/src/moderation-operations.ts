@@ -6,7 +6,8 @@ import {
   type OasOperation,
   problemResponse,
 } from '@qaroom/contracts'
-import { upstreamUnreachable502, validation400 } from './problem-responses'
+import { upstreamUnreachable502 } from './problem-responses'
+import { MODERATOR_UPSTREAM } from './upstreams'
 
 /**
  * The moderation-decision reads the gateway proxies to the moderator-agent (ADR-0022, ADR-0018).
@@ -14,8 +15,7 @@ import { upstreamUnreachable502, validation400 } from './problem-responses'
  * Split out of `operations.ts` to keep it under the 500-line cap; spread into OPERATIONS.
  */
 const moderatorUnreachable502 = upstreamUnreachable502(
-  'moderator-unreachable',
-  'moderator-agent',
+  MODERATOR_UPSTREAM,
   'moderator-agent is unreachable or timed out.',
 )
 const decisionNotFound404 = problemResponse(
@@ -46,7 +46,6 @@ export const MODERATION_OPERATIONS: readonly OasOperation[] = [
         bodyRef: 'ModerationDecisionList',
         example: { decisions: [EXAMPLE_MODERATION_DECISION], as_of: EXAMPLE_AS_OF },
       },
-      validation400,
       moderatorUnreachable502,
     ],
   },
@@ -66,7 +65,6 @@ export const MODERATION_OPERATIONS: readonly OasOperation[] = [
         bodyRef: 'ModerationDecision',
         example: EXAMPLE_MODERATION_DECISION,
       },
-      validation400,
       decisionNotFound404,
       moderatorUnreachable502,
     ],

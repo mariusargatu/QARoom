@@ -11,6 +11,7 @@ import {
   problemResponse,
 } from '@qaroom/contracts'
 import { upstreamUnreachable502 } from './problem-responses'
+import { WEBHOOKS_UPSTREAM } from './upstreams'
 
 /**
  * The webhook CRUD operations the gateway proxies to webhooks-service (Milestone 11). Split out of
@@ -21,8 +22,7 @@ import { upstreamUnreachable502 } from './problem-responses'
  * cross-cutting map in `operations.ts`. Only genuinely op-specific responses live below.
  */
 const webhooksUnreachable502 = upstreamUnreachable502(
-  'webhooks-unreachable',
-  'webhooks-service',
+  WEBHOOKS_UPSTREAM,
   'webhooks-service is unreachable, timed out, or the gateway circuit breaker is open.',
 )
 const webhookNotFound404 = problemResponse(

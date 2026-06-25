@@ -3,10 +3,11 @@ import type { FastifyInstance } from 'fastify'
 import type { GatewayRouteDeps } from './deps'
 import { forward, type Upstream } from './forward'
 import type { ModeratorClient } from './moderator-client'
+import { MODERATOR_UPSTREAM, upstreamTitle } from './upstreams'
 
 const MODERATOR: Upstream = {
-  slug: 'moderator-unreachable',
-  title: 'Upstream moderator-agent unavailable',
+  slug: MODERATOR_UPSTREAM.slug,
+  title: upstreamTitle(MODERATOR_UPSTREAM.service),
   detail: 'moderator-agent did not respond (timed out or refused).',
 }
 

@@ -12,6 +12,7 @@ import {
   edgeKey,
   edgeRecorder,
   edgesOfPaths,
+  PR_MAX_DEPTH,
   shortestPaths,
 } from '@qaroom/testing-utils/mbt'
 import { describe, expect, it } from 'vitest'
@@ -30,7 +31,7 @@ const SUPPORTED_EVENTS = [
   'RetriesExhausted',
 ]
 
-const paths = shortestPaths(webhookDeliveryMachine, { maxDepth: 10 })
+const paths = shortestPaths(webhookDeliveryMachine, { maxDepth: PR_MAX_DEPTH })
 
 describe('model-based webhook-delivery conformance', () => {
   it('the model matches the system (initial state + every event has an endpoint)', () => {

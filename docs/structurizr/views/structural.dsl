@@ -1,5 +1,5 @@
 # Structural (C4) views: context, containers, the four component breakdowns, four dynamic flows,
-# and the k3d deployment. Included into `views { }`. Keys match the generated structurizr-<key>.mmd.
+# and the k3d deployment. Included into `views { }`. Keys match the exported structurizr-<key>.mmd view keys.
 
 systemContext qaroom "Context" "Who uses QARoom and the external systems it depends on." {
     include *

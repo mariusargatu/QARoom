@@ -20,10 +20,10 @@ A client `POST`s a new post. The gateway fronts content-service; content owns th
    - code: [`rate-limit.ts:23`](../services/gateway/src/rate-limit.ts#L23) (`limiter.consume`); the bucket is [`rate-limiter.ts:28`](../services/gateway/src/rate-limiter.ts#L28) (`RateLimiter`)
    - technique: **property test** [`rate-limiter.property.test.ts:11`](../services/gateway/src/rate-limiter.property.test.ts#L11) (`never allows more than capacity requests`)
 2. **trust boundary** · The gateway validates at the edge: brands the path id, parses the body.
-   - code: [`proxy-routes.ts:17`](../services/gateway/src/proxy-routes.ts#L17) (`CommunityId.parse`); [`proxy-routes.ts:19`](../services/gateway/src/proxy-routes.ts#L19) (`CreatePostRequest.parse`)
+   - code: [`proxy-routes.ts:18`](../services/gateway/src/proxy-routes.ts#L18) (`CommunityId.parse`); [`proxy-routes.ts:20`](../services/gateway/src/proxy-routes.ts#L20) (`CreatePostRequest.parse`)
    - technique: **Schemathesis** fuzzes the gateway OAS ([`schemathesis-gate.sh`](../scripts/schemathesis-gate.sh)); **RFC 7807** conformance via [`rfc7807.ts:17`](../packages/testing-utils/src/matchers/rfc7807.ts#L17) (`expectRFC7807`)
 3. **process boundary (REST)** · The gateway forwards to content via the Pact-consumer client; an unreachable upstream becomes a 502 `dependency_failure`.
-   - code: [`proxy-routes.ts:21`](../services/gateway/src/proxy-routes.ts#L21) (`deps.content.createPost`) -> [`content-client.ts:26`](../services/gateway/src/content-client.ts#L26) (`createPost`); 502 map [`forward.ts:29`](../services/gateway/src/forward.ts#L29) (`problem`)
+   - code: [`proxy-routes.ts:22`](../services/gateway/src/proxy-routes.ts#L22) (`deps.content.createPost`) -> [`content-client.ts:26`](../services/gateway/src/content-client.ts#L26) (`createPost`); 502 map [`forward.ts:29`](../services/gateway/src/forward.ts#L29) (`problem`)
    - technique: **Pact v4** consumer test [`content.consumer.spec.ts:101`](../services/gateway/tests/contracts/content.consumer.spec.ts#L101) (`creates a post`) emits `pacts/gateway-content.json`
 4. **observability** · The gateway bumps its own lamport on a successful mutation.
    - code: [`forward.ts:41`](../services/gateway/src/forward.ts#L41) (`deps.lamport.bump`)

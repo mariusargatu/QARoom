@@ -2,7 +2,7 @@ import { migrationMachine, rollbackMigration, runMigration } from '@qaroom/contr
 import { describe, expect, it } from 'vitest'
 import { FakeClock } from '../../determinism/fake-clock'
 import { allEdges, coverageReport, edgeKey, edgeRecorder, edgesOfPaths } from './edge-coverage'
-import { shortestPaths, simplePaths } from './generate-paths'
+import { NIGHTLY_MAX_DEPTH, shortestPaths, simplePaths } from './generate-paths'
 
 /**
  * All-transitions coverage of the migration machine. Path generation misses BOTH
@@ -15,8 +15,8 @@ import { shortestPaths, simplePaths } from './generate-paths'
 
 const BOTH_GENERATORS = (machine: typeof migrationMachine) =>
   new Set([
-    ...edgesOfPaths(shortestPaths(machine, { maxDepth: 20 }), 'Pending'),
-    ...edgesOfPaths(simplePaths(machine, { maxDepth: 20 }), 'Pending'),
+    ...edgesOfPaths(shortestPaths(machine, { maxDepth: NIGHTLY_MAX_DEPTH }), 'Pending'),
+    ...edgesOfPaths(simplePaths(machine, { maxDepth: NIGHTLY_MAX_DEPTH }), 'Pending'),
   ])
 
 describe('all-transitions coverage of the migration machine', () => {

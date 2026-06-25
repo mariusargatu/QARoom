@@ -36,8 +36,6 @@ export function buildGatewayApp(deps: GatewayDeps): FastifyInstance {
     tickets: deps.tickets,
     verifyToken: deps.verifyToken,
     clock: deps.clock,
-    ids: deps.ids,
-    randomness: deps.randomness,
     lamport,
     limiter,
     eventStream,

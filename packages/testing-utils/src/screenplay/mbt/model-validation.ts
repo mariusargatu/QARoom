@@ -15,7 +15,7 @@ export function modeledStates(machine: AnyStateMachine): string[] {
 }
 
 /** The model's initial state name. */
-export function modeledInitialState(machine: AnyStateMachine): string {
+function modeledInitialState(machine: AnyStateMachine): string {
   const initial = machine.config.initial
   if (typeof initial !== 'string') {
     throw new Error(
@@ -26,7 +26,7 @@ export function modeledInitialState(machine: AnyStateMachine): string {
 }
 
 /** Every distinct event name that appears on any state's `on` map. */
-export function modeledEvents(machine: AnyStateMachine): string[] {
+function modeledEvents(machine: AnyStateMachine): string[] {
   const events = new Set<string>()
   for (const state of Object.values(machine.config.states ?? {})) {
     const on = (state as { on?: Record<string, unknown> }).on ?? {}

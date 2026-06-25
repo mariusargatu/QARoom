@@ -1,5 +1,5 @@
 import { RolloutEventName, rolloutMachine } from '@qaroom/contracts'
-import { assertModelMatchesSystem, shortestPaths } from '@qaroom/testing-utils/mbt'
+import { assertModelMatchesSystem, PR_MAX_DEPTH, shortestPaths } from '@qaroom/testing-utils/mbt'
 import { describe, expect, it } from 'vitest'
 import { nextKey, SAMPLE, setupFlagsTest } from './harness'
 
@@ -13,7 +13,7 @@ import { nextKey, SAMPLE, setupFlagsTest } from './harness'
 // Drawn from the contract, not hand-listed, so the model/system drift-check cannot itself drift.
 const SUPPORTED_EVENTS = RolloutEventName.options
 
-const paths = shortestPaths(rolloutMachine, { maxDepth: 10 })
+const paths = shortestPaths(rolloutMachine, { maxDepth: PR_MAX_DEPTH })
 
 describe('model-based rollout conformance', () => {
   it('the model matches the system (initial state + every event has an endpoint)', () => {

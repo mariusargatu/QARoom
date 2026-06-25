@@ -4,10 +4,11 @@ import type { FastifyInstance } from 'fastify'
 import type { GatewayRouteDeps } from './deps'
 import type { DonationsClient } from './donations-client'
 import { forward, type Upstream } from './forward'
+import { DONATIONS_UPSTREAM, upstreamTitle } from './upstreams'
 
 const DONATIONS: Upstream = {
-  slug: 'donations-unreachable',
-  title: 'Upstream donations-service unavailable',
+  slug: DONATIONS_UPSTREAM.slug,
+  title: upstreamTitle(DONATIONS_UPSTREAM.service),
   detail: 'donations-service did not respond (timed out, refused, or the circuit is open).',
 }
 

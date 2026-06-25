@@ -2,7 +2,13 @@ import { rolloutMachine } from '@qaroom/contracts'
 import { createTestModel } from '@xstate/graph'
 import { describe, expect, it } from 'vitest'
 import { fromPromise, setup } from 'xstate'
-import { assertPathCount, shortestPaths, simplePaths } from './generate-paths'
+import {
+  assertPathCount,
+  NIGHTLY_MAX_DEPTH,
+  PR_MAX_DEPTH,
+  shortestPaths,
+  simplePaths,
+} from './generate-paths'
 import { assertModelMatchesSystem, modeledStates } from './model-validation'
 
 // This file pins the two @xstate/graph 3.0.4 constraints the whole MBT story rests on
@@ -10,14 +16,14 @@ import { assertModelMatchesSystem, modeledStates } from './model-validation'
 
 describe('the rollout model is @xstate/graph-traversable', () => {
   it('generates shortest paths reaching every one of the five reachable states', () => {
-    const paths = shortestPaths(rolloutMachine, { maxDepth: 10 })
+    const paths = shortestPaths(rolloutMachine, { maxDepth: PR_MAX_DEPTH })
     const targets = new Set(paths.map((p) => p.target))
     expect(targets.size).toBe(modeledStates(rolloutMachine).length)
     expect(modeledStates(rolloutMachine).length).toBe(5)
   })
 
   it('generates simple paths and stays within a sane count band', () => {
-    const paths = simplePaths(rolloutMachine, { maxDepth: 20 })
+    const paths = simplePaths(rolloutMachine, { maxDepth: NIGHTLY_MAX_DEPTH })
     // Floor catches a regression that erases reachable states; cap catches an explosion.
     assertPathCount(paths, { floor: 5, cap: 200 })
   })

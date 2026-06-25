@@ -8,7 +8,7 @@ import {
   edgesOfPaths,
   illegalPairs,
 } from './edge-coverage'
-import { shortestPaths, simplePaths } from './generate-paths'
+import { NIGHTLY_MAX_DEPTH, PR_MAX_DEPTH, shortestPaths, simplePaths } from './generate-paths'
 
 // Companion to rollout-traversal.regression.test.ts (which pins path COUNTS): this file pins
 // the bridge's reason to exist — path generators reach every state yet miss the back-edges,
@@ -39,21 +39,24 @@ describe('allEdges', () => {
 
 describe('edgesOfPaths', () => {
   it('threads the from-state through steps and parses the JSON-quoted state names', () => {
-    const covered = edgesOfPaths(shortestPaths(rolloutMachine, { maxDepth: 10 }), 'Off')
+    const covered = edgesOfPaths(shortestPaths(rolloutMachine, { maxDepth: PR_MAX_DEPTH }), 'Off')
     // Canonical form is plain names — a single raw (quoted) step.state would poison the set.
     expect(covered.has('Off|EnableRequested|Enabling')).toBe(true)
     expect(covered.has('"Off"|EnableRequested|"Enabling"')).toBe(false)
   })
 
   it('shortest paths reach all five states but cross only the four forward edges', () => {
-    const covered = edgesOfPaths(shortestPaths(rolloutMachine, { maxDepth: 10 }), 'Off')
+    const covered = edgesOfPaths(shortestPaths(rolloutMachine, { maxDepth: PR_MAX_DEPTH }), 'Off')
     const report = coverageReport(allEdges(rolloutMachine), covered)
     expect(report.edges_covered).toBe(4)
     expect(report.gap.map(edgeKey).sort()).toEqual([...ROLLOUT_BACK_EDGES].sort())
   })
 
   it('simple paths ALSO miss the three back-edges (a return to Off is not a simple path)', () => {
-    const covered = edgesOfPaths(simplePaths(rolloutMachine, { maxDepth: 20 }), 'Off')
+    const covered = edgesOfPaths(
+      simplePaths(rolloutMachine, { maxDepth: NIGHTLY_MAX_DEPTH }),
+      'Off',
+    )
     const report = coverageReport(allEdges(rolloutMachine), covered)
     expect(report.gap.map(edgeKey).sort()).toEqual([...ROLLOUT_BACK_EDGES].sort())
   })

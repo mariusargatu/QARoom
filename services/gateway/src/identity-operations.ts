@@ -18,6 +18,7 @@ import {
   userIdParam,
 } from '@qaroom/contracts'
 import { upstreamUnreachable502 } from './problem-responses'
+import { IDENTITY_UPSTREAM } from './upstreams'
 
 /**
  * The identity operations the gateway proxies to identity-service (ADR-0022): user + community +
@@ -30,8 +31,7 @@ import { upstreamUnreachable502 } from './problem-responses'
  * responses (404/409/422/401 + the 502) live below.
  */
 const identityUnreachable502 = upstreamUnreachable502(
-  'identity-unreachable',
-  'identity-service',
+  IDENTITY_UPSTREAM,
   'identity-service is unreachable or timed out.',
 )
 const userNotFound404 = problemResponse(404, 'user-not-found', 'User not found', 'not_found', {

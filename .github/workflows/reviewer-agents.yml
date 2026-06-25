@@ -1,7 +1,9 @@
 # Reviewer agents (ADR-0026).
 #
 # One LLM judge per touched boundary (scripts/reviewer-agent.ts), reading that boundary's guardrail
-# (its AGENTS.md) + the diff, posting findings to the PR thread for the implementation agent to fix.
+# (its AGENTS.md) + the diff + verified evidence (caller counts, unchanged drift-gated specs, manifest
+# direction, this-commit gate results) that refutes false-impact findings, posting findings to the PR
+# thread for the implementation agent to fix.
 # This is the piece that scales review with PR count (humans don't). Blocks Lane A on any P2+
 # finding. Cost is stamped per run into test-results/reviewer-cost.json (OBSERVE-ONLY, no cap —
 # ADR-0026 measure-first) and uploaded as an artifact so the per-PR $ distribution can be read off real
@@ -50,6 +52,32 @@ jobs:
           echo "Touched boundaries:" | tee -a "$GITHUB_STEP_SUMMARY"
           sed 's/^/- /' /tmp/boundaries.txt | tee -a "$GITHUB_STEP_SUMMARY"
           { echo 'list<<__EOF__'; cat /tmp/boundaries.txt; echo '__EOF__'; } >> "$GITHUB_OUTPUT"
+
+      - name: Fetch this-commit gate results (best-effort evidence, ADR-0026)
+        continue-on-error: true
+        env:
+          GH_TOKEN: ${{ github.token }}
+          HEAD_SHA: ${{ github.event.pull_request.head.sha }}
+        run: |
+          set -uo pipefail
+          # The judge reads test-results/summary.json (if present) to REFUTE findings that predict a
+          # gate would turn red — a "this breaks X" claim is false when X's runner is green. summary.json
+          # is produced by ci.yml's verify job and uploaded as `partial-verify` on this same commit.
+          # Pull it best-effort: if verify hasn't finished, the judge still has caller counts + spec
+          # stability, so never fail the review for missing gate evidence.
+          mkdir -p test-results
+          run_id=$(gh run list --workflow ci.yml --json databaseId,headSha,status \
+            --jq 'map(select(.headSha=="'"$HEAD_SHA"'" and .status=="completed")) | .[0].databaseId' 2>/dev/null || true)
+          if [ -z "${run_id:-}" ]; then
+            echo "::notice::no completed ci.yml run for $HEAD_SHA yet — judging without gate evidence."
+            exit 0
+          fi
+          if gh run download "$run_id" -n partial-verify -D /tmp/verify-summary 2>/dev/null \
+            && cp /tmp/verify-summary/summary.json test-results/summary.json; then
+            echo "::notice::gate evidence loaded from ci.yml run $run_id."
+          else
+            echo "::notice::partial-verify artifact unavailable — judging without gate evidence."
+          fi
 
       - name: Run per-boundary judges
         id: judge

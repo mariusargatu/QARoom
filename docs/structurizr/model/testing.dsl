@@ -1,11 +1,11 @@
 # The TESTING ARCHITECTURE as a first-class model (custom elements + relationships), rendered by
 # views/testing-views.dsl. This is the "central artifact": every architectural boundary, the
-# technique(s) that defend it, the honeycomb tier each technique lives in, the nine falsifiable
+# technique(s) that defend it, the honeycomb tier each technique lives in, the eleven falsifiable
 # claims, and the contract-triangulation gates.
 #
 # SOURCES OF TRUTH (keep this file a faithful projection of them):
 #   - Boundaries  -> scripts/lib/manifests/boundary-registry.ts  (12 rows; `pnpm boundaries:render`)
-#   - Claims      -> scripts/lib/manifests/claims.ts             (9 claims; `pnpm claims:verify`)
+#   - Claims      -> scripts/lib/manifests/claims.ts             (11 claims; `pnpm claims:verify`)
 #   - Techniques  -> ARCHITECTURE.md §3 (honeycomb bands + the gated boundary map) + the tests
 #   - Tiers       -> ARCHITECTURE.md §3 (cap / integration band / E2E base) and docs/gauntlet.md
 # When a boundary or claim changes in the manifest above, update the matching element here.
@@ -92,7 +92,7 @@ tChaos        -> bPaymentEdge "defends (HTTPChaos)"
 tProperty     -> bDeliveryEdge "defends (HMAC / SSRF / retry)"
 tMbt          -> bDeliveryEdge "defends (delivery machine)"
 
-# ============================ The 9 falsifiable claims ============================
+# ============================ The 11 falsifiable claims ============================
 # Each holds without its toggle and goes RED with it. `pnpm prove <id> --break`. (docs/claims.md)
 group "Falsifiable claims (pnpm prove)" {
     clSign        = element "webhook-signing"        "CHAOS_WEBHOOK_SIGN_BODY_ONLY" "A signature binds the timestamp: a captured (body, signature) cannot be replayed." "Claim"
@@ -101,7 +101,9 @@ group "Falsifiable claims (pnpm prove)" {
     clApprove     = element "moderator-no-confident-approve-of-flag" "MODERATOR_DISABLE_APPROVE_GUARD" "An approve that diverges from majority-remove precedent escalates instead." "Claim"
     clInputGuard  = element "input-guard-fences-untrusted-body" "MODERATOR_DISABLE_INPUT_GUARD" "Fences attacker-controlled bodies as DATA before the model." "Claim"
     clCorpusGuard = element "retrieved-context-fenced" "MODERATOR_DISABLE_CORPUS_GUARD" "Fences poisoned precedents / policy text as DATA." "Claim"
+    clVote        = element "vote-value-in-band"     "CONTENT_BUG_VOTE_OUT_OF_RANGE" "A stored vote is exactly +1 or -1; the +/-1 rule lives in one place (VOTE_VALUES) and the schema, DB CHECK, OpenAPI, and property generator all derive from it (ADR-0024)." "Claim"
     clTenant      = element "tenant-isolation"       "CONTENT_BUG_TENANT_LEAK" "A feed contains exactly its own posts under any cross-community interleave." "Claim"
+    clEventsPoll  = element "events-polling-membership" "GATEWAY_BUG_SKIP_EVENTS_AUTHZ" "The events polling fallback enforces community membership: a non-member is refused (403), so REST cannot leak another tenant's event stream (ADR-0025)." "Claim"
     clSpan        = element "tenant-span-everywhere" "CHAOS_TENANT_SPAN_DROP" "Every emitted span carries tenant.id; a dropped stamp is caught by the live Jaeger audit." "Claim"
     clOutbox      = element "outbox-isolates-broker-latency" "CHAOS_SYNC_PUBLISH" "The outbox keeps mutating-HTTP latency independent of the broker." "Claim"
 }
@@ -114,7 +116,9 @@ clAbstain     -> bExternalDep "falsifies"
 clApprove     -> bExternalDep "falsifies"
 clInputGuard  -> bExternalDep "falsifies"
 clCorpusGuard -> bExternalDep "falsifies"
+clVote        -> bProcessRest "falsifies"
 clTenant      -> bTenancy "falsifies"
+clEventsPoll  -> bTenancy "falsifies (REST fallback)"
 clSpan        -> bObservability "falsifies"
 clOutbox      -> bProcessAsync "falsifies"
 

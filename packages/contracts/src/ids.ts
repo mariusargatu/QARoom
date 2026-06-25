@@ -37,6 +37,7 @@ export type CommunityId = z.infer<typeof CommunityId>
 export const PostId = brandedId('post', 'PostId')
 export type PostId = z.infer<typeof PostId>
 
+// RESERVED: no comment feature exists yet (M0–M12). Kept so the branded-id space is allocated up front.
 export const CommentId = brandedId('cmnt', 'CommentId')
 export type CommentId = z.infer<typeof CommentId>
 

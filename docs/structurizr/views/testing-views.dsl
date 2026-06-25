@@ -16,9 +16,9 @@ custom "TestingHoneycombTiers" "Testing: the honeycomb, by tier" "The technique 
     autolayout tb
 }
 
-custom "FalsifiableClaims" "Testing: the nine falsifiable claims" "Each claim holds without its toggle and goes RED with it (pnpm prove <id> --break); the manifest can never decay into theater (pnpm claims:verify). docs/claims.md." {
-    include clSign clAtLeastOnce clAbstain clApprove clInputGuard clCorpusGuard clTenant clSpan clOutbox
-    include bDeliveryEdge bExternalDep bTenancy bObservability bProcessAsync
+custom "FalsifiableClaims" "Testing: the eleven falsifiable claims" "Each claim holds without its toggle and goes RED with it (pnpm prove <id> --break); the manifest can never decay into theater (pnpm claims:verify). docs/claims.md." {
+    include clSign clAtLeastOnce clAbstain clApprove clInputGuard clCorpusGuard clVote clTenant clEventsPoll clSpan clOutbox
+    include bDeliveryEdge bExternalDep bProcessRest bTenancy bObservability bProcessAsync
     autolayout lr
 }
 
