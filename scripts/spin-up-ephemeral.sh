@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # Namespaced ephemeral environment provisioner (ADR-0001 Commitment 15; consumed by
-# the agentic-CI demo (docs/agentic-ci/goals.json) and the per-worktree flow in AGENTS.md). One namespace per
+# the agentic-CI demonstration (ADR-0006) and the per-worktree flow in AGENTS.md). One namespace per
 # agent/worktree — `qaroom-<name>` — with the full service set and its OWN NATS, so
 # events and consumer state never leak between environments. Postgres is per-service
 # via the shared chart, so domain state is namespaced for free.
