@@ -32,7 +32,9 @@ export type RunnerTier = 'in-proc' | 'cluster' | 'optional'
 //   cluster  — needs a live cluster or a model key; expected only under --tier full (else DEFERRED).
 //   optional — folded by a script but gated on a heavyweight toolchain (Java/Python/Pact broker);
 //              recognised so the drift check passes, never required by any tier.
-const RUNNER_TIERS: Record<string, RunnerTier> = {
+// Exported so the meta-collapse registry's faithful-superset proof (scripts/lib/runners.test.ts) can
+// assert RUNNERS covers every classification here. PR-B deletes this map in favour of scripts/lib/runners.ts.
+export const RUNNER_TIERS: Record<string, RunnerTier> = {
   'mbt-edge-coverage': 'in-proc',
   'web-component': 'in-proc',
   'web-e2e': 'in-proc',
@@ -63,7 +65,7 @@ const RUNNER_TIERS: Record<string, RunnerTier> = {
 //  - coverage       — folded by scripts/coverage-results.ts via a DYNAMIC `name: s.runner` (the web
 //                     merged-coverage scope), which the literal-`name:` extractor can't read.
 // (scenario:* are derivable — scenario-results.ts uses literal `name:` strings — so they stay in.)
-const RUNNERS_WITHOUT_RESULTS_SCRIPT = new Set([
+export const RUNNERS_WITHOUT_RESULTS_SCRIPT = new Set([
   'tenant-spans',
   'coverage',
   'coverage:web-component',
