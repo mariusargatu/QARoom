@@ -22,6 +22,7 @@ itself is the only stochastic dependency).
 
 from __future__ import annotations
 
+import asyncio
 import json
 import os
 from dataclasses import dataclass, field
@@ -106,7 +107,7 @@ def _retrieval_texts(entries: list[PolicyEntry]) -> list[str]:
 # The pinned judge model for the LLM-as-judge metrics. JRH best practice (mid-2026): the judge model is
 # versioned as strictly as the code, so judge DRIFT is caught instead of read as a model regression.
 # Overridable for a deliberate-judge-swap experiment; defaults to a fixed, strong, cheap judge.
-JUDGE_MODEL = os.environ.get("MODERATOR_JUDGE_MODEL", "gpt-4o-mini")
+JUDGE_MODEL = os.environ.get("MODERATOR_JUDGE_MODEL", "gpt-5-mini")
 
 
 def citation_grounding_metric(threshold: float = 0.5, *, model: str | None = None) -> Any:
@@ -162,11 +163,6 @@ def build_workflow(
     return workflow, corpus
 
 
-def _retrieval_limit(workflow: ModerationWorkflow) -> int:
-    # The limit the draft node reasons over — a stable config value the corpus retrieve mirrors.
-    return workflow._settings.moderator_retrieval_limit
-
-
 async def run_case(
     workflow: ModerationWorkflow,
     corpus: InMemoryPolicyCorpusStore,
@@ -191,8 +187,21 @@ async def run_case(
         created_at="2026-06-05T00:00:00.000Z",
     )
     decision = await workflow.run(event)
-    entries = await corpus.retrieve(community_id, [], limit=_retrieval_limit(workflow))
-    return _to_target_case(case, decision, post, _retrieval_texts(entries))
+    # Judge the metric against the REAL two-stage retrieval (ADR-0021) the draft reasons over: embed the
+    # post, retrieve the wide candidate set, rerank to the top-k. The old `corpus.retrieve(..., [], ...)`
+    # passed an EMPTY embedding, which falls back to stable id order (corpus.py) — bypassing relevance
+    # AND the reranker, so contextual precision/relevancy were a false signal fixed to the post-agnostic
+    # id order. Mirror `_retrieve`/`_rerank` with the workflow's own embedder + reranker instances.
+    settings = workflow._settings
+    query = workflow._post_text(event)
+    embedding = await asyncio.to_thread(workflow._embedder.embed, query)
+    candidates = await corpus.retrieve(
+        community_id, embedding, limit=settings.moderator_retrieval_candidates
+    )
+    ranked = await asyncio.to_thread(
+        workflow._reranker.rerank, query, candidates, top_k=settings.moderator_retrieval_limit
+    )
+    return _to_target_case(case, decision, post, _retrieval_texts(ranked))
 
 
 def _to_target_case(
