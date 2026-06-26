@@ -128,16 +128,25 @@ function checkWired(claim: Claim): Result {
 }
 
 function checkTeeth(claim: Claim): Result {
-  // A live-tier claim's bug lives in the DEPLOYED pods (live-claim-gate.sh arms it there);
-  // without a reachable cluster the falsifier cannot run, and reporting that as THEATER would
-  // be a false verdict. Skip visibly instead — the gauntlet (cluster up) runs the real teeth.
+  // A live-tier claim's bug lives in the DEPLOYED pods (live-claim-gate.sh → live-toggle.sh arms it
+  // there, gates, reverts). A reachable cluster is NECESSARY BUT NOT SUFFICIENT: a local `pnpm verify`
+  // against a cluster that is up but not primed runs the audit over pre-arming (clean) spans, the gate
+  // goes a FALSE green, and a real claim is mislabelled THEATER. So attempt the live falsifier only
+  // under an explicit opt-in — the gauntlet's cluster lane sets LIVE_TEETH=1, where the cluster is
+  // deliberately primed — and otherwise DEFER. Deferred is a first-class, tallied outcome ("re-run on
+  // the cluster"), never a silent pass: the real teeth still run, just where they can actually arm the
+  // bug, so a dev with an idle cluster up no longer turns a live claim into theatre.
   if (claim.tier === 'live') {
-    const probe = spawnSync('kubectl', ['get', 'ns', 'qaroom'], { encoding: 'utf8' })
-    if (probe.status !== 0) {
+    const optedIn = process.env.LIVE_TEETH === '1'
+    const reachable =
+      optedIn && spawnSync('kubectl', ['get', 'ns', 'qaroom'], { encoding: 'utf8' }).status === 0
+    if (!reachable) {
       return {
         ok: true,
         deferred: true,
-        detail: 'live tier: no reachable cluster — teeth deferred to a live run',
+        detail: optedIn
+          ? 'live tier: no reachable cluster — teeth deferred to a live run'
+          : 'live tier: teeth deferred to a primed live run (set LIVE_TEETH=1 with the cluster up)',
       }
     }
   }

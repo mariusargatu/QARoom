@@ -1,32 +1,27 @@
-import type { Page } from '@playwright/test'
 import type { Ability } from '../ability'
-import type { PageProvider } from '../page-provider'
+import type { PageProvider, UiDriver } from '../page-provider'
 
 /**
- * The component-test binding of the `PageProvider` seam (introduced now, exercised in
- * Milestone 8). In a Playwright Component Test the raw component is mounted with its
- * `story.args` and the surrounding `page` drives it; this ability wraps that page so the SAME
- * Task source that runs in E2E (via `BrowseTheWeb`) runs against a mounted component — only
- * the ability binding differs (ADR-0005). Shipping the seam in Milestone 5 keeps the
- * Milestone-8 component suite a binding change, not a rewrite.
+ * The component-test binding of the `PageProvider` seam (ADR-0005, narrowed by ADR-0027). Holds a
+ * `UiDriver` adapted from a Vitest-browser component mount (see `screenplay-ct/create-component-actor`).
+ * Because Tasks touch the UI only through `actor.withPageProvider().getDriver()`, the SAME Task source
+ * that runs in E2E via `BrowseTheWeb` runs here against a mounted component — only the ability binding
+ * differs. The ability stays runtime-library-free: the `vitest-browser` → `UiDriver` adaptation lives
+ * in the bridge, so this core module never imports a browser runner.
  */
 export class InteractWithComponent implements Ability, PageProvider {
   readonly name = 'InteractWithComponent'
-  readonly #page: Page
+  readonly #driver: UiDriver
 
-  private constructor(page: Page) {
-    this.#page = page
+  private constructor(driver: UiDriver) {
+    this.#driver = driver
   }
 
-  /**
-   * `page` is the CT test's page after the component has been mounted with `story.args`.
-   * Matches `BrowseTheWeb.using(page)` so the seam reads the same on both sides.
-   */
-  static using(page: Page): InteractWithComponent {
-    return new InteractWithComponent(page)
+  static using(driver: UiDriver): InteractWithComponent {
+    return new InteractWithComponent(driver)
   }
 
-  getPage(): Page {
-    return this.#page
+  getDriver(): UiDriver {
+    return this.#driver
   }
 }

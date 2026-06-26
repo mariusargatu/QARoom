@@ -13,9 +13,7 @@ export default [
       '**/node_modules/**',
       '**/.turbo/**',
       '**/coverage/**',
-      // Playwright CT's Vite build cache (services/web/playwright/.cache) — generated bundles,
-      // gitignored, regenerated on every `ct` run; never hand-authored.
-      '**/playwright/.cache/**',
+      '**/coverage-component/**',
       'test-results/**',
       '**/*.gen.ts',
       '**/openapi.yaml',
@@ -86,18 +84,6 @@ export default [
     plugins: { qaroom },
     rules: {
       'qaroom/atomic-import-direction': 'error',
-    },
-  },
-  // Playwright Component Tests: forbid mounting a composeStories() result (ADR-0005).
-  {
-    files: ['**/*.ct.tsx'],
-    languageOptions: {
-      parser,
-      parserOptions: { ecmaVersion: 2023, sourceType: 'module', ecmaFeatures: { jsx: true } },
-    },
-    plugins: { qaroom },
-    rules: {
-      'qaroom/no-mount-composed-story': 'error',
     },
   },
   // k6 load scripts (Milestone 8): plain ESM .js with goja globals. The determinism guardrails apply

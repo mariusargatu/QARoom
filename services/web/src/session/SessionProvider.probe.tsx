@@ -1,8 +1,8 @@
 import type { ApiClient } from '../api/client'
 import { SessionProvider, useSession } from './SessionProvider'
 
-// CT harness for SessionProvider.ct.tsx (Playwright CT mounts only imported components). A minimal
-// fake ApiClient stands in for the gateway: only the session-bootstrap surface is exercised.
+// Harness for SessionProvider.browser.test.tsx (ADR-0027). A minimal fake ApiClient stands in for
+// the gateway: only the session-bootstrap surface is exercised.
 
 function fakeApi(): ApiClient {
   return {

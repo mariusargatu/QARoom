@@ -6,6 +6,7 @@ export {
   edgeRecorder,
   edgesOfPaths,
   illegalPairs,
+  traverseAndRecord,
 } from './edge-coverage'
 export type { GeneratedPath, GeneratedStep, PathCountBounds, PathOptions } from './generate-paths'
 export {

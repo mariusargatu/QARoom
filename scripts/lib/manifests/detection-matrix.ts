@@ -424,6 +424,26 @@ export const TOGGLES: DetectionToggle[] = z.array(DetectionToggle).parse([
     notes:
       'H1 probe: predicted single-point-of-detection (delete test_reranker.py and this ships).',
   },
+  // ── web (the first FRONTEND toggle: a UI bug caught at the lowest tier, not by driving the system) ──
+  {
+    id: 'ws-no-dedup',
+    env: { name: 'WEB_BUG_WS_NO_DEDUP', value: '1' },
+    component: 'web',
+    readSite: {
+      file: 'services/web/src/hooks/useWsWithPollingFallback.ts',
+      timing: 'call-time',
+    },
+    guard: 'node-env-gated',
+    designatedCatcher: 'services/web/src/hooks/useWsWithPollingFallback.property.test.ts',
+    claimId: 'ws-merge-dedup',
+    tiers: ['in-proc'],
+    selfToggling: [],
+    notes:
+      'The WS push + polling fallback both replay the backlog, so the merge MUST dedup by per-community ' +
+      'seq or the same envelope renders twice (duplicate React keys, doubled rows). The pure `prepend` ' +
+      'reducer is the read site; a fast-check property over overlapping prev/incoming feeds catches it ' +
+      'in-proc — the UI bug reproduced by writing the inputs down, not by a 500-client storm.',
+  },
 ])
 
 export const toggleById = (id: string): DetectionToggle | undefined =>

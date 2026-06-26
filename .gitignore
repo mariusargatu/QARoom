@@ -3,10 +3,22 @@ node_modules/
 dist/
 .turbo/
 coverage/
+coverage-component/
+coverage-node/
+coverage-merged/
 coverage.json
 .coverage
 test-results/
 .nyc_output/
+# Vitest visual-regression: only the container-generated Linux baseline is tracked (rendered in the
+# pinned services/web/Dockerfile.visual so dev and CI match — ADR-0027 §3). A developer's local-OS
+# baseline (`*-darwin.png`/`*-win32.png`) and the per-run diff/actual images are NOT committed.
+**/__screenshots__/**/*-darwin.png
+**/__screenshots__/**/*-win32.png
+**/__screenshots__/**/*-actual*.png
+**/__screenshots__/**/*-diff*.png
+# Vitest browser-mode run attachments (traces/screenshots emitted per test run).
+.vitest-attachments/
 .cache/
 *.tsbuildinfo
 .DS_Store

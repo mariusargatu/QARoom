@@ -11,7 +11,7 @@ interface Totals {
  * Fold one runner's result into the frozen `test-results/summary.json` envelope (Commitment 14):
  * load-or-init the base envelope, replace any prior entry with the same `name` (so re-runs are
  * idempotent), recompute totals, validate against the do-not-touch `TestResultsSummary` schema, and
- * write. The single home for that invariant — `k6`/`stryker`/`evomaster`/`web-ct`/`chaos` result
+ * write. The single home for that invariant — `k6`/`stryker`/`evomaster`/`web-component`/`chaos` result
  * scripts each parse their own tool's output into a `RunnerResult` and call this. Returns the new
  * totals so the caller owns its exit code.
  *

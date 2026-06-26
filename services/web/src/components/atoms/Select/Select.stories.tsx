@@ -1,7 +1,9 @@
-import type { Meta, StoryObj } from '@storybook/react-vite'
+import preview from '../../../../.storybook/preview'
 import { Select } from './Select'
 
-const meta = {
+// CSF Factory format (ADR-0027 §4). Atom tier — stories cover the default/disabled states this native
+// select ADDS; higher tiers that compose it into forms don't re-test it.
+const meta = preview.meta({
   title: 'atoms/Select',
   component: Select,
   args: { 'aria-label': 'Role' },
@@ -12,10 +14,7 @@ const meta = {
       <option value="owner">owner</option>
     </Select>
   ),
-} satisfies Meta<typeof Select>
+})
 
-export default meta
-type Story = StoryObj<typeof meta>
-
-export const Default: Story = {}
-export const Disabled: Story = { args: { disabled: true } }
+export const Default = meta.story({})
+export const Disabled = meta.story({ args: { disabled: true } })

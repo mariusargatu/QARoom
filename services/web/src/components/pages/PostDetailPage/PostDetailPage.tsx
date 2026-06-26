@@ -1,3 +1,4 @@
+import type { Post } from '@qaroom/contracts'
 import { Link, useParams } from 'react-router-dom'
 import { useApi } from '../../../api/ApiProvider'
 import { usePost } from '../../../hooks/usePost'
@@ -18,10 +19,11 @@ export function PostDetailPage() {
   const { post, loading, error, setPost, refresh } = usePost(api, postId)
   const { myVotes, pendingId, error: voteError, vote } = useVote(api, currentUser?.id ?? '')
 
-  const onVote = async (value: 1 | -1) => {
-    if (!post) return
-    const score = await vote(post.id, value)
-    if (score !== undefined) setPost({ ...post, score })
+  // VoteControl (onVote's only caller) renders solely in the `post`-truthy branch below, so the post
+  // is always defined here — it is passed in already narrowed rather than re-checked for null.
+  const onVote = async (current: Post, value: 1 | -1) => {
+    const score = await vote(current.id, value)
+    if (score !== undefined) setPost({ ...current, score })
   }
 
   return (
@@ -48,7 +50,7 @@ export function PostDetailPage() {
             score={post.score}
             value={myVotes[post.id] ?? 0}
             pending={pendingId === post.id}
-            onVote={(value) => void onVote(value)}
+            onVote={(value) => void onVote(post, value)}
           />
           <div className="min-w-0 flex-1">
             <h1 className="font-display text-3xl font-medium leading-tight text-text">

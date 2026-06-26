@@ -2,7 +2,18 @@ export { BrowseTheWeb } from './abilities/browse-the-web'
 export { InteractWithComponent } from './abilities/interact-with-component'
 export type { Ability } from './ability'
 export { Actor } from './actor'
-export { isPageProvider, type PageProvider } from './page-provider'
+export {
+  LOC,
+  type Loc,
+  type LocatorSource,
+  locate,
+  locateTestId,
+  placeholder,
+  role,
+  testId,
+  text,
+} from './locators'
+export { isPageProvider, type PageProvider, type UiDriver, type UiHandle } from './page-provider'
 export type { Question } from './question'
 export { theClickCount } from './questions/the-click-count'
 export { theFlagState } from './questions/the-flag-state'

@@ -17,7 +17,7 @@ name: CI
 # nightly:
 #   light   (every dispatch): verify, claims, contracts, fuzz, fuzz-identity, fuzz-webhooks,
 #                             web-stories, moderator        — in-process, no cluster, fast lane
-#   merge   (light +):        chart, cluster-smoke, tracetest, web-ct   — KinD cluster + chart + CT
+#   merge   (light +):        chart, cluster-smoke, tracetest, web-component — KinD cluster + chart + browser CT
 #   nightly (merge +):        load, mutation, evomaster, chaos, coverage — heavy / search / chaos / floor gate
 # Evals (moderator-evals: golden + DeepEval + DeepTeam) run on the `schedule` cron OR on a dispatch
 # with `run_evals: true`; they are gated OUT of every tier so the cron fires evals only. PyRIT stays
@@ -90,7 +90,7 @@ jobs:
         run: pnpm mbt:results
 
       # Backend v8 coverage (content + donations) folded as coverage:<svc> runners. Runs HERE (not
-      # only in web-ct/summary-envelope) so it rides partial-verify into the final envelope; must come
+      # only in web-component/summary-envelope) so it rides partial-verify into the final envelope; must come
       # after test-results:generate, which rewrites the envelope from scratch. SKIPPED on the PR lane:
       # it re-runs the 5 backend suites already run un-instrumented above (~2x backend test time), the
       # coverage floor isn't enforced on PRs (the `coverage` job is dispatch-only), and the partial
@@ -125,6 +125,10 @@ jobs:
 
       - name: Registry census (boundary registry / gate roster has no orphans or drift)
         run: pnpm census
+
+      - name: Web component census (every atomic-design component has a CSF-factory story, ADR-0027)
+        # In-process node:fs scan, no cluster — so the ADR-0027 hard story-coverage gate runs on every PR.
+        run: pnpm --filter @qaroom/web run census
 
       # Detection-matrix drift gate (in-proc, no uv/cluster): the rendered docs/detection-matrix.md
       # must agree with its manifest. An AGENTS-designated invariant source, so it must gate every PR.
@@ -405,10 +409,11 @@ jobs:
           tracetest run test -f services/flags/tests/tracetest/rollout-transition.yaml --vars runId="$RUN_ID" --wait-for-result
           tracetest run test -f services/donations/tests/tracetest/donation-create-publish.yaml --vars runId="$RUN_ID" --wait-for-result
 
-  # Playwright Component Tests + unified coverage (Milestone 8). Heavier (real Chromium per mount +
-  # the V8/Istanbul coverage merge), so merge-gated. Folds a `web-ct` runner (scripts/ct-results.ts)
-  # and a `coverage` runner (scripts/coverage-results.ts) into summary.json.
-  web-ct:
+  # Screenplay component tests in Vitest browser mode + story coverage (ADR-0027, replaces the
+  # Playwright-CT lane). One browser runtime, one V8 coverage source (no V8/Istanbul merge). Real
+  # Chromium, so merge-gated. Folds a `web-component` runner (scripts/component-results.ts) and a
+  # `coverage` runner (scripts/coverage-results.ts) into summary.json.
+  web-component:
     if: github.event_name == 'workflow_dispatch' && (inputs.tier == 'merge' || inputs.tier == 'nightly')
     runs-on: ubuntu-latest
     steps:
@@ -416,29 +421,43 @@ jobs:
       - uses: ./.github/actions/setup-workspace
       - name: Install Chromium
         run: pnpm --filter @qaroom/web exec playwright install --with-deps chromium
-      - name: Component tests with coverage (Istanbul)
-        run: pnpm --filter @qaroom/web run ct:coverage
+      - name: Screenplay component tests (Vitest browser) + V8 coverage
+        run: pnpm --filter @qaroom/web run test:component:coverage
       - name: Story coverage (V8)
         run: pnpm --filter @qaroom/web run test:stories:coverage
-      - name: Merge V8 + Istanbul coverage (monocart)
-        run: pnpm --filter @qaroom/web run coverage:merge
-      - name: Fold web-ct runner into summary.json
+      - name: Fold web-component runner into summary.json
         if: always()
-        run: pnpm --filter @qaroom/web run ct:results
-      - name: Upload the web-ct Playwright report partial
+        run: pnpm --filter @qaroom/web run test:component:results
+      - name: Upload the web-component Vitest report partial
         if: always()
         uses: actions/upload-artifact@v4
         with:
-          name: partial-web-ct
-          path: services/web/test-results/ct.json
+          name: partial-web-component
+          path: services/web/test-results/component.json
           if-no-files-found: warn
-      - name: Upload the merged web coverage partial (also human-inspectable)
+      - name: Upload the web coverage partials (story + component V8; also human-inspectable)
         if: always()
         uses: actions/upload-artifact@v4
         with:
           name: partial-web-coverage
-          path: services/web/coverage/merged
+          path: |
+            services/web/coverage
+            services/web/coverage-component
           if-no-files-found: warn
+
+  # Visual regression in the PINNED container (ADR-0027 §3). Pixel baselines are font/AA-sensitive, so
+  # the gate must render in the exact env that produced the committed baseline — services/web/Dockerfile.visual
+  # (`*-chromium-linux.png`). Same image a developer runs via `pnpm visual`. Requires the baseline to be
+  # seeded first (`pnpm visual:update`, committed); until then this lane creates-and-fails by design.
+  web-visual:
+    if: github.event_name == 'workflow_dispatch' && (inputs.tier == 'merge' || inputs.tier == 'nightly')
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Visual-regression gate (pinned container)
+        run: |
+          docker build -f services/web/Dockerfile.visual -t qaroom/visual .
+          docker run --rm qaroom/visual
 
   # NIGHTLY tier (merge + the heavy / search / chaos lanes).
   #
@@ -692,7 +711,7 @@ jobs:
     needs:
       - verify
       - moderator
-      - web-ct
+      - web-component
       - load
       - mutation
       - evomaster
@@ -715,7 +734,7 @@ jobs:
       - name: Assemble one envelope — base, then fold each present partial
         run: |
           set -eu
-          mkdir -p test-results services/web/test-results services/web/coverage/merged \
+          mkdir -p test-results services/web/test-results services/web/coverage services/web/coverage-component \
             services/moderator-agent/test-results services/moderator-agent/evals/golden \
             services/content/tests/evomaster-generated
 
@@ -739,12 +758,19 @@ jobs:
             cp partials/partial-moderator/pytest-summary.json services/moderator-agent/test-results/
             pnpm moderator:results || true
           fi
-          if [ -f partials/partial-web-ct/ct.json ]; then
-            cp partials/partial-web-ct/ct.json services/web/test-results/
-            pnpm --filter @qaroom/web run ct:results || true
+          if [ -f partials/partial-web-component/component.json ]; then
+            cp partials/partial-web-component/component.json services/web/test-results/
+            pnpm --filter @qaroom/web run test:component:results || true
           fi
-          if [ -f partials/partial-web-coverage/coverage-summary.json ]; then
-            cp partials/partial-web-coverage/coverage-summary.json services/web/coverage/merged/
+          # The web-coverage partial carries two V8 summaries (story run + component run, ADR-0027);
+          # the multi-path upload preserves their coverage/ and coverage-component/ subdirs.
+          if [ -f partials/partial-web-coverage/coverage/coverage-summary.json ]; then
+            cp partials/partial-web-coverage/coverage/coverage-summary.json services/web/coverage/
+          fi
+          if [ -f partials/partial-web-coverage/coverage-component/coverage-summary.json ]; then
+            cp partials/partial-web-coverage/coverage-component/coverage-summary.json services/web/coverage-component/
+          fi
+          if [ -f services/web/coverage/coverage-summary.json ] || [ -f services/web/coverage-component/coverage-summary.json ]; then
             pnpm coverage:results || true
           fi
           if ls partials/partial-load/k6-*.json >/dev/null 2>&1; then

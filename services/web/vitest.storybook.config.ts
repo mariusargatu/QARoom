@@ -21,12 +21,12 @@ export default defineConfig({
     },
     coverage: {
       provider: 'v8',
-      reporter: ['json', 'text'],
+      reporter: ['json', 'json-summary', 'text'],
       reportsDirectory: 'coverage',
       include: ['src/**/*.{ts,tsx}'],
       exclude: [
         'src/**/*.stories.tsx',
-        'src/**/*.ct.tsx',
+        'src/**/*.browser.test.tsx',
         'src/**/*.test.{ts,tsx}',
         'src/**/index.ts',
         'src/test-support/**',

@@ -1,7 +1,10 @@
-import type { Meta, StoryObj } from '@storybook/react-vite'
+import preview from '../../../../.storybook/preview'
 import { RightRail } from './RightRail'
 
-const meta = {
+// CSF Factory format (ADR-0027 §4). Organism tier — the donations-on vs donations-off community
+// sidebar; the Badge atom inside is already proven, so these stories test only the rail's own
+// composition (community stats + the conditional donations total).
+const meta = preview.meta({
   title: 'organisms/RightRail',
   component: RightRail,
   args: {
@@ -12,10 +15,9 @@ const meta = {
     donationsEnabled: true,
     totalDonationsCents: 125000,
   },
-} satisfies Meta<typeof RightRail>
+})
 
-export default meta
-type Story = StoryObj<typeof meta>
-
-export const Default: Story = {}
-export const DonationsOff: Story = { args: { donationsEnabled: false, totalDonationsCents: 0 } }
+export const Default = meta.story({})
+export const DonationsOff = meta.story({
+  args: { donationsEnabled: false, totalDonationsCents: 0 },
+})

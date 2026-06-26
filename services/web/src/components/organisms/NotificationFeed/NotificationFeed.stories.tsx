@@ -1,17 +1,17 @@
 import { EXAMPLE_COMMUNITY_ID } from '@qaroom/contracts'
-import type { Meta, StoryObj } from '@storybook/react-vite'
+import preview from '../../../../.storybook/preview'
 import { NotificationFeed } from './NotificationFeed'
 
-const meta = {
+// CSF Factory format (ADR-0027 §4). Organism tier — the empty/live/polling states of the activity
+// feed; the Badge atom inside is already proven, so these stories test only the feed's own
+// composition (one row per event + the live-vs-polling connection indicator).
+const meta = preview.meta({
   title: 'organisms/NotificationFeed',
   component: NotificationFeed,
-} satisfies Meta<typeof NotificationFeed>
+})
 
-export default meta
-type Story = StoryObj<typeof meta>
-
-export const Empty: Story = { args: { events: [] } }
-export const Live: Story = {
+export const Empty = meta.story({ args: { events: [] } })
+export const Live = meta.story({
   args: {
     live: true,
     events: [
@@ -26,5 +26,5 @@ export const Live: Story = {
       },
     ],
   },
-}
-export const Polling: Story = { args: { ...Live.args, live: false } }
+})
+export const Polling = meta.story({ args: { ...Live.input.args, live: false } })

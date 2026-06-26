@@ -1,5 +1,6 @@
+import { LOC, locateTestId } from '../locators'
+import type { UiHandle } from '../page-provider'
 import type { Question } from '../question'
-import { TESTID } from '../testids'
 
 /**
  * How many times the atom under test has dispatched its click, read from the visible counter.
@@ -9,8 +10,8 @@ import { TESTID } from '../testids'
 export function theClickCount(): Question<number> {
   return {
     async answeredBy(actor) {
-      const page = actor.withPageProvider().getPage()
-      const text = await page.getByTestId(TESTID.buttonClickCount).textContent()
+      const ui = actor.withPageProvider().getDriver()
+      const text = await locateTestId<UiHandle>(ui, LOC.button.count).textContent()
       return Number(text?.trim() ?? '0')
     },
   }
