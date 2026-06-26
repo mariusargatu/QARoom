@@ -72,7 +72,7 @@ no k3d/tilt -> every cluster phase skips (phases 1–2 still run).
 ## Artifacts
 
 - `test-results/summary.json`: the single numeric source of truth; the gauntlet ADDS runners
-  (`pact`, `schemathesis`, `tracetest`, `coverage`, `tenant-spans`, `stryker-attribution`,
+  (`pact`, `schemathesis`, `tracetest`, `coverage`, `tenant-spans`,
   `gauntlet`) through the frozen envelope's extensible per-runner payload. Zero schema changes.
 - `test-results/gauntlet/steps.jsonl`: append-only run journal (timing, exits, skip reasons);
   what makes `--from <phase>` resumability and the report possible.

@@ -55,7 +55,6 @@ const EXTRA_VALID_RUNNERS = new Set([
   'tenant-spans',
   'eslint-plugin-qaroom',
   'scout',
-  'stryker-attribution',
   'gauntlet',
 ])
 const TOOL_RUNNERS = new Set([...deriveFoldedRunnerNames(), ...EXTRA_VALID_RUNNERS])
