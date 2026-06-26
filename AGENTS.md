@@ -61,8 +61,10 @@ pnpm k6:results                               # fold a k6 load run into summary.
 pnpm stryker:critical && pnpm stryker:results # mutation testing on the locked critical modules (ADR-0016)
 pnpm evomaster && pnpm evomaster:results      # EvoMaster v6 black-box fuzzing (needs Java + live content)
 pnpm --filter @qaroom/web test:stories        # Storybook play() + a11y, headless (Chromium)
-pnpm --filter @qaroom/web ct                  # Playwright Component Tests
-pnpm --filter @qaroom/web coverage:merge      # unified V8 (Vitest) + Istanbul (CT) coverage
+pnpm --filter @qaroom/web test:component      # Screenplay component tests (Vitest browser, ADR-0027)
+pnpm --filter @qaroom/web test:stories:coverage # single V8 coverage source (no V8+Istanbul merge)
+pnpm visual                                   # visual-regression gate in the pinned container (ADR-0027)
+pnpm visual:update                            # reseed the committed Linux pixel baselines
 ```
 
 ## Code intelligence
@@ -175,7 +177,7 @@ Always check the current milestone before introducing infrastructure that doesn'
 
 ## CI gates
 
-CI is **dispatch-first** (`.github/workflows/ci.yml`): the heavy tiers (chart/cluster/load/mutation/chaos) run on demand from the Actions tab by choosing a cumulative `tier` (`light` < `merge` < `nightly`). There are two automatic triggers, both deliberately cheap: a `pull_request` trigger that runs ONLY the in-process `verify` job (lint + typecheck + scripts tests + test + every in-proc drift gate that needs no `uv`/cluster — `claims:verify` stays in the dispatch-only `claims` job because its moderator teeth need `uv`), so `verify` can be a required status check; and one weekly `schedule` cron that fires the keyed `eval` tier alone (cost-bounded; consumes `secrets.OPENAI_API_KEY`). The PR lane has no `paths-ignore` (a path-filtered required check never reports on an excluded PR and deadlocks merge). The other push-triggered workflow is `.github/workflows/pages.yml`, scoped to `site/**`: it deploys the static site (a one-page plain-English testing overview at [mariusargatu.github.io/QARoom](https://mariusargatu.github.io/QARoom/)) and runs no build/test lane. Locally the same bar is `pnpm verify` (fast lane, mirrors the CI `verify` job) and `pnpm gauntlet` (full). Tier map: light = verify/claims/contracts/fuzz*/web-stories/moderator; merge = + chart/cluster-smoke/tracetest/web-ct; nightly = + load/mutation/evomaster/chaos; evals (golden/DeepEval/DeepTeam) run on the cron or a dispatch with `run_evals: true`.
+CI is **dispatch-first** (`.github/workflows/ci.yml`): the heavy tiers (chart/cluster/load/mutation/chaos) run on demand from the Actions tab by choosing a cumulative `tier` (`light` < `merge` < `nightly`). There are two automatic triggers, both deliberately cheap: a `pull_request` trigger that runs ONLY the in-process `verify` job (lint + typecheck + scripts tests + test + every in-proc drift gate that needs no `uv`/cluster — `claims:verify` stays in the dispatch-only `claims` job because its moderator teeth need `uv`), so `verify` can be a required status check; and one weekly `schedule` cron that fires the keyed `eval` tier alone (cost-bounded; consumes `secrets.OPENAI_API_KEY`). The PR lane has no `paths-ignore` (a path-filtered required check never reports on an excluded PR and deadlocks merge). The other push-triggered workflow is `.github/workflows/pages.yml`, scoped to `site/**`: it deploys the static site (a one-page plain-English testing overview at [mariusargatu.github.io/QARoom](https://mariusargatu.github.io/QARoom/)) and runs no build/test lane. Locally the same bar is `pnpm verify` (fast lane, mirrors the CI `verify` job) and `pnpm gauntlet` (full). Tier map: light = verify/claims/contracts/fuzz*/web-stories/moderator; merge = + chart/cluster-smoke/tracetest/web-component; nightly = + load/mutation/evomaster/chaos; evals (golden/DeepEval/DeepTeam) run on the cron or a dispatch with `run_evals: true`.
 
 The merge bar (enforced by the dispatched lanes, and required of any PR before merge) is:
 

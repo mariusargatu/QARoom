@@ -1,8 +1,9 @@
 # ADR 0005: Frontend testing stack: Storybook + Playwright CT + Screenplay + XState MBT
 
-- **Status:** Accepted
+- **Status:** Accepted — partly superseded by [ADR-0027](0027-consolidate-frontend-component-testing-on-vitest-browser.md)
 - **Date:** 2026-05-30
 - **Records:** the frontend testing architecture for Milestone 5 (web, model-based E2E, Screenplay foundation) and Milestone 8 (Storybook + component testing). Realizes "testability as an architectural property" for the UI. Informed by a real-world implementation of this exact stack and a version sweep (npm registry, 2026-05-30). Does **not** modify any ADR-0001 commitment.
+- **Superseded in part (2026-06-25, ADR-0027):** §1–3 and §5 describe a **two-runtime** component tier (Storybook Test on Vitest browser **plus** experimental Playwright CT), the `PageProvider.getPage()` seam returning a Playwright `Page`, and a V8+Istanbul coverage merge. ADR-0027 collapses component testing onto **one** runtime (Vitest browser mode), narrows the seam to a runtime-agnostic `UiDriver`, moves visual regression to Vitest `toMatchScreenshot`, and adopts CSF Factories + `vitest-browser-react`. The MBT-generation constraints below (invoke-free/context-free machines, `allowDuplicatePaths`, value-only `serializeState`, path-count floor+cap) carry over unchanged. Read this ADR for the *why* of model-based UI testing; read ADR-0027 for the current runtime.
 
 ## Context
 

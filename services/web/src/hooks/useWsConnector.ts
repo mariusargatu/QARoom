@@ -17,7 +17,13 @@ export function useWsConnector(
 ): StreamConnector | undefined {
   return useMemo(() => {
     if (!token) return undefined
-    const httpBase = baseUrl || (typeof window !== 'undefined' ? window.location.origin : '')
+    // The `: ''` arm is the SSR/no-window fallback; this browser-only hook runs under real Chromium,
+    // so `typeof window === 'undefined'` is unreachable here — defensive only.
+    const httpBase =
+      baseUrl ||
+      (typeof window !== 'undefined'
+        ? window.location.origin
+        : /* v8 ignore next -- SSR fallback unreachable in a browser-only hook */ '')
     return (handlers) => {
       let disconnect = () => {}
       let cancelled = false

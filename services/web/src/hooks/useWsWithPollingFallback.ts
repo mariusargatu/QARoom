@@ -26,13 +26,24 @@ export interface EventFeedOptions {
 }
 
 export const FEED_CAP = 50
+
+// WEB_BUG_WS_NO_DEDUP (deliberate-bug demo, in-proc only): drop the per-`seq` dedup so the WS push
+// and the polling fallback both replay the backlog and the SAME envelope lands twice — duplicate
+// React keys + doubled feed rows. `typeof process` is undefined in the browser bundle and the read
+// is NODE_ENV-gated, so this can only ever arm under vitest/node, never in a deployed build. The
+// `prepend` dedup property test goes red when it is set (detection-matrix toggle `ws-no-dedup`).
+const dedupDisabled = (): boolean =>
+  typeof process !== 'undefined' &&
+  process.env.NODE_ENV !== 'production' &&
+  process.env.WEB_BUG_WS_NO_DEDUP === '1'
+
 // Merge newest-first, capped, deduped by per-community `seq` (monotonic + unique per community,
 // which this hook is scoped to). Without the dedup, the WS push and the polling fallback both
 // replay the same backlog (poll from cursor 0, socket with no `after`), so an envelope would
 // appear twice — duplicate React keys + duplicated feed rows. WS<->polling parity is "same set",
 // not the union of both transports. Exported for the merge-dedup unit + property tests.
 export const prepend = (prev: WsEnvelope[], incoming: WsEnvelope[]): WsEnvelope[] => {
-  const seen = new Set(prev.map((e) => e.seq))
+  const seen = new Set(dedupDisabled() ? [] : prev.map((e) => e.seq))
   const fresh = incoming.filter((e) => !seen.has(e.seq))
   return [...fresh, ...prev].slice(0, FEED_CAP)
 }

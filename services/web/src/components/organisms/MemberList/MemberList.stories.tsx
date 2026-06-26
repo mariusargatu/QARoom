@@ -1,8 +1,11 @@
 import { EXAMPLE_MEMBERSHIP, Membership } from '@qaroom/contracts'
-import type { Meta, StoryObj } from '@storybook/react-vite'
+import preview from '../../../../.storybook/preview'
 import { MemberList } from './MemberList'
 
-const meta = {
+// CSF Factory format (ADR-0027 §4). Organism tier — the populated/loading/empty states of the
+// member roster; the Avatar/Badge/Skeleton atoms inside are already proven, so these stories test
+// only the list's own composition (one row per membership, role badge included).
+const meta = preview.meta({
   title: 'organisms/MemberList',
   component: MemberList,
   args: {
@@ -11,11 +14,8 @@ const meta = {
       Membership.parse(EXAMPLE_MEMBERSHIP),
     ],
   },
-} satisfies Meta<typeof MemberList>
+})
 
-export default meta
-type Story = StoryObj<typeof meta>
-
-export const WithMembers: Story = {}
-export const Loading: Story = { args: { loading: true, members: [] } }
-export const Empty: Story = { args: { members: [] } }
+export const WithMembers = meta.story({})
+export const Loading = meta.story({ args: { loading: true, members: [] } })
+export const Empty = meta.story({ args: { members: [] } })

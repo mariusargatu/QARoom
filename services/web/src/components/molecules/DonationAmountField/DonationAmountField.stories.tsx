@@ -1,15 +1,14 @@
-import type { Meta, StoryObj } from '@storybook/react-vite'
+import preview from '../../../../.storybook/preview'
 import { DonationAmountField } from './DonationAmountField'
 
-const meta = {
+// CSF Factory format (ADR-0027 §4). Molecule tier — the labelled amount input + submit composed from
+// the Button atom (already proven); these stories cover only the enabled/disabled/pending states it adds.
+const meta = preview.meta({
   title: 'molecules/DonationAmountField',
   component: DonationAmountField,
   args: { onSubmit: () => {} },
-} satisfies Meta<typeof DonationAmountField>
+})
 
-export default meta
-type Story = StoryObj<typeof meta>
-
-export const Enabled: Story = {}
-export const Disabled: Story = { args: { disabled: true } }
-export const Pending: Story = { args: { pending: true } }
+export const Enabled = meta.story({})
+export const Disabled = meta.story({ args: { disabled: true } })
+export const Pending = meta.story({ args: { pending: true } })

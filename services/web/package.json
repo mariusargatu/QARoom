@@ -8,16 +8,18 @@
     "build": "tsc -p tsconfig.json && vite build",
     "typecheck": "tsc -p tsconfig.json",
     "test": "vitest run",
+    "test:coverage": "vitest run --coverage",
     "test:stories": "vitest run -c vitest.storybook.config.ts",
     "test:stories:coverage": "vitest run -c vitest.storybook.config.ts --coverage",
+    "test:component": "vitest run -c vitest.component.config.ts",
+    "test:component:coverage": "vitest run -c vitest.component.config.ts --coverage",
+    "test:component:results": "tsx scripts/component-results.ts",
+    "coverage": "vitest run -c vitest.coverage.config.ts --coverage",
+    "census": "tsx scripts/component-census.ts",
     "storybook": "storybook dev -p 6006",
     "build-storybook": "storybook build",
-    "ct": "playwright test -c playwright-ct.config.ts",
-    "ct:coverage": "COVERAGE=true playwright test -c playwright-ct.config.ts",
-    "ct:results": "tsx scripts/ct-results.ts",
     "e2e": "playwright test -c playwright.config.ts",
-    "e2e:results": "tsx scripts/e2e-results.ts",
-    "coverage:merge": "tsx scripts/merge-coverage.ts"
+    "e2e:results": "tsx scripts/e2e-results.ts"
   },
   "dependencies": {
     "@qaroom/contracts": "workspace:*",
@@ -29,8 +31,6 @@
     "xstate": "^5.19.0"
   },
   "devDependencies": {
-    "@axe-core/playwright": "4.11.2",
-    "@playwright/experimental-ct-react": "1.60.0",
     "@playwright/test": "1.60.0",
     "@qaroom/testing-utils": "workspace:*",
     "@storybook/addon-a11y": "10.4.2",
@@ -44,14 +44,13 @@
     "@vitest/browser-playwright": "4.1.8",
     "@vitest/coverage-v8": "catalog:",
     "fast-check": "catalog:",
-    "monocart-coverage-reports": "^2.12.0",
     "msw": "^2.14.0",
     "storybook": "10.4.2",
     "tailwindcss": "^4.3.0",
     "tsx": "^4.19.0",
     "typescript": "^5.7.0",
     "vite": "^7.0.0",
-    "vite-plugin-istanbul": "^8.0.0",
-    "vitest": "catalog:"
+    "vitest": "catalog:",
+    "vitest-browser-react": "2.2.0"
   }
 }

@@ -34,7 +34,7 @@ no k3d/tilt -> every cluster phase skips (phases 1–2 still run).
 | phase | what | why this order |
 |---|---|---|
 | 0 | preflight (tool/key detection) | skips decided up front, recorded in `steps.jsonl` |
-| 1 | fast lane: vitest aggregate -> folds (mbt, pact, moderator, web-ct, coverage) -> drift gates | `test-results:generate` REWRITES the envelope: it must run before every fold |
+| 1 | fast lane: vitest aggregate -> folds (mbt, pact, moderator, web-component, coverage) -> drift gates | `test-results:generate` REWRITES the envelope: it must run before every fold |
 | 2 | Stryker ∥ LLM evals (concurrent lanes) | CPU-bound vs network-bound; neither measures wall-clock: the only sanctioned concurrency outside phase 7 |
 | 3 | cluster up: k3d -> `tilt ci` -> Chaos Mesh -> smokes | fresh cluster default (also guarantees the TimeChaos sysctls from `bootstrap-k3d.sh`) |
 | 4 | pristine baseline: seed -> **`replay:capture gauntlet-baseline`** -> MBT tour/race probe -> all 5 Tracetest defs -> tenant-span audit | the baseline bundle and clean trace/span data must exist **before any pollution** |

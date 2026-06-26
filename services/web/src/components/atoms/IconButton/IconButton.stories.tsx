@@ -1,14 +1,13 @@
-import type { Meta, StoryObj } from '@storybook/react-vite'
+import preview from '../../../../.storybook/preview'
 import { IconButton } from './IconButton'
 
-const meta = {
+// CSF Factory format (ADR-0027 §4). Atom tier — stories cover the default/disabled states this
+// icon-only button ADDS; higher tiers that use it for vote/action controls don't re-test it.
+const meta = preview.meta({
   title: 'atoms/IconButton',
   component: IconButton,
   args: { label: 'Upvote', children: '▲' },
-} satisfies Meta<typeof IconButton>
+})
 
-export default meta
-type Story = StoryObj<typeof meta>
-
-export const Default: Story = {}
-export const Disabled: Story = { args: { disabled: true } }
+export const Default = meta.story({})
+export const Disabled = meta.story({ args: { disabled: true } })

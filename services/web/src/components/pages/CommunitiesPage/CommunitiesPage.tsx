@@ -72,6 +72,8 @@ export function CommunitiesPage() {
           className="flex flex-col gap-4"
           onSubmit={(e) => {
             e.preventDefault()
+            // The submit button is disabled until slug+name are present and while pending, so a
+            // click/Enter never reaches here invalid; the re-check defends a programmatic submit.
             if (slug.trim() && name.trim() && !pending) void create()
           }}
         >

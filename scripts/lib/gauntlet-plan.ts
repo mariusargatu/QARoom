@@ -78,14 +78,30 @@ export function buildPlan(ctx: PreflightCtx, opts: GauntletOpts): GauntletStep[]
       'run',
       'test:stories:coverage',
     ]),
-    step(1, 'web-ct-coverage', 'gate', 'pnpm', ['--filter', '@qaroom/web', 'run', 'ct:coverage']),
-    step(1, 'web-coverage-merge', 'gate', 'pnpm', [
+    // Every atomic-design component has a CSF-factory story (ADR-0027 census gate).
+    step(1, 'web-census', 'gate', 'pnpm', ['--filter', '@qaroom/web', 'run', 'census']),
+    // Screenplay component tests in Vitest browser mode (ADR-0027, replaces the Playwright-CT lane).
+    // Runs WITH coverage so the V8 of code only the *.browser.test.tsx tests exercise folds as the
+    // `coverage:web-component` runner (coverage-results.ts) — same run still emits component.json.
+    step(1, 'web-component', 'gate', 'pnpm', [
       '--filter',
       '@qaroom/web',
       'run',
-      'coverage:merge',
+      'test:component:coverage',
     ]),
-    step(1, 'fold-web-ct', 'gate', 'pnpm', ['--filter', '@qaroom/web', 'run', 'ct:results']),
+    step(1, 'fold-web-component', 'gate', 'pnpm', [
+      '--filter',
+      '@qaroom/web',
+      'run',
+      'test:component:results',
+    ]),
+    // Web node unit coverage (api/client, http, lib, session/jwt, flow machines) → coverage:web-node.
+    step(1, 'web-node-coverage', 'gate', 'pnpm', [
+      '--filter',
+      '@qaroom/web',
+      'run',
+      'test:coverage',
+    ]),
     // Backend v8 coverage (content + donations on defineServiceConfig) must run before fold-coverage,
     // or coverage:results finds no per-service coverage-summary.json and folds only web.
     step(1, 'backend-coverage', 'gate', 'pnpm', [
@@ -417,7 +433,12 @@ export function buildPlan(ctx: PreflightCtx, opts: GauntletOpts): GauntletStep[]
       },
     ),
     step(8, 'verify-envelope-final', 'gate', 'pnpm', ['test-results:verify']),
-    step(8, 'claims-verify', 'gate', 'pnpm', ['claims:verify'], { timeoutMs: 20 * 60_000 }),
+    step(8, 'claims-verify', 'gate', 'pnpm', ['claims:verify'], {
+      timeoutMs: 20 * 60_000,
+      // The gauntlet brings the cluster up and primes it, so this is where live-tier claim teeth
+      // (tenant-span, outbox-latency) can actually arm the bug in-pod — opt in to running them.
+      env: { LIVE_TEETH: '1' },
+    }),
   ]
 
   const phase9: GauntletStep[] = [

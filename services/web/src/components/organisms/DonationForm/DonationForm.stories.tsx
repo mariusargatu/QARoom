@@ -1,15 +1,15 @@
-import type { Meta, StoryObj } from '@storybook/react-vite'
+import preview from '../../../../.storybook/preview'
 import { DonationForm } from './DonationForm'
 
-const meta = {
+// CSF Factory format (ADR-0027 §4). Organism tier — gated/enabled/pending states of the donation
+// section; the DonationAmountField molecule inside is already proven. `Enabled` is reused as a
+// portable story by DonationForm.browser.test.tsx.
+const meta = preview.meta({
   title: 'organisms/DonationForm',
   component: DonationForm,
   args: { onDonate: () => {} },
-} satisfies Meta<typeof DonationForm>
+})
 
-export default meta
-type Story = StoryObj<typeof meta>
-
-export const Enabled: Story = { args: { enabled: true } }
-export const Gated: Story = { args: { enabled: false } }
-export const Pending: Story = { args: { enabled: true, pending: true } }
+export const Enabled = meta.story({ args: { enabled: true } })
+export const Gated = meta.story({ args: { enabled: false } })
+export const Pending = meta.story({ args: { enabled: true, pending: true } })
