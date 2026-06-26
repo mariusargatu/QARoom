@@ -67,7 +67,6 @@
     "k6:results": "tsx scripts/k6-results.ts",
     "stryker:critical": "tsx scripts/stryker-critical.ts",
     "stryker:results": "tsx scripts/stryker-results.ts",
-    "stryker:attribution": "tsx scripts/stryker-attribution.ts",
     "evomaster": "tsx scripts/evomaster-run.ts",
     "evomaster:results": "tsx scripts/evomaster-results.ts",
     "moderator:verify": "tsx scripts/moderator-verify.ts",
