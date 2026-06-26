@@ -1,7 +1,10 @@
-import type { Meta, StoryObj } from '@storybook/react-vite'
+import preview from '../../../../.storybook/preview'
 import { AppShell } from './AppShell'
 
-const meta = {
+// CSF Factory format (ADR-0027 §4). Template tier — pure layout with named slots; the atoms,
+// molecules, and organisms that fill those slots are already proven below, so this story tests
+// only what the shell ADDS: the masthead-over-centered-column frame, not its contents.
+const meta = preview.meta({
   title: 'templates/AppShell',
   component: AppShell,
   args: {
@@ -10,9 +13,6 @@ const meta = {
     ),
     children: <div className="text-sm">Routed content</div>,
   },
-} satisfies Meta<typeof AppShell>
+})
 
-export default meta
-type Story = StoryObj<typeof meta>
-
-export const Default: Story = {}
+export const Default = meta.story({})

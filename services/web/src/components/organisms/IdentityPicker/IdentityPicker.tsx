@@ -63,6 +63,8 @@ export const IdentityPicker = forwardRef<HTMLDivElement, IdentityPickerProps>(
           className="flex flex-col gap-3 border-t border-border pt-4"
           onSubmit={(e) => {
             e.preventDefault()
+            // The submit button is disabled while !canCreate, so a click/Enter never reaches here
+            // invalid; the re-check defends a programmatic submit (covered in the test).
             if (canCreate) onSignUp(handle.trim(), displayName.trim())
           }}
         >

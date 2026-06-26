@@ -4,13 +4,13 @@ import { foldRunner } from './lib/fold-runner'
 
 /**
  * Fold per-service coverage into the frozen test-results/summary.json envelope as `coverage:<svc>`
- * runners (plus the existing merged-web `coverage` runner). Each backend service emits a v8
- * `coverage-summary.json` (the json-summary reporter in the shared defineServiceConfig); web emits the
- * monocart-merged V8+Istanbul summary. Informational, not a gate: every coverage runner folds as
- * passed. Tolerant — a service whose coverage lane has not run is skipped with a warning, so this
- * works after a partial run (e.g. only content+donations have adopted the shared config so far).
+ * runners (plus the web `coverage` runner). Each backend service emits a v8 `coverage-summary.json`
+ * (the json-summary reporter in the shared defineServiceConfig); web emits a single V8 summary from
+ * the Storybook/Vitest browser run (ADR-0027 — no more V8+Istanbul merge). Informational, not a gate:
+ * every coverage runner folds as passed. Tolerant — a service whose coverage lane has not run is
+ * skipped with a warning, so this works after a partial run.
  *
- * Run after the per-service `test:coverage` lanes (and, for web, ct/stories coverage + coverage:merge).
+ * Run after the per-service `test:coverage` lanes (and, for web, `test:stories:coverage`).
  * See UNIT-L1-PLAN.md §4.
  */
 const ROOT = process.cwd()
@@ -61,10 +61,28 @@ const SCOPES: Scope[] = [
     tool: 'v8',
   },
   {
+    // ADR-0027: V8 only (no V8+Istanbul merge). Two web browser runs each fold a V8 runner — the
+    // Storybook stories run (covers what `play()` exercises) ...
     runner: 'coverage',
-    dir: 'services/web/coverage/merged',
+    dir: 'services/web/coverage',
     scope: 'services/web',
-    tool: 'monocart-merged-v8+istanbul',
+    tool: 'v8',
+  },
+  {
+    // ... the Screenplay component run (covers what only the `*.browser.test.tsx` tests exercise,
+    // which the stories run does not — restored after the Istanbul-merge tier was removed) ...
+    runner: 'coverage:web-component',
+    dir: 'services/web/coverage-component',
+    scope: 'services/web',
+    tool: 'v8',
+  },
+  {
+    // ... and the node unit run (api/client, http, lib, session/jwt, flow machines — browser-free
+    // code the two browser runs never import).
+    runner: 'coverage:web-node',
+    dir: 'services/web/coverage-node',
+    scope: 'services/web',
+    tool: 'v8',
   },
 ]
 

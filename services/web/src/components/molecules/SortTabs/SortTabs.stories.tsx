@@ -1,7 +1,9 @@
-import type { Meta, StoryObj } from '@storybook/react-vite'
+import preview from '../../../../.storybook/preview'
 import { SortTabs } from './SortTabs'
 
-const meta = {
+// CSF Factory format (ADR-0027 §4). Molecule tier — the segmented sort control; these stories cover
+// only its own composition (the active option's `aria-pressed` + the group's accessible name).
+const meta = preview.meta({
   title: 'molecules/SortTabs',
   component: SortTabs,
   args: {
@@ -12,10 +14,7 @@ const meta = {
     value: 'new',
     onChange: () => {},
   },
-} satisfies Meta<typeof SortTabs>
+})
 
-export default meta
-type Story = StoryObj<typeof meta>
-
-export const New: Story = {}
-export const Top: Story = { args: { value: 'top' } }
+export const New = meta.story({})
+export const Top = meta.story({ args: { value: 'top' } })

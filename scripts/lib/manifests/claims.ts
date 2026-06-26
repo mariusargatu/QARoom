@@ -354,6 +354,29 @@ const RAW: Claim[] = [
     evidence: { runner: '@qaroom/gateway', field: 'passed' },
     tier: 'simulate',
   },
+  {
+    id: 'ws-merge-dedup',
+    claim:
+      'The activity feed merges the WebSocket push and the polling fallback by per-community `seq`, so an envelope delivered on both transports renders once — never a duplicate React key or doubled row.',
+    boundary: 'websocket',
+    registryRow: 'websocket',
+    technique: 'fast-check property over overlapping push+poll feeds (pure `prepend` reducer)',
+    toggle: 'WEB_BUG_WS_NO_DEDUP',
+    gate: {
+      cmd: 'pnpm',
+      args: [
+        '--filter',
+        '@qaroom/web',
+        'exec',
+        'vitest',
+        'run',
+        '-t',
+        'dedupes by seq under interleaved push and poll',
+      ],
+    },
+    evidence: { runner: '@qaroom/web', field: 'passed' },
+    tier: 'simulate',
+  },
 ]
 
 /** The validated manifest. Throws at import if any claim violates the schema. */

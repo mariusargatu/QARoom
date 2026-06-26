@@ -1,4 +1,4 @@
-import type { AnyStateMachine } from 'xstate'
+import { type AnyStateMachine, createActor } from 'xstate'
 import type { GeneratedPath } from './generate-paths'
 
 /**
@@ -143,4 +143,26 @@ export function coverageReport(
     edge_coverage_pct: edges.length === 0 ? 100 : Math.round((edgesCovered / edges.length) * 100),
     gap,
   }
+}
+
+/**
+ * Drive `machine` through an ordered `events` sequence with a real XState actor, recording every
+ * (from, event, to) transition it crosses into a fresh `EdgeRecorder`. This is the back-edge filler:
+ * path generation reaches all states but misses cyclic edges, so a test hand-drives the remainder and
+ * checks `coverageReport(allEdges(machine), recorder.covered())`. Shared so every flow-machine
+ * conformance test uses one traversal helper instead of copy-pasting it.
+ */
+export function traverseAndRecord(
+  machine: AnyStateMachine,
+  events: readonly string[],
+): EdgeRecorder {
+  const recorder = edgeRecorder()
+  const actor = createActor(machine).start()
+  for (const event of events) {
+    const from = String(actor.getSnapshot().value)
+    actor.send({ type: event })
+    recorder.record({ from, event, to: String(actor.getSnapshot().value) })
+  }
+  actor.stop()
+  return recorder
 }

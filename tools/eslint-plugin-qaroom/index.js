@@ -294,68 +294,6 @@ const noRawNatsSubject = {
  * rules deliberately do not — see eslint.config.js), so they carry no overlap.
  */
 
-/**
- * In a Playwright Component Test you cannot `mount()` a `composeStories()` result — the Node↔
- * browser bundling split throws "Component cannot be mounted". You must mount the RAW component
- * spread with `story.args` and use `composeStories` only to READ the args (ADR-0005). This rule
- * flags `mount(<X .../>)` where `X` is a binding (or `map.Story` member) from `composeStories(...)`.
- * @type {import('eslint').Rule.RuleModule}
- */
-const noMountComposedStory = {
-  meta: {
-    type: 'problem',
-    docs: {
-      description:
-        'Disallow mounting a composeStories() result in Playwright CT; mount the raw component spread with story.args (ADR-0005).',
-    },
-    schema: [],
-    messages: {
-      composed:
-        'Cannot mount() a composeStories() result in Playwright CT ("Component cannot be mounted"). Mount the RAW component spread with `story.args`; use composeStories only to read args (ADR-0005).',
-    },
-  },
-  create(context) {
-    /** Local names bound to a single composed story (`const { Default } = composeStories(...)`). */
-    const composedStoryNames = new Set()
-    /** Local names bound to the whole composed map (`const composed = composeStories(...)`). */
-    const composedMapNames = new Set()
-
-    const isComposeStoriesCall = (init) =>
-      init?.type === 'CallExpression' &&
-      init.callee.type === 'Identifier' &&
-      init.callee.name === 'composeStories'
-
-    return {
-      VariableDeclarator(node) {
-        if (!isComposeStoriesCall(node.init)) return
-        if (node.id.type === 'ObjectPattern') {
-          for (const prop of node.id.properties) {
-            if (prop.type === 'Property' && prop.value.type === 'Identifier') {
-              composedStoryNames.add(prop.value.name)
-            }
-          }
-        } else if (node.id.type === 'Identifier') {
-          composedMapNames.add(node.id.name)
-        }
-      },
-      CallExpression(node) {
-        if (node.callee.type !== 'Identifier' || node.callee.name !== 'mount') return
-        const arg = node.arguments[0]
-        if (arg?.type !== 'JSXElement') return
-        const name = arg.openingElement.name
-        const isComposed =
-          (name.type === 'JSXIdentifier' && composedStoryNames.has(name.name)) ||
-          (name.type === 'JSXMemberExpression' &&
-            name.object.type === 'JSXIdentifier' &&
-            composedMapNames.has(name.object.name))
-        if (isComposed) {
-          context.report({ node: arg, messageId: 'composed' })
-        }
-      },
-    }
-  },
-}
-
 const ATOMIC_TIERS = ['atoms', 'molecules', 'organisms', 'templates', 'pages']
 
 /** The atomic tier a path belongs to (its index in ATOMIC_TIERS), or -1 if none. */
@@ -420,7 +358,6 @@ export default {
     'no-snapshot': noSnapshot,
     'no-public-barrel': noPublicBarrel,
     'no-raw-nats-subject': noRawNatsSubject,
-    'no-mount-composed-story': noMountComposedStory,
     'atomic-import-direction': atomicImportDirection,
   },
 }

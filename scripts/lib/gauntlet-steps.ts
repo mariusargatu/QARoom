@@ -1,4 +1,4 @@
-import { spawn } from 'node:child_process'
+import { type ChildProcess, spawn } from 'node:child_process'
 import { appendFileSync, createWriteStream, mkdirSync } from 'node:fs'
 import { resolve } from 'node:path'
 
@@ -70,28 +70,60 @@ async function spawnStep(
   const logRel = `test-results/gauntlet/logs/${step.phase}-${slug(step.name)}.log`
   const logStream = createWriteStream(resolve(root, logRel))
   const started = Date.now()
+  // `detached: true` makes the child a process-group LEADER so a timeout can reap the WHOLE tree.
+  // Killing only the direct child (the old behaviour) left a hung grandchild — e.g. a pact provider
+  // server that never closes — holding the piped stdout open, so 'close' never fired and the step
+  // (and the whole multi-hour run) wedged forever. Group-kill + a force-resolve fallback guarantee
+  // a step always terminates.
   const child = spawn(step.cmd, step.args, {
     cwd: step.cwd ? resolve(root, step.cwd) : root,
     env: { ...process.env, ...step.env },
     stdio: ['ignore', 'pipe', 'pipe'],
+    detached: true,
   })
   child.stdout.pipe(logStream)
   child.stderr.pipe(logStream)
   const timeoutMs = step.timeoutMs ?? DEFAULT_TIMEOUT_MS
-  const timer = setTimeout(() => {
-    logStream.write(`\n[gauntlet] step timed out after ${timeoutMs}ms — SIGKILL\n`)
-    child.kill('SIGKILL')
-  }, timeoutMs)
   const exit = await new Promise<number | null>((resolveExit) => {
-    child.on('close', (code) => resolveExit(code))
+    let settled = false
+    const settle = (code: number | null) => {
+      if (settled) return
+      settled = true
+      resolveExit(code)
+    }
+    const timer = setTimeout(() => {
+      logStream.write(
+        `\n[gauntlet] step timed out after ${timeoutMs}ms — SIGKILL (process group)\n`,
+      )
+      killGroup(child)
+      // If a stray grandchild escaped the group and still holds the stdout pipe, 'close' may never
+      // fire — force-resolve after a short grace so the run can never hang on a single step.
+      setTimeout(() => settle(null), 5_000).unref()
+    }, timeoutMs)
+    child.on('close', (code) => {
+      clearTimeout(timer)
+      settle(code)
+    })
     child.on('error', (err) => {
+      clearTimeout(timer)
       logStream.write(`\n[gauntlet] spawn error: ${String(err)}\n`)
-      resolveExit(null)
+      settle(null)
     })
   })
-  clearTimeout(timer)
   logStream.end()
   return { exit, duration_ms: Date.now() - started, log: logRel }
+}
+
+/** SIGKILL the child's whole process group (it is a group leader via `detached: true`), so a hung
+ *  grandchild can't outlive the timeout. `process.kill(-pid)` targets the group; fall back to the
+ *  direct child if the group is already gone or the pid is unknown. */
+function killGroup(child: ChildProcess): void {
+  try {
+    if (child.pid !== undefined) process.kill(-child.pid, 'SIGKILL')
+    else child.kill('SIGKILL')
+  } catch {
+    child.kill('SIGKILL')
+  }
 }
 
 export async function runStep(root: string, step: GauntletStep): Promise<StepRecord> {

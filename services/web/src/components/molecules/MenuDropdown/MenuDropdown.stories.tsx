@@ -1,7 +1,9 @@
-import type { Meta, StoryObj } from '@storybook/react-vite'
+import preview from '../../../../.storybook/preview'
 import { MenuDropdown } from './MenuDropdown'
 
-const meta = {
+// CSF Factory format (ADR-0027 §4). Molecule tier — the click-to-open popover menu; the trigger and
+// menu content are passed in, so this story covers only the open/close shell the molecule itself adds.
+const meta = preview.meta({
   title: 'molecules/MenuDropdown',
   component: MenuDropdown,
   args: {
@@ -16,9 +18,6 @@ const meta = {
       </button>
     ),
   },
-} satisfies Meta<typeof MenuDropdown>
+})
 
-export default meta
-type Story = StoryObj<typeof meta>
-
-export const Default: Story = {}
+export const Default = meta.story({})

@@ -1,5 +1,6 @@
+import { LOC, locateTestId } from '../locators'
+import type { UiHandle } from '../page-provider'
 import type { Task } from '../task'
-import { TESTID } from '../testids'
 
 /**
  * Donate `amountCents` and submit. Routes through `withPageProvider()`. The amount field is in
@@ -9,9 +10,9 @@ import { TESTID } from '../testids'
 export function castDonation(amountCents: number): Task {
   return {
     async performAs(actor) {
-      const page = actor.withPageProvider().getPage()
-      await page.getByTestId(TESTID.donationAmount).fill(String(amountCents / 100))
-      await page.getByTestId(TESTID.donationSubmit).click()
+      const ui = actor.withPageProvider().getDriver()
+      await locateTestId<UiHandle>(ui, LOC.donation.amount).fill(String(amountCents / 100))
+      await locateTestId<UiHandle>(ui, LOC.donation.submit).click()
     },
   }
 }

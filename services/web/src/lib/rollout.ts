@@ -6,7 +6,11 @@ import { type FlagState, type RolloutEventName, rolloutMachine } from '@qaroom/c
  * of legal transitions on the client side, shared by `useRollout` and the flags screen.
  */
 export function legalEventsFor(state: FlagState): RolloutEventName[] {
-  const states = rolloutMachine.config.states ?? {}
+  // A constructed XState machine always exposes a `states` map; the `?? {}` fallback is unreachable
+  // without mutating the imported machine (defensive). The `?? {}` one line down IS exercised.
+  const states =
+    /* v8 ignore next -- defensive: rolloutMachine.config.states is always defined */
+    rolloutMachine.config.states ?? {}
   const on = (states[state] as { on?: Record<string, unknown> } | undefined)?.on ?? {}
   return Object.keys(on) as RolloutEventName[]
 }

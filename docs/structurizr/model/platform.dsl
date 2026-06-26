@@ -10,7 +10,7 @@ qaroom = softwareSystem "QARoom" "A multi-tenant social platform (communities of
 
     web = container "web" "React 19 / Vite 7 SPA. Atomic-design component library; WS feed with polling parity; drives the SAME XState rollout machine the server does." "TypeScript / React / Vite" {
         perspectives {
-            "Testing" "Storybook play() + a11y, Playwright Component Tests, Screenplay Tasks shared CT<->E2E, model-based E2E from the rollout machine."
+            "Testing" "Storybook play() + a11y (Vitest browser), vitest-browser-react component tests, Screenplay Tasks shared component<->E2E via a runtime-agnostic UiDriver, Vitest toMatchScreenshot visual regression in a pinned container, model-based E2E from the rollout machine (ADR-0027)."
             "Boundary" "Trust (web->gateway consumer side: shared-Zod + golden journey); UI sequence/visual"
         }
     }

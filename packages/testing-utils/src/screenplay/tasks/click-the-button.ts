@@ -1,16 +1,17 @@
+import { LOC, locateTestId } from '../locators'
+import type { UiHandle } from '../page-provider'
 import type { Task } from '../task'
-import { TESTID } from '../testids'
 
 /**
  * Click the atom under test. Routes through `withPageProvider()` (never a concrete ability), so the
- * SAME Task drives the Milestone-8 broken-atom component test (mounted Button) and could drive an
- * E2E page unchanged (ADR-0005).
+ * SAME Task drives the broken-atom component test (mounted Button) and could drive an E2E page
+ * unchanged (ADR-0005, narrowed by ADR-0027).
  */
 export function clickTheButton(): Task {
   return {
     async performAs(actor) {
-      const page = actor.withPageProvider().getPage()
-      await page.getByTestId(TESTID.buttonUnderTest).click()
+      const ui = actor.withPageProvider().getDriver()
+      await locateTestId<UiHandle>(ui, LOC.button.under).click()
     },
   }
 }

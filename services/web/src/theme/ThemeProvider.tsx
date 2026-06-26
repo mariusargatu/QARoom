@@ -17,7 +17,15 @@ const STORAGE_KEY = 'qaroom.theme'
  * `initial` rather than crashing the app.
  */
 function resolveInitialTheme(initial: Theme): Theme {
-  if (typeof window === 'undefined') return initial
+  // window is always defined in this browser-only app; the `typeof` check is a defensive SSR net so
+  // the initializer never touches `window` during a server render. A leading `v8 ignore` on the `if`
+  // is dropped by the JSX transform, so the SSR arm is expressed as an inline-ignorable ternary.
+  return typeof window === 'undefined'
+    ? /* v8 ignore next -- SSR fallback: window is always defined in this browser-only app */ initial
+    : resolveBrowserTheme(initial)
+}
+
+function resolveBrowserTheme(initial: Theme): Theme {
   try {
     const stored = window.localStorage.getItem(STORAGE_KEY)
     if (stored === 'dark' || stored === 'light') return stored
@@ -46,7 +54,8 @@ export function ThemeProvider({
 
   useEffect(() => {
     document.documentElement.classList.toggle('dark', theme === 'dark')
-    if (typeof window === 'undefined') return
+    // Effects run client-side only (never during SSR) and `document` is already used unguarded above,
+    // so no `typeof window` guard is needed here; the try/catch alone covers an unavailable storage.
     try {
       window.localStorage.setItem(STORAGE_KEY, theme)
     } catch {
