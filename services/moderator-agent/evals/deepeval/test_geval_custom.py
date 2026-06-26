@@ -7,10 +7,12 @@ Two ``GEval`` metrics encode QARoom-specific judgements no off-the-shelf metric 
 - **calibration / should-have-abstained (FR5)** — on low retrieval confidence or conflicting rules the
   agent must ``escalate_to_human`` rather than guess. A confident verdict on an ambiguous post fails.
 
-The RAGAS demonstration: ONE test runs DeepEval's ``RAGASMetric`` wrapper, proving the RAGAS technique
-is available WITHOUT a separate framework dependency. Per ADR-0020, RAGAS did not earn a parallel
-install — DeepEval re-implemented its RAG metrics natively and wraps the rest, so this single named
-eval is the entire RAGAS surface. The cost ceiling is the shared pre-flight guard
+The RAGAS demonstration: per ADR-0020 (amended 2026-06) the RAGAS surface is DeepEval's NATIVE
+re-implementation of the RAGAS metrics (faithfulness, contextual precision / recall / relevancy),
+gated in ``test_rag_metrics.py`` — no parallel install. The literal ``RagasMetric`` wrapper test below
+is kept as a breadcrumb but SKIPS: DeepEval 4.x moved it behind the external ``ragas`` package, which
+pins a langchain-community path removed in langchain 1.x (the moderator's stack), so it cannot be
+installed without breaking production langchain. The cost ceiling is the shared pre-flight guard
 (``moderator_agent.eval_cost_guard``) — not duplicated here.
 """
 
@@ -112,10 +114,18 @@ async def test_calibration_should_have_abstained(case: dict) -> None:
 
 
 async def test_ragas_via_deepeval_wrapper() -> None:
-    """RAGAS-through-DeepEval (ADR-0020): demonstrates the RAGAS technique via DeepEval's wrapper so it
-    needs NO separate framework dependency. RAGAS did not earn a parallel install — DeepEval re-
-    implemented its RAG metrics natively and wraps the remainder; this single named eval IS the entire
-    RAGAS surface, kept to prove the judgement rather than tool-bloat."""
+    """RAGAS-through-DeepEval (ADR-0020, amended 2026-06). DeepEval re-implemented the RAGAS metrics
+    NATIVELY (faithfulness, contextual precision / recall / relevancy — all gated in test_rag_metrics.py);
+    that IS our RAGAS surface and needs no parallel install. This test exercises the literal RagasMetric
+    WRAPPER on top, but DeepEval 4.x moved that wrapper behind the external ``ragas`` package, and
+    ``ragas`` pins ``langchain_community.chat_models.vertexai`` — a path removed in langchain 1.x, the
+    moderator's stack — so it cannot be installed here without breaking production langchain. The wrapper
+    therefore SKIPS unless ``ragas`` is importable; the native metrics carry the technique regardless."""
+    pytest.importorskip(
+        "ragas",
+        reason="ragas pins a langchain-community path removed in langchain 1.x; the native DeepEval RAG "
+        "metrics (test_rag_metrics.py) are the RAGAS surface instead (ADR-0020)",
+    )
     ragas = pytest.importorskip("deepeval.metrics.ragas")
     case = load_gold_cases(limit=1)[0]
     workflow, corpus = build_workflow(Settings())
@@ -126,7 +136,7 @@ async def test_ragas_via_deepeval_wrapper() -> None:
         expected_output=("disposition=remove" if case["gold_verdict"] == "flag" else "approve"),
         retrieval_context=target.test_case.retrieval_context,
     )
-    metric = ragas.RAGASMetric(threshold=_THRESHOLD)
+    metric = ragas.RagasMetric(threshold=_THRESHOLD)
     metric.measure(tc)
     record_metric("ragas_wrapper", passed=metric.score is not None and metric.score >= _THRESHOLD)
     assert_test(tc, [metric])

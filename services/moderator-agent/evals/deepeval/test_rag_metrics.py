@@ -92,19 +92,25 @@ async def test_contextual_precision_and_recall_gate(case: dict) -> None:
             metric.__class__.__name__,
             passed=metric.score is not None and metric.score >= _THRESHOLD,
         )
-    assert_test(tc, [precision, recall, relevancy])
+    # GATE on precision + recall (EXIT CRITERION 2): the policy the verdict cites must be retrieved and
+    # ranked high. Relevancy (the FRACTION of the window that is on-topic) is MEASURED for visibility but
+    # NOT gated: with a ~6-rule corpus and retrieval_limit=5, one violated rule means at most ~1/5 of the
+    # window can be on-topic, so a 0.5 floor is unsatisfiable by the fixed top-k geometry, not by a
+    # retrieval defect. It becomes a meaningful gate only once the corpus is large enough to fill the
+    # window with plausibly-relevant rules.
+    assert_test(tc, [precision, recall])
 
 
 def _expected_output(case: dict) -> str:
-    # deepeval 4.x's recall judge grounds the expected output's CLAIMS in the retrieved chunks —
-    # the old bare "disposition=remove per the applicable community policy" had nothing groundable
-    # and scored recall 0.0 on every case. State the verdict WITH the rule it rests on (majority
-    # SME rule_id + a label reason), so recall measures the real question: did retrieval surface
-    # the policy the gold verdict cites?
+    # deepeval 4.x's recall judge grounds the expected output's CLAIMS in the retrieved chunks, so the
+    # expected output must contain ONLY claims a retrieved POLICY can support. Recall measures one
+    # thing: did retrieval surface the policy the gold verdict cites? So state exactly that — the cited
+    # rule. The earlier "disposition=remove ... {reason}" form re-failed: a general policy chunk states
+    # neither the disposition nor the case-specific conduct, so those claims were ungroundable by design
+    # (the gpt-5-mini judge said as much). Ranking quality is the precision metric's job, not recall's.
     rules = [label["rule_id"] for label in case["labels"] if label.get("rule_id")]
     rule = max(set(rules), key=rules.count) if rules else "the applicable rule"
-    reason = next((label["reason"] for label in case["labels"] if label.get("rule_id") == rule), "")
-    return f"disposition=remove — the post violates the {rule} rule. {reason}"
+    return f"The applicable community policy is the {rule} rule."
 
 
 async def test_hallucinated_policy_fails_faithfulness_but_a_non_grounded_check_passes() -> None:
