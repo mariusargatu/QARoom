@@ -1,20 +1,20 @@
 import { EXAMPLE_MODERATION_DECISION, ModerationDecision } from '@qaroom/contracts'
-import type { Meta, StoryObj } from '@storybook/react-vite'
+import preview from '../../../../.storybook/preview'
 import { DecisionCard } from './DecisionCard'
 
 const approve = ModerationDecision.parse(EXAMPLE_MODERATION_DECISION)
 
-const meta = {
+// CSF Factory format (ADR-0027 §4). Organism tier — the three disposition renderings of a single
+// moderation decision; the Badge atom inside is already proven, so these stories test only the
+// card's own composition (disposition tone, cited rules/precedents, rationale).
+const meta = preview.meta({
   title: 'organisms/DecisionCard',
   component: DecisionCard,
   args: { decision: approve },
-} satisfies Meta<typeof DecisionCard>
+})
 
-export default meta
-type Story = StoryObj<typeof meta>
-
-export const Approve: Story = {}
-export const Remove: Story = {
+export const Approve = meta.story({})
+export const Remove = meta.story({
   args: {
     decision: ModerationDecision.parse({
       ...EXAMPLE_MODERATION_DECISION,
@@ -25,8 +25,8 @@ export const Remove: Story = {
       rationale: 'Targets an individual with a slur, matching the cited no-harassment rule.',
     }),
   },
-}
-export const Escalate: Story = {
+})
+export const Escalate = meta.story({
   args: {
     decision: ModerationDecision.parse({
       ...EXAMPLE_MODERATION_DECISION,
@@ -36,4 +36,4 @@ export const Escalate: Story = {
       rationale: 'Ambiguous — retrieval confidence low; escalated to a human moderator.',
     }),
   },
-}
+})

@@ -3,9 +3,9 @@ import type { ApiClient } from '../api/client'
 import { SessionProvider } from '../session/SessionProvider'
 import { RequireSession } from './RequireSession'
 
-// CT harness for RequireSession.ct.tsx (Playwright CT mounts only imported components). The session
-// is read from localStorage by SessionProvider on init, so the test seeds (or clears) it via
-// page.addInitScript BEFORE mount to drive the guard down each branch. The fake ApiClient is never
+// Harness for RequireSession.browser.test.tsx (ADR-0027). The session is read from localStorage by
+// SessionProvider on init, so the test seeds (or clears) it directly (the test runs in the browser)
+// BEFORE render to drive the guard down each branch. The fake ApiClient is never
 // called on a static render — it only stands in for the constructor dependency.
 
 const fakeApi = (): ApiClient => ({}) as unknown as ApiClient

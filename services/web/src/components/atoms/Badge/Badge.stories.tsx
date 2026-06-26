@@ -1,16 +1,15 @@
-import type { Meta, StoryObj } from '@storybook/react-vite'
+import preview from '../../../../.storybook/preview'
 import { Badge } from './Badge'
 
-const meta = {
+// CSF Factory format (ADR-0027 §4). Atom tier — stories cover the tone variants this status pill ADDS;
+// higher tiers that render rollout/donation status with it don't re-test the tones.
+const meta = preview.meta({
   title: 'atoms/Badge',
   component: Badge,
   args: { children: 'Enabled' },
-} satisfies Meta<typeof Badge>
+})
 
-export default meta
-type Story = StoryObj<typeof meta>
-
-export const Neutral: Story = { args: { tone: 'neutral', children: 'Off' } }
-export const Primary: Story = { args: { tone: 'primary', children: 'Enabling' } }
-export const Success: Story = { args: { tone: 'success', children: 'Enabled' } }
-export const Danger: Story = { args: { tone: 'danger', children: 'Failed' } }
+export const Neutral = meta.story({ args: { tone: 'neutral', children: 'Off' } })
+export const Primary = meta.story({ args: { tone: 'primary', children: 'Enabling' } })
+export const Success = meta.story({ args: { tone: 'success', children: 'Enabled' } })
+export const Danger = meta.story({ args: { tone: 'danger', children: 'Failed' } })

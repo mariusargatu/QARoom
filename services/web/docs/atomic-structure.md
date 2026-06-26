@@ -46,8 +46,8 @@ Every component lives in its own folder with:
 
 - `Component.tsx`: `forwardRef` + `displayName`, styled only via semantic-token utilities.
 - `index.ts`: a one-line named-export barrel (no `export *`; the `qaroom/no-public-barrel` rule).
-- `Component.stories.tsx`: Storybook stories declaring `args` per state (the source of truth).
-- `Component.ct.tsx`: Playwright Component Test (for the load-bearing components).
+- `Component.stories.tsx`: CSF-factory Storybook stories declaring `args` per state (the source of truth).
+- `Component.browser.test.tsx`: Screenplay component test in Vitest browser mode (load-bearing components, ADR-0027).
 
 ## Semantic tokens (no raw colours)
 
@@ -59,31 +59,31 @@ hex literals, so a theme is a token remap, not a component rewrite.
 
 ## Testing seams
 
-- **Stories** feed Storybook autodocs + `addon-a11y` + a `play()` interaction test (run headlessly
-  via `@storybook/addon-vitest`, M8), and are READ (via `composeStories`) by the Playwright CTs,
-  which **mount the raw component spread as static JSX** `mount(<Component {...story.args} />)` (then
-  await the `readyFonts` helper, `src/test-support/ready-fonts.ts`). A `composeStories()` result
-  cannot be `mount()`-ed, nor can a runtime `createElement` (the Node↔browser split; ADR-0005), and
-  the `qaroom/no-mount-composed-story` lint rule enforces it.
-- **Screenplay** (`@qaroom/testing-utils/screenplay`) Tasks/Questions touch the browser only
-  through `actor.withPageProvider().getPage()`, so the same `advanceRollout` / `theFlagState`
-  source runs as an E2E test (`BrowseTheWeb`) and a component test. The CT->Actor bridge is
-  `createComponentActor(mountResult)` from `@qaroom/testing-utils/screenplay-ct` (the M8 package,
-  the only one importing `@playwright/experimental-ct-react`), binding `InteractWithComponent`.
+- **Stories** (CSF Factories, ADR-0027) feed Storybook autodocs + `addon-a11y` + a `play()`
+  interaction test (run headlessly via `@storybook/addon-vitest`), and are REUSED as portable stories
+  in the component tests via `Story.Component` (`render(<OffState.Component onAdvance={spy} />)`).
+- **Screenplay** (`@qaroom/testing-utils/screenplay`) Tasks/Questions touch the UI only through
+  `actor.withPageProvider().getDriver()` (a runtime-agnostic `UiDriver`), so the same `advanceRollout`
+  / `theFlagState` source runs as an E2E test (`BrowseTheWeb`, a Playwright `Page`) and a component
+  test (`InteractWithComponent`, a `vitest-browser` locator). The component→Actor bridge is
+  `createComponentActor(renderResult)` from `@qaroom/testing-utils/screenplay-ct`, which adapts a
+  `vitest-browser-react` `render()` result; the package imports no browser runner (ADR-0027).
 - **Test ids** are shared from `@qaroom/testing-utils/testids` (`TESTID`), so components and
   Tasks agree on selectors.
 - **MBT E2E** (`tests/e2e/rollout.e2e.spec.ts`) generates Screenplay flows from the XState
   rollout model, the same model the flags-service conformance test replays.
 - **Lint-enforced direction**: `qaroom/atomic-import-direction` fails any `.tsx` that imports
   from a higher tier (atoms ← molecules ← organisms ← templates ← pages).
-- **Unified coverage** (M8): `scripts/merge-coverage.ts` reconciles Vitest V8 + CT Istanbul
-  (`COVERAGE=true ct:coverage` -> `.nyc_output/`) via `monocart-coverage-reports`.
+- **Coverage**: one V8 source from the Storybook/Vitest browser run (`test:stories:coverage`);
+  no V8+Istanbul merge (ADR-0027).
+- **Visual regression**: Vitest `toMatchScreenshot` (opt-in `VITE_VISUAL=1`; baselines gitignored,
+  committed from the CI container — ADR-0027 §3).
 
 ## Stack note
 
-The pinned target stack is ADR-0005 (Storybook 10 / Playwright 1.60 / Vitest 4 / Tailwind 4).
-This package resolves to the latest installable equivalents in the build environment
-(Storybook 9 / Playwright 1.60 / Vitest 3 / Tailwind 4, React 19, Vite 6); the patterns are
-identical and the deviation is recorded here. Component/E2E suites + headless `play()` + the
-coverage merge require a browser and are run with `pnpm --filter @qaroom/web ct` / `e2e` /
-`ct:coverage` / `coverage:merge` where Playwright browsers are installed.
+The stack is ADR-0005 as consolidated by ADR-0027: Storybook 10 (CSF Factories) / Vitest 4 +
+`@vitest/browser` + `vitest-browser-react` / Playwright 1.60 (E2E only) / Tailwind 4 / React 19 /
+Vite 7. Component testing runs in ONE browser runtime (Vitest browser mode); Playwright CT was
+removed. The three suites — node `test`, headless `test:stories` (play() + a11y), and
+`test:component` (Screenplay) — require a browser for the latter two and are run with
+`pnpm --filter @qaroom/web test:stories` / `test:component` / `e2e` where Chromium is installed.

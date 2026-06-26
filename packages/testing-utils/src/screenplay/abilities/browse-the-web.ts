@@ -1,12 +1,14 @@
 import type { Page } from '@playwright/test'
 import type { Ability } from '../ability'
-import type { PageProvider } from '../page-provider'
+import type { PageProvider, UiDriver } from '../page-provider'
 
 /**
- * The E2E binding of the `PageProvider` seam: wraps a full Playwright `Page`. A Task that
- * goes through `actor.withPageProvider().getPage()` drives the real browser when the Actor
- * holds this ability. The component-test sibling (`InteractWithComponent`, Milestone 8) wraps
- * a CT mount and implements the same seam, so the Task source is identical across contexts.
+ * The E2E binding of the `PageProvider` seam: wraps a full Playwright `Page`. A Task that goes
+ * through `actor.withPageProvider().getDriver()` drives the real browser when the Actor holds this
+ * ability. A Playwright `Locator` already satisfies `UiHandle` (`click`/`fill`/`textContent`), so
+ * `getDriver()` is a direct passthrough. The component-test sibling (`InteractWithComponent`) wraps
+ * a Vitest-browser locator and implements the same seam, so the Task source is identical across
+ * contexts (ADR-0005, narrowed by ADR-0027).
  */
 export class BrowseTheWeb implements Ability, PageProvider {
   readonly name = 'BrowseTheWeb'
@@ -20,7 +22,8 @@ export class BrowseTheWeb implements Ability, PageProvider {
     return new BrowseTheWeb(page)
   }
 
-  getPage(): Page {
-    return this.#page
+  getDriver(): UiDriver {
+    const page = this.#page
+    return { getByTestId: (testId) => page.getByTestId(testId) }
   }
 }

@@ -34,7 +34,7 @@ export type RunnerTier = 'in-proc' | 'cluster' | 'optional'
 //              recognised so the drift check passes, never required by any tier.
 const RUNNER_TIERS: Record<string, RunnerTier> = {
   'mbt-edge-coverage': 'in-proc',
-  'web-ct': 'in-proc',
+  'web-component': 'in-proc',
   'web-e2e': 'in-proc',
   k6: 'cluster',
   chaos: 'cluster',
@@ -46,6 +46,8 @@ const RUNNER_TIERS: Record<string, RunnerTier> = {
   pyrit: 'cluster',
   'golden-sme': 'cluster',
   coverage: 'optional',
+  'coverage:web-component': 'optional',
+  'coverage:web-node': 'optional',
   'scenario:content': 'optional',
   'scenario:flags': 'optional',
   evomaster: 'optional',
@@ -61,7 +63,12 @@ const RUNNER_TIERS: Record<string, RunnerTier> = {
 //  - coverage       — folded by scripts/coverage-results.ts via a DYNAMIC `name: s.runner` (the web
 //                     merged-coverage scope), which the literal-`name:` extractor can't read.
 // (scenario:* are derivable — scenario-results.ts uses literal `name:` strings — so they stay in.)
-const RUNNERS_WITHOUT_RESULTS_SCRIPT = new Set(['tenant-spans', 'coverage'])
+const RUNNERS_WITHOUT_RESULTS_SCRIPT = new Set([
+  'tenant-spans',
+  'coverage',
+  'coverage:web-component',
+  'coverage:web-node',
+])
 
 /**
  * Derive the runner names the repo's `*-results.ts` scripts actually fold into summary.json — the

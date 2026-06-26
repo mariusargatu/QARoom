@@ -1,14 +1,13 @@
-import type { Meta, StoryObj } from '@storybook/react-vite'
+import preview from '../../../../.storybook/preview'
 import { Card } from './Card'
 
-const meta = {
+// CSF Factory format (ADR-0027 §4). Atom tier — stories cover the surface/interactive variants this
+// container ADDS; higher tiers that wrap content in it don't re-test the surface look.
+const meta = preview.meta({
   title: 'atoms/Card',
   component: Card,
   args: { className: 'p-4 max-w-sm', children: 'A surface container.' },
-} satisfies Meta<typeof Card>
+})
 
-export default meta
-type Story = StoryObj<typeof meta>
-
-export const Default: Story = {}
-export const Interactive: Story = { args: { interactive: true } }
+export const Default = meta.story({})
+export const Interactive = meta.story({ args: { interactive: true } })

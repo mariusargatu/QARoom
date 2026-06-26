@@ -6,5 +6,5 @@
     "types": ["vite/client", "node"]
   },
   "include": ["src", "tests", ".storybook", "playwright.config.ts", "vite.config.ts"],
-  "//": "playwright-ct.config.ts is excluded from app typecheck: it merges vite-7 plugins into the vite bundled by the pinned @playwright/experimental-ct-react@1.60, whose Plugin types differ. Playwright executes the config via its own loader (esbuild), not tsc."
+  "//": "vitest.*.config.ts and their setups are excluded from app typecheck (run by Vitest's own esbuild loader, not tsc); the browser-test files under src/ ARE typechecked."
 }

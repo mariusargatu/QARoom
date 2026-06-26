@@ -21,7 +21,7 @@ The goal is to demonstrate the four components as **distinct, independently test
 
 A `Tokenizer` Protocol (`count(text)` and `truncate(text, *, max_tokens)`):
 
-- `TiktokenTokenizer` (production): encodes with **`cl100k_base`**, the encoding `text-embedding-3-small` actually uses. This is deliberately *not* `o200k_base`: o200k is the gpt-4o/gpt-5 **chat** encoding, and bounding the *embedding* input against it would miscount the model's real cap. (The reranker is LLM-based, so the chat model tokenizes provider-side; no chat-side tokenizer runs here.) The encoding is built lazily under a lock; importing the module loads no data.
+- `TiktokenTokenizer` (production): encodes with **`cl100k_base`**, the encoding `text-embedding-3-small` actually uses. This is deliberately *not* `o200k_base`: o200k is the gpt-5 **chat** encoding, and bounding the *embedding* input against it would miscount the model's real cap. (The reranker is LLM-based, so the chat model tokenizes provider-side; no chat-side tokenizer runs here.) The encoding is built lazily under a lock; importing the module loads no data.
 - `WordTokenizer` (deterministic fake): whitespace tokens; `truncate` returns a true prefix, so `count(truncate(t, n)) == min(count(t), n)`. Always-on in the unit suite (no network, no model download).
 
 The embedder takes an injected `Tokenizer` and bounds input via `tokenizer.truncate(text, max_tokens=moderator_embedding_max_tokens)` inside its failure-mapping `try`, so a tokenizer failure is the same 502 `dependency_failure` as any other embed failure.

@@ -38,7 +38,7 @@ group "Tier A - in-process (Vitest / pytest)" {
     tPactMsg     = element "Pact v4 (message contract)"      "Tier A" "Publisher<->subscriber event-shape agreement on a real captured envelope" "Technique"
     tCrosscheck  = element "Pact <-> OpenAPI cross-check"    "Tier A" "Static pact-vs-published-spec shape agreement" "Technique"
     tIntegration = element "Integration (PGlite)"            "Tier A" "Real-driver DB behaviour; transactional semantics; feed order; polling parity" "Technique"
-    tComponent   = element "Storybook + Playwright CT + Screenplay" "Tier A" "Rendering, prop contracts, interaction logic; one Task runs as CT and E2E" "Technique"
+    tComponent   = element "Storybook + Vitest browser + Screenplay" "Tier A" "Rendering, prop contracts, interaction logic, visual regression (Vitest toMatchScreenshot, pinned container); one Screenplay Task runs as component (Vitest browser via vitest-browser-react) and E2E (Playwright) through a runtime-agnostic UiDriver (ADR-0027)" "Technique"
     tMutation    = element "Stryker mutation (locked modules)" "Tier A" "Are the tests any good? Critical modules only (ADR-0016)" "Technique"
 }
 

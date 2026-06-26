@@ -28,7 +28,11 @@ function initials(name: string): string {
   const trimmed = name.trim()
   if (ID_PREFIX.test(trimmed)) {
     const tail = trimmed.replace(/[^a-zA-Z0-9]/g, '').slice(-2)
-    return tail ? tail.toUpperCase() : '?'
+    // A matched id prefix (user|comm|…) is itself alphanumeric and survives the [^a-zA-Z0-9] strip,
+    // so `tail` is never empty here; the `'?'` arm is defensive only.
+    return tail
+      ? tail.toUpperCase()
+      : /* v8 ignore next -- unreachable: a matched id-prefix tail is never empty */ '?'
   }
   const words = trimmed.split(/\s+/).filter(Boolean)
   const first = words[0]
@@ -41,7 +45,13 @@ function initials(name: string): string {
 function tintFor(name: string): string {
   let sum = 0
   for (const ch of name) sum += ch.charCodeAt(0)
-  return TINTS[sum % TINTS.length] ?? 'bg-primary/20 text-primary'
+  // `sum % TINTS.length` is always a valid 0..4 index into the 5-entry TINTS, so the `??` fallback
+  // never runs (it exists only for noUncheckedIndexedAccess).
+  return (
+    /* v8 ignore next -- unreachable: a modulo index is always in range */ TINTS[
+      sum % TINTS.length
+    ] ?? 'bg-primary/20 text-primary'
+  )
 }
 
 /** Atom: an initials avatar. Colour + initials are a deterministic function of the name. */

@@ -1,9 +1,12 @@
 import { EXAMPLE_POST } from '@qaroom/contracts'
-import type { Meta, StoryObj } from '@storybook/react-vite'
 import { MemoryRouter } from 'react-router-dom'
+import preview from '../../../../.storybook/preview'
 import { PostRow } from './PostRow'
 
-const meta = {
+// CSF Factory format (ADR-0027 §4). Organism tier — the default vs upvoted rendering of a feed row;
+// the VoteControl molecule inside is already proven, so these stories test only the row's own
+// composition (title link + score + author). MemoryRouter supplies routing for its post link.
+const meta = preview.meta({
   title: 'organisms/PostRow',
   component: PostRow,
   args: { post: EXAMPLE_POST, to: '#', authorName: 'Ada Lovelace', onVote: () => {} },
@@ -16,10 +19,7 @@ const meta = {
       </MemoryRouter>
     ),
   ],
-} satisfies Meta<typeof PostRow>
+})
 
-export default meta
-type Story = StoryObj<typeof meta>
-
-export const Default: Story = {}
-export const Upvoted: Story = { args: { voteValue: 1, post: { ...EXAMPLE_POST, score: 143 } } }
+export const Default = meta.story({})
+export const Upvoted = meta.story({ args: { voteValue: 1, post: { ...EXAMPLE_POST, score: 143 } } })

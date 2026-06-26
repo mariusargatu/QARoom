@@ -110,27 +110,6 @@ const jsxTester = new RuleTester({
   },
 })
 
-jsxTester.run('no-mount-composed-story', plugin.rules['no-mount-composed-story'], {
-  valid: [
-    // The CANONICAL pattern: read args via composeStories, mount the RAW component.
-    'const { Default } = composeStories(stories); mount(<Button {...Default.args} />)',
-    // Mounting an ordinary component is fine.
-    'mount(<Button label="x" />)',
-  ],
-  invalid: [
-    {
-      // Destructured composed story mounted directly.
-      code: 'const { Default } = composeStories(stories); mount(<Default />)',
-      errors: [{ messageId: 'composed' }],
-    },
-    {
-      // Composed map member mounted directly.
-      code: 'const composed = composeStories(stories); mount(<composed.Default />)',
-      errors: [{ messageId: 'composed' }],
-    },
-  ],
-})
-
 jsxTester.run('atomic-import-direction', plugin.rules['atomic-import-direction'], {
   valid: [
     // Downward import: a molecule may use an atom.

@@ -1,8 +1,10 @@
-import type { Meta, StoryObj } from '@storybook/react-vite'
+import preview from '../../../../.storybook/preview'
 import { Button } from '../../atoms/Button'
 import { EmptyState } from './EmptyState'
 
-const meta = {
+// CSF Factory format (ADR-0027 §4). Molecule tier — the "nothing here yet" panel over the Card atom
+// (already proven); these stories cover only its own composition (title/description/icon + optional action).
+const meta = preview.meta({
   title: 'molecules/EmptyState',
   component: EmptyState,
   args: {
@@ -10,10 +12,7 @@ const meta = {
     description: 'Be the first to post in this community.',
     icon: '📝',
   },
-} satisfies Meta<typeof EmptyState>
+})
 
-export default meta
-type Story = StoryObj<typeof meta>
-
-export const Default: Story = {}
-export const WithAction: Story = { args: { action: <Button>Create a post</Button> } }
+export const Default = meta.story({})
+export const WithAction = meta.story({ args: { action: <Button>Create a post</Button> } })

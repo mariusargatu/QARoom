@@ -1,9 +1,9 @@
 import { useRef, useState } from 'react'
 import { useResource } from './useResource'
 
-// CT harness components for useResource.ct.tsx. Playwright CT can only mount IMPORTED components
-// (its Vite build compiles them), not ones defined in the test file — so the hook's probes live
-// here. Test-support scaffolding only: not imported by the app, so it never ships in the bundle.
+// Harness components for useResource.browser.test.tsx (ADR-0027): the hook's probes live here so the
+// browser test imports a stable surface and drives the hook through the DOM. Test-support scaffolding
+// only — not imported by the app, so it never ships in the bundle.
 
 /** Resolves on mount. */
 export function OkProbe() {
@@ -57,6 +57,47 @@ export function RaceProbe() {
       </button>
       <button type="button" data-testid="resolve-b" onClick={() => resolvers.current.B?.('B-data')}>
         resolve b
+      </button>
+    </div>
+  )
+}
+
+/**
+ * Same race as RaceProbe, but the stale load REJECTS late instead of resolving. Switching A -> B
+ * starts a second load; the test resolves B (the latest), then rejects A (stale). The generation
+ * guard must drop A's rejection so no error ever surfaces — the `if (gen === latest.current)` false
+ * arm in the catch path. Resolvers/rejecters are held in refs and fired by buttons for in-browser
+ * ordering control.
+ */
+export function RaceRejectProbe() {
+  const [step, setStep] = useState<'A' | 'B'>('A')
+  const resolvers = useRef<Record<string, (value: string) => void>>({})
+  const rejecters = useRef<Record<string, (reason: unknown) => void>>({})
+  const { data, error } = useResource<string>(
+    () =>
+      new Promise<string>((resolve, reject) => {
+        resolvers.current[step] = resolve
+        rejecters.current[step] = reject
+      }),
+    [step],
+    'init',
+  )
+  return (
+    <div>
+      <div data-testid="data">{data}</div>
+      <div data-testid="error">{error ?? 'no-error'}</div>
+      <button type="button" data-testid="to-b" onClick={() => setStep('B')}>
+        to b
+      </button>
+      <button type="button" data-testid="resolve-b" onClick={() => resolvers.current.B?.('B-data')}>
+        resolve b
+      </button>
+      <button
+        type="button"
+        data-testid="reject-a"
+        onClick={() => rejecters.current.A?.(new Error('stale A failed'))}
+      >
+        reject a
       </button>
     </div>
   )

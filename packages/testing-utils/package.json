@@ -48,7 +48,6 @@
   "peerDependencies": {
     "@fast-check/vitest": "catalog:",
     "@pact-foundation/pact": "^13.0.0",
-    "@playwright/experimental-ct-react": "^1.60.0",
     "@playwright/test": "^1.60.0",
     "@testcontainers/postgresql": "^10.0.0",
     "fastify": "^5.0.0",
@@ -57,9 +56,6 @@
   },
   "peerDependenciesMeta": {
     "@pact-foundation/pact": {
-      "optional": true
-    },
-    "@playwright/experimental-ct-react": {
       "optional": true
     },
     "@playwright/test": {
@@ -74,7 +70,6 @@
   },
   "devDependencies": {
     "@pact-foundation/pact": "^13.0.0",
-    "@playwright/experimental-ct-react": "1.60.0",
     "@playwright/test": "1.60.0",
     "@testcontainers/postgresql": "^10.0.0",
     "fastify": "^5.2.0",

@@ -1,0 +1,34 @@
+# Deterministic environment for Vitest visual-regression (`toMatchScreenshot`, ADR-0027 §3).
+#
+# Pixel baselines are font/anti-aliasing-sensitive: a screenshot taken on a developer's macOS will
+# never match one taken on Linux CI. So the visual lane MUST render in ONE pinned container, used
+# both to GENERATE the committed baseline and to CHECK against it. Build context = repo root
+# (monorepo convention, matches services/*/Dockerfile):
+#   docker build -f services/web/Dockerfile.visual -t qaroom/visual .
+# Driven by scripts/visual.sh (`pnpm visual` / `pnpm visual:update`).
+#
+# Node 24 because the repo requires >=24 (the stock mcr.microsoft.com/playwright image ships an older
+# Node). Chromium + its OS deps + fonts come from the repo's pinned Playwright (1.60.0) via
+# `playwright install --with-deps`, installed to PLAYWRIGHT_BROWSERS_PATH so the same env var lets
+# both `playwright` (E2E) and `@vitest/browser-playwright` (component) find them.
+FROM node:24-bookworm-slim
+
+ENV PNPM_HOME=/pnpm
+ENV PATH="$PNPM_HOME:$PATH"
+ENV PLAYWRIGHT_BROWSERS_PATH=/ms-playwright
+# Renders the opt-in visual test (RolloutPanel.browser.test.tsx) in EVERY run of this image.
+ENV VITE_VISUAL=1
+RUN corepack enable
+
+WORKDIR /repo
+# ponytail: COPY-all then install — a file change busts the install layer (no manifest-only cache
+# split). Fine for a rarely-run visual lane; switch to `pnpm fetch` if rebuilds get painful.
+# .dockerignore keeps node_modules/.git/dist out of the context.
+COPY . .
+RUN pnpm install --frozen-lockfile
+RUN pnpm --filter @qaroom/web exec playwright install --with-deps chromium
+
+# Default: the visual GATE — runs the component suite (interaction + visual) against the baked,
+# committed baseline. Non-zero exit = a real pixel diff. `scripts/visual.sh --update` overrides this
+# CMD to regenerate baselines instead.
+CMD ["pnpm", "--filter", "@qaroom/web", "run", "test:component"]

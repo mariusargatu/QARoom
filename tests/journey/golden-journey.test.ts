@@ -103,7 +103,7 @@ describe('golden journey: one user, the whole platform, live', () => {
     // 3. identity: a community (the tenant).
     const community = await client.post(
       '/api/communities',
-      { slug: `journey-${RUN_ID}`, name: `Journey ${RUN_ID}` },
+      { slug: `journey_${RUN_ID}`, name: `Journey ${RUN_ID}` },
       { token },
     )
     expect(community.status, JSON.stringify(community.body)).toBe(201)

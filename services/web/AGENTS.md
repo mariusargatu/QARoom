@@ -10,7 +10,8 @@ repo-root `AGENTS.md` first, then `docs/atomic-structure.md` here.
 
 `atoms -> molecules -> organisms -> templates -> pages`. Folder-per-component: `Component.tsx`
 (`forwardRef` + `displayName`) + one-line named-export `index.ts` + `Component.stories.tsx` +
-`Component.ct.tsx` for load-bearing components. Styling is **exclusively** semantic design tokens
+`Component.browser.test.tsx` (Screenplay component test, ADR-0027) for load-bearing components.
+Styling is **exclusively** semantic design tokens
 (`bg-surface`, `text-muted`, `text-primary`, …) defined in `src/styles/globals.css` via the
 Tailwind 4 CSS-first `@theme` block: no `tailwind.config.js`, no hex literals. The thin
 `ThemeProvider` toggles only the `.light` class.
@@ -28,25 +29,27 @@ Tailwind 4 CSS-first `@theme` block: no `tailwind.config.js`, no hex literals. T
 ## Testing
 
 - **Vitest** (`pnpm --filter @qaroom/web test`): api client + pure helpers (node env).
-- **Storybook**: every atom/molecule/organism has a story (the source of truth); `addon-a11y`.
-  Stories with `play()` interaction tests are whichever
+- **Storybook (CSF Factories, ADR-0027)**: every atom/molecule/organism has a story (the source of
+  truth); authored with `preview.meta()` + `meta.story()` (classic CSF3 still works — migration is
+  incremental); `addon-a11y`. Stories with `play()` interaction tests are whichever
   `grep -rl "play:" src --include="*.stories.tsx"` lists (no hand-maintained count); they run
-  headlessly via `@storybook/addon-vitest` (`pnpm --filter @qaroom/web test:stories`, real
-  Chromium, M8).
-- **Playwright CT** (`.ct.tsx`): mounts the **raw component spread as static JSX**
-  `mount(<Component {...story.args} />)` (a runtime `createElement` is rejected by CT); reads args
-  with `composeStories`, never `mount()`s the composed story, enforced by the
-  `qaroom/no-mount-composed-story` lint rule (ADR-0005). The `readyFonts` helper
-  (`src/test-support/ready-fonts.ts`) awaits `document.fonts.ready` for stable visuals.
-  `RolloutPanel.ct.tsx`/`Button.ct.tsx`/`DonationForm.ct.tsx` are the examples.
+  headlessly via `@storybook/addon-vitest` (`pnpm --filter @qaroom/web test:stories`, real Chromium).
+- **Screenplay component tests** (`.browser.test.tsx`, ADR-0027 — supersedes Playwright CT): render
+  with `vitest-browser-react`'s `await render(...)` and drive the component through the SAME
+  Screenplay Tasks/Questions the E2E suite uses, via `createComponentActor`
+  (`@qaroom/testing-utils/screenplay-ct` -> `InteractWithComponent`). Reuse a portable CSF-factory
+  story with `Story.Component` (`render(<OffState.Component onAdvance={spy} />)`). Run with
+  `pnpm --filter @qaroom/web test:component` (real Chromium). One browser runtime, no Playwright CT.
+- **Visual regression** (ADR-0027 §3): Vitest `expect.element(locator).toMatchScreenshot()` (pixel
+  diff, NOT a DOM snapshot — does not trip `no-snapshot`). OPT-IN via `VITE_VISUAL=1` because pixel
+  baselines are environment-named and not portable across a laptop OS and the CI container; the
+  canonical baseline is committed from the container (`__screenshots__/` is gitignored).
 - **MBT E2E** (`tests/e2e/`): Screenplay flows generated from the rollout model; the SAME Tasks
-  (`advanceRollout`/`theFlagState`) run in CT via `createComponentActor`
-  (`@qaroom/testing-utils/screenplay-ct` -> `InteractWithComponent`) and E2E via `BrowseTheWeb`,
-  both behind the `PageProvider` seam. Needs a browser + live stack.
-- **Unified coverage** (M8): CT Istanbul (`ct:coverage` -> `.nyc_output/`) + Vitest V8 reconciled
-  by `scripts/merge-coverage.ts` (monocart) -> `coverage/merged/`.
-- **Lint-enforced**: `qaroom/atomic-import-direction` (tiers flow downward only) on every `.tsx`;
-  `qaroom/no-mount-composed-story` on `.ct.tsx`.
+  (`advanceRollout`/`theFlagState`) run in the component tests (above) and E2E via `BrowseTheWeb`,
+  both behind the narrowed `PageProvider`/`UiDriver` seam. Needs a browser + live stack.
+- **Coverage**: one V8 source from the Storybook/Vitest browser run (`test:stories:coverage` ->
+  `coverage/`); no V8+Istanbul merge.
+- **Lint-enforced**: `qaroom/atomic-import-direction` (tiers flow downward only) on every `.tsx`.
 
 ## Commands
 
@@ -56,19 +59,20 @@ pnpm --filter @qaroom/web build      # tsc + vite build
 pnpm --filter @qaroom/web typecheck
 pnpm --filter @qaroom/web test       # vitest (unit project, node)
 pnpm --filter @qaroom/web test:stories # headless story play() + a11y (real Chromium)
+pnpm --filter @qaroom/web test:component # Screenplay component tests (Vitest browser, ADR-0027)
 pnpm --filter @qaroom/web storybook  # storybook dev (browser)
-pnpm --filter @qaroom/web ct         # playwright component tests (browser)
-pnpm --filter @qaroom/web ct:coverage # CT with Istanbul instrumentation (browser)
 pnpm --filter @qaroom/web e2e        # playwright MBT e2e (browser + live stack)
-pnpm --filter @qaroom/web coverage:merge # monocart: merge Vitest V8 + CT Istanbul
+pnpm --filter @qaroom/web test:stories:coverage # single V8 coverage source
+# VITE_VISUAL=1 pnpm --filter @qaroom/web test:component  # opt-in pixel visual regression
 ```
 
 ## Stack note
 
-The ADR-0005 stack is installed (Milestone 8): Storybook 10.4 / Vitest 4.1 (`projects`, not
-`workspace`) / Playwright 1.60 (CT, pinned) / `@vitest/browser-playwright` 4.1 / Tailwind 4.3 /
-React 19 / Vite 7 (capped by Playwright CT) / `@vitejs/plugin-react` 5.2. Tests split into the
-`unit` Vitest project (`pnpm test`, node), the headless `storybook` project (`pnpm test:stories`,
-real Chromium, play() + addon-a11y, which is set to FAIL on a violation), and Playwright CT
-(`pnpm ct`). See ADR-0005 "Implementation notes (Milestone 8)" for the upgrade corrections
-(provider `playwright()`, no manual `vitest.setup.ts`, static-JSX CT mounts).
+The stack (ADR-0005, consolidated by ADR-0027): Storybook 10.4 (CSF Factories) / Vitest 4.1
+(`projects`, not `workspace`) / `@vitest/browser` + `@vitest/browser-playwright` 4.1 /
+`vitest-browser-react` 2.2 / Playwright 1.60 (E2E only) / Tailwind 4.3 / React 19 / Vite 7 /
+`@vitejs/plugin-react` 5.2. Three test surfaces, all Vitest: the `unit` project (`pnpm test`, node),
+the headless `storybook` project (`pnpm test:stories`, real Chromium, play() + addon-a11y set to FAIL
+on a violation), and the `component` project (`pnpm test:component`, real Chromium, Screenplay +
+`vitest-browser-react`). Playwright is E2E-only. See ADR-0027 for why the second browser runtime
+(Playwright CT) was removed and how the `PageProvider`/`UiDriver` seam stays portable across both.
