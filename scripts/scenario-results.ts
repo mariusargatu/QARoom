@@ -19,12 +19,11 @@ import { foldRunner } from './lib/fold-runner'
  *   pnpm scenario:results
  */
 interface ScenarioLane {
-  /** Literal runner name (NOT a template) so test-results-verify's deriveFoldedRunnerNames sees it. */
   name: string
   svc: string
   filter: string
-  /** Renamed from `spec` so the deriver's `(?!\s*spec:)` lookahead can never drop this lane. */
-  specPath: string
+  /** The scenario spec to run, relative to the service package. */
+  spec: string
 }
 
 const ROOT = process.cwd()
@@ -35,13 +34,13 @@ const LANES: ScenarioLane[] = [
     name: 'scenario:content',
     svc: 'content',
     filter: '@qaroom/content',
-    specPath: 'tests/scenario.spec.ts',
+    spec: 'tests/scenario.spec.ts',
   },
   {
     name: 'scenario:flags',
     svc: 'flags',
     filter: '@qaroom/flags',
-    specPath: 'tests/scenario.spec.ts',
+    spec: 'tests/scenario.spec.ts',
   },
 ]
 
@@ -72,7 +71,7 @@ for (const lane of LANES) {
         'exec',
         'vitest',
         'run',
-        lane.specPath,
+        lane.spec,
         '--reporter=json',
         `--outputFile=${reportPath}`,
       ],

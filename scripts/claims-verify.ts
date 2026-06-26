@@ -3,11 +3,11 @@ import { existsSync, readFileSync } from 'node:fs'
 import { resolve } from 'node:path'
 import { BOUNDARY_REGISTRY } from './lib/manifests/boundary-registry'
 import { CLAIMS, type Claim } from './lib/manifests/claims'
+import { runnerNames } from './lib/runners'
 import { BOUNDARIES_END, BOUNDARIES_START, renderBoundariesBlock } from './render-boundaries'
 import { README_END, README_START, renderClaimsMarkdown, renderReadmeBlock } from './render-claims'
 import { COST_END, COST_START, renderCostBlock } from './render-cost'
 import { renderStatsBlock, STATS_END, STATS_START } from './render-stats'
-import { deriveFoldedRunnerNames } from './test-results-verify'
 
 /**
  * `pnpm claims:verify`: the manifest-derived evidence gate (sibling of mcp:verify / openapi:verify).
@@ -44,9 +44,9 @@ interface Result {
 }
 
 // A runner name is VALID (not a typo) if it is a real workspace dir (@qaroom/<name> → services/ or
-// packages/<name>) or a known tool-runner. The tool-runner half is DERIVED from the *-results.ts
-// scripts (shared with test-results:verify's census) so it cannot rot — that derivation is what
-// removes the M12-dropped 'promptfoo' and adds 'journey'/'web-e2e' without a hand-edit here.
+// packages/<name>) or a known tool-runner. The tool-runner half is the DECLARED registry
+// (scripts/lib/runners.ts, shared with test-results:verify's census) so it cannot rot — adding or
+// retiring a technique is one registry row, never a hand-edit here.
 const EXTRA_VALID_RUNNERS = new Set([
   // Valid runner names NOT folded by a *-results.ts (so the derivation can't see them):
   // tenant-spans backs the tenant-span-everywhere claim (folded by check-tenant-spans.ts --fold);
@@ -57,7 +57,7 @@ const EXTRA_VALID_RUNNERS = new Set([
   'scout',
   'gauntlet',
 ])
-const TOOL_RUNNERS = new Set([...deriveFoldedRunnerNames(), ...EXTRA_VALID_RUNNERS])
+const TOOL_RUNNERS = new Set([...runnerNames(), ...EXTRA_VALID_RUNNERS])
 function isValidRunnerName(name: string): boolean {
   if (TOOL_RUNNERS.has(name)) return true
   const m = name.match(/^@qaroom\/(.+)$/)

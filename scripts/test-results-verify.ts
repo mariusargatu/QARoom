@@ -1,104 +1,39 @@
-import { globSync, readFileSync, realpathSync } from 'node:fs'
+import { readFileSync, realpathSync } from 'node:fs'
 import { resolve } from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { TestResultsSummary } from '@qaroom/contracts'
+import { RUNNERS, type RunnerTier, runnerNames } from './lib/runners'
 
 /**
  * `pnpm test-results:verify`: validate `test-results/summary.json` against the frozen schema
- * (Commitment 14) AND run a CENSUS over it (roadmap T3 / C3). Schema-validation answers "is the
- * shape right"; the census answers "did the runners that were supposed to run actually run". The
- * roster is DERIVED from the *-results.ts scripts themselves (see deriveFoldedRunnerNames), so it
- * cannot rot the way a hand-kept list does.
+ * (Commitment 14) AND run a CENSUS over it (roadmap T3 / C3). Schema-validation answers "is the shape
+ * right"; the census answers "did the runners that were supposed to run actually run".
+ *
+ * The roster is the single DECLARED registry in scripts/lib/runners.ts (one row per runner). The
+ * census checks that registry against the runners actually present in summary.json — an artifact
+ * produced independently of the registry — so the gate is empirical, not a re-statement of itself:
+ *   - UNDECLARED (every lane): a runner folded into summary.json with no registry row is a typo or an
+ *     un-tracked fold → RED. This is strictly STRONGER than the old "a `name:` literal exists in a
+ *     *-results.ts source file": it proves the fold ACTUALLY RAN, and it sees the coverage:<backend>
+ *     family the old source-scraping regex could not (they fold under a dynamic `name`).
+ *   - MISSING (full tier): every non-optional row must be present, so a silently-absent runner (k6
+ *     didn't run, chaos didn't run) turns the gate RED instead of shipping a green-but-partial summary.
+ *
+ * (This replaced a two-witness pair — a regex that scraped the `name:` literal out of *-results.ts
+ * SOURCE, cross-checked against a hand-kept tier map. The regex's `(?!spec:)` lookahead had forced a
+ * fold script to rename a field `spec`→`specPath` purely to dodge the scraper: the measure distorting
+ * the measured. The declared registry + summary.json witness removes both the regex and that rename.)
  *
  * Two tiers, because the runners split by where they run:
  *   - in-proc (default): the cheap vitest/MBT/Playwright job. A light run MUST NOT fail just because
- *     the cluster/keyed runners are absent — they legitimately did not run. Only the vitest
- *     aggregate is hard-required (an empty summary.json is still caught).
+ *     the cluster/keyed runners are absent — they legitimately did not run. Only the vitest aggregate
+ *     is hard-required (an empty summary.json is still caught).
  *   - full (`--tier full` | `--tier=full` | QAROOM_VERIFY_TIER=full): the nightly/cluster job. Every
- *     in-proc AND cluster runner MUST be present, so a silently-missing runner (k6 didn't run, chaos
- *     didn't run) turns the gate RED instead of shipping a green-but-partial summary.
+ *     in-proc AND cluster runner MUST be present.
  */
 
 const ROOT = process.cwd()
 const SUMMARY_PATH = resolve(ROOT, 'test-results/summary.json')
-
-export type RunnerTier = 'in-proc' | 'cluster' | 'optional'
-
-// The NAMES come from the result scripts (deriveFoldedRunnerNames); this map only assigns each a
-// tier. A folded runner missing from this map fails the drift check below (forcing a human to
-// classify it), and a name here that no script folds is also flagged — that bidirectional gate is
-// what makes the census real rather than decorative.
-//   in-proc  — runs in CI's cheap in-process job; hard-required under --tier full.
-//   cluster  — needs a live cluster or a model key; expected only under --tier full (else DEFERRED).
-//   optional — folded by a script but gated on a heavyweight toolchain (Java/Python/Pact broker);
-//              recognised so the drift check passes, never required by any tier.
-// Exported so the meta-collapse registry's faithful-superset proof (scripts/lib/runners.test.ts) can
-// assert RUNNERS covers every classification here. PR-B deletes this map in favour of scripts/lib/runners.ts.
-export const RUNNER_TIERS: Record<string, RunnerTier> = {
-  'mbt-edge-coverage': 'in-proc',
-  'web-component': 'in-proc',
-  'web-e2e': 'in-proc',
-  k6: 'cluster',
-  chaos: 'cluster',
-  tracetest: 'cluster',
-  journey: 'cluster',
-  'tenant-spans': 'cluster',
-  deepeval: 'cluster',
-  deepteam: 'cluster',
-  pyrit: 'cluster',
-  'golden-sme': 'cluster',
-  coverage: 'optional',
-  'coverage:web-component': 'optional',
-  'coverage:web-node': 'optional',
-  'scenario:content': 'optional',
-  'scenario:flags': 'optional',
-  evomaster: 'optional',
-  moderator: 'optional',
-  pact: 'optional',
-  schemathesis: 'optional',
-  stryker: 'optional',
-}
-
-// Classified names the static `deriveFoldedRunnerNames` cannot see, so they are exempt from the
-// "every classified name is folded by a script" direction of the drift check:
-//  - tenant-spans   — folded by scripts/check-tenant-spans.ts via its `--fold` side-channel.
-//  - coverage       — folded by scripts/coverage-results.ts via a DYNAMIC `name: s.runner` (the web
-//                     merged-coverage scope), which the literal-`name:` extractor can't read.
-// (scenario:* are derivable — scenario-results.ts uses literal `name:` strings — so they stay in.)
-export const RUNNERS_WITHOUT_RESULTS_SCRIPT = new Set([
-  'tenant-spans',
-  'coverage',
-  'coverage:web-component',
-  'coverage:web-node',
-])
-
-/**
- * Derive the runner names the repo's `*-results.ts` scripts actually fold into summary.json — the
- * authoritative roster the census (and claims:verify's valid-runner set) build on. Extracts the
- * `name:` handed to foldRunner/foldVitestReport and the first argument of foldEvalRunner. Schemathesis'
- * per-spec targets (`{ name, spec }`) are excluded by the `spec:` lookahead; aggregate-test-results.ts
- * is excluded because it folds one runner per workspace package (matched structurally as the vitest
- * aggregate), not a fixed name.
- */
-export function deriveFoldedRunnerNames(root = ROOT): Set<string> {
-  const files = [
-    ...globSync('scripts/*-results.ts', { cwd: root }),
-    ...globSync('services/web/scripts/*-results.ts', { cwd: root }),
-  ]
-    .filter((rel) => !rel.endsWith('aggregate-test-results.ts'))
-    .sort()
-  const names = new Set<string>()
-  for (const rel of files) {
-    const src = readFileSync(resolve(root, rel), 'utf8')
-    for (const m of src.matchAll(/name:\s*'([^']+)'\s*,(?!\s*spec:)/g)) {
-      if (m[1] !== undefined) names.add(m[1])
-    }
-    for (const m of src.matchAll(/foldEvalRunner\(\s*'([^']+)'/g)) {
-      if (m[1] !== undefined) names.add(m[1])
-    }
-  }
-  return names
-}
 
 type Tier = 'in-proc' | 'full'
 
@@ -111,38 +46,30 @@ function resolveTier(): Tier {
 }
 
 function namesForTier(t: RunnerTier): string[] {
-  return Object.keys(RUNNER_TIERS)
-    .filter((name) => RUNNER_TIERS[name] === t)
+  return RUNNERS.filter((r) => r.tier === t)
+    .map((r) => r.name)
     .sort()
-}
-
-// Bidirectional drift gate: the derived roster and the tier map must agree, so neither can rot
-// unnoticed (this is the failure mode that left claims-verify carrying a dropped 'promptfoo' runner).
-function rosterDrift(folded: Set<string>): string[] {
-  const problems: string[] = []
-  for (const name of [...folded].sort()) {
-    if (!(name in RUNNER_TIERS)) {
-      problems.push(
-        `runner '${name}' is folded by a *-results.ts script but not classified — give it a tier in RUNNER_TIERS`,
-      )
-    }
-  }
-  for (const name of Object.keys(RUNNER_TIERS).sort()) {
-    if (!folded.has(name) && !RUNNERS_WITHOUT_RESULTS_SCRIPT.has(name)) {
-      problems.push(
-        `RUNNER_TIERS lists '${name}' but no *-results.ts folds it — stale roster entry`,
-      )
-    }
-  }
-  return problems
 }
 
 function vitestAggregatePresent(summary: TestResultsSummary): boolean {
   return summary.runners.some((r) => r.output.runner === 'vitest')
 }
 
+/**
+ * Runners that folded into summary.json but have no row in scripts/lib/runners.ts — a typo or an
+ * un-tracked fold. The vitest aggregate (one runner per workspace package, matched structurally by
+ * `output.runner === 'vitest'`) is exempt: it is not a registry subject.
+ */
+function undeclaredRunners(summary: TestResultsSummary): string[] {
+  const declared = runnerNames()
+  return summary.runners
+    .filter((r) => r.output.runner !== 'vitest' && !declared.has(r.name))
+    .map((r) => r.name)
+    .sort()
+}
+
 /** Run the census; return the number of FATAL findings (0 = pass). All output is to stdout/stderr. */
-export function runCensus(summary: TestResultsSummary, tier: Tier, folded: Set<string>): number {
+export function runCensus(summary: TestResultsSummary, tier: Tier): number {
   const present = new Set(summary.runners.map((r) => r.name))
   const vitestRunners = summary.runners.filter((r) => r.output.runner === 'vitest').length
 
@@ -151,16 +78,21 @@ export function runCensus(summary: TestResultsSummary, tier: Tier, folded: Set<s
       `${summary.runners.length} runners, ${summary.totals.passed} passed / ${summary.totals.failed} failed\n`,
   )
   process.stdout.write(
-    `  roster: ${folded.size} runners folded by *-results.ts + the vitest aggregate (derived from source)\n`,
+    `  roster: ${RUNNERS.length} declared runners (scripts/lib/runners.ts) + the vitest aggregate\n`,
   )
 
-  const fatal: string[] = [...rosterDrift(folded)]
+  const fatal: string[] = []
 
-  // A recorded failure is never "census clean". Schema + roster validity only prove the shape is
-  // right and the expected runners ran; a summary carrying totals.failed>0 (a crashed lane folded
-  // into the envelope, or a hand-edit) must turn the gate RED, not validate green. Belt-and-braces
-  // with `test-results:generate` (which already exits 1 on a live failure) so the FROZEN artifact is
-  // self-guarding even when re-verified in isolation.
+  // UNDECLARED: a folded runner with no registry row (replaces the source-scraping rosterDrift, and
+  // is stronger — it proves the fold ran, and sees dynamically-named runners the regex could not).
+  for (const name of undeclaredRunners(summary)) {
+    fatal.push(
+      `runner '${name}' folded into summary.json but is not declared in scripts/lib/runners.ts — add a RUNNERS row`,
+    )
+  }
+
+  // A recorded failure is never "census clean": a summary carrying totals.failed>0 (a crashed lane
+  // folded into the envelope, or a hand-edit) must turn the gate RED, not validate green.
   if (summary.totals.failed > 0) {
     fatal.push(`summary records ${summary.totals.failed} failed test(s) — not census-clean`)
   }
@@ -218,8 +150,7 @@ export function runCensus(summary: TestResultsSummary, tier: Tier, folded: Set<s
 function main(): void {
   const summary = TestResultsSummary.parse(JSON.parse(readFileSync(SUMMARY_PATH, 'utf8')))
   const tier = resolveTier()
-  const folded = deriveFoldedRunnerNames()
-  const fatal = runCensus(summary, tier, folded)
+  const fatal = runCensus(summary, tier)
 
   if (fatal > 0) {
     process.stderr.write(
@@ -230,7 +161,7 @@ function main(): void {
   process.stdout.write(`\ntest-results:verify ✓ — schema valid and census clean at tier=${tier}\n`)
 }
 
-// Only run the CLI when invoked directly; claims-verify.ts imports deriveFoldedRunnerNames from here.
+// Only run the CLI when invoked directly; claims-verify.ts imports the registry, not this module's main.
 function invokedDirectly(): boolean {
   const entry = process.argv[1]
   if (entry === undefined) return false
