@@ -22,6 +22,7 @@ import type { WebhooksClient } from '../src/webhooks-client'
 
 export interface GatewayTestOptions {
   rateLimit?: RateLimitConfig
+  authRateLimit?: RateLimitConfig
   tickets?: TicketClient
   verifyToken?: TokenVerifier
   eventStream?: CommunityEventStream
@@ -49,6 +50,7 @@ export function setupGatewayTest(content: ContentClient, options: GatewayTestOpt
     ids: deps.ids,
     randomness: deps.randomness,
     rateLimit: options.rateLimit,
+    authRateLimit: options.authRateLimit,
     eventStream,
   })
   return { ...deps, app, eventStream, request: injectClient(app) }
