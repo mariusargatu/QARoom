@@ -1,0 +1,133 @@
+# promtool test suite for alerts.gen.yaml (ADR-0034). Run from this directory:
+#   promtool test rules alerts.test.yaml
+# Each test arms a metric series past its SLO-derived threshold and asserts the rule fires (and a
+# below-threshold series does not). Thresholds live in alerts.gen.yaml, projected from SLO_TARGETS +
+# CONSUMER_LAG_SLO — the tests assert firing behaviour, they do not restate the bound.
+#
+# Tier note: promtool is not installed in the PR (in-process) lane, so this suite is Tier-B-deferred —
+# it is valid promtool YAML with SLO-derived thresholds, run wherever promtool is on PATH.
+rule_files:
+  - alerts.gen.yaml
+
+evaluation_interval: 1m
+
+tests:
+  # ── async consumer-lag (T12) ──
+  - interval: 1m
+    name: consumer num_pending past the SLO fires ConsumerLagPendingHigh
+    input_series:
+      - series: 'qaroom_consumer_num_pending{durable="moderator"}'
+        values: '2000x6'
+    alert_rule_test:
+      - eval_time: 5m
+        alertname: ConsumerLagPendingHigh
+        exp_alerts:
+          - exp_labels:
+              severity: warning
+              slo: consumer-lag
+              durable: moderator
+            exp_annotations:
+              summary: 'durable moderator num_pending over the CONSUMER_LAG_SLO maxPending (1000)'
+              runbook: 'docs/slos.md'
+
+  - interval: 1m
+    name: consumer num_pending below the SLO does not fire
+    input_series:
+      - series: 'qaroom_consumer_num_pending{durable="moderator"}'
+        values: '10x6'
+    alert_rule_test:
+      - eval_time: 5m
+        alertname: ConsumerLagPendingHigh
+        exp_alerts: []
+
+  - interval: 1m
+    name: oldest-unacked age past the SLO fires ConsumerLagAckAgeHigh
+    input_series:
+      - series: 'qaroom_consumer_oldest_unacked_age_seconds{durable="webhooks"}'
+        values: '45x6'
+    alert_rule_test:
+      - eval_time: 5m
+        alertname: ConsumerLagAckAgeHigh
+        exp_alerts:
+          - exp_labels:
+              severity: warning
+              slo: consumer-lag
+              durable: webhooks
+
+  # ── http error-rate (T09) ──
+  - interval: 1m
+    name: createPost 5xx ratio past the SLO fires HighErrorRateCreatePost
+    input_series:
+      - series: 'http_server_request_duration_seconds_count{http_route="/api/communities/{id}/posts",http_response_status_code="500"}'
+        values: '0+10x10'
+      - series: 'http_server_request_duration_seconds_count{http_route="/api/communities/{id}/posts",http_response_status_code="201"}'
+        values: '0+100x10'
+    alert_rule_test:
+      - eval_time: 10m
+        alertname: HighErrorRateCreatePost
+        exp_alerts:
+          - exp_labels:
+              severity: warning
+              slo: createPost
+
+  - interval: 1m
+    name: feed 5xx ratio past the SLO fires HighErrorRateFeed
+    input_series:
+      - series: 'http_server_request_duration_seconds_count{http_route="/api/communities/{id}/feed",http_response_status_code="500"}'
+        values: '0+10x10'
+      - series: 'http_server_request_duration_seconds_count{http_route="/api/communities/{id}/feed",http_response_status_code="200"}'
+        values: '0+100x10'
+    alert_rule_test:
+      - eval_time: 10m
+        alertname: HighErrorRateFeed
+        exp_alerts:
+          - exp_labels:
+              severity: warning
+              slo: feed
+
+  # ── http p95 latency (T09) ──
+  - interval: 1m
+    name: createPost p95 past the SLO fires HighLatencyP95CreatePost
+    input_series:
+      - series: 'http_server_request_duration_seconds_bucket{http_route="/api/communities/{id}/posts",le="0.05"}'
+        values: '0x10'
+      - series: 'http_server_request_duration_seconds_bucket{http_route="/api/communities/{id}/posts",le="0.1"}'
+        values: '0x10'
+      - series: 'http_server_request_duration_seconds_bucket{http_route="/api/communities/{id}/posts",le="0.2"}'
+        values: '0+5x10'
+      - series: 'http_server_request_duration_seconds_bucket{http_route="/api/communities/{id}/posts",le="0.5"}'
+        values: '0+100x10'
+      - series: 'http_server_request_duration_seconds_bucket{http_route="/api/communities/{id}/posts",le="1"}'
+        values: '0+100x10'
+      - series: 'http_server_request_duration_seconds_bucket{http_route="/api/communities/{id}/posts",le="+Inf"}'
+        values: '0+100x10'
+    alert_rule_test:
+      - eval_time: 10m
+        alertname: HighLatencyP95CreatePost
+        exp_alerts:
+          - exp_labels:
+              severity: warning
+              slo: createPost
+
+  - interval: 1m
+    name: feed p95 past the SLO fires HighLatencyP95Feed
+    input_series:
+      - series: 'http_server_request_duration_seconds_bucket{http_route="/api/communities/{id}/feed",le="0.05"}'
+        values: '0x10'
+      - series: 'http_server_request_duration_seconds_bucket{http_route="/api/communities/{id}/feed",le="0.1"}'
+        values: '0+5x10'
+      - series: 'http_server_request_duration_seconds_bucket{http_route="/api/communities/{id}/feed",le="0.2"}'
+        values: '0+100x10'
+      - series: 'http_server_request_duration_seconds_bucket{http_route="/api/communities/{id}/feed",le="0.5"}'
+        values: '0+100x10'
+      - series: 'http_server_request_duration_seconds_bucket{http_route="/api/communities/{id}/feed",le="1"}'
+        values: '0+100x10'
+      - series: 'http_server_request_duration_seconds_bucket{http_route="/api/communities/{id}/feed",le="+Inf"}'
+        values: '0+100x10'
+    alert_rule_test:
+      - eval_time: 10m
+        alertname: HighLatencyP95Feed
+        exp_alerts:
+          - exp_labels:
+              severity: warning
+              slo: feed

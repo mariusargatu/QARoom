@@ -1,6 +1,7 @@
 import { z } from 'zod'
-import { MatrixTier } from './detection-matrix-schema'
+import { DetectionToggle } from './detection-matrix-schema'
 
+export type { ToggleGuard, ToggleTiming } from './detection-matrix-schema'
 /**
  * The detection-matrix toggle manifest: every deliberate-bug env toggle in the repo, with where
  * it is read, how it is armed, and what was DESIGNATED to catch it. The matrix experiment
@@ -12,46 +13,12 @@ import { MatrixTier } from './detection-matrix-schema'
  * (`pnpm matrix --verify` greps each readSite, mirroring claims-verify's checkWired): the
  * manifest can never name a toggle nothing reads. The same census checks each declared
  * `guard` against the read site, so guard metadata cannot drift from the code.
+ *
+ * The toggle SCHEMA (ToggleTiming / ToggleGuard / DetectionToggle) lives in detection-matrix-schema.ts
+ * and is re-exported here so this codeowned manifest stays under the 500-line cap (the same split that
+ * moved the technique classifiers to matrix-classifiers.ts).
  */
-export const ToggleTiming = z.enum([
-  /** Read on every call: external env injection is honored mid-process. */
-  'call-time',
-  /** Read once when the server/object is built: tests reusing a prebuilt fixture miss it. */
-  'construction-time',
-  /** Read when pydantic Settings() loads: Python; per-test settings fixtures honor it. */
-  'settings-load',
-])
-export type ToggleTiming = z.infer<typeof ToggleTiming>
-
-export const ToggleGuard = z.enum([
-  /** The read site honors the env var unconditionally: armable anywhere, including live pods. */
-  'unguarded',
-  /** Wrapped in NODE_ENV !== 'production': inert on deployed pods, so live-tier cells are n/a. */
-  'node-env-gated',
-  /** A pydantic Settings field (Python): armable wherever Settings() loads. */
-  'settings-load',
-])
-export type ToggleGuard = z.infer<typeof ToggleGuard>
-
-export const DetectionToggle = z.object({
-  id: z.string(),
-  env: z.object({ name: z.string(), value: z.string() }),
-  component: z.string(),
-  readSite: z.object({ file: z.string(), timing: ToggleTiming }),
-  /** What the read site does with the env var — census-verified against the code, never asserted.
-   *  node-env-gated drives the cluster tier's auto-n/a (the toggle is inert on live pods). */
-  guard: ToggleGuard,
-  /** What the repo SAYS catches this (null = nothing references the env; purely empirical). */
-  designatedCatcher: z.string().nullable(),
-  /** Cross-ref into claims.ts when this toggle already backs a permanent claim. */
-  claimId: z.string().optional(),
-  tiers: z.array(MatrixTier).min(1),
-  /** Test files that arm/clear this env THEMSELVES (vitest file isolation contains it, but
-   *  their verdicts under external injection invert: annotate, never naively count). */
-  selfToggling: z.array(z.string()),
-  notes: z.string().optional(),
-})
-export type DetectionToggle = z.infer<typeof DetectionToggle>
+export { DetectionToggle }
 
 export const TOGGLES: DetectionToggle[] = z.array(DetectionToggle).parse([
   // ── messaging / otel (shared infrastructure: expect wide blast radius, H6) ──
@@ -80,6 +47,34 @@ export const TOGGLES: DetectionToggle[] = z.array(DetectionToggle).parse([
     tiers: ['in-proc', 'cluster'],
     selfToggling: ['packages/otel/src/tenant-span-processor.test.ts'],
     notes: 'Candidate permanent claim: tenant-span-everywhere (Commitment 9, live tier).',
+  },
+  {
+    // T09 (ADR-0034): the inverse of tenant-span-drop. That bug DROPS the tenancy stamp; this one ADDS
+    // PII. Armed, the PiiLeakProbe stamps an email-shaped attribute onto every span; the in-process
+    // PII-in-spans audit reds. node-env-gated (a PII-injection switch must be inert on a prod pod).
+    id: 'span-pii',
+    env: { name: 'CHAOS_SPAN_PII', value: '1' },
+    component: 'otel',
+    readSite: { file: 'packages/otel/src/pii-leak-probe.ts', timing: 'call-time' },
+    guard: 'node-env-gated',
+    designatedCatcher: 'packages/otel/src/pii-leak-probe.test.ts (in-proc PII audit)',
+    claimId: 'pii-free-spans',
+    tiers: ['in-proc'],
+    selfToggling: ['packages/otel/src/pii-leak-probe.test.ts'],
+  },
+  {
+    // T12 (ADR-0034): stall a durable consumer so it acks nothing — num_pending and the oldest-unacked
+    // age climb past CONSUMER_LAG_SLO and the deterministic backpressure gate reds. The live num_pending
+    // observation against a running JetStream is Tier-B; the in-proc backlog model is the keyless teeth.
+    id: 'consumer-lag-stall',
+    env: { name: 'CHAOS_CONSUMER_STALL', value: '1' },
+    component: 'messaging',
+    readSite: { file: 'packages/messaging/src/consumer-lag.ts', timing: 'call-time' },
+    guard: 'unguarded',
+    designatedCatcher: 'packages/messaging/src/consumer-lag.test.ts (backpressure SLO gate)',
+    claimId: 'consumer-lag-bounded',
+    tiers: ['in-proc'],
+    selfToggling: ['packages/messaging/src/consumer-lag.test.ts'],
   },
   // ── content ──
   {

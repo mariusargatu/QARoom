@@ -20,6 +20,22 @@ data:
         check_interval: 1s
         limit_percentage: 80
         spike_limit_percentage: 25
+      # Defense-in-depth: scrub known-PII span attributes before export, so no email/body reaches a
+      # trace store even if a service stamps one (ADR-0034). The in-process PiiLeakProbe is the
+      # falsifiable seam (CHAOS_SPAN_PII) and scripts/check-pii-spans.ts is the live audit; this is the
+      # standing guard. Keys mirror PII_ATTR_DENYLIST in packages/otel/src/pii.ts (the audit's source).
+      attributes/redact-pii:
+        actions:
+          - { key: user.email, action: delete }
+          - { key: email, action: delete }
+          - { key: user.name, action: delete }
+          - { key: user.phone, action: delete }
+          - { key: phone, action: delete }
+          - { key: post.body, action: delete }
+          - { key: comment.body, action: delete }
+          - { key: message.body, action: delete }
+          - { key: content.body, action: delete }
+          - { key: http.request.body, action: delete }
       batch: {}
     exporters:
       # Jaeger v2 ingests OTLP natively on 4317. Bounded queue + capped retry so a jaeger
@@ -55,7 +71,7 @@ data:
       pipelines:
         traces:
           receivers: [otlp]
-          processors: [memory_limiter, batch]
+          processors: [memory_limiter, attributes/redact-pii, batch]
           exporters: [otlp/jaeger, otlp/tracetest, debug]
         metrics:
           receivers: [otlp]
