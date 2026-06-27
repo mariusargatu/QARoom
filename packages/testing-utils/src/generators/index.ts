@@ -26,3 +26,14 @@ export { idempotencyKeyArb, ulidArb, userIdArb } from './ids'
 export { jwkArb, jwksArb } from './jwks'
 export { castVoteRequestArb, createPostRequestArb, voteValueArb } from './post'
 export { problemDetailsArb } from './problem'
+export {
+  atMaxLengthArb,
+  bidiTextArb,
+  emojiArb,
+  isWellFormed,
+  type TextLengthOptions,
+  unicodeCreatePostRequestArb,
+  unicodeTextArb,
+  userBodyArb,
+  userTitleArb,
+} from './text'
