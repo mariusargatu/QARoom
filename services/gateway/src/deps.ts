@@ -30,6 +30,9 @@ export interface GatewayDeps {
   randomness: Randomness
   lamport?: LamportGate
   rateLimit?: RateLimitConfig
+  /** Tighter brute-force bucket for the credential endpoint (`POST /api/sessions`), separate
+   * from the general limiter (OWASP API#2). Defaults to `DEFAULT_AUTH_RATE_LIMIT`. */
+  authRateLimit?: RateLimitConfig
   /** The push/poll buffer; tests pass their own so they can publish to it directly. */
   eventStream?: CommunityEventStream
   /** Span-attribute sink for the LamportGate; defaults to the active-span bridge (Milestone 3). */
@@ -49,3 +52,7 @@ export interface GatewayRouteDeps {
 
 /** Generous default so non-rate-limit tests and normal traffic never trip the limit. */
 export const DEFAULT_RATE_LIMIT: RateLimitConfig = { capacity: 600, refillPerSec: 10 }
+
+/** Tight default for the credential endpoint: a small burst, slow refill — enough for legitimate
+ * session issuance, hostile to credential stuffing. Independent of the general limiter. */
+export const DEFAULT_AUTH_RATE_LIMIT: RateLimitConfig = { capacity: 10, refillPerSec: 1 }
