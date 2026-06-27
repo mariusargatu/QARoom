@@ -35,6 +35,7 @@ function parseVoteSlowMs(raw: string | undefined): number {
   return ms
 }
 
+// Single read site for the deliberate-bug env vars; every field maps to one CONTENT_BUG_* / CHAOS_* switch.
 export const resolveFaults = (env: NodeJS.ProcessEnv = process.env): FaultConfig => ({
   feedReversed: env.CONTENT_BUG_FEED_REVERSED === '1',
   tenantLeak: env.CONTENT_BUG_TENANT_LEAK === '1',
