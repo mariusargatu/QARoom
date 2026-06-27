@@ -111,6 +111,15 @@ const RAW: BoundaryEntry[] = [
     leadTechnique: 'HMAC signing, SSRF guard, at-least-once with retries',
     lanes: ['trust', 'process-async'],
   },
+  {
+    id: 'agentic',
+    label: 'Agentic development (the agent vs. its own gates)',
+    breaks:
+      'an agent edits a test, neuters an oracle, drifts a generated artifact, or patches around a gate to force a green',
+    leadTechnique:
+      'treat agent output as untrusted: mutation-killed assertions, the OpenAPI drift gate, and single-source invariant property gates the agent cannot game (tool-trajectory reverse-conformance deferred, ADR-0032)',
+    lanes: ['agentic'],
+  },
 ]
 
 export const BOUNDARY_REGISTRY: readonly BoundaryEntry[] = z.array(BoundaryEntry).parse(RAW)

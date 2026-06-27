@@ -15,7 +15,7 @@ import { z } from 'zod'
  * that empirically, so the manifest can never decay into theater.
  */
 
-/** The nine architectural boundaries (docs/02). A claim defends exactly one. */
+/** The architectural boundaries (docs/02). A claim defends exactly one. */
 export const BOUNDARIES = [
   'trust',
   'process-rest',
@@ -27,6 +27,9 @@ export const BOUNDARIES = [
   'websocket',
   'identity-issuance',
   'meta',
+  // Boundary 16 (ADR-0032): agentic development as a tested boundary — the agent's own output
+  // (tests, edits, patches) is an untrusted input that targets the GATES, not just the product.
+  'agentic',
 ] as const
 
 /** A runnable gate — the guarantee test that goes RED when the claim's toggle is set. */
@@ -375,6 +378,86 @@ const RAW: Claim[] = [
       ],
     },
     evidence: { runner: '@qaroom/web', field: 'passed' },
+    tier: 'simulate',
+  },
+  // Boundary 16 — agentic development as a tested boundary (ADR-0032). The boundary FLIPS: the agent
+  // attacks the GATES, not just the product, and it is measured (ImpossibleBench: GPT-5 cheats 76% —
+  // edits tests, `__eq__`→True, special-cases input; METR/Anthropic: monkey-patched graders,
+  // `sys.exit(0)`). So "agent output" is an untrusted input that targets the verifier itself. These
+  // three claims defend the GATES against that attacker; each `--break` mutant is on that taxonomy,
+  // not a toy. The fourth proposed claim (tool-trajectory reverse-conformance) is DEFERRED — it needs
+  // T21's fault-fuzzing harness + `agent.id`/`session.id` spans; derivation-chain governance + signed
+  // gates are T23. Named in ADR-0032, not built here.
+  {
+    id: 'agent-cannot-silently-desync',
+    claim:
+      'An agent that hand-edits the generated OpenAPI (or drifts the Zod schema) and leaves the committed spec behind is caught: the regenerated document no longer equals the committed openapi.yaml, so the Zod round-trip spec — and the `pnpm openapi:verify` drift gate it twins — go red.',
+    boundary: 'agentic',
+    registryRow: 'agentic',
+    technique:
+      'OpenAPI drift gate (Zod round-trip: the regenerated spec must equal the committed openapi.yaml)',
+    toggle: 'AGENT_DESYNC_OPENAPI',
+    gate: {
+      cmd: 'pnpm',
+      args: [
+        '--filter',
+        '@qaroom/content',
+        'exec',
+        'vitest',
+        'run',
+        '-t',
+        'byte-identical to what Zod and the operation registry generate',
+      ],
+    },
+    evidence: { runner: '@qaroom/content', field: 'passed' },
+    tier: 'simulate',
+  },
+  {
+    id: 'agent-test-has-teeth',
+    claim:
+      'An assertion-less agent-authored test has no teeth and is caught by mutation: when the oracle stops asserting (the always-pass / `__eq__`→True attack), the mutated target survives and the mutation gate reds. The in-process twin of the Stryker harness (ADR-0031), falsifiable in milliseconds.',
+    boundary: 'agentic',
+    registryRow: 'agentic',
+    technique:
+      'mutation gate over the agent oracle (deterministic in-process twin of `pnpm stryker:harness`, ADR-0031)',
+    toggle: 'AGENT_EMIT_ASSERTIONLESS_TEST',
+    gate: {
+      cmd: 'pnpm',
+      args: [
+        '--filter',
+        '@qaroom/testing-utils',
+        'exec',
+        'vitest',
+        'run',
+        '-t',
+        'kills every mutant of the target',
+      ],
+    },
+    evidence: { runner: '@qaroom/testing-utils', field: 'passed' },
+    tier: 'simulate',
+  },
+  {
+    id: 'gate-survives-agent-gaming',
+    claim:
+      'A strong invariant gate cannot be gamed: the tenant-isolation property still reds on a leak an agent patched in, even when a weak-oracle agent test stays green around it — oracle strength, not a green check, is what defends the boundary.',
+    boundary: 'agentic',
+    registryRow: 'agentic',
+    technique:
+      'tenant-isolation invariant property over a leak armed alongside green-theater tests',
+    toggle: 'AGENT_PATCH_AROUND_GATE',
+    gate: {
+      cmd: 'pnpm',
+      args: [
+        '--filter',
+        '@qaroom/content',
+        'exec',
+        'vitest',
+        'run',
+        '-t',
+        'even when an agent games the gate',
+      ],
+    },
+    evidence: { runner: '@qaroom/content', field: 'passed' },
     tier: 'simulate',
   },
 ]

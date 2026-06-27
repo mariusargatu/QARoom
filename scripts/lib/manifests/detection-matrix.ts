@@ -444,6 +444,63 @@ export const TOGGLES: DetectionToggle[] = z.array(DetectionToggle).parse([
       'reducer is the read site; a fast-check property over overlapping prev/incoming feeds catches it ' +
       'in-proc — the UI bug reproduced by writing the inputs down, not by a 500-client storm.',
   },
+  // ── agentic (Boundary 16, ADR-0032): the agent attacks the GATES, not just the product. Each
+  // toggle models a named attack from the taxonomy (ImpossibleBench/METR/Anthropic) against a
+  // verifier. The fourth proposed claim (tool-trajectory reverse-conformance) is DEFERRED to T21. ──
+  {
+    id: 'agent-desync-openapi',
+    env: { name: 'AGENT_DESYNC_OPENAPI', value: '1' },
+    component: 'agentic',
+    readSite: {
+      file: 'services/content/src/contract/openapi-document.ts',
+      timing: 'call-time',
+    },
+    guard: 'unguarded',
+    designatedCatcher:
+      'services/content/tests/openapi-roundtrip.spec.ts (Zod round-trip) + scripts/openapi-verify.ts (drift gate)',
+    claimId: 'agent-cannot-silently-desync',
+    tiers: ['in-proc'],
+    selfToggling: [],
+    notes:
+      'Models an agent that hand-edits the generated artifact (or drifts the Zod schema) and leaves ' +
+      'the committed openapi.yaml behind. Armed, contentOpenApiYaml() drifts, so the read-only ' +
+      'round-trip spec reds AND `pnpm openapi:verify` reds. Backs `agent-cannot-silently-desync`.',
+  },
+  {
+    id: 'agent-emit-assertionless-test',
+    env: { name: 'AGENT_EMIT_ASSERTIONLESS_TEST', value: '1' },
+    component: 'agentic',
+    readSite: {
+      file: 'packages/testing-utils/src/agentic/assertion-teeth.ts',
+      timing: 'call-time',
+    },
+    guard: 'unguarded',
+    designatedCatcher:
+      'packages/testing-utils/src/agentic/assertion-teeth.test.ts (mutation-kill gate, the in-proc twin of pnpm stryker:harness — ADR-0031)',
+    claimId: 'agent-test-has-teeth',
+    tiers: ['in-proc'],
+    selfToggling: [],
+    notes:
+      'The always-pass / `__eq__`→True attack: agentAssert stops asserting, every mutant of the target ' +
+      'survives, the kill ratio falls to 0, and the mutation gate reds. Backs `agent-test-has-teeth`.',
+  },
+  {
+    id: 'agent-patch-around-gate',
+    env: { name: 'AGENT_PATCH_AROUND_GATE', value: '1' },
+    component: 'agentic',
+    readSite: { file: 'services/content/src/config/faults.ts', timing: 'construction-time' },
+    guard: 'unguarded',
+    designatedCatcher:
+      'services/content/tests/agent-gaming.spec.ts (the tenant-isolation invariant) + services/content/src/tenancy.property.test.ts',
+    claimId: 'gate-survives-agent-gaming',
+    tiers: ['in-proc'],
+    selfToggling: [],
+    notes:
+      'Re-uses the tenancy leak as the bug an agent patches in behind green-theater tests (it loosens ' +
+      "listFeed's per-community WHERE, so it also reds the existing tenant-isolation property). The " +
+      'strong invariant gate reds while the weak-oracle agent test stays green. Backs ' +
+      '`gate-survives-agent-gaming`.',
+  },
 ])
 
 export const toggleById = (id: string): DetectionToggle | undefined =>
