@@ -52,6 +52,21 @@ describe('structuralFingerprint', () => {
     expect(earlier).not.toBe(later)
     expect(earlier).toBe(structuralFingerprint({ at: new Date('2026-01-01T00:00:00.000Z') }))
   })
+
+  it('normalizes a bigint to a tagged string instead of crashing the JSON.stringify', () => {
+    // Surfaced by the harness mutation lane (ADR-0031): without the dedicated bigint branch
+    // JSON.stringify THROWS, so the determinism oracle would crash on any bigint-bearing outcome
+    // rather than compare it. Tag-and-keep, distinct from the same numeric value.
+    expect(structuralFingerprint({ v: 10n })).toBe('{"v":"10n"}')
+    expect(structuralFingerprint({ v: 10n })).not.toBe(structuralFingerprint({ v: 10 }))
+  })
+
+  it('keeps an array distinct from an object carrying the same numeric keys', () => {
+    // Surfaced by the harness mutation lane (ADR-0031): the Array.isArray branch is load-bearing —
+    // an array and `{0:..,1:..}` must NOT collapse to one fingerprint, or the oracle would call two
+    // structurally-different outcomes identical and let a real determinism leak through.
+    expect(structuralFingerprint([1, 2])).not.toBe(structuralFingerprint({ 0: 1, 1: 2 }))
+  })
 })
 
 describe('runTwiceAndDiff', () => {

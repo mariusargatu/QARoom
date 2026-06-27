@@ -1,0 +1,20 @@
+{
+  "$schema": "./node_modules/@stryker-mutator/core/schema/stryker-schema.json",
+  "governance_comment": "SEPARATE surface from scripts/stryker-critical.ts's locked-6 (those are PRODUCT modules, governed by ADR-0016 §11). This config mutates the TESTING HARNESS itself — the code every suite trusts — and is governed by ADR-0031 (T18-core). Scope is BOUNDED to three pure, co-located-tested core modules (the scenario runner + two of the seeded determinism doubles) so a local run is fast; the broader harness surface (the pglite fixture, migration discipline, the matchers) is the dispatched nightly extension named in ADR-0031.",
+  "packageManager": "pnpm",
+  "testRunner": "vitest",
+  "plugins": ["@stryker-mutator/vitest-runner"],
+  "vitest": { "configFile": "vitest.stryker.config.ts" },
+  "mutate": [
+    "src/scenario/run-scenario.ts",
+    "src/determinism/seeded-randomness.ts",
+    "src/determinism/fake-clock.ts"
+  ],
+  "ignoreStatic": true,
+  "inPlace": true,
+  "tempDirName": ".stryker-tmp",
+  "reporters": ["json", "clear-text"],
+  "jsonReporter": { "fileName": "../../test-results/stryker-harness/testing-utils.json" },
+  "baseline_comment": "Measured 2026-06-27: 98.15% (53 killed / 54, 1 survived). run-scenario.ts 100%, fake-clock.ts 100%, seeded-randomness.ts 80% — its lone survivor is the `UINT32 - 1` off-by-one boundary mutant (an upper-bound shift on a 2^32 range with no cheap deterministic kill: the low-value-literal survivor class ADR-0016 leaves honest rather than chases). break is a FLOOR under that baseline, not a 100% target.",
+  "thresholds": { "high": 95, "low": 90, "break": 90 }
+}
