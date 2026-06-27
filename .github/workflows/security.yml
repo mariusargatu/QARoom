@@ -1,0 +1,199 @@
+name: Security scanning
+
+# Representative supply-chain / build-scanning slice (T15 — closes "Boundary 15", which had ZERO
+# classic appsec scanning: no SAST, no SCA, no IaC/K8s misconfig scan, no SBOM). This is a SLICE — one
+# representative scanner per category — not an exhaustive AppSec program. It lives in its own workflow
+# (sibling of ci.yml) and is DISPATCH-FIRST + tier-gated, mirroring ci.yml exactly: a build-in-public
+# repo gains nothing from a scanner storm on every PR, and a second always-on required check would only
+# slow the cheap PR `verify` lane in ci.yml. Run these from the Actions tab (pick a `tier`).
+#
+# ONE representative scanner per appsec category, and the boundary each defends:
+#   SAST     Semgrep (p/ci ruleset; YAML rules, lighter than CodeQL)   — application source (our TS)
+#   SCA      osv-scanner (OSV.dev; the pnpm + uv lockfiles, recursive) — third-party dependencies
+#   IaC/K8s  Checkov (deploy/** + the helm-rendered service manifests) — deployment / cluster config
+#   SBOM     Syft / anchore/sbom-action — an SPDX inventory artifact    — supply-chain provenance
+#
+# Tiers are CUMULATIVE, matching ci.yml (light < merge < nightly):
+#   light   (every dispatch): semgrep, osv-scanner, checkov  — the three finding-producing gates
+#   merge   (light +):        sbom                           — supply-chain inventory artifact
+#   nightly (merge +):        [reserved] container-image scan — see DEFERRED below
+#
+# EVIDENCE. Each scanner emits SARIF (or an SBOM) uploaded as a workflow artifact (ALWAYS — the
+# guaranteed, downloadable evidence sink) and, best-effort, to the GitHub code-scanning Security tab
+# (continue-on-error, so a repo without code scanning enabled never reds the lane). Folding scanner
+# results into test-results/summary.json is DEFERRED ON PURPOSE: that envelope's schema is frozen
+# (packages/contracts/test-results-schema.ts is an invariant source — ADR-0024), so a "scanner" runner
+# would be a schema-additive change needing its own ADR + Code Owner sign-off — out of scope for this
+# slice, and an honest-skip beats weakening a frozen schema to make a green tick. SARIF artifacts + the
+# Security tab are the evidence until then.
+#
+# POSTURE. Findings are INFORMATIONAL for this first pass (the scan steps are non-blocking:
+# continue-on-error / Checkov soft_fail) — this is a baseline on a never-scanned tree, so we record
+# evidence rather than red a dispatch lane on pre-existing findings. Flipping to ENFORCEMENT
+# (fail-on-finding, once the baseline is triaged) is the deliberate next step.
+#
+# DEFERRED scanners, NAMED with reasons (honest-skip / gauntlet semantics — a named gap, never a silent
+# one):
+#   - Container-image scan (Trivy / Grype): QARoom pushes NO images to a registry today — Tilt/KinD
+#     load images into the local cluster, nothing is published. An image scanner needs a built+pushed
+#     artifact to scan, so there is nothing to point it at. Wire it as a `nightly` job once a registry
+#     exists — and pin the action to a commit SHA, not a moving tag (aquasecurity/trivy-action's tags
+#     were hijacked in the March 2026 supply-chain incident; SHA-pinning is the mitigation).
+#   - Secret scan (gitleaks / trufflehog): low marginal signal here — public repo, branch protection,
+#     no committed secrets (keys are env / `secrets.*`, and the determinism lint rules already ban
+#     hardcoded non-test randomness/keys in source). Better added as a pre-commit hook before a CI lane.
+#   - Signing / SLSA provenance (cosign, slsa-github-generator): nothing to sign or attest until there
+#     is a real artifact registry to publish into — out of scope per the card.
+#
+# Action pins follow the repo convention (major-version tags, kept current by the github-actions
+# dependabot group); pinned tool binaries (osv-scanner) mirror the kubeconform install in ci.yml —
+# bump deliberately. Checkov and kubeconform are complementary: kubeconform (ci.yml `chart` job) gates
+# manifest SYNTAX against the K8s schemas; Checkov here gates SECURITY misconfiguration.
+on:
+  workflow_dispatch:
+    inputs:
+      tier:
+        description: Which cumulative tier to run (light is a subset of merge is a subset of nightly).
+        type: choice
+        options:
+          - light
+          - merge
+          - nightly
+        default: light
+
+# Least privilege: read-only by default. The SARIF-uploading jobs widen to `security-events: write`
+# at the job level (where they genuinely need it); the SBOM job stays read-only.
+permissions:
+  contents: read
+
+jobs:
+  # SAST (defends: our own TypeScript source). Semgrep against the curated `p/ci` ruleset — no
+  # Semgrep-Cloud token, no telemetry (`--metrics=off`). Pip-installed on a standard runner (pinned;
+  # not the container image, to sidestep container + JS-action node-mount fragility).
+  semgrep:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      security-events: write
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.13'
+      - name: Install Semgrep (pinned — bump deliberately)
+        run: pip install semgrep==1.168.0
+      - name: Semgrep scan (SAST) -> SARIF
+        # Informational baseline: findings do not red the lane (see POSTURE in the header).
+        continue-on-error: true
+        run: semgrep scan --config=p/ci --sarif --output=semgrep.sarif --metrics=off
+      - name: Upload SARIF to the code-scanning Security tab (best-effort)
+        continue-on-error: true
+        uses: github/codeql-action/upload-sarif@v3
+        with:
+          sarif_file: semgrep.sarif
+          category: semgrep
+      - name: Upload the Semgrep SARIF as a workflow artifact (evidence)
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: scan-semgrep-sarif
+          path: semgrep.sarif
+          if-no-files-found: warn
+
+  # SCA (defends: third-party dependencies). osv-scanner over OSV.dev, recursive across every lockfile
+  # (pnpm-lock.yaml + services/moderator-agent/uv.lock); gitignored paths like node_modules are skipped
+  # by default. Binary pinned + installed exactly like kubeconform in ci.yml. SARIF goes to stdout
+  # (progress to stderr), so a redirect captures clean SARIF regardless of the output-flag spelling.
+  osv-scanner:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      security-events: write
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install osv-scanner (pinned — bump deliberately; mirrors the kubeconform install)
+        run: |
+          curl -sSL https://github.com/google/osv-scanner/releases/download/v2.4.0/osv-scanner_linux_amd64 \
+            -o "$RUNNER_TEMP/osv-scanner"
+          chmod +x "$RUNNER_TEMP/osv-scanner"
+      - name: osv-scanner (SCA) — recursive scan -> SARIF
+        # Informational baseline: a non-zero "vulnerabilities found" exit does not red the lane.
+        continue-on-error: true
+        run: '"$RUNNER_TEMP/osv-scanner" scan --recursive --format sarif ./ > osv-scanner.sarif'
+      - name: Upload SARIF to the code-scanning Security tab (best-effort)
+        continue-on-error: true
+        uses: github/codeql-action/upload-sarif@v3
+        with:
+          sarif_file: osv-scanner.sarif
+          category: osv-scanner
+      - name: Upload the osv-scanner SARIF as a workflow artifact (evidence)
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: scan-osv-scanner-sarif
+          path: osv-scanner.sarif
+          if-no-files-found: warn
+
+  # IaC / K8s (defends: deployment + cluster config). Checkov over deploy/** (the raw observability +
+  # ingress manifests and per-service values) AND the helm-rendered service manifests — rendering with
+  # the REAL per-service values (the same 5 the ci.yml `chart` job renders) so Checkov checks the
+  # manifests as actually deployed, not the chart defaults.
+  checkov:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      security-events: write
+    steps:
+      - uses: actions/checkout@v4
+      - uses: azure/setup-helm@v4
+        with:
+          version: v4.1.1
+      - name: Render the shared Helm chart per service (the real K8s manifests Checkov checks)
+        run: |
+          mkdir -p scan-target/rendered
+          cp -R deploy scan-target/deploy
+          for svc in content identity gateway moderator-agent webhooks; do
+            helm template "$svc" packages/helm-template -f "deploy/$svc/values.yaml" \
+              > "scan-target/rendered/$svc.yaml"
+          done
+      - name: Checkov (IaC/K8s misconfig) on deploy/** + rendered manifests -> SARIF
+        uses: bridgecrewio/checkov-action@v12
+        with:
+          directory: scan-target
+          framework: kubernetes
+          output_format: cli,sarif
+          output_file_path: console,results.sarif
+          # Informational baseline: findings do not red the lane (see POSTURE in the header).
+          soft_fail: true
+      - name: Upload SARIF to the code-scanning Security tab (best-effort)
+        continue-on-error: true
+        uses: github/codeql-action/upload-sarif@v3
+        with:
+          sarif_file: results.sarif
+          category: checkov
+      - name: Upload the Checkov SARIF as a workflow artifact (evidence)
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: scan-checkov-sarif
+          path: results.sarif
+          if-no-files-found: warn
+
+  # SBOM (supply-chain provenance). Merge-tier supplement: an SPDX inventory of the workspace via Syft.
+  # Not a finding-producing gate — it is the bill of materials that future vuln-correlation / signing
+  # would attest. anchore/sbom-action auto-uploads the SBOM as a workflow artifact.
+  sbom:
+    if: inputs.tier == 'merge' || inputs.tier == 'nightly'
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@v4
+      - name: Generate an SPDX SBOM with Syft (anchore/sbom-action)
+        uses: anchore/sbom-action@v0
+        with:
+          path: .
+          format: spdx-json
+          output-file: qaroom.sbom.spdx.json
+          artifact-name: qaroom-sbom-spdx
+          upload-artifact: true
