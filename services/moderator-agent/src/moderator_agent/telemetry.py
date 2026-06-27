@@ -38,6 +38,10 @@ if TYPE_CHECKING:
 TENANT_ID_ATTR = "tenant.id"
 XSTATE_TRANSITION_SPAN = "xstate.transition"
 SYSTEM_TENANT = "system"
+# Agent-trajectory identity (T21, Boundary 16): every emitted transition is attributable to one agent
+# run, so the lightweight-DST safety oracle can assert both are present over the whole trajectory.
+AGENT_ID_ATTR = "agent.id"
+SESSION_ID_ATTR = "session.id"
 
 # Span names that are noise in the Langfuse LLM view and dropped from the LANGFUSE export ONLY (the
 # collector still gets them, so Jaeger/Tracetest are unaffected): the hand-rolled gen_ai.*/
@@ -104,14 +108,32 @@ def record_genai_usage(
         span.set_attribute("gen_ai.usage.output_tokens", output_tokens)
 
 
-def emit_transition_span(*, machine: str, frm: str, to: str, event: str, at: str) -> None:
-    """Emit one ``xstate.transition`` span — byte-compatible attrs with ``@qaroom/otel`` (ADR-0012)."""
+def emit_transition_span(
+    *,
+    machine: str,
+    frm: str,
+    to: str,
+    event: str,
+    at: str,
+    agent_id: str = "",
+    session_id: str = "",
+) -> None:
+    """Emit one ``xstate.transition`` span — byte-compatible attrs with ``@qaroom/otel`` (ADR-0012).
+
+    ``agent_id`` / ``session_id`` (T21) stamp the agent + session identity on the transition so the
+    trajectory is attributable to one agent run; they are additive (empty → not set), so the existing
+    Tracetest reverse-conformance assertion over ``xstate.*`` is unchanged.
+    """
     span = tracer().start_span(XSTATE_TRANSITION_SPAN)
     span.set_attribute("xstate.machine", machine)
     span.set_attribute("xstate.from", frm)
     span.set_attribute("xstate.to", to)
     span.set_attribute("xstate.event", event)
     span.set_attribute("xstate.at", at)
+    if agent_id:
+        span.set_attribute(AGENT_ID_ATTR, agent_id)
+    if session_id:
+        span.set_attribute(SESSION_ID_ATTR, session_id)
     span.end()
 
 

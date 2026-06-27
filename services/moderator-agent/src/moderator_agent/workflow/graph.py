@@ -149,8 +149,29 @@ class ModerationWorkflow:
         if current != frm:
             raise RuntimeError(f"transition from {frm!r} but live state is {current!r}")
         at = iso_z(self._clock.now())
-        transition = {"from": frm, "to": to, "event": event, "at": at}
-        telemetry.emit_transition_span(machine=M.MACHINE, frm=frm, to=to, event=event, at=at)
+        # Stamp the agent + session identity (T21): the agent is this machine; the session is the one
+        # review (its event_id, the LangGraph thread_id), so the whole trajectory is attributable to a
+        # single agent run. Mirrors the span attributes so an in-process trajectory observer (the DST
+        # harness) reads the same identity the Tracetest span carries.
+        agent_id = M.MACHINE
+        session_id = str(state.get("event", {}).get("event_id", ""))
+        transition = {
+            "from": frm,
+            "to": to,
+            "event": event,
+            "at": at,
+            "agent_id": agent_id,
+            "session_id": session_id,
+        }
+        telemetry.emit_transition_span(
+            machine=M.MACHINE,
+            frm=frm,
+            to=to,
+            event=event,
+            at=at,
+            agent_id=agent_id,
+            session_id=session_id,
+        )
         if self._sink is not None:
             self._sink.append(transition)
         return {**updates, "state": to, "transitions": [*state.get("transitions", []), transition]}
@@ -377,6 +398,10 @@ class ModerationWorkflow:
         # so the trace card shows post → disposition instead of null/undefined. No-op when tracing off.
         span = _otel_trace.get_current_span()
         span.set_attribute("langfuse.session.id", event.community_id)
+        # T21: the trajectory's agent + session identity on the root span too — `langfuse.session.id`
+        # groups a tenant's traces; `session.id` identifies THIS one review (its event_id).
+        span.set_attribute(telemetry.AGENT_ID_ATTR, M.MACHINE)
+        span.set_attribute(telemetry.SESSION_ID_ATTR, event.event_id)
         span.set_attribute("langfuse.trace.name", "moderate-post")
         span.set_attribute("langfuse.trace.tags", ["moderation"])
         span.set_attribute("langfuse.trace.input", self._post_text(event))
