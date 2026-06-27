@@ -11,6 +11,9 @@ pnpm install
 # build all services
 pnpm build
 
+# golden path: full suite (in-process PGlite, no Docker) + a rendered summary
+pnpm demo
+
 # test (all layers; concurrency capped at 50% of cores — full-fan-out starves the
 # PGlite-heavy property suites past their timeouts)
 pnpm test
@@ -103,6 +106,22 @@ These are enforced by lint and CI. Violating them will fail the build.
 - **Every event publisher sets `Nats-Msg-Id` from the `IdGenerator`.** Consumers dedupe via the `processed_events` table (helpers in `@qaroom/messaging`). Raw `qaroom.*` subject string literals at call sites fail lint. Use the `subjects.ts` builders.
 - **Single-writer-per-resource.** Mutations include `Idempotency-Key`; replays served from per-service `idempotency_responses`. Concurrent writes serialized by Postgres advisory locks + `SELECT … FOR UPDATE`.
 - **Every mutating endpoint declares OAS `links`** so Schemathesis stateful-links has something to follow.
+
+### Common mistakes (wrong → right)
+
+The same conventions as above, as the wrong/right pairs an agent trips on mid-edit:
+
+| You wrote (fails the build) | Write instead |
+|---|---|
+| `new Date()` in non-test code | `clock.now()` — the injected `Clock` |
+| `Math.random()` / `crypto.randomUUID()` in non-test code | `randomness.next()` / `idGenerator.next()` |
+| `expect(x).toMatchSnapshot()` | a typed assertion against an explicit expected value |
+| `if`/`try-catch` to branch an assertion in a test | two tests, one per case |
+| `publish('qaroom.content.post.…')` (raw subject literal) | a `subjects.ts` builder (`community_id` stays fixed at position 3) |
+| `throw new Error()` / bare JSON on a non-2xx response | RFC 7807 Problem Details with `retryable` / `next_actions` / `failure_domain` |
+| `: any` in non-test code | `unknown`, then narrow |
+| re-stating a bound (e.g. vote ±1) in a second place | derive it from the one source (`VOTE_VALUES`); duplication is a bug, not a pattern |
+| a file past 500 lines (tests included) | split it |
 
 ## How to make changes
 
