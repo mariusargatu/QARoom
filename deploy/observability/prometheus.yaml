@@ -35,6 +35,12 @@ data:
   prometheus.yml: |
     global:
       scrape_interval: 15s
+    # Alerting rules (error-rate / p95-latency / consumer-lag SLOs) live in
+    # deploy/observability/alerts.gen.yaml, generated from SLO_TARGETS + CONSUMER_LAG_SLO
+    # (`pnpm alerts:gen`, ADR-0034). The glob is empty until a `qaroom-prometheus-rules` ConfigMap is
+    # mounted at /etc/prometheus/rules on the cluster (Tier-B); an empty glob is a no-op, never an error.
+    rule_files:
+      - /etc/prometheus/rules/*.yaml
     scrape_configs:
       # Service metrics surface via the OTel Collector's prometheus exporter.
       - job_name: otel-collector

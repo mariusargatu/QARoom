@@ -7,6 +7,7 @@ export {
 } from './connection'
 export { consumeDurable } from './consume-durable'
 export { type ResilientConsumeOpts, runResilientConsume } from './consume-loop'
+export { type BacklogSim, consumerStalled, simulateBacklog } from './consumer-lag'
 export { connectServiceDb, dbReadiness, type ServiceDbHandle } from './db-connect'
 export { alreadyProcessed, markProcessed } from './dedup'
 export { createDrainLoop } from './drain-loop'
