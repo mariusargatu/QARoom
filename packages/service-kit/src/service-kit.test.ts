@@ -6,6 +6,7 @@ import { describe, expect, it } from 'vitest'
 import { z } from 'zod'
 import { buildCapabilities } from './capabilities'
 import { registerHealthRoutes } from './health-routes'
+import { ensureShutdownSignal } from './lifecycle'
 import { ProblemError, problem, registerProblemHandler } from './problem'
 
 const stubIds = { next: (prefix: string) => `${prefix}_stub` }
@@ -210,7 +211,31 @@ describe('the service-kit health routes', () => {
     const res = await app.inject({ method: 'GET', url: '/ready' })
     expect(res.statusCode).toBe(503)
     expect(res.headers['content-type']).toContain('application/problem+json')
-    expect(res.json().failure_domain).toBe('dependency_failure')
+    const body = res.json()
+    expect(body.failure_domain).toBe('dependency_failure')
+    // The full RFC 7807 agent contract, not just the status: a down dependency is retryable, carries
+    // a derived `type` URI, and the mandatory `next_actions` array (Commitment 13).
+    expect(body.retryable).toBe(true)
+    expect(body.type).toBe('https://qaroom.dev/errors/service-not-ready')
+    expect(Array.isArray(body.next_actions)).toBe(true)
+    await app.close()
+  })
+
+  it('keeps /health a 200 liveness response while /ready fails on a down dependency', async () => {
+    // Liveness and readiness are deliberately split: a transient dependency outage must fail
+    // readiness (k8s stops routing) WITHOUT failing liveness (k8s must not restart-loop the pod).
+    const app = Fastify({ logger: false })
+    registerProblemHandler(app)
+    registerHealthRoutes(app, {
+      service: 'demo',
+      readiness: async () => {
+        throw new Error('db unreachable')
+      },
+    })
+    expect((await app.inject({ method: 'GET', url: '/ready' })).statusCode).toBe(503)
+    const health = await app.inject({ method: 'GET', url: '/health' })
+    expect(health.statusCode).toBe(200)
+    expect(health.json()).toEqual({ status: 'ok', service: 'demo' })
     await app.close()
   })
 
@@ -220,6 +245,36 @@ describe('the service-kit health routes', () => {
     registerHealthRoutes(app, { service: 'gateway' })
     const res = await app.inject({ method: 'GET', url: '/ready' })
     expect(res.statusCode).toBe(200)
+    await app.close()
+  })
+
+  it('fails /ready with a 503 service-draining problem once graceful shutdown begins', async () => {
+    const app = Fastify({ logger: false })
+    registerProblemHandler(app)
+    // A readiness check that always passes — so the only thing that can fail /ready is the drain.
+    registerHealthRoutes(app, { service: 'demo', readiness: async () => {} })
+    expect((await app.inject({ method: 'GET', url: '/ready' })).statusCode).toBe(200)
+
+    ensureShutdownSignal(app).beginDrain()
+
+    const res = await app.inject({ method: 'GET', url: '/ready' })
+    expect(res.statusCode).toBe(503)
+    expect(res.headers['content-type']).toContain('application/problem+json')
+    const body = res.json()
+    expect(body.failure_domain).toBe('dependency_failure')
+    expect(body.retryable).toBe(true)
+    expect(body.type).toBe('https://qaroom.dev/errors/service-draining')
+    await app.close()
+  })
+
+  it('keeps /health a 200 liveness response while draining', async () => {
+    const app = Fastify({ logger: false })
+    registerProblemHandler(app)
+    registerHealthRoutes(app, { service: 'demo', readiness: async () => {} })
+    ensureShutdownSignal(app).beginDrain()
+    const health = await app.inject({ method: 'GET', url: '/health' })
+    expect(health.statusCode).toBe(200)
+    expect(health.json()).toEqual({ status: 'ok', service: 'demo' })
     await app.close()
   })
 })
