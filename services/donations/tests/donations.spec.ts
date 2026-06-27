@@ -5,6 +5,7 @@ import {
   alwaysErrors,
   enableDonations,
   nextKey,
+  recordingPayment,
   SAMPLE,
   setupDonationsTest,
 } from './harness'
@@ -51,6 +52,27 @@ describe('donation creation gated by the donations flag', () => {
     const res = await create(ctx)
     await ctx.close()
     expectRFC7807(res.json, { status: 502, failureDomain: 'dependency_failure' })
+  })
+})
+
+describe('double-charge on retry, at the HTTP layer', () => {
+  it('charges the provider exactly once across two POSTs with the same Idempotency-Key', async () => {
+    const payment = recordingPayment()
+    const ctx = await setupDonationsTest({ payment: payment.client })
+    await enableDonations(ctx, SAMPLE.communityA)
+    const url = `/api/communities/${SAMPLE.communityA}/donations`
+    const key = nextKey()
+    const first = await ctx.request.post(url, body, { 'idempotency-key': key })
+    const second = await ctx.request.post(url, body, { 'idempotency-key': key })
+    const list = await ctx.request.get(url)
+    await ctx.close()
+
+    expect(first.status).toBe(201)
+    // The replay must be the stored response, not a fresh charge-and-record.
+    expect(second.json).toEqual(first.json)
+    // The seam that a double-charge bug would breach: the provider is hit once, not twice.
+    expect(payment.calls.length).toBe(1)
+    expect((list.json as { donations: unknown[] }).donations).toHaveLength(1)
   })
 })
 
