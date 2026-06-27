@@ -35,6 +35,10 @@ pglite-data/
 # Decision log — raw build-in-public capture, kept local (not versioned).
 docs/journey/
 
+# Planning corpus — local working artifacts (QARoomReview execution + STORY spine + T01–T26 cards +
+# spikes/). Kept local, not versioned.
+planning/
+
 # Agent browser-session artifacts (Playwright MCP snapshots/console logs)
 .playwright-mcp/
 
