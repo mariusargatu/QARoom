@@ -23,7 +23,8 @@ runServer(
   async () => {
     const { deps, replaying } = resolveBootDeps()
     const { db, snapshotStore } = connectServiceDb({ connectionString, schema, max: pgPoolMax() })
-    await ensureSchema(db)
+    // RLS is the second tenancy layer (ADR-0035); the CONTENT_BUG_DISABLE_RLS demo drops it on demand.
+    await ensureSchema(db, { rls: !faults.disableRls })
 
     if (!replaying) {
       // Communities-as-tenants (Milestone 2): normalize legacy community_id before serving.

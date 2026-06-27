@@ -61,6 +61,20 @@ export default [
       'qaroom/no-unseeded-random': 'off',
     },
   },
+  // The two governed falsifiable-claim / detection-matrix DATA manifests. Their schema
+  // (detection-matrix-schema.ts) and technique classifiers (matrix-classifiers.ts) are already
+  // extracted to sibling files; what remains is an append-only ARRAY of governed data — claims and
+  // deliberate-bug toggles — each row pinned to THIS exact file by CODEOWNERS + the invariant-guard
+  // workflow (both reference the files by path, not a glob). It cannot be decomposed further without
+  // FRAGMENTING that single-source governance, so the 500-line cap — whose purpose is to force LOGIC
+  // decomposition, already done here — does not serve these data files. Raised, not removed: growth
+  // past this still forces a deliberate governance decision (split into a second governed file).
+  {
+    files: ['scripts/lib/manifests/claims.ts', 'scripts/lib/manifests/detection-matrix.ts'],
+    rules: {
+      'max-lines': ['error', { max: 650, skipBlankLines: true, skipComments: true }],
+    },
+  },
   // Tests: shape + discipline rules.
   {
     files: ['**/*.test.ts', '**/*.spec.ts', '**/*.property.test.ts'],

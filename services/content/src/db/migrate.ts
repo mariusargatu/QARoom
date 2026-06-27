@@ -2,6 +2,7 @@ import { composeMigrations, type Migration, voteValueCheckSql } from '@qaroom/co
 import { messagingFragment } from '@qaroom/messaging/migrations'
 import { sql } from 'drizzle-orm'
 import type { SqlExecutor } from './client'
+import { applyContentRls } from './rls'
 
 // The ±1 vote-value CHECK predicate, derived from contracts' VOTE_VALUES (single source) — the
 // migration never hand-types the bounds. Used both inline in CREATE TABLE (fresh databases) and in
@@ -81,7 +82,24 @@ export const contentMigrations = composeMigrations<SqlExecutor>([
   messagingFragment,
 ])
 
-/** Apply the content-service schema. Idempotent; safe to call on every boot/test. */
-export async function ensureSchema(db: SqlExecutor): Promise<void> {
+export interface EnsureSchemaOptions {
+  /**
+   * Apply the RLS second tenancy layer (ADR-0035) once the tables exist. Default true. The
+   * `rls-blocks-broken-service-layer` deliberate-bug demo passes `false` (armed by
+   * `CONTENT_BUG_DISABLE_RLS`) to drop the database backstop, so a broken service-layer filter leaks
+   * again — which is exactly what its gate test asserts must be caught.
+   */
+  rls?: boolean
+}
+
+/**
+ * Apply the content-service schema. Idempotent; safe to call on every boot/test. RLS is applied as a
+ * post-table hardening step (not a reversible fragment): enabling RLS is not meaningfully "reversed"
+ * in the up->down idempotency model, and DROP TABLE takes its policies with it.
+ */
+export async function ensureSchema(db: SqlExecutor, opts: EnsureSchemaOptions = {}): Promise<void> {
   await contentMigrations.up(db)
+  if (opts.rls ?? true) {
+    await applyContentRls(db)
+  }
 }

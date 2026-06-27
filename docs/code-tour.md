@@ -35,10 +35,10 @@ A client `POST`s a new post. The gateway fronts content-service; content owns th
    - code: [`routes/posts.ts:15`](../services/content/src/routes/posts.ts#L15) (`withIdempotency`) -> [`idempotency.ts:32`](../packages/service-kit/src/idempotency.ts#L32) (`withIdempotency`); hash [`idempotency.ts:39`](../packages/service-kit/src/idempotency.ts#L39) (`bodyHash`); store [`idempotency.ts:60`](../packages/service-kit/src/idempotency.ts#L60) (`storeIdempotent`)
    - technique: **property test** [`idempotency.property.test.ts:9`](../services/content/src/idempotency.property.test.ts#L9) (`same Idempotency-Key`)
 7. **persistence** · Write under single-writer discipline: advisory lock -> insert -> one row, one mapper.
-   - code: [`repository/posts.ts:39`](../services/content/src/repository/posts.ts#L39) (`createPost`); lock [`repository/posts.ts:57`](../services/content/src/repository/posts.ts#L57) (`advisoryLock`)
+   - code: [`repository/posts.ts:40`](../services/content/src/repository/posts.ts#L40) (`createPost`); lock [`repository/posts.ts:58`](../services/content/src/repository/posts.ts#L58) (`advisoryLock`)
    - technique: **advisory lock + `SELECT … FOR UPDATE`** (Commitment 4); property test [`single-writer.property.test.ts:27`](../services/content/src/single-writer.property.test.ts#L27) (`whatever the interleaving`)
 8. **observability** · Every tracked write funnels through the lamport gate.
-   - code: [`repository/posts.ts:61`](../services/content/src/repository/posts.ts#L61) (`deps.lamport.bump`) -> [`lamport.ts:55`](../packages/contracts/src/lamport.ts#L55) (`bump`)
+   - code: [`repository/posts.ts:62`](../services/content/src/repository/posts.ts#L62) (`deps.lamport.bump`) -> [`lamport.ts:55`](../packages/contracts/src/lamport.ts#L55) (`bump`)
    - technique: **`/system/state`** is pinnable by `snapshot_id`
 9. **contract boundary** · The response is re-parsed through the `Post` contract before send.
    - code: [`routes/posts.ts:26`](../services/content/src/routes/posts.ts#L26) (`Post.parse`)
@@ -54,7 +54,7 @@ Any non-2xx along the way is an RFC 7807 `application/problem+json` with `retrya
 
 ### The determinism trio is everywhere on this path
 
-`createPost` never calls the clock, a UUID lib, or `Math.random` directly. It reads the injected trio: [`repository/posts.ts:48`](../services/content/src/repository/posts.ts#L48) (`deps.ids.next`) and [`repository/posts.ts:54`](../services/content/src/repository/posts.ts#L54) (`deps.clock.now`). Production wires real implementations ([`packages/determinism/src/production/`](../packages/determinism/src/production)); tests wire seeded ones ([`packages/testing-utils/src/determinism/`](../packages/testing-utils/src/determinism)). This is the precondition for replay and property testing, and a direct `new Date()` in non-test code fails lint ([`tools/eslint-plugin-qaroom`](../tools/eslint-plugin-qaroom)).
+`createPost` never calls the clock, a UUID lib, or `Math.random` directly. It reads the injected trio: [`repository/posts.ts:49`](../services/content/src/repository/posts.ts#L49) (`deps.ids.next`) and [`repository/posts.ts:55`](../services/content/src/repository/posts.ts#L55) (`deps.clock.now`). Production wires real implementations ([`packages/determinism/src/production/`](../packages/determinism/src/production)); tests wire seeded ones ([`packages/testing-utils/src/determinism/`](../packages/testing-utils/src/determinism)). This is the precondition for replay and property testing, and a direct `new Date()` in non-test code fails lint ([`tools/eslint-plugin-qaroom`](../tools/eslint-plugin-qaroom)).
 
 ## One schema, four derivations
 
