@@ -3,6 +3,7 @@ import {
   LamportGate,
   VOTE_CAST_EVENT,
   VOTE_CAST_VERSION,
+  VOTE_VALUES,
   VoteValue,
   type VoteValueT,
   voteCast,
@@ -99,6 +100,36 @@ describe('repository/votes', () => {
     const buggyDeps: RepoDeps = { ...deps, faults: { ...NO_FAULTS, voteOutOfRange: true } }
     await expect(castVote(ctx.db, buggyDeps, post.id, VOTER, 1)).rejects.toThrow()
     expect(await voteRowCount(post.id)).toBe(0)
+  })
+
+  it('rejects an out-of-set vote value (0) by set membership, where a range projection would admit it', async () => {
+    // The C6 finding (ADR-0033): VOTE_VALUES projected as a RANGE [-1, 1] would ADMIT 0; projected as
+    // a SET {1, -1} — the votes_value_check IN-clause, derived from VOTE_VALUES — REJECTS it. Projection
+    // choice is a severity decision, which is why `prove --break` must be adversarial. Pure contrast
+    // first, then the real falsifier armed via env (CONTENT_BUG_VOTE_OUT_OF_SET): castVote writes 0,
+    // the set-membership CHECK rejects it, the insert throws — the teeth for the `vote-value-in-set` claim.
+    const min = Math.min(...VOTE_VALUES)
+    const max = Math.max(...VOTE_VALUES)
+    expect(0 >= min && 0 <= max).toBe(true) // a RANGE falsifier MISSES the adversary 0
+    expect((VOTE_VALUES as readonly number[]).includes(0)).toBe(false) // the SET falsifier CATCHES it
+
+    const envDeps: RepoDeps = {
+      clock: ctx.clock,
+      ids: ctx.ids,
+      lamport: new LamportGate(ctx.ids),
+      faults: resolveFaults(),
+    }
+    const post = await createPost(ctx.db, envDeps, {
+      communityId: COMMUNITY,
+      authorId: AUTHOR,
+      title: 'votable',
+      body: 'b',
+    })
+    // Clean: a legal +1 stores and scores 1. Armed (CONTENT_BUG_VOTE_OUT_OF_SET): castVote writes 0,
+    // the set-membership DB CHECK rejects it, the insert throws, and this success expectation reds.
+    const score = await castVote(ctx.db, envDeps, post.id, VOTER, 1)
+    expect(score).toBe(1)
+    expect(await voteRowCount(post.id)).toBe(1)
   })
 
   it('castVote stages a VoteCastEvent on the outbox carrying the recomputed score', async () => {

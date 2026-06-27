@@ -17,6 +17,19 @@ on:
       - 'spec/**'
       - 'scripts/lib/manifests/claims.ts'
       - 'scripts/lib/manifests/detection-matrix.ts'
+      - 'scripts/lib/manifests/boundary-registry.ts'
+      # The derivation chain (T23, ADR-0033): the deriver + mutation config + prove/teeth harness that
+      # hang off the codeowned source. Weakening one quietly weakens the chain below the source.
+      - 'packages/testing-utils/src/generators/**'
+      - 'packages/testing-utils/src/agentic/**'
+      - 'scripts/stryker-critical.ts'
+      - 'scripts/stryker-harness.ts'
+      - '**/stryker.config.json'
+      - 'scripts/prove.ts'
+      - 'scripts/prove-adversarial.ts'
+      - 'scripts/claims-verify.ts'
+      - 'scripts/deriver-conformance.ts'
+      - 'scripts/lib/claim-evidence.ts'
       - 'docs/adr/0001-foundational-decisions.md'
 
 permissions:
@@ -38,7 +51,7 @@ jobs:
           PR: ${{ github.event.pull_request.number }}
         run: |
           set -euo pipefail
-          PATHS='packages/contracts/ spec/ scripts/lib/manifests/claims.ts scripts/lib/manifests/detection-matrix.ts docs/adr/0001-foundational-decisions.md'
+          PATHS='packages/contracts/ spec/ scripts/lib/manifests/claims.ts scripts/lib/manifests/detection-matrix.ts scripts/lib/manifests/boundary-registry.ts packages/testing-utils/src/generators/ packages/testing-utils/src/agentic/ scripts/stryker-critical.ts scripts/stryker-harness.ts scripts/prove.ts scripts/prove-adversarial.ts scripts/claims-verify.ts scripts/deriver-conformance.ts scripts/lib/claim-evidence.ts docs/adr/0001-foundational-decisions.md'
           changed=$(git diff --name-only "$BASE_SHA" "$HEAD_SHA" -- $PATHS || true)
           if [ -z "$changed" ]; then
             echo "No invariant sources touched." | tee -a "$GITHUB_STEP_SUMMARY"

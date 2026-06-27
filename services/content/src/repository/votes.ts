@@ -24,10 +24,11 @@ export async function castVote(
   if (deps.faults.voteSlowMs > 0) {
     await new Promise((resolve) => setTimeout(resolve, deps.faults.voteSlowMs))
   }
-  // Deliberate ±1-invariant violation (injected): write an out-of-range value instead of the
-  // validated ±1. The DB CHECK (votes_value_check) must reject it and the vote-value property test
-  // must go red — the falsifier for the `vote-value-in-band` claim. Off = the validated value.
-  const storedValue = deps.faults.voteOutOfRange ? value * 7 : value
+  // Deliberate ±1-invariant violations (injected). `voteOutOfRange` writes value*7 (out of range AND
+  // out of set); `voteOutOfSet` writes 0 — IN the range [-1, 1] but NOT in the set {1, -1}, the
+  // adversary a RANGE projection would miss (ADR-0033, spike C6). Both are rejected by the
+  // votes_value_check IN-clause (set membership, derived from VOTE_VALUES): off = the validated value.
+  const storedValue = deps.faults.voteOutOfRange ? value * 7 : deps.faults.voteOutOfSet ? 0 : value
   const score = await db.transaction(async (tx) => {
     await advisoryLock(tx, postId)
     const found = await tx

@@ -1,13 +1,19 @@
-# Gate-self-weakening guard (ADR-0026).
+# Gate-self-weakening guard (ADR-0026; gate↔target pairs added in ADR-0033 / T23).
 #
 # At 10 agents, the laziest path to a green check is to EDIT THE GATE. This flags any PR that
 # changes an enforcement script (a gate) AND other code in the same diff — the exact move the
 # router sends to Lane B (a human must read it), and the move AGENTS.md forbids ("never weaken a
 # check to make a red go green").
 #
+# T23 adds a SECOND, louder signal: explicit gate↔TARGET pairs. Editing a gate alongside *unrelated*
+# code is suspicious; editing a gate alongside the exact thing it CHECKS (the conformance gate + the
+# deriver it samples; the prove/teeth harness + the claim manifest it falsifies) is the precise
+# one-move tamper the threat model centres on — flag it by name, not just as "gate + other".
+#
 # ADVISORY, like invariant-guard.yml: it annotates, it does not fail the build. The HARD teeth are
-# (1) the router routing such PRs to Lane B so they can't auto-merge, and (2) branch protection
-# requiring a human on Lane B. This job is the visible flag beside them. It runs NO build/test lane.
+# (1) the router routing such PRs to Lane B so they can't auto-merge, (2) branch protection requiring
+# a human on Lane B, and (3) CODEOWNERS over the derivation chain (T23). This job is the visible flag
+# beside them. It runs NO build/test lane.
 name: Gate guard
 
 on:
@@ -33,13 +39,46 @@ jobs:
           HEAD_SHA: ${{ github.event.pull_request.head.sha }}
         run: |
           set -euo pipefail
-          GATE_GLOBS='scripts/ tools/eslint-plugin-qaroom/ .github/workflows/'
           all=$(git diff --name-only "$BASE_SHA" "$HEAD_SHA")
+
+          # ── (1) gate↔TARGET pairs (T23, ADR-0033): the precise one-move tamper — a gate edited in the
+          # same diff as the exact thing it checks. Each line is "GATE_REGEX;TARGET_REGEX;DESCRIPTION".
+          # `;` is the field separator (NOT `|`, which the regexes use for alternation); `matches` greps
+          # the diff against a regex; a pair trips when BOTH sides have a hit. ──
+          matches() { echo "$all" | grep -qE "$1"; }
+          PAIRS='
+          scripts/deriver-conformance\.ts;packages/testing-utils/src/generators/;deriver-conformance gate + the property generator it samples
+          packages/testing-utils/src/agentic/deriver-conformance;packages/testing-utils/src/generators/;deriver-conformance gate + the property generator it samples
+          scripts/(prove\.ts|prove-adversarial\.ts|claims-verify\.ts);scripts/lib/manifests/(claims|detection-matrix|boundary-registry)\.ts;the prove/teeth harness + the claim manifest it falsifies
+          scripts/lib/claim-evidence\.ts;scripts/lib/manifests/claims\.ts;the evidence resolver + the claim manifest
+          scripts/stryker-(critical|harness)\.ts;stryker\.config\.json;the mutation runner + a stryker config (mutated paths / survival threshold)
+          packages/testing-utils/src/agentic/adversarial-taxonomy;packages/testing-utils/src/agentic/assertion-teeth;the adversarial taxonomy + the mutation oracle it builds on'
+          pair_hits=0
+          while IFS= read -r line; do
+            line="${line#"${line%%[![:space:]]*}"}" # strip the YAML-block leading indentation
+            [ -z "$line" ] && continue
+            g="${line%%;*}"; rest="${line#*;}"; t="${rest%%;*}"; desc="${rest#*;}"
+            if matches "$g" && matches "$t"; then
+              pair_hits=$((pair_hits+1))
+              {
+                echo "## :rotating_light: Gate edited alongside its TARGET — $desc"
+                echo
+                echo "This diff changes an enforcement gate AND the exact thing it checks, in one move."
+                echo "That is the precise tamper T23 governs (CODEOWNERS + Lane B): a human Code Owner must"
+                echo "confirm the gate was strengthened, not loosened to absorb a change to its target."
+              } | tee -a "$GITHUB_STEP_SUMMARY"
+              echo "::warning::Gate↔target pair touched ($desc) — Code-Owner review required (ADR-0033)."
+            fi
+          done <<< "$PAIRS"
+
+          # ── (2) the broad gate + non-gate flag (the original ADR-0026 signal) ──
           gate=$(echo "$all" | grep -E '^(scripts/|tools/eslint-plugin-qaroom/|\.github/workflows/)' || true)
           other=$(echo "$all" | grep -vE '^(scripts/|tools/eslint-plugin-qaroom/|\.github/workflows/)' || true)
           if [ -z "$gate" ] || [ -z "$other" ]; then
-            echo "No gate-self-weakening: a diff touches a gate AND non-gate code together to trip this." \
-              | tee -a "$GITHUB_STEP_SUMMARY"
+            if [ "$pair_hits" -eq 0 ]; then
+              echo "No gate-self-weakening: no gate↔target pair and no gate+non-gate diff." \
+                | tee -a "$GITHUB_STEP_SUMMARY"
+            fi
             exit 0
           fi
           {

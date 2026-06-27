@@ -117,6 +117,17 @@ jobs:
       - name: Verify MCP tool manifest (drift + breaking-change classifier)
         run: pnpm mcp:verify
 
+      # Derivation-chain conformance (T23, ADR-0033): recompute the ±1 set from the codeowned source and
+      # diff it against the live property generator. Catches a deriver weakened while the source stays
+      # pristine. In-process, no uv/cluster, so it gates every PR.
+      - name: Verify derivation-chain conformance (deriver vs. its single source)
+        run: pnpm deriver:verify
+
+      # Adversarial prove (T23, ADR-0033): the named attack taxonomy (ImpossibleBench / METR / Anthropic)
+      # vs. the gates — each cheat must be real theater AND caught by its designated gate.
+      - name: Adversarial prove (named attack taxonomy vs. the gates)
+        run: pnpm prove:adversarial
+
       - name: Verify code-tour anchors (every cited file:line still says what the tour says)
         run: pnpm tour:verify
 
