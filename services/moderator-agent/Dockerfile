@@ -1,7 +1,7 @@
 # moderator-agent (Milestone 9) — the one Python service. Build context is the repo root, like the
 # Node services, but this image is self-contained (no pnpm workspace): uv installs from the committed
 # lockfile for a reproducible build. The OTel GenAI semconv opt-in matches every other service (ADR-0009).
-FROM python:3.13-slim
+FROM python:3.14-slim
 
 COPY --from=ghcr.io/astral-sh/uv:latest /uv /uvx /bin/
 
