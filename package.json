@@ -67,6 +67,7 @@
     "k6:gen": "tsx scripts/k6-gen-thresholds.ts",
     "k6:results": "tsx scripts/k6-results.ts",
     "stryker:critical": "tsx scripts/stryker-critical.ts",
+    "stryker:harness": "tsx scripts/stryker-harness.ts",
     "stryker:results": "tsx scripts/stryker-results.ts",
     "evomaster": "tsx scripts/evomaster-run.ts",
     "evomaster:results": "tsx scripts/evomaster-results.ts",
