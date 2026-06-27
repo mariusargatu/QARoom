@@ -117,6 +117,18 @@ describe('createTokenVerifier', () => {
     })
   })
 
+  it('rejects a token whose signing key was rotated out of the JWKS (session fixation: post-rotation reuse fails)', async () => {
+    // The "fixed" session was signed by key1; by the time it is presented at the edge, identity has
+    // rotated and retired key1 past its grace window, so the JWKS serves only key2. The verifier must
+    // refuse the stale token (kid miss → one refetch → key1 still absent → 401), never fall open —
+    // a token does not outlive the key that signed it.
+    const stale = await mint(key1)
+    const verifier = createTokenVerifier(jwksServing([key2.jwk]), clock)
+    await expect(verifier.verify(`Bearer ${stale}`)).rejects.toMatchObject({
+      problem: { status: 401, failure_domain: 'authentication' },
+    })
+  })
+
   it('refetches the JWKS once on a kid miss (key rotation) and then verifies', async () => {
     // Fetch #1 serves only key-1 (priming the cache); after rotation the JWKS serves key-1 + key-2.
     const rotating = jwksRotating([key1.jwk], [key1.jwk, key2.jwk])
