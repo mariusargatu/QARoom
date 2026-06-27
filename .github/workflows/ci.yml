@@ -62,7 +62,7 @@ jobs:
     if: github.event_name == 'workflow_dispatch' || github.event_name == 'pull_request'
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
       - uses: ./.github/actions/setup-workspace
 
       - name: Lint (Biome + ESLint custom rules)
@@ -145,7 +145,7 @@ jobs:
       # terminal summary-envelope job reuses this as the base it folds the cluster/eval partials onto.
       - name: Upload the in-proc base summary partial
         if: always()
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: partial-verify
           path: test-results/summary.json
@@ -173,9 +173,9 @@ jobs:
         options: >-
           --health-cmd "pg_isready -U qaroom" --health-interval 5s --health-timeout 5s --health-retries 10
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
       - uses: ./.github/actions/setup-workspace
-      - uses: astral-sh/setup-uv@v5
+      - uses: astral-sh/setup-uv@v7
         with:
           version: "0.8.15"
       - name: Aggregate the in-proc summary (the runners the claims' evidence resolves against)
@@ -197,7 +197,7 @@ jobs:
     if: github.event_name == 'workflow_dispatch'
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
       - uses: ./.github/actions/setup-workspace
       - name: Pact provider verification (content)
         run: pnpm pact:verify --provider content
@@ -216,7 +216,7 @@ jobs:
     if: github.event_name == 'workflow_dispatch'
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
       - uses: ./.github/actions/setup-workspace
       - name: Start Postgres
         run: docker compose -f services/content/docker-compose.yaml up -d
@@ -237,7 +237,7 @@ jobs:
     if: github.event_name == 'workflow_dispatch'
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
       - uses: ./.github/actions/setup-workspace
       - name: Start identity Postgres
         run: docker compose -f services/identity/docker-compose.yaml up -d --wait
@@ -256,7 +256,7 @@ jobs:
     if: github.event_name == 'workflow_dispatch'
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
       - uses: ./.github/actions/setup-workspace
       - name: Start webhooks Postgres
         run: docker compose -f services/webhooks/docker-compose.yaml up -d --wait
@@ -275,7 +275,7 @@ jobs:
     if: github.event_name == 'workflow_dispatch'
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
       - uses: ./.github/actions/setup-workspace
       - name: Install Chromium
         run: pnpm --filter @qaroom/web exec playwright install --with-deps chromium
@@ -300,9 +300,9 @@ jobs:
         options: >-
           --health-cmd "pg_isready -U qaroom" --health-interval 5s --health-timeout 5s --health-retries 10
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
       - uses: ./.github/actions/setup-workspace
-      - uses: astral-sh/setup-uv@v5
+      - uses: astral-sh/setup-uv@v7
         with:
           version: "0.8.15"
       - name: Lint (ruff)
@@ -323,7 +323,7 @@ jobs:
         run: pnpm moderator:results || true
       - name: Upload moderator pytest report partial
         if: always()
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: partial-moderator
           path: services/moderator-agent/test-results/pytest-summary.json
@@ -337,8 +337,8 @@ jobs:
     if: github.event_name == 'workflow_dispatch' && (inputs.tier == 'merge' || inputs.tier == 'nightly')
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
-      - uses: azure/setup-helm@v4
+      - uses: actions/checkout@v7
+      - uses: azure/setup-helm@v5
         with:
           version: v4.1.1
       - name: Install kubeconform
@@ -363,7 +363,7 @@ jobs:
     if: github.event_name == 'workflow_dispatch' && (inputs.tier == 'merge' || inputs.tier == 'nightly')
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
       - uses: ./.github/actions/setup-workspace
       - uses: ./.github/actions/cluster-up
         with:
@@ -390,7 +390,7 @@ jobs:
     if: github.event_name == 'workflow_dispatch' && (inputs.tier == 'merge' || inputs.tier == 'nightly')
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
       - uses: ./.github/actions/setup-workspace
       - uses: ./.github/actions/cluster-up
         with:
@@ -420,7 +420,7 @@ jobs:
     if: github.event_name == 'workflow_dispatch' && (inputs.tier == 'merge' || inputs.tier == 'nightly')
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
       - uses: ./.github/actions/setup-workspace
       - name: Install Chromium
         run: pnpm --filter @qaroom/web exec playwright install --with-deps chromium
@@ -433,14 +433,14 @@ jobs:
         run: pnpm --filter @qaroom/web run test:component:results
       - name: Upload the web-component Vitest report partial
         if: always()
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: partial-web-component
           path: services/web/test-results/component.json
           if-no-files-found: warn
       - name: Upload the web coverage partials (story + component V8; also human-inspectable)
         if: always()
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: partial-web-coverage
           path: |
@@ -456,7 +456,7 @@ jobs:
     if: github.event_name == 'workflow_dispatch' && (inputs.tier == 'merge' || inputs.tier == 'nightly')
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
       - name: Visual-regression gate (pinned container)
         run: |
           docker build -f services/web/Dockerfile.visual -t qaroom/visual .
@@ -473,7 +473,7 @@ jobs:
     if: github.event_name == 'workflow_dispatch' && inputs.tier == 'nightly'
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
       - uses: ./.github/actions/setup-workspace
       - name: Start Postgres + NATS (compose waits for both healthchecks)
         run: docker compose -f services/content/docker-compose.yaml up -d --wait
@@ -520,7 +520,7 @@ jobs:
           echo "✓ slow path correctly breached the vote SLO (k6 exit 99)"
       - name: Upload k6 result partials
         if: always()
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: partial-load
           path: test-results/k6-*.json
@@ -533,7 +533,7 @@ jobs:
     if: github.event_name == 'workflow_dispatch' && inputs.tier == 'nightly'
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
       - uses: ./.github/actions/setup-workspace
       - name: Stryker on the critical modules
         run: pnpm stryker:critical
@@ -542,7 +542,7 @@ jobs:
         run: pnpm stryker:results || true
       - name: Upload Stryker result partials
         if: always()
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: partial-mutation
           path: test-results/stryker-*.json
@@ -557,14 +557,14 @@ jobs:
     if: github.event_name == 'workflow_dispatch' && inputs.tier == 'nightly'
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
       - uses: ./.github/actions/setup-workspace
-      - uses: actions/setup-java@v4
+      - uses: actions/setup-java@v5
         with:
           distribution: temurin
           java-version: '17'
       - name: Cache the EvoMaster v6.0.0 jar
-        uses: actions/cache@v4
+        uses: actions/cache@v6
         with:
           path: .evomaster/evomaster.jar
           key: evomaster-jar-v6.0.0
@@ -583,7 +583,7 @@ jobs:
         run: pnpm evomaster:results
       - name: Upload EvoMaster generated suite partial
         if: always()
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: partial-evomaster
           path: services/content/tests/evomaster-generated
@@ -596,7 +596,7 @@ jobs:
     if: github.event_name == 'workflow_dispatch' && inputs.tier == 'nightly'
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
       - uses: ./.github/actions/setup-workspace
       - uses: ./.github/actions/cluster-up
         with:
@@ -612,7 +612,7 @@ jobs:
         run: pnpm chaos:results
       - name: Upload chaos report partial
         if: always()
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: partial-chaos
           path: test-results/chaos.json
@@ -632,7 +632,7 @@ jobs:
     if: github.event_name == 'workflow_dispatch' && (inputs.tier == 'merge' || inputs.tier == 'nightly')
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
       - uses: ./.github/actions/setup-workspace
       - name: Coverage floor gate
         run: pnpm coverage
@@ -650,9 +650,9 @@ jobs:
     env:
       OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
       - uses: ./.github/actions/setup-workspace
-      - uses: astral-sh/setup-uv@v5
+      - uses: astral-sh/setup-uv@v7
         with:
           version: "0.8.15"
       - name: Pre-flight cost guard (estimate vs MODERATOR_EVAL_BUDGET_TOKENS)
@@ -682,21 +682,21 @@ jobs:
         run: 'echo "OPENAI_API_KEY not set: eval suites skipped (cost guard still ran)."'
       - name: Upload golden-set partial
         if: always() && env.OPENAI_API_KEY != ''
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: partial-golden
           path: services/moderator-agent/evals/golden/gold.json
           if-no-files-found: warn
       - name: Upload DeepEval partial
         if: always() && env.OPENAI_API_KEY != ''
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: partial-deepeval
           path: services/moderator-agent/test-results/deepeval-output.json
           if-no-files-found: warn
       - name: Upload DeepTeam partial
         if: always() && env.OPENAI_API_KEY != ''
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: partial-deepteam
           path: services/moderator-agent/test-results/deepteam-output.json
@@ -725,13 +725,13 @@ jobs:
     if: always() && github.event_name != 'pull_request'
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
       - uses: ./.github/actions/setup-workspace
       - name: Download every evidence partial that was produced
         # No `name:` -> downloads all partials from this run into partials/<artifact-name>/. Tolerant
         # of the empty set (e.g. a keyless schedule cron) via continue-on-error.
         continue-on-error: true
-        uses: actions/download-artifact@v4
+        uses: actions/download-artifact@v8
         with:
           path: partials
       - name: Assemble one envelope — base, then fold each present partial
@@ -815,7 +815,7 @@ jobs:
         run: pnpm test-results:report
       - name: Upload the single complete test-results envelope
         if: always()
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: test-results-summary
           path: test-results/summary.json
