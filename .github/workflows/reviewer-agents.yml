@@ -31,7 +31,7 @@ jobs:
     if: ${{ !github.event.pull_request.draft && github.actor != 'dependabot[bot]' }}
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
         with:
           fetch-depth: 0
       - uses: ./.github/actions/setup-workspace
@@ -148,7 +148,7 @@ jobs:
 
       - name: Upload reviewer cost ledger (measure-first, ADR-0026)
         if: ${{ always() && hashFiles('test-results/reviewer-cost.json') != '' }}
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: reviewer-cost
           path: test-results/reviewer-cost.json
