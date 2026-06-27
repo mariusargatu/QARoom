@@ -7,36 +7,41 @@
 import { check } from 'k6'
 import http from 'k6/http'
 import { brandedId, COMM_GENERAL } from './lib/branded.js'
+import { outputFileFor, selectScenarios, thresholdsForProfile } from './lib/profiles.js'
 import { measureThresholds } from './lib/thresholds.js'
 
 const SLO = JSON.parse(open('./lib/slo-thresholds.gen.json'))
 const BASE = __ENV.CONTENT_BASE_URL || 'http://localhost:8081'
 const AUTHOR = brandedId('user', 1)
 
-export const options = {
-  scenarios: {
-    warmup: {
-      executor: 'constant-arrival-rate',
-      rate: Number(__ENV.K6_WARMUP_RATE || 20),
-      timeUnit: '1s',
-      duration: '5s',
-      preAllocatedVUs: 10,
-      maxVUs: 20,
-      startTime: '0s',
-      exec: 'castVote',
-    },
-    measure: {
-      executor: 'constant-arrival-rate',
-      rate: Number(__ENV.K6_RATE || 30),
-      timeUnit: '1s',
-      duration: __ENV.K6_DURATION || '20s',
-      preAllocatedVUs: 10,
-      maxVUs: 30,
-      startTime: '6s',
-      exec: 'castVote',
-    },
+// The default constant-arrival-rate shape (the committed SLO gate + the slow-path negative test).
+// K6_PROFILE=soak|stress swaps in the long-hold / climb-to-failure shapes (T17); default unchanged.
+const DEFAULT_SCENARIOS = {
+  warmup: {
+    executor: 'constant-arrival-rate',
+    rate: Number(__ENV.K6_WARMUP_RATE || 20),
+    timeUnit: '1s',
+    duration: '5s',
+    preAllocatedVUs: 10,
+    maxVUs: 20,
+    startTime: '0s',
+    exec: 'castVote',
   },
-  thresholds: measureThresholds(SLO, 'castVote'),
+  measure: {
+    executor: 'constant-arrival-rate',
+    rate: Number(__ENV.K6_RATE || 30),
+    timeUnit: '1s',
+    duration: __ENV.K6_DURATION || '20s',
+    preAllocatedVUs: 10,
+    maxVUs: 30,
+    startTime: '6s',
+    exec: 'castVote',
+  },
+}
+
+export const options = {
+  scenarios: selectScenarios(DEFAULT_SCENARIOS, 'castVote'),
+  thresholds: thresholdsForProfile(measureThresholds(SLO, 'castVote')),
   summaryTrendStats: ['med', 'p(50)', 'p(95)', 'p(99)', 'max', 'count'],
 }
 
@@ -69,5 +74,5 @@ export function castVote(data) {
 }
 
 export function handleSummary(data) {
-  return { 'test-results/k6-vote-cast.json': JSON.stringify(data, null, 2) }
+  return { [outputFileFor('vote-cast')]: JSON.stringify(data, null, 2) }
 }
