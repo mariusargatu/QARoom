@@ -443,11 +443,11 @@ const RAW: Claim[] = [
   // Boundary 16 — agentic development as a tested boundary (ADR-0032). The boundary FLIPS: the agent
   // attacks the GATES, not just the product, and it is measured (ImpossibleBench: GPT-5 cheats 76% —
   // edits tests, `__eq__`→True, special-cases input; METR/Anthropic: monkey-patched graders,
-  // `sys.exit(0)`). So "agent output" is an untrusted input that targets the verifier itself. These
-  // three claims defend the GATES against that attacker; each `--break` mutant is on that taxonomy,
-  // not a toy. The fourth proposed claim (tool-trajectory reverse-conformance) is DEFERRED — it needs
-  // T21's fault-fuzzing harness + `agent.id`/`session.id` spans; derivation-chain governance + signed
-  // gates are T23. Named in ADR-0032, not built here.
+  // `sys.exit(0)`). So "agent output" is an untrusted input that targets the verifier itself. Each
+  // `--break` mutant is on that taxonomy, not a toy. The first three claims defend the GATES; the
+  // fourth (`agent-trajectory-on-model`, T05-full) reverse-conformance-checks the agent's own TOOL-USE
+  // trajectory — built here on qaroom-mcp, reusing T21's seeded trajectory-DST pattern + the
+  // `agent.id`/`session.id` spans it added. Derivation-chain governance + signed gates are T23.
   {
     id: 'agent-cannot-silently-desync',
     claim:
@@ -518,6 +518,37 @@ const RAW: Claim[] = [
       ],
     },
     evidence: { runner: '@qaroom/content', field: 'passed' },
+    tier: 'simulate',
+  },
+  {
+    // T05-full (ADR-0032): the FOURTH agentic claim, completing Boundary 16. The first three defend the
+    // GATES against a gaming agent; this one reverse-conformance-checks the agent's own TOOL-USE
+    // trajectory. qaroom-mcp is read-first, so the allowed graph is the discipline the MCP surface
+    // actually permits — discovery (tools/list) before a tool is invoked by name. AGENT_OFF_GRAPH_TOOL_CALL
+    // fires a read before discovery (an off-graph tool call); the reverse-conformance gate — the
+    // in-process TS twin of the moderator trajectory-DST (T21) — reds. Every transition carries
+    // agent.id / session.id (the span attrs T21 added, mirrored onto the qaroom-mcp tool-use spans).
+    id: 'agent-trajectory-on-model',
+    claim:
+      "An agent's qaroom-mcp tool-use trajectory is reverse-conformance-checked against an allowed graph — discovery before a tool is invoked by name, the discipline the read-first MCP surface actually permits — and every transition carries agent.id / session.id. A tool call fired outside that graph (a read before the catalogue was discovered) is caught by the reverse-conformance gate, the in-process TypeScript twin of the moderator trajectory-DST (T21).",
+    boundary: 'agentic',
+    registryRow: 'agentic',
+    technique:
+      'tool-use reverse-conformance over a seeded, deterministic trajectory (the in-process TS twin of the moderator trajectory-DST, T21)',
+    toggle: 'AGENT_OFF_GRAPH_TOOL_CALL',
+    gate: {
+      cmd: 'pnpm',
+      args: [
+        '--filter',
+        '@qaroom/qaroom-mcp',
+        'exec',
+        'vitest',
+        'run',
+        '-t',
+        'stays on the allowed graph',
+      ],
+    },
+    evidence: { runner: '@qaroom/qaroom-mcp', field: 'passed' },
     tier: 'simulate',
   },
   {

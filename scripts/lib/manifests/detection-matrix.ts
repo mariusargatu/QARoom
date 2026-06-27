@@ -477,7 +477,8 @@ export const TOGGLES: DetectionToggle[] = z.array(DetectionToggle).parse([
   },
   // ── agentic (Boundary 16, ADR-0032): the agent attacks the GATES, not just the product. Each
   // toggle models a named attack from the taxonomy (ImpossibleBench/METR/Anthropic) against a
-  // verifier. The fourth proposed claim (tool-trajectory reverse-conformance) is DEFERRED to T21. ──
+  // verifier. The fourth (tool-trajectory reverse-conformance) lands here as agent-off-graph-tool-call
+  // (T05-full): the agent's own tool-use trajectory steps off the allowed graph. ──
   {
     id: 'agent-desync-openapi',
     env: { name: 'AGENT_DESYNC_OPENAPI', value: '1' },
@@ -550,6 +551,27 @@ export const TOGGLES: DetectionToggle[] = z.array(DetectionToggle).parse([
       'The derivation-chain attack (T23, ADR-0033): leave the CODEOWNED VOTE_VALUES pristine, weaken the ' +
       'ungoverned DERIVER (the property generator) to admit an out-of-set value. Source-only governance ' +
       'misses it; the deriver-conformance gate recomputes from the source and reds. Backs `deriver-conformance`.',
+  },
+  {
+    id: 'agent-off-graph-tool-call',
+    env: { name: 'AGENT_OFF_GRAPH_TOOL_CALL', value: '1' },
+    component: 'agentic',
+    readSite: {
+      file: 'services/qaroom-mcp/src/trajectory/session.ts',
+      timing: 'call-time',
+    },
+    guard: 'unguarded',
+    designatedCatcher:
+      'services/qaroom-mcp/src/trajectory/trajectory.spec.ts (tool-use reverse-conformance vs the allowed graph)',
+    claimId: 'agent-trajectory-on-model',
+    tiers: ['in-proc'],
+    selfToggling: [],
+    notes:
+      'T05-full (ADR-0032): the FOURTH agentic claim, completing Boundary 16. The agent fires a read tool ' +
+      'before discovering the catalogue — a tool call outside the allowed graph (qaroom-mcp is read-first, ' +
+      'so discovery-before-invocation is the discipline the surface permits). Armed, McpSession injects the ' +
+      'off-graph transition and the reverse-conformance gate (the in-process TS twin of the moderator ' +
+      'trajectory-DST, T21) reds. Backs `agent-trajectory-on-model`.',
   },
 ])
 

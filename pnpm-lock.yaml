@@ -693,6 +693,9 @@ importers:
       '@qaroom/gateway':
         specifier: workspace:*
         version: link:../gateway
+      '@qaroom/otel':
+        specifier: workspace:*
+        version: link:../../packages/otel
       '@qaroom/service-kit':
         specifier: workspace:*
         version: link:../../packages/service-kit
