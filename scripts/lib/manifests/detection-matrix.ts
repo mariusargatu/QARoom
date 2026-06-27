@@ -129,6 +129,21 @@ export const TOGGLES: DetectionToggle[] = z.array(DetectionToggle).parse([
       'any votes.spec/test that casts a vote also reds under this toggle (constraint violation).',
   },
   {
+    id: 'vote-out-of-set',
+    env: { name: 'CONTENT_BUG_VOTE_OUT_OF_SET', value: '1' },
+    component: 'content',
+    readSite: { file: 'services/content/src/config/faults.ts', timing: 'construction-time' },
+    guard: 'unguarded',
+    designatedCatcher:
+      'services/content/src/repository/votes.test.ts (set-membership falsifier) + DB CHECK votes_value_check',
+    claimId: 'vote-value-in-set',
+    tiers: ['in-proc'],
+    selfToggling: [],
+    notes:
+      'The ADVERSARIAL sibling of vote-out-of-range (ADR-0033, spike C6): writes 0 — in range [-1, 1], out ' +
+      'of set {1, -1}. A range projection admits it; the set-membership IN-clause rejects it. Backs `vote-value-in-set`.',
+  },
+  {
     id: 'tenant-leak',
     env: { name: 'CONTENT_BUG_TENANT_LEAK', value: '1' },
     component: 'content',
@@ -501,34 +516,30 @@ export const TOGGLES: DetectionToggle[] = z.array(DetectionToggle).parse([
       'strong invariant gate reds while the weak-oracle agent test stays green. Backs ' +
       '`gate-survives-agent-gaming`.',
   },
+  {
+    id: 'agent-weaken-vote-deriver',
+    env: { name: 'AGENT_WEAKEN_VOTE_DERIVER', value: '1' },
+    component: 'agentic',
+    readSite: {
+      file: 'packages/testing-utils/src/generators/post.ts',
+      timing: 'construction-time',
+    },
+    guard: 'unguarded',
+    designatedCatcher:
+      'packages/testing-utils/src/agentic/deriver-conformance.test.ts (recompute-and-diff conformance gate)',
+    claimId: 'deriver-conformance',
+    tiers: ['in-proc'],
+    selfToggling: [],
+    notes:
+      'The derivation-chain attack (T23, ADR-0033): leave the CODEOWNED VOTE_VALUES pristine, weaken the ' +
+      'ungoverned DERIVER (the property generator) to admit an out-of-set value. Source-only governance ' +
+      'misses it; the deriver-conformance gate recomputes from the source and reds. Backs `deriver-conformance`.',
+  },
 ])
 
 export const toggleById = (id: string): DetectionToggle | undefined =>
   TOGGLES.find((t) => t.id === id)
 
-/**
- * Technique-group classification by file path: ORDER MATTERS (first match wins). One vitest
- * sweep fills many matrix columns by classifying its failing files; same for pytest.
- */
-export const TS_TECHNIQUE_CLASSIFIERS: readonly (readonly [RegExp, string])[] = [
-  [/\.property\.test\.ts$/, 'property'],
-  [/(\.mbt\.spec\.ts|stateful\.pbt\.spec\.ts)$/, 'mbt'],
-  [/reverse-conformance/, 'reverse-conformance'],
-  [/crosscheck/, 'pact-oas-crosscheck'],
-  [/tests\/contracts\//, 'pact'],
-  [/\.spec\.ts$/, 'integration'],
-  [/\.test\.ts$/, 'unit'],
-]
-
-export const PY_TECHNIQUE_CLASSIFIERS: readonly (readonly [RegExp, string])[] = [
-  [/test_metamorphic/, 'metamorphic'],
-  [/test_(workflow|drift|schemas_crosslang|subjects_crosslang)/, 'py-conformance'],
-  [/evals\/deepeval\//, 'deepeval'],
-  [/evals\/redteam\//, 'redteam'],
-  [/test_/, 'py-unit'],
-]
-
-export const classifyTechnique = (
-  file: string,
-  classifiers: readonly (readonly [RegExp, string])[],
-): string => classifiers.find(([re]) => re.test(file))?.[1] ?? 'other'
+// The technique classifiers (path→group) moved to scripts/lib/matrix-classifiers.ts (T23, ADR-0033):
+// they are pure helpers, not invariant manifest data, and the split keeps this codeowned file focused
+// and under the 500-line cap.

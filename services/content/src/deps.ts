@@ -25,6 +25,13 @@ export interface FaultConfig {
    * red — the empirical falsifier for the `vote-value-in-band` claim. 0/false = off.
    */
   voteOutOfRange: boolean
+  /**
+   * Write `0` — a value IN the range [-1, 1] but NOT in the SET {1, -1}. The C6 finding (ADR-0033):
+   * a RANGE projection of the invariant would admit it; the SET-membership DB CHECK (`value IN
+   * (1, -1)`, derived from VOTE_VALUES) rejects it. The empirical falsifier for `vote-value-in-set`,
+   * the adversarial sibling of `vote-value-in-band`. 0/false = off.
+   */
+  voteOutOfSet: boolean
 }
 
 /** What `buildApp` receives. `lamport` and `faults` are optional; the app fills sane defaults. */

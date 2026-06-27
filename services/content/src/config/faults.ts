@@ -46,6 +46,9 @@ export const resolveFaults = (env: NodeJS.ProcessEnv = process.env): FaultConfig
   voteSlowMs: parseVoteSlowMs(env.CONTENT_BUG_VOTE_SLOW_MS),
   syncPublish: env.CHAOS_SYNC_PUBLISH === '1',
   voteOutOfRange: env.CONTENT_BUG_VOTE_OUT_OF_RANGE === '1',
+  // The in-range/out-of-set adversary (ADR-0033, spike C6): writes 0, which a range projection of the
+  // ±1 rule would admit but the set-membership DB CHECK rejects. Backs the `vote-value-in-set` claim.
+  voteOutOfSet: env.CONTENT_BUG_VOTE_OUT_OF_SET === '1',
 })
 
 /**
@@ -59,4 +62,5 @@ export const NO_FAULTS: FaultConfig = Object.freeze({
   voteSlowMs: 0,
   syncPublish: false,
   voteOutOfRange: false,
+  voteOutOfSet: false,
 })
