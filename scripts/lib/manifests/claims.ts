@@ -519,6 +519,56 @@ const RAW: Claim[] = [
     evidence: { runner: '@qaroom/testing-utils', field: 'passed' },
     tier: 'simulate',
   },
+  // ── Observability hardening (T09 / T12, ADR-0034). PII-free spans guards the telemetry plane:
+  // Commitment 9 pins `tenant.id` ONTO every span; this pins the inverse — nothing email- or
+  // body-shaped rides along. The in-process audit is the keyless teeth (the live Jaeger sweep,
+  // scripts/check-pii-spans.ts, is the corroborating Tier-B audit, the ADR-0028 split). ──
+  {
+    id: 'pii-free-spans',
+    claim:
+      'No span the system emits carries PII (an email-shaped value or a denied body/identifier key); a deliberate leak is caught by the in-process PII-in-spans audit. Commitment 9 stamps tenant.id onto every span — this pins that nothing personal rides along with it.',
+    boundary: 'observability',
+    registryRow: 'observability',
+    technique: 'PII-in-spans audit (deterministic, in-process — keyless, cannot rot)',
+    toggle: 'CHAOS_SPAN_PII',
+    gate: {
+      cmd: 'pnpm',
+      args: [
+        '--filter',
+        '@qaroom/otel',
+        'exec',
+        'vitest',
+        'run',
+        '-t',
+        'emits no span carrying PII',
+      ],
+    },
+    evidence: { runner: '@qaroom/otel', field: 'passed' },
+    tier: 'simulate',
+  },
+  {
+    id: 'consumer-lag-bounded',
+    claim:
+      'A durable JetStream consumer keeps its lag within the consumer-lag SLO (CONSUMER_LAG_SLO): stall it and num_pending plus the oldest-unacked age climb past the bound, so the backpressure gate reds. The alert threshold and this gate derive from the SAME single source, so a stalled moderator under a burst becomes a defined, caught failure mode instead of a silent one.',
+    boundary: 'process-async',
+    registryRow: 'process-async',
+    technique: 'backpressure SLO gate (deterministic backlog model over CONSUMER_LAG_SLO)',
+    toggle: 'CHAOS_CONSUMER_STALL',
+    gate: {
+      cmd: 'pnpm',
+      args: [
+        '--filter',
+        '@qaroom/messaging',
+        'exec',
+        'vitest',
+        'run',
+        '-t',
+        'keeps consumer lag within the SLO',
+      ],
+    },
+    evidence: { runner: '@qaroom/messaging', field: 'passed' },
+    tier: 'simulate',
+  },
 ]
 
 /** The validated manifest. Throws at import if any claim violates the schema. */
