@@ -154,6 +154,27 @@ export const TOGGLES: DetectionToggle[] = z.array(DetectionToggle).parse([
       'backs the permanent `tenant-isolation` claim (pnpm prove tenant-isolation --break).',
   },
   {
+    // T06 (ADR-0035): drops the RLS SECOND tenancy layer at schema-application time. Where tenant-leak
+    // breaks the SERVICE layer (the WHERE), this removes the DATABASE backstop beneath it. Designated
+    // catcher is the catch-broken-service test, which removes the service filter entirely and asserts
+    // RLS still hides the other tenant — armed, the policies are gone, so the read leaks and it reds.
+    id: 'disable-rls',
+    env: { name: 'CONTENT_BUG_DISABLE_RLS', value: '1' },
+    component: 'content',
+    readSite: { file: 'services/content/src/config/faults.ts', timing: 'construction-time' },
+    guard: 'unguarded',
+    designatedCatcher:
+      'services/content/tests/rls-second-layer.spec.ts (RLS policy under a non-superuser role, in-process)',
+    claimId: 'rls-blocks-broken-service-layer',
+    tiers: ['in-proc'],
+    selfToggling: [],
+    notes:
+      'Backs the permanent `rls-blocks-broken-service-layer` claim (pnpm prove ' +
+      'rls-blocks-broken-service-layer --break). RLS only bites for a non-superuser role (the ' +
+      'superuser/owner bypasses it even under FORCE), so the catcher runs under SET ROLE; PGlite ' +
+      'enforces RLS like server Postgres, which is why this is a Tier-A in-proc cell.',
+  },
+  {
     id: 'sync-publish',
     env: { name: 'CHAOS_SYNC_PUBLISH', value: '1' },
     component: 'content',

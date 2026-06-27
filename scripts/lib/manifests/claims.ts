@@ -303,6 +303,37 @@ const RAW: Claim[] = [
     evidence: { runner: '@qaroom/content', field: 'passed' },
     tier: 'simulate',
   },
+  {
+    // T06 (ADR-0035): the SECOND tenancy layer. tenant-isolation proves the SERVICE-layer WHERE guard;
+    // this proves a DATABASE backstop UNDERNEATH it. With the service filter removed entirely (the
+    // worst broken-service case, SELECT … WHERE true), a Postgres Row-Level Security policy still hides
+    // another tenant's rows. The toggle (CONTENT_BUG_DISABLE_RLS) drops the policies at schema-apply
+    // time, so the broken read leaks again and the gate reds. PGlite (PostgreSQL 16.4 WASM) enforces
+    // RLS like server Postgres — bypassed by the superuser/owner, biting only for a non-superuser role
+    // — so the catch-broken-service gate runs in-process (Tier-A) under SET ROLE.
+    id: 'rls-blocks-broken-service-layer',
+    claim:
+      "Postgres Row-Level Security is a second tenancy layer beneath the service-layer WHERE: with the service filter removed entirely (SELECT … WHERE true, a deliberately broken service layer), the database still returns only the bound community's rows — RLS catches a service bug the service layer would have leaked. The policy is fail-open when no community is bound, so it can only ever hide a foreign row, never invent a zero-rows failure mode.",
+    boundary: 'tenancy',
+    registryRow: 'tenancy',
+    technique:
+      'RLS policy under a non-superuser role (in-process PGlite, Tier-A) over a filter-free read',
+    toggle: 'CONTENT_BUG_DISABLE_RLS',
+    gate: {
+      cmd: 'pnpm',
+      args: [
+        '--filter',
+        '@qaroom/content',
+        'exec',
+        'vitest',
+        'run',
+        '-t',
+        'RLS blocks a broken service layer',
+      ],
+    },
+    evidence: { runner: '@qaroom/content', field: 'passed' },
+    tier: 'simulate',
+  },
   // Claims 5-6 (max-out program, 2026-06-10): the first LIVE-tier claims, chosen FROM the
   // detection-matrix results — both bugs are invisible to every in-process technique, so their
   // gates run against the deployed cluster. `prove --break` sets the toggle on the gate process;

@@ -2,6 +2,7 @@ import { advisoryLock } from '@qaroom/messaging'
 import { traced } from '@qaroom/otel'
 import { asc, desc, eq, sql } from 'drizzle-orm'
 import type { ContentDb } from '../db/client'
+import { withCommunityScope } from '../db/rls'
 import { posts } from '../db/schema'
 import type { RepoDeps } from '../deps'
 import { publishPostCreated } from '../events/post-created'
@@ -76,20 +77,26 @@ export async function listFeed(
   communityId: string,
   limit = 50,
 ): Promise<PostRecord[]> {
-  // Deliberate-bug switches arrive injected (see config/faults.ts), not from process.env:
-  //  - tenantLeak loosens the per-community scope to an always-true predicate (Commitment 9 leak).
-  //  - feedReversed sorts oldest-first instead of newest-first (Milestone-7 regression demo).
-  const rows = await db
-    .select()
-    .from(posts)
-    .where(deps.faults.tenantLeak ? sql`true` : eq(posts.communityId, communityId))
-    // Tiebreak on the primary key so posts sharing a `createdAt` instant come back in a stable
-    // total order. `id` is monotonic with creation (SeededIdGenerator/ULID), so `desc(id)` keeps
-    // the newest-first intent at the tie; without it Postgres makes no ordering guarantee for ties.
-    .orderBy(
-      deps.faults.feedReversed ? asc(posts.createdAt) : desc(posts.createdAt),
-      desc(posts.id),
-    )
-    .limit(limit)
-  return rows.map(rowToPost)
+  // Bind the community to the RLS policies for this read (the database backstop, ADR-0035): the
+  // per-community WHERE below is the PRIMARY guard, but on a non-superuser deployment a broken WHERE
+  // can no longer leak another tenant — RLS filters it underneath. The GUC is transaction-local, so it
+  // never bleeds across pooled connections.
+  return withCommunityScope(db, communityId, async (tx) => {
+    // Deliberate-bug switches arrive injected (see config/faults.ts), not from process.env:
+    //  - tenantLeak loosens the per-community scope to an always-true predicate (Commitment 9 leak).
+    //  - feedReversed sorts oldest-first instead of newest-first (Milestone-7 regression demo).
+    const rows = await tx
+      .select()
+      .from(posts)
+      .where(deps.faults.tenantLeak ? sql`true` : eq(posts.communityId, communityId))
+      // Tiebreak on the primary key so posts sharing a `createdAt` instant come back in a stable
+      // total order. `id` is monotonic with creation (SeededIdGenerator/ULID), so `desc(id)` keeps
+      // the newest-first intent at the tie; without it Postgres makes no ordering guarantee for ties.
+      .orderBy(
+        deps.faults.feedReversed ? asc(posts.createdAt) : desc(posts.createdAt),
+        desc(posts.id),
+      )
+      .limit(limit)
+    return rows.map(rowToPost)
+  })
 }

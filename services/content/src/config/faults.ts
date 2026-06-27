@@ -49,6 +49,10 @@ export const resolveFaults = (env: NodeJS.ProcessEnv = process.env): FaultConfig
   // The in-range/out-of-set adversary (ADR-0033, spike C6): writes 0, which a range projection of the
   // ±1 rule would admit but the set-membership DB CHECK rejects. Backs the `vote-value-in-set` claim.
   voteOutOfSet: env.CONTENT_BUG_VOTE_OUT_OF_SET === '1',
+  // Drop the RLS second tenancy layer at schema-application time (ADR-0035). Backs the
+  // `rls-blocks-broken-service-layer` claim: armed, ensureSchema skips the policies, so a broken
+  // service-layer WHERE leaks across tenants and the catch-broken-service test reds.
+  disableRls: env.CONTENT_BUG_DISABLE_RLS === '1',
 })
 
 /**
@@ -63,4 +67,5 @@ export const NO_FAULTS: FaultConfig = Object.freeze({
   syncPublish: false,
   voteOutOfRange: false,
   voteOutOfSet: false,
+  disableRls: false,
 })
