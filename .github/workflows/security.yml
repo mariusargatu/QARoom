@@ -76,8 +76,8 @@ jobs:
       contents: read
       security-events: write
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-python@v5
+      - uses: actions/checkout@v7
+      - uses: actions/setup-python@v6
         with:
           python-version: '3.13'
       - name: Install Semgrep (pinned — bump deliberately)
@@ -88,13 +88,13 @@ jobs:
         run: semgrep scan --config=p/ci --sarif --output=semgrep.sarif --metrics=off
       - name: Upload SARIF to the code-scanning Security tab (best-effort)
         continue-on-error: true
-        uses: github/codeql-action/upload-sarif@v3
+        uses: github/codeql-action/upload-sarif@v4
         with:
           sarif_file: semgrep.sarif
           category: semgrep
       - name: Upload the Semgrep SARIF as a workflow artifact (evidence)
         if: always()
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: scan-semgrep-sarif
           path: semgrep.sarif
@@ -110,7 +110,7 @@ jobs:
       contents: read
       security-events: write
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
       - name: Install osv-scanner (pinned — bump deliberately; mirrors the kubeconform install)
         run: |
           curl -sSL https://github.com/google/osv-scanner/releases/download/v2.4.0/osv-scanner_linux_amd64 \
@@ -122,13 +122,13 @@ jobs:
         run: '"$RUNNER_TEMP/osv-scanner" scan --recursive --format sarif ./ > osv-scanner.sarif'
       - name: Upload SARIF to the code-scanning Security tab (best-effort)
         continue-on-error: true
-        uses: github/codeql-action/upload-sarif@v3
+        uses: github/codeql-action/upload-sarif@v4
         with:
           sarif_file: osv-scanner.sarif
           category: osv-scanner
       - name: Upload the osv-scanner SARIF as a workflow artifact (evidence)
         if: always()
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: scan-osv-scanner-sarif
           path: osv-scanner.sarif
@@ -144,8 +144,8 @@ jobs:
       contents: read
       security-events: write
     steps:
-      - uses: actions/checkout@v4
-      - uses: azure/setup-helm@v4
+      - uses: actions/checkout@v7
+      - uses: azure/setup-helm@v5
         with:
           version: v4.1.1
       - name: Render the shared Helm chart per service (the real K8s manifests Checkov checks)
@@ -167,13 +167,13 @@ jobs:
           soft_fail: true
       - name: Upload SARIF to the code-scanning Security tab (best-effort)
         continue-on-error: true
-        uses: github/codeql-action/upload-sarif@v3
+        uses: github/codeql-action/upload-sarif@v4
         with:
           sarif_file: results.sarif
           category: checkov
       - name: Upload the Checkov SARIF as a workflow artifact (evidence)
         if: always()
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: scan-checkov-sarif
           path: results.sarif
@@ -188,7 +188,7 @@ jobs:
     permissions:
       contents: read
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
       - name: Generate an SPDX SBOM with Syft (anchore/sbom-action)
         uses: anchore/sbom-action@v0
         with:

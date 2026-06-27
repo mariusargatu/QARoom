@@ -31,7 +31,7 @@ jobs:
       # don't claim a scope the YAML doesn't enforce.
       AUTO_MERGE_ENABLED: 'false'
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
         with:
           fetch-depth: 0
       - uses: ./.github/actions/setup-workspace
