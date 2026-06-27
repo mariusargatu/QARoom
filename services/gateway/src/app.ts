@@ -6,7 +6,12 @@ import {
   registerSystemRoutes,
 } from '@qaroom/service-kit'
 import Fastify, { type FastifyInstance } from 'fastify'
-import { DEFAULT_RATE_LIMIT, type GatewayDeps, type GatewayRouteDeps } from './deps'
+import {
+  DEFAULT_AUTH_RATE_LIMIT,
+  DEFAULT_RATE_LIMIT,
+  type GatewayDeps,
+  type GatewayRouteDeps,
+} from './deps'
 import { registerDonationsRoutes } from './donations-routes'
 import { CommunityEventStream } from './event-stream'
 import { registerEventsRoute } from './events-routes'
@@ -15,7 +20,7 @@ import { registerIdentityRoutes } from './identity-routes'
 import { registerModerationRoutes } from './moderation-routes'
 import { OPERATIONS } from './operations'
 import { registerProxyRoutes } from './proxy-routes'
-import { registerRateLimit } from './rate-limit'
+import { registerAuthRateLimit, registerRateLimit } from './rate-limit'
 import { RateLimiter } from './rate-limiter'
 import { registerLimitsRoute } from './system'
 import { registerWebhooksRoutes } from './webhooks-routes'
@@ -30,6 +35,7 @@ import { registerWsUpgrade } from './ws-upgrade'
 export function buildGatewayApp(deps: GatewayDeps): FastifyInstance {
   const lamport = deps.lamport ?? new LamportGate(deps.ids, deps.sink ?? activeSpanSink)
   const limiter = new RateLimiter(deps.clock, deps.rateLimit ?? DEFAULT_RATE_LIMIT)
+  const authLimiter = new RateLimiter(deps.clock, deps.authRateLimit ?? DEFAULT_AUTH_RATE_LIMIT)
   const eventStream = deps.eventStream ?? new CommunityEventStream()
   const routeDeps: GatewayRouteDeps = {
     content: deps.content,
@@ -46,6 +52,9 @@ export function buildGatewayApp(deps: GatewayDeps): FastifyInstance {
   registerProblemHandler(app)
   registerHealthRoutes(app, { service: 'gateway' })
   registerRateLimit(app, limiter)
+  // The credential endpoint's brute-force bucket runs after the general limiter, so an auth trip
+  // is independent of (and tighter than) general traffic (OWASP API#2).
+  registerAuthRateLimit(app, authLimiter)
   registerProxyRoutes(app, routeDeps)
   if (deps.donations) registerDonationsRoutes(app, routeDeps, deps.donations)
   if (deps.flags) registerFlagsRoutes(app, routeDeps, deps.flags)
