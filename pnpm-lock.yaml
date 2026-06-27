@@ -32,6 +32,9 @@ importers:
       '@qaroom/contracts':
         specifier: workspace:*
         version: link:packages/contracts
+      '@qaroom/otel':
+        specifier: workspace:*
+        version: link:packages/otel
       '@qaroom/testing-utils':
         specifier: workspace:*
         version: link:packages/testing-utils
