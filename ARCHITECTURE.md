@@ -356,5 +356,21 @@ derived or enforced, never hand-copied. One authoritative home per concern:
 | A guided read of the code | [`docs/code-tour.md`](docs/code-tour.md) — file:line anchors, gated by `pnpm tour:verify` |
 | Everything at once | `pnpm gauntlet` — every technique against one live system, honest infra/gate/observe semantics ([`docs/gauntlet.md`](docs/gauntlet.md)) |
 
+### Derived artifacts → the gate that pins each
+
+The "derived or enforced, never hand-copied" rule above only holds because each projection has a
+drift gate. The map of *which command catches which kind of rot* — change the source, run the gate:
+
+| Source (the one truth) | Derives | Gate that fails on drift |
+|---|---|---|
+| Zod in [`packages/contracts/`](packages/contracts/) | OpenAPI + AsyncAPI + DB constraints + property generators | `pnpm openapi:verify` · `pnpm asyncapi:verify` |
+| [`claims.ts`](scripts/lib/manifests/claims.ts) | the `prove` CLI, the §4 claims block, the skimmer | `pnpm claims:verify` (each gate must go RED under its toggle) |
+| [`detection-matrix.ts`](scripts/lib/manifests/detection-matrix.ts) | [`docs/detection-matrix.md`](docs/detection-matrix.md) + the README hero SVG | `pnpm matrix:verify` |
+| [`boundary-registry.ts`](scripts/lib/manifests/boundary-registry.ts) | the §3 boundary map | `pnpm boundaries:render` (drift-checked) |
+| the MCP operation registries | [`mcp-manifest.json`](services/qaroom-mcp/) | `pnpm mcp:verify` |
+| `file:line` anchors in [`docs/code-tour.md`](docs/code-tour.md) | the guided code read | `pnpm tour:verify` |
+| relative links across the docs | the doc cross-link web | `pnpm links:check` |
+| `test-results/summary.json` | every count quoted in the docs | `pnpm test-results:verify` |
+
 > Start anywhere; everything links back to the thesis. **The system is shaped to be testable;
 > the tests are shaped to the system's boundaries.**

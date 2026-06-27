@@ -120,6 +120,9 @@ jobs:
       - name: Verify code-tour anchors (every cited file:line still says what the tour says)
         run: pnpm tour:verify
 
+      - name: Verify doc links (every relative markdown link resolves on disk)
+        run: pnpm links:check
+
       - name: Verify chaos experiments (every manifest has exactly one README table row)
         run: pnpm chaos:verify
 
