@@ -16,9 +16,27 @@
 # Formal specs (TLA+ and any future spec/ models) bound to runtime assertions.
 /spec/**                          @mariusargatu
 
-# The falsifiable-claim + detection-matrix manifests: the single source for what is provably guarded.
+# The falsifiable-claim + detection-matrix + boundary manifests: the single source for what is
+# provably guarded and how each claim is taxonomised.
 /scripts/lib/manifests/claims.ts            @mariusargatu
 /scripts/lib/manifests/detection-matrix.ts  @mariusargatu
+/scripts/lib/manifests/boundary-registry.ts @mariusargatu
+
+# The DERIVATION CHAIN (T23, ADR-0033). Governing the source (the Zod / VOTE_VALUES above) is not
+# enough: the cheapest tamper leaves the invariant pristine and weakens what DERIVES from it — the
+# property generators, the mutation config (mutated paths + survival threshold), and the prove/teeth
+# harness itself. Each is now a Code-Owned single point, so an agent cannot quietly loosen the chain
+# below the codeowned source. (See also gate-guard.yml, which flags a gate edited alongside its target.)
+/packages/testing-utils/src/generators/**   @mariusargatu
+/packages/testing-utils/src/agentic/**      @mariusargatu
+/scripts/stryker-critical.ts                @mariusargatu
+/scripts/stryker-harness.ts                 @mariusargatu
+**/stryker.config.json                      @mariusargatu
+/scripts/prove.ts                           @mariusargatu
+/scripts/prove-adversarial.ts               @mariusargatu
+/scripts/claims-verify.ts                   @mariusargatu
+/scripts/deriver-conformance.ts             @mariusargatu
+/scripts/lib/claim-evidence.ts              @mariusargatu
 
 # The immutable foundational decisions (already frozen by AGENTS.md "Do not touch").
 /docs/adr/0001-foundational-decisions.md    @mariusargatu

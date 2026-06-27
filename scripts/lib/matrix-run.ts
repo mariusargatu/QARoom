@@ -1,13 +1,13 @@
 import { spawnSync } from 'node:child_process'
 import { existsSync, globSync, readFileSync } from 'node:fs'
 import { dirname, relative, resolve } from 'node:path'
+import type { DetectionToggle } from './manifests/detection-matrix'
+import type { MatrixCell } from './manifests/detection-matrix-schema'
 import {
   classifyTechnique,
-  type DetectionToggle,
   PY_TECHNIQUE_CLASSIFIERS,
   TS_TECHNIQUE_CLASSIFIERS,
-} from './manifests/detection-matrix'
-import type { MatrixCell } from './manifests/detection-matrix-schema'
+} from './matrix-classifiers'
 
 /**
  * Battery engine for the detection matrix (scripts/detection-matrix.ts). One sweep = run every

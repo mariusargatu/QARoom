@@ -1,0 +1,69 @@
+# Agent controls (T23, ADR-0033): the mechanical controls layer.
+#
+# ImpossibleBench measured that three cheap, mechanical controls cut an agent's cheating rate from
+# ~54% to ~9% — far more than any single clever gate:
+#
+#   1. READ-ONLY TEST FILES   the agent cannot edit the oracle/grader that judges it.
+#   2. GRADER OUT OF THE LOOP the oracle lives outside the agent's writable workspace.
+#   3. AN ABORT AFFORDANCE    the agent can say "I can't pass this honestly — flag for a human"
+#                             instead of being cornered into cheating.
+#
+# QARoom cannot make a Git file truly read-only to an agent that holds the keys, so this is the
+# honest, partial realization: an OUT-OF-LOOP MONITOR. It is NOT in the agent's reward loop — it does
+# not pass or fail the PR, it REPORTS. It flags any PR that edits a TEST FILE (the oracle surface), so
+# a human reviewer is pointed straight at the diff that could be neutering an assertion. The abort
+# affordance is social + documented (AGENTS.md "a red is a real finding — STOP and surface it, never
+# loosen the rule"); the true read-only enforcement (a separately-credentialed CI identity that owns
+# the oracle) is named and deferred (ADR-0033, the honest "advisory residual").
+#
+# Like invariant-guard.yml / gate-guard.yml, this runs NO build/test lane — it only inspects the diff.
+name: Agent controls
+
+on:
+  pull_request:
+    paths:
+      - '**/*.test.ts'
+      - '**/*.spec.ts'
+      - '**/tests/**'
+      - '**/test_*.py'
+
+permissions:
+  contents: read
+
+jobs:
+  flag:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          fetch-depth: 0
+      - name: Flag test-file (oracle) edits — read-only-tests posture
+        env:
+          BASE_SHA: ${{ github.event.pull_request.base.sha }}
+          HEAD_SHA: ${{ github.event.pull_request.head.sha }}
+        run: |
+          set -euo pipefail
+          all=$(git diff --name-only "$BASE_SHA" "$HEAD_SHA")
+          tests=$(echo "$all" | grep -E '(\.test\.ts|\.spec\.ts|/tests/|/test_[A-Za-z0-9_]+\.py)$' || true)
+          if [ -z "$tests" ]; then
+            echo "No test (oracle) files edited." | tee -a "$GITHUB_STEP_SUMMARY"
+            exit 0
+          fi
+          {
+            echo "## :microscope: This PR edits test (oracle) files"
+            echo
+            echo "Tests are the ORACLE — the thing that judges the product. An agent editing the oracle in"
+            echo "the same breath as the product is the read-hazard the threat model centres on (a neutered"
+            echo "assertion launders a false green). This monitor is **out of the reward loop**: it does not"
+            echo "fail the PR, it points a human at the oracle diff to confirm the assertions were"
+            echo "STRENGTHENED, not loosened. If a check cannot pass honestly, the move is to **flag for a"
+            echo "human** (AGENTS.md: a red is a real finding), never to weaken the test."
+            echo
+            echo '### Edited test files'
+            echo '```'
+            echo "$tests"
+            echo '```'
+          } | tee -a "$GITHUB_STEP_SUMMARY"
+          while IFS= read -r f; do
+            [ -n "$f" ] && echo "::warning file=$f::Oracle (test) file edited — a human must confirm the assertion was strengthened, not neutered (ADR-0033)."
+          done <<< "$tests"

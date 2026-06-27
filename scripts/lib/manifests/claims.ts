@@ -252,6 +252,35 @@ const RAW: Claim[] = [
     tier: 'simulate',
   },
   {
+    // The ADVERSARIAL sibling of vote-value-in-band (ADR-0033, spike C6). The author's falsifier writes
+    // a ±7 — out of range AND out of set — which a RANGE projection of the ±1 rule would catch. But an
+    // adversary's 0 is IN the range [-1, 1] and only OUT of the SET {1, -1}: a range falsifier misses it.
+    // The set-membership DB CHECK (`value IN (1, -1)`, derived from the same VOTE_VALUES source) catches
+    // BOTH. The lesson: the falsifier's PROJECTION is a severity decision, so `prove --break` must be
+    // adversarial — pick the set, not the range. The toggle writes 0; the set-membership CHECK reds.
+    id: 'vote-value-in-set',
+    claim:
+      'A stored vote is a member of the set {+1, -1}, not merely within the range [-1, +1]: an in-range but out-of-set value (0) is rejected by the same set-membership DB CHECK that rejects a ±7. The falsifier is the set projection of VOTE_VALUES, the one that catches the adversary a range bound would wave through.',
+    boundary: 'process-rest',
+    registryRow: 'process-rest',
+    technique: 'set-membership property over the real castVote + the votes_value_check IN-clause',
+    toggle: 'CONTENT_BUG_VOTE_OUT_OF_SET',
+    gate: {
+      cmd: 'pnpm',
+      args: [
+        '--filter',
+        '@qaroom/content',
+        'exec',
+        'vitest',
+        'run',
+        '-t',
+        'rejects an out-of-set vote value',
+      ],
+    },
+    evidence: { runner: '@qaroom/content', field: 'passed' },
+    tier: 'simulate',
+  },
+  {
     id: 'tenant-isolation',
     claim:
       "A community's feed contains exactly its own posts and never another tenant's, even under an arbitrary interleave of cross-community writes (Commitment 9).",
@@ -458,6 +487,36 @@ const RAW: Claim[] = [
       ],
     },
     evidence: { runner: '@qaroom/content', field: 'passed' },
+    tier: 'simulate',
+  },
+  {
+    // T23 (ADR-0033): governing the SOURCE is not enough — the cheapest derivation-chain tamper is to
+    // leave the CODEOWNED invariant (VOTE_VALUES) pristine and weaken the ungoverned DERIVER. The toggle
+    // arms exactly that (the vote arbitrary broadens to admit an out-of-set value while the source is
+    // untouched). The deriver-conformance gate recomputes the expected ±1 set straight from VOTE_VALUES
+    // and samples the live arbitrary: a drifted deriver reds it (spike C3→C4). This is the structural
+    // answer to "govern the chain, not just the source".
+    id: 'deriver-conformance',
+    claim:
+      'A derived projection cannot silently drift from its single source: the vote-value property generator emits exactly the {+1, -1} set recomputed from VOTE_VALUES, so weakening the deriver while leaving the CODEOWNED invariant pristine — the cheapest chain tamper — is caught by a recompute-and-diff conformance gate.',
+    boundary: 'agentic',
+    registryRow: 'agentic',
+    technique:
+      'deriver-conformance check (recompute the ±1 set from VOTE_VALUES, sample the live arbitrary, diff)',
+    toggle: 'AGENT_WEAKEN_VOTE_DERIVER',
+    gate: {
+      cmd: 'pnpm',
+      args: [
+        '--filter',
+        '@qaroom/testing-utils',
+        'exec',
+        'vitest',
+        'run',
+        '-t',
+        'the vote deriver emits exactly the VOTE_VALUES set',
+      ],
+    },
+    evidence: { runner: '@qaroom/testing-utils', field: 'passed' },
     tier: 'simulate',
   },
 ]

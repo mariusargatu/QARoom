@@ -21,7 +21,8 @@
     "./vitest-timeouts": "./src/vitest-timeouts.ts",
     "./vitest-config": "./src/vitest-base.ts",
     "./http": "./src/http/mock-upstream.ts",
-    "./scenario": "./src/scenario/index.ts"
+    "./scenario": "./src/scenario/index.ts",
+    "./agentic": "./src/agentic/index.ts"
   },
   "scripts": {
     "build": "tsc -p tsconfig.json",
