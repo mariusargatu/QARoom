@@ -48,6 +48,7 @@ const faults: FaultConfig = {
   syncPublish: false,
   voteOutOfRange: false,
   voteOutOfSet: false,
+  disableRls: false,
 }
 const app = buildApp({
   db,

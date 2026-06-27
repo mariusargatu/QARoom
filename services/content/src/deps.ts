@@ -32,6 +32,14 @@ export interface FaultConfig {
    * the adversarial sibling of `vote-value-in-band`. 0/false = off.
    */
   voteOutOfSet: boolean
+  /**
+   * Drop the RLS second tenancy layer (ADR-0035) at schema-application time, so a broken service-layer
+   * `WHERE` is no longer backstopped by the database. The `rls-blocks-broken-service-layer` claim arms
+   * this to prove the DB layer is what catches the leak: with the policies gone, the cross-tenant read
+   * leaks again. Read at boot like the others (`ensureSchema(db, { rls: !faults.disableRls })`); never
+   * set on a real deployment. 0/false = off (RLS enabled).
+   */
+  disableRls: boolean
 }
 
 /** What `buildApp` receives. `lamport` and `faults` are optional; the app fills sane defaults. */
