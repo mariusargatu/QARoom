@@ -7,7 +7,13 @@ import {
 } from '@qaroom/testing-utils/matchers'
 import { describe, expect, it } from 'vitest'
 import { OPERATIONS } from '../src/operations'
-import { constantContent, SAMPLE, setupGatewayTest, unreachableContent } from './harness'
+import {
+  constantContent,
+  SAMPLE,
+  setupGatewayTest,
+  unreachableContent,
+  unreachableModerator,
+} from './harness'
 
 const createdPost = {
   id: SAMPLE.post,
@@ -28,6 +34,22 @@ describe('gateway proxy behaviour', () => {
     )
     const res = await request.post(`/api/communities/${SAMPLE.community}/posts`, postBody, {
       'idempotency-key': 'k1',
+    })
+    expect(res.status).toBe(201)
+    expect(res.json).toEqual(createdPost)
+  })
+
+  it('still creates a post (201) when the moderator is unreachable — moderation never blocks creation', async () => {
+    // The platform's best design decision (ADR-0018): moderation is an async consumer, never a
+    // synchronous dependency of the create path. With the moderator client wired but UNREACHABLE
+    // (every call throws), creation still 201s — if the create route ever called the moderator this
+    // would surface a 502 dependency_failure instead. The strict 201 is the degraded-mode severity hook.
+    const { request } = setupGatewayTest(
+      constantContent({ status: 201, body: createdPost, contentType: 'application/json' }),
+      { moderator: unreachableModerator() },
+    )
+    const res = await request.post(`/api/communities/${SAMPLE.community}/posts`, postBody, {
+      'idempotency-key': 'k-degraded',
     })
     expect(res.status).toBe(201)
     expect(res.json).toEqual(createdPost)
