@@ -37,7 +37,12 @@ function parseVoteSlowMs(raw: string | undefined): number {
 
 export const resolveFaults = (env: NodeJS.ProcessEnv = process.env): FaultConfig => ({
   feedReversed: env.CONTENT_BUG_FEED_REVERSED === '1',
-  tenantLeak: env.CONTENT_BUG_TENANT_LEAK === '1',
+  // `AGENT_PATCH_AROUND_GATE` (Boundary 16, ADR-0032) re-uses the tenancy leak as the bug an agent
+  // "patches in" while papering it over with green-theater tests: it loosens the same per-community
+  // WHERE predicate the property gate defends. The point of the `gate-survives-agent-gaming` claim is
+  // that the invariant property still RED-flags the leak even when a weak-oracle agent test stays
+  // green — so the strong gate cannot be gamed. Unguarded, like the other content toggles above.
+  tenantLeak: env.CONTENT_BUG_TENANT_LEAK === '1' || env.AGENT_PATCH_AROUND_GATE === '1',
   voteSlowMs: parseVoteSlowMs(env.CONTENT_BUG_VOTE_SLOW_MS),
   syncPublish: env.CHAOS_SYNC_PUBLISH === '1',
   voteOutOfRange: env.CONTENT_BUG_VOTE_OUT_OF_RANGE === '1',
