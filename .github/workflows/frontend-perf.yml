@@ -1,0 +1,111 @@
+# Frontend health & perf depth (T17). A SEPARATE, dispatch-only workflow on purpose: these lanes
+# (Lighthouse, bundle budget, k6 soak/stress) exceed the cheap PR `verify` budget and only need to
+# run on demand, so they stay out of ci.yml (which keeps its PR lane in-process and fast). Trigger
+# from the Actions tab. Nothing here runs on a pull_request.
+#
+# What this gates (the BUILD half of the card):
+#   - lighthouse     — Core Web Vitals + a11y/best-practice budgets over the built SPA shell
+#                      (.lighthouserc.json). CLS + a11y are hard errors; runner-variance timings warn.
+#   - bundle-budget  — size-limit gzip budgets on the built JS/CSS (services/web/.size-limit.json).
+#   - k6-soak-stress — the long-hold (leak) + climb-to-failure (breaking-point) load shapes added to
+#                      load-tests/{feed,vote-cast}.js via lib/profiles.js (K6_PROFILE=soak|stress),
+#                      folded into evidence with the existing `pnpm k6:results`.
+#
+# Tier-B confirmation deferred to a real dispatch run (cannot run headless-without-a-cluster locally):
+# Lighthouse against served, data-backed pages and the soak/stress runs against a live service.
+#
+# Stated MATRIX GAPS (the NAME half — defended by being named, not built here):
+#   - Cross-engine Playwright (Firefox / WebKit): the E2E + component runtimes are Chromium-only
+#     (playwright.config.ts, vitest.*.config.ts). A real cross-browser matrix is a follow-up.
+#   - Continuous profiling (Pyroscope / Parca): out of scope now; named as the next perf-depth step.
+#   - Manual keyboard + screen-reader pass across LIVE WebSocket updates: the highest-value a11y
+#     check (focus retention + live-region announcements as the feed mutates) is a human pass; the
+#     full-page axe E2E (services/web/tests/e2e/accessibility.e2e.spec.ts) is its automated floor.
+name: frontend-perf
+
+on:
+  workflow_dispatch:
+
+# Least privilege: read-only checkout. Evidence leaves via upload-artifact, not a write-back.
+permissions:
+  contents: read
+
+jobs:
+  # Lighthouse CI over the built SPA shell. ubuntu-latest ships google-chrome, which lhci's
+  # chrome-launcher auto-detects; lhci is run via `pnpm dlx` so its heavy tree never lands in the
+  # lockfile or the PR install path.
+  lighthouse:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+      - uses: ./.github/actions/setup-workspace
+      - name: Build the web app (tsc + vite build)
+        run: pnpm --filter @qaroom/web build
+      - name: Lighthouse CI (collect + assert CWV/a11y budgets)
+        run: pnpm dlx @lhci/cli@0.15.1 autorun
+      - name: Upload Lighthouse reports
+        if: always()
+        uses: actions/upload-artifact@v7
+        with:
+          name: partial-lighthouse
+          path: |
+            test-results/lighthouse
+            .lighthouseci
+          if-no-files-found: warn
+
+  # Bundle budgets: size-limit fails the lane if the gzipped JS/CSS exceeds the committed limit.
+  bundle-budget:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+      - uses: ./.github/actions/setup-workspace
+      - name: Build the web app (tsc + vite build)
+        run: pnpm --filter @qaroom/web build
+      - name: size-limit bundle budget
+        run: pnpm --filter @qaroom/web size
+
+  # Perf depth: soak (ramping-vus, long hold → leak detection) + stress (ramping-arrival-rate to
+  # failure → breaking point). Brings up content-service exactly like ci.yml's `load` job. The soak
+  # hold is shortened for the dispatched lane; bump K6_SOAK_DURATION for a real overnight soak.
+  k6-soak-stress:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+      - uses: ./.github/actions/setup-workspace
+      - name: Start Postgres + NATS (compose waits for both healthchecks)
+        run: docker compose -f services/content/docker-compose.yaml up -d --wait
+      - name: Generate k6 thresholds from SLO_TARGETS (and fail on drift vs committed)
+        run: |
+          pnpm k6:gen
+          git diff --exit-code load-tests/lib/slo-thresholds.gen.json
+      - name: Start content-service
+        run: |
+          DATABASE_URL=postgres://qaroom:qaroom@localhost:5432/qaroom_content \
+            NATS_URL=nats://localhost:4222 PORT=8081 \
+            pnpm --filter @qaroom/content exec tsx src/server.ts &
+          for i in $(seq 1 30); do curl -fs http://localhost:8081/system/state && break || sleep 1; done
+      - name: k6 soak + stress (feed + vote-cast) — surface leak/breaking-point data
+        run: |
+          mkdir -p test-results
+          for profile in soak stress; do
+            for script in feed vote-cast; do
+              docker run --rm --network host --user "$(id -u):$(id -g)" -v "$PWD":/work -w /work \
+                grafana/k6 run "load-tests/$script.js" \
+                -e CONTENT_BASE_URL=http://localhost:8081 \
+                -e K6_PROFILE="$profile" \
+                -e K6_SOAK_DURATION="${K6_SOAK_DURATION:-2m}" \
+                -e K6_SLO_MULTIPLIER=3
+            done
+          done
+      - name: Fold the soak/stress runs into summary.json (evidence)
+        run: pnpm k6:results
+      - name: Upload k6 soak/stress partials + folded summary
+        if: always()
+        uses: actions/upload-artifact@v7
+        with:
+          name: partial-frontend-perf-k6
+          path: |
+            test-results/k6-*-soak.json
+            test-results/k6-*-stress.json
+            test-results/summary.json
+          if-no-files-found: warn

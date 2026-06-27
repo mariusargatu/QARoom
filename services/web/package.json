@@ -19,7 +19,8 @@
     "storybook": "storybook dev -p 6006",
     "build-storybook": "storybook build",
     "e2e": "playwright test -c playwright.config.ts",
-    "e2e:results": "tsx scripts/e2e-results.ts"
+    "e2e:results": "tsx scripts/e2e-results.ts",
+    "size": "size-limit"
   },
   "dependencies": {
     "@qaroom/contracts": "workspace:*",
@@ -31,8 +32,10 @@
     "xstate": "^5.19.0"
   },
   "devDependencies": {
+    "@axe-core/playwright": "4.12.1",
     "@playwright/test": "1.60.0",
     "@qaroom/testing-utils": "workspace:*",
+    "@size-limit/file": "12.1.0",
     "@storybook/addon-a11y": "10.4.2",
     "@storybook/addon-vitest": "10.4.2",
     "@storybook/react-vite": "10.4.2",
@@ -45,6 +48,7 @@
     "@vitest/coverage-v8": "catalog:",
     "fast-check": "catalog:",
     "msw": "^2.14.0",
+    "size-limit": "12.1.0",
     "storybook": "10.4.2",
     "tailwindcss": "^4.3.0",
     "tsx": "^4.19.0",
