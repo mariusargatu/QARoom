@@ -4,3 +4,7 @@ states/
 *.bin
 *.st
 MC.out
+
+# Downloaded TLC toolchain (check.sh fetches it; never committed)
+tla2tools.jar
+*.jar
