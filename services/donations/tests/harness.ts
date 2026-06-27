@@ -4,7 +4,7 @@ import { injectClient, nextIdempotencyKey, setupServiceTest } from '@qaroom/test
 import { buildApp } from '../src/app'
 import type { DonationsDb } from '../src/db/client'
 import { ensureSchema } from '../src/db/migrate'
-import type { PaymentClient } from '../src/payment-client'
+import type { ChargeRequest, PaymentClient } from '../src/payment-client'
 import { DONATIONS_FLAG, setFlagEnabled } from '../src/repository'
 
 /** Payment-provider doubles for tests (the production client hits the Microcks mock). */
@@ -19,6 +19,24 @@ export const alwaysErrors = (): PaymentClient => ({
     throw new Error('payment provider unreachable')
   },
 })
+
+/**
+ * A payment double that records every charge it receives, so an HTTP-level test can assert the
+ * provider was hit exactly once across a retry. The provider call is the seam a double-charge bug
+ * would breach; counting `calls` makes "charged once" observable from outside the repository.
+ */
+export const recordingPayment = (): { client: PaymentClient; calls: ChargeRequest[] } => {
+  const calls: ChargeRequest[] = []
+  return {
+    calls,
+    client: {
+      charge: async (req) => {
+        calls.push(req)
+        return { provider_ref: 'pay_rec', status: 'captured' }
+      },
+    },
+  }
+}
 
 export async function setupDonationsTest(
   opts: { seed?: SeedConfig; payment?: PaymentClient } = {},
