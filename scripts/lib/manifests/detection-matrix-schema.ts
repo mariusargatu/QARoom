@@ -15,6 +15,50 @@ import { z } from 'zod'
 export const MatrixTier = z.enum(['in-proc', 'cluster', 'llm'])
 export type MatrixTier = z.infer<typeof MatrixTier>
 
+// ── The detection-toggle schema (relocated from detection-matrix.ts to keep that codeowned manifest
+// under the 500-line cap, the same split that moved the technique classifiers out). The DATA — the
+// TOGGLES array — stays in detection-matrix.ts; only its shape lives here. ──
+
+export const ToggleTiming = z.enum([
+  /** Read on every call: external env injection is honored mid-process. */
+  'call-time',
+  /** Read once when the server/object is built: tests reusing a prebuilt fixture miss it. */
+  'construction-time',
+  /** Read when pydantic Settings() loads: Python; per-test settings fixtures honor it. */
+  'settings-load',
+])
+export type ToggleTiming = z.infer<typeof ToggleTiming>
+
+export const ToggleGuard = z.enum([
+  /** The read site honors the env var unconditionally: armable anywhere, including live pods. */
+  'unguarded',
+  /** Wrapped in NODE_ENV !== 'production': inert on deployed pods, so live-tier cells are n/a. */
+  'node-env-gated',
+  /** A pydantic Settings field (Python): armable wherever Settings() loads. */
+  'settings-load',
+])
+export type ToggleGuard = z.infer<typeof ToggleGuard>
+
+export const DetectionToggle = z.object({
+  id: z.string(),
+  env: z.object({ name: z.string(), value: z.string() }),
+  component: z.string(),
+  readSite: z.object({ file: z.string(), timing: ToggleTiming }),
+  /** What the read site does with the env var — census-verified against the code, never asserted.
+   *  node-env-gated drives the cluster tier's auto-n/a (the toggle is inert on live pods). */
+  guard: ToggleGuard,
+  /** What the repo SAYS catches this (null = nothing references the env; purely empirical). */
+  designatedCatcher: z.string().nullable(),
+  /** Cross-ref into claims.ts when this toggle already backs a permanent claim. */
+  claimId: z.string().optional(),
+  tiers: z.array(MatrixTier).min(1),
+  /** Test files that arm/clear this env THEMSELVES (vitest file isolation contains it, but
+   *  their verdicts under external injection invert: annotate, never naively count). */
+  selfToggling: z.array(z.string()),
+  notes: z.string().optional(),
+})
+export type DetectionToggle = z.infer<typeof DetectionToggle>
+
 export const CellStatus = z.enum([
   /** ≥1 baseline-green test file in this technique group went red under the toggle. */
   'caught',
