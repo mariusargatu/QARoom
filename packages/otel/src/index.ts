@@ -1,6 +1,25 @@
 export { SpanStatusCode } from '@opentelemetry/api'
+export {
+  CONSUMER_LAG_METRIC,
+  type ConsumerLagPoint,
+  type ConsumerLagSource,
+  consumerLagPoints,
+  registerConsumerLagMetrics,
+} from './consumer-lag-metrics'
 export { registerTenantContext } from './fastify-tenant-plugin'
 export { activeSpanSink } from './lamport-sink'
+export {
+  attributeLeaksPii,
+  EMAIL_RE,
+  findPiiInAttributes,
+  PII_ATTR_DENYLIST,
+  valueLooksLikePii,
+} from './pii'
+export {
+  PII_LEAK_ATTR,
+  PII_LEAK_VALUE,
+  PiiLeakProbe,
+} from './pii-leak-probe'
 export { startServicePreload } from './preload'
 export { context, extractTraceContext, injectTraceContext, trace } from './propagation'
 export { recordOnActiveSpan } from './record-on-active-span'

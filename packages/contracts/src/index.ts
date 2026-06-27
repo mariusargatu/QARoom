@@ -188,8 +188,21 @@ export {
   Jwks,
   MembershipClaim,
 } from './session'
-export type { LatencyTargetMs, SloKey, SloTarget } from './slos'
-export { K6_ENDPOINTS, SLO_TARGETS } from './slos'
+export type {
+  ConsumerLag,
+  ConsumerLagSlo,
+  ConsumerLagVerdict,
+  LatencyTargetMs,
+  SloKey,
+  SloTarget,
+} from './slos'
+export {
+  ALERT_ENDPOINTS,
+  CONSUMER_LAG_SLO,
+  evaluateConsumerLag,
+  K6_ENDPOINTS,
+  SLO_TARGETS,
+} from './slos'
 export type { SnapshotStore, SnapshotTables } from './snapshot'
 export {
   ServiceSnapshot,
