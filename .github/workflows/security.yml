@@ -12,11 +12,21 @@ name: Security scanning
 #   SCA      osv-scanner (OSV.dev; the pnpm + uv lockfiles, recursive) — third-party dependencies
 #   IaC/K8s  Checkov (deploy/** + the helm-rendered service manifests) — deployment / cluster config
 #   SBOM     Syft / anchore/sbom-action — an SPDX inventory artifact    — supply-chain provenance
+#   DAST     OWASP ZAP baseline (qaroom.localhost edge)                 — the RUNNING app (Tier-B)
 #
 # Tiers are CUMULATIVE, matching ci.yml (light < merge < nightly):
 #   light   (every dispatch): semgrep, osv-scanner, checkov  — the three finding-producing gates
 #   merge   (light +):        sbom                           — supply-chain inventory artifact
-#   nightly (merge +):        [reserved] container-image scan — see DEFERRED below
+#   nightly (merge +):        zap-baseline (DAST)            — Tier-B, needs a live cluster (see below)
+#
+# DAST (the one classic-appsec category the static slice cannot cover): an OWASP ZAP baseline scan of
+# the running edge (`qaroom.localhost`). Wired here as a `nightly` job but **Tier-B and
+# deferred-to-dispatch**: unlike Semgrep/osv/Checkov (which scan the static source + manifests already
+# in the checkout), DAST needs a LIVE target to crawl, and this workflow does not provision a cluster.
+# So the job runs only when a reachable `zap_target` is supplied on dispatch (a tunnel to a `pnpm dev`
+# k3d edge, or a deployed preview); with no target it honest-skips with a named reason rather than
+# faking a green. Standing a cluster up inside this workflow (KinD + Tilt, like ci.yml's cluster tier)
+# is the deliberate next step that would make it unconditional.
 #
 # EVIDENCE. Each scanner emits SARIF (or an SBOM) uploaded as a workflow artifact (ALWAYS — the
 # guaranteed, downloadable evidence sink) and, best-effort, to the GitHub code-scanning Security tab
@@ -60,6 +70,12 @@ on:
           - merge
           - nightly
         default: light
+      zap_target:
+        description: >-
+          DAST target URL for the nightly OWASP ZAP baseline (e.g. http://qaroom.localhost via a
+          tunnel, or a deployed preview). Leave EMPTY to honest-skip the cluster-needing scan.
+        type: string
+        default: ''
 
 # Least privilege: read-only by default. The SARIF-uploading jobs widen to `security-events: write`
 # at the job level (where they genuinely need it); the SBOM job stays read-only.
@@ -197,3 +213,31 @@ jobs:
           output-file: qaroom.sbom.spdx.json
           artifact-name: qaroom-sbom-spdx
           upload-artifact: true
+
+  # DAST (defends: the RUNNING application — the one category the static scanners cannot reach). OWASP
+  # ZAP baseline (a passive, non-intrusive spider + passive-scan) against the live edge. Tier-B and
+  # deferred-to-dispatch: it runs only when `zap_target` is supplied (this workflow provisions no
+  # cluster), otherwise it honest-skips with a named reason rather than reporting a false green. Findings
+  # are INFORMATIONAL on this first pass, matching the static lanes' POSTURE.
+  zap-baseline:
+    if: inputs.tier == 'nightly'
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    steps:
+      - name: Honest-skip when no live target was supplied (Tier-B; needs a cluster)
+        if: inputs.zap_target == ''
+        run: |
+          echo "::notice title=ZAP baseline deferred::No zap_target supplied — DAST needs a live"
+          echo "cluster to crawl, which this workflow does not provision. Re-dispatch with a reachable"
+          echo "zap_target (a tunnel to a 'pnpm dev' k3d edge, or a deployed preview) to run the scan."
+      - name: OWASP ZAP baseline scan against the supplied edge -> report artifact
+        if: inputs.zap_target != ''
+        # Informational baseline: alerts do not red the lane (cmd_options -I), matching the POSTURE above.
+        uses: zaproxy/action-baseline@v0.14.0
+        with:
+          target: ${{ inputs.zap_target }}
+          cmd_options: '-I'
+          fail_action: false
+          allow_issue_writing: false
+          artifact_name: scan-zap-baseline
