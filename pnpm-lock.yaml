@@ -35,6 +35,9 @@ importers:
       '@qaroom/otel':
         specifier: workspace:*
         version: link:packages/otel
+      '@qaroom/promotion-ledger':
+        specifier: workspace:*
+        version: link:packages/promotion-ledger
       '@qaroom/testing-utils':
         specifier: workspace:*
         version: link:packages/testing-utils
