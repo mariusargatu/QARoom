@@ -6,6 +6,17 @@ metadata:
     {{- include "qaroom-service.labels" . | nindent 4 }}
 spec:
   replicas: {{ .Values.replicaCount }}
+  # Zero-unavailability rolling update (T13). maxUnavailable:0 keeps the desired replica count up
+  # for the whole rollout — the N+1 pod must be Ready before an N pod is torn down — so there is a
+  # real N/N+1 coexistence window: v1 and v2 serve REST and consume NATS at the same time. The
+  # runtime coexistence test (packages/contracts/src/events/mixed-version-coexistence.test.ts)
+  # proves an N pod survives that window (parses the N+1 producer's events, quarantines a version it
+  # cannot understand instead of crash-looping). maxSurge:1 bounds the extra pod to one at a time.
+  strategy:
+    type: RollingUpdate
+    rollingUpdate:
+      maxSurge: 1
+      maxUnavailable: 0
   selector:
     matchLabels:
       {{- include "qaroom-service.selectorLabels" . | nindent 6 }}
