@@ -152,6 +152,12 @@ jobs:
         # this light lane doesn't do — that drift gate runs in the matrix dispatch lane.
         run: pnpm tsx scripts/detection-matrix.ts --verify
 
+      # Stress-experiment drift gate (T26, ADR-0039): docs/stress-experiment.md must agree with a fresh
+      # render of the 5 instrumented metrics (derived-only, like the detection-matrix drift gate above).
+      # In-proc, no uv/cluster, so it gates every PR.
+      - name: Verify stress-experiment report (5 metrics, derived-doc drift)
+        run: pnpm stress:verify
+
       # The in-proc base envelope (vitest aggregate + mbt-edge-coverage, commit-stamped). The
       # terminal summary-envelope job reuses this as the base it folds the cluster/eval partials onto.
       - name: Upload the in-proc base summary partial
