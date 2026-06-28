@@ -6,5 +6,14 @@ export type { BrokerDouble, BrokerMode, PublishedMessage } from './broker-double
 export { brokerDouble } from './broker-double'
 export type { FailMatcher, FailOp } from './failing-db'
 export { failingDb, InjectedDbError } from './failing-db'
+export type {
+  BrokerMessage,
+  BrokerPublisher,
+  BrokerStats,
+  DurableSpec,
+  InMemoryBroker,
+  InMemoryBrokerFaults,
+} from './in-memory-broker'
+export { inMemoryBroker } from './in-memory-broker'
 export type { DeterminismCheck, ScenarioOutcome } from './run-scenario'
 export { runTwiceAndDiff } from './run-scenario'
