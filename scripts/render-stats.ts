@@ -19,8 +19,10 @@ import { CLAIMS } from './lib/manifests/claims'
 
 const ROOT = process.cwd()
 
-/** Count immediate child dirs that contain a package.json (a real workspace member). */
-function countWorkspace(dir: string): { count: number; names: string[] } {
+/** Count immediate child dirs that contain a package.json (a real workspace member). Exported so the
+ * one-location drift gate (scripts/census.ts) derives the service/package count from the SAME source
+ * as this stats block — the two projections cannot disagree on how a count is computed. */
+export function countWorkspace(dir: string): { count: number; names: string[] } {
   const root = resolve(ROOT, dir)
   if (!existsSync(root)) return { count: 0, names: [] }
   const names = readdirSync(root, { withFileTypes: true })
@@ -30,7 +32,8 @@ function countWorkspace(dir: string): { count: number; names: string[] } {
   return { count: names.length, names }
 }
 
-function adrCount(): number {
+/** Count committed ADRs (`docs/adr/NNNN-*.md`). Exported for the one-location drift gate. */
+export function adrCount(): number {
   const dir = resolve(ROOT, 'docs/adr')
   if (!existsSync(dir)) return 0
   return readdirSync(dir).filter((f) => /^\d{4}-.*\.md$/.test(f)).length
