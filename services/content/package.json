@@ -5,7 +5,9 @@
   "type": "module",
   "exports": {
     ".": "./src/app.ts",
-    "./operations": "./src/contract/operations.ts"
+    "./operations": "./src/contract/operations.ts",
+    "./db/migrate": "./src/db/migrate.ts",
+    "./db/client": "./src/db/client.ts"
   },
   "scripts": {
     "build": "tsc -p tsconfig.json",

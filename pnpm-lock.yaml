@@ -876,6 +876,9 @@ importers:
       '@pact-foundation/pact':
         specifier: ^13.0.0
         version: 13.2.0
+      '@qaroom/content':
+        specifier: workspace:*
+        version: link:../content
       '@qaroom/testing-utils':
         specifier: workspace:*
         version: link:../../packages/testing-utils
