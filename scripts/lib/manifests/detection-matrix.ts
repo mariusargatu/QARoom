@@ -591,6 +591,21 @@ export const TOGGLES: DetectionToggle[] = z.array(DetectionToggle).parse([
       'off-graph transition and the reverse-conformance gate (the in-process TS twin of the moderator ' +
       'trajectory-DST, T21) reds. Backs `agent-trajectory-on-model`.',
   },
+  {
+    // T24 (ADR-0037): the promotion ledger as a Goodhart target. Armed, the verdict logic relabels a
+    // real RED as `flaky` — the cheapest way to advance green_head without fixing anything. The
+    // meta-gate ("measure the measure", verdict.test.ts) reds. Backs `relabeled-red-stays-red`.
+    id: 'relabel-red-as-flaky',
+    env: { name: 'LEDGER_RELABEL_RED_AS_FLAKY', value: '1' },
+    component: 'agentic',
+    readSite: { file: 'packages/promotion-ledger/src/verdict.ts', timing: 'call-time' },
+    guard: 'unguarded',
+    designatedCatcher:
+      'packages/promotion-ledger/src/verdict.test.ts (the meta-gate: a real red must classify as red)',
+    claimId: 'relabeled-red-stays-red',
+    tiers: ['in-proc'],
+    selfToggling: [],
+  },
 ])
 
 export const toggleById = (id: string): DetectionToggle | undefined =>
