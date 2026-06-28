@@ -1,0 +1,22 @@
+{
+  "name": "@qaroom/promotion-ledger",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "exports": {
+    ".": "./src/index.ts"
+  },
+  "scripts": {
+    "build": "tsc -p tsconfig.json",
+    "typecheck": "tsc -p tsconfig.json",
+    "test": "vitest run"
+  },
+  "dependencies": {
+    "zod": "^4.0.0"
+  },
+  "devDependencies": {
+    "fast-check": "catalog:",
+    "typescript": "^5.7.0",
+    "vitest": "catalog:"
+  }
+}

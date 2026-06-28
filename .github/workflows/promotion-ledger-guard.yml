@@ -1,0 +1,88 @@
+# Promotion-ledger meta-gate ("measure the measure", T24 / ADR-0037).
+#
+# The promotion ledger decides "is SHA X deployable" — so the ledger's OWN verdict logic is a Goodhart
+# target. The cheapest way to advance green_head is not to fix the code but to (a) relabel a real RED
+# as `flaky`, or (b) lower the confirmation threshold so nothing is ever called red / tighten the
+# culprit-confidence so nothing ever reverts. This guard DIFFS the verdict logic over commits and flags
+# exactly those moves — the same governance the other invariant sources sit under (T23: CODEOWNERS +
+# invariant-guard + gate-guard), mirrored onto the measure itself.
+#
+# Two signals, mirroring gate-guard.yml:
+#   (1) HARD: a THRESHOLD weakened in the diff (FLAKE_CONFIRM_RATIO lowered, or MIN_CULPRIT_CONFIDENCE
+#       raised). This is a numeric move with one honest direction; the guard REDS it.
+#   (2) ADVISORY: any other edit to the verdict logic, flagged for a Code-Owner read (it cannot tell a
+#       strengthening from a weakening on its own — CODEOWNERS makes a human confirm).
+#
+# The rot-proof TEETH are elsewhere and stronger: the claim `relabeled-red-stays-red` (the in-process
+# meta-gate test, run by `pnpm verify`) reds when LEDGER_RELABEL_RED_AS_FLAKY is armed, and CODEOWNERS
+# requires a human on packages/promotion-ledger/src/verdict.ts. This job is the visible flag beside
+# them. It runs NO build/test lane (the dispatch-only discipline on ci.yml stays intact).
+name: Promotion-ledger guard
+
+on:
+  pull_request:
+    paths:
+      - 'packages/promotion-ledger/src/verdict.ts'
+      - 'packages/promotion-ledger/src/green-head.ts'
+      - 'packages/promotion-ledger/src/ledger.ts'
+
+permissions:
+  contents: read
+
+jobs:
+  flag:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          fetch-depth: 0
+      - name: Measure the measure
+        env:
+          BASE_SHA: ${{ github.event.pull_request.base.sha }}
+          HEAD_SHA: ${{ github.event.pull_request.head.sha }}
+        run: |
+          set -euo pipefail
+          verdict='packages/promotion-ledger/src/verdict.ts'
+          diff=$(git diff "$BASE_SHA" "$HEAD_SHA" -- "$verdict" || true)
+
+          # ── (1) HARD: a threshold weakened. Pull the old (removed) and new (added) constant values
+          # from the unified diff and compare. FLAKE_CONFIRM_RATIO lowered = more reds laundered to
+          # flaky; MIN_CULPRIT_CONFIDENCE raised = fewer reverts ever fire. Either reds this job. ──
+          val() { echo "$diff" | grep -E "^[$1]\s*export const $2 = " | head -1 | sed -E 's/.*= *([0-9.]+).*/\1/'; }
+          weakened=0
+          old_flake=$(val '-' 'FLAKE_CONFIRM_RATIO'); new_flake=$(val '+' 'FLAKE_CONFIRM_RATIO')
+          if [ -n "$old_flake" ] && [ -n "$new_flake" ] && awk "BEGIN{exit !($new_flake < $old_flake)}"; then
+            echo "::error::FLAKE_CONFIRM_RATIO lowered ($old_flake -> $new_flake): more real reds get laundered to flaky." \
+              | tee -a "$GITHUB_STEP_SUMMARY"
+            weakened=1
+          fi
+          old_culprit=$(val '-' 'MIN_CULPRIT_CONFIDENCE'); new_culprit=$(val '+' 'MIN_CULPRIT_CONFIDENCE')
+          if [ -n "$old_culprit" ] && [ -n "$new_culprit" ] && awk "BEGIN{exit !($new_culprit > $old_culprit)}"; then
+            echo "::error::MIN_CULPRIT_CONFIDENCE raised ($old_culprit -> $new_culprit): fewer reds ever clear the bar to revert." \
+              | tee -a "$GITHUB_STEP_SUMMARY"
+            weakened=1
+          fi
+          if [ "$weakened" -eq 1 ]; then
+            {
+              echo "## :rotating_light: Promotion-ledger threshold weakened"
+              echo
+              echo "A verdict threshold moved in the loosening direction — the exact Goodhart move T24 governs."
+              echo "Per ADR-0037 / AGENTS.md this is never a quiet edit to turn a red green: it needs an ADR and a"
+              echo "Code-Owner sign-off, and the claim \`relabeled-red-stays-red\` must still red under its toggle."
+            } | tee -a "$GITHUB_STEP_SUMMARY"
+            exit 1
+          fi
+
+          # ── (2) ADVISORY: any other edit to the verdict logic. The guard cannot tell a strengthening
+          # from a weakening here — CODEOWNERS makes a human confirm. Mirror gate-guard's tone. ──
+          if [ -n "$diff" ]; then
+            {
+              echo "## :warning: This PR edits the promotion-ledger verdict logic"
+              echo
+              echo "\`$verdict\` decides green/red/flaky — the measure green_head trusts. A Code Owner must confirm"
+              echo "this strengthens (not loosens) it, and the \`relabeled-red-stays-red\` claim still reds when armed."
+            } | tee -a "$GITHUB_STEP_SUMMARY"
+            echo "::warning file=$verdict::Verdict logic changed — Code-Owner review required (ADR-0037)."
+          else
+            echo "No verdict-logic change in this diff." | tee -a "$GITHUB_STEP_SUMMARY"
+          fi

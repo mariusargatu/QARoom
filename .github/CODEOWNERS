@@ -38,5 +38,15 @@
 /scripts/deriver-conformance.ts             @mariusargatu
 /scripts/lib/claim-evidence.ts              @mariusargatu
 
+# The PROMOTION LEDGER verdict logic (T24, ADR-0037). The ledger decides "is SHA X deployable", so its
+# OWN verdict logic is a Goodhart target: the cheapest path to a green green_head is to relabel a real
+# red as flaky or lower a confirmation threshold, not to fix the code. So the measure lives under the
+# same governance as every other invariant source — a human Code Owner confirms a change strengthens
+# it. (See promotion-ledger-guard.yml, the diff-over-commits flag that "measures the measure".)
+/packages/promotion-ledger/src/verdict.ts      @mariusargatu
+/packages/promotion-ledger/src/green-head.ts   @mariusargatu
+/packages/promotion-ledger/src/ledger.ts       @mariusargatu
+/.github/workflows/promotion-ledger-guard.yml  @mariusargatu
+
 # The immutable foundational decisions (already frozen by AGENTS.md "Do not touch").
 /docs/adr/0001-foundational-decisions.md    @mariusargatu
