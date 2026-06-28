@@ -53,6 +53,11 @@ export const resolveFaults = (env: NodeJS.ProcessEnv = process.env): FaultConfig
   // `rls-blocks-broken-service-layer` claim: armed, ensureSchema skips the policies, so a broken
   // service-layer WHERE leaks across tenants and the catch-broken-service test reds.
   disableRls: env.CONTENT_BUG_DISABLE_RLS === '1',
+  // Skip the GDPR erasure handler (ADR-0036): ack the `user.erased` event without deleting the user's
+  // posts/votes, so content still returns the "erased" user. Backs the `user-erased-everywhere` claim
+  // (pnpm prove user-erased-everywhere --break) — the cross-service saga reaches Incomplete and the
+  // no-service-returns-the-user property reds.
+  skipErasure: env.CONTENT_BUG_SKIP_ERASURE === '1',
 })
 
 /**
@@ -68,4 +73,5 @@ export const NO_FAULTS: FaultConfig = Object.freeze({
   voteOutOfRange: false,
   voteOutOfSet: false,
   disableRls: false,
+  skipErasure: false,
 })

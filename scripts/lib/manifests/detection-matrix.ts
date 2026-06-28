@@ -175,6 +175,24 @@ export const TOGGLES: DetectionToggle[] = z.array(DetectionToggle).parse([
       'enforces RLS like server Postgres, which is why this is a Tier-A in-proc cell.',
   },
   {
+    // T14 (ADR-0036): content acks the `user.erased` event WITHOUT deleting the user's posts/votes, so
+    // the cross-service GDPR erasure saga reaches Incomplete and content still returns the "erased" user.
+    id: 'skip-erasure',
+    env: { name: 'CONTENT_BUG_SKIP_ERASURE', value: '1' },
+    component: 'content',
+    readSite: { file: 'services/content/src/config/faults.ts', timing: 'construction-time' },
+    guard: 'unguarded',
+    designatedCatcher:
+      'services/identity/tests/erasure-saga/cross-service-erasure.spec.ts (in-process cross-service erasure saga)',
+    claimId: 'user-erased-everywhere',
+    tiers: ['in-proc'],
+    selfToggling: [],
+    notes:
+      'Backs the permanent `user-erased-everywhere` claim (pnpm prove user-erased-everywhere --break). ' +
+      'The designated catcher composes identity + content + donations over the in-memory broker and ' +
+      'asserts no service returns the user after the saga; armed, content keeps the user’s rows and it reds.',
+  },
+  {
     id: 'sync-publish',
     env: { name: 'CHAOS_SYNC_PUBLISH', value: '1' },
     component: 'content',

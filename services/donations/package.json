@@ -4,7 +4,10 @@
   "private": true,
   "type": "module",
   "exports": {
-    ".": "./src/app.ts"
+    ".": "./src/app.ts",
+    "./erasure": "./src/erasure.ts",
+    "./db/migrate": "./src/db/migrate.ts",
+    "./db/client": "./src/db/client.ts"
   },
   "scripts": {
     "build": "tsc -p tsconfig.json",

@@ -16,6 +16,7 @@ const BOOLEAN_TOGGLES = [
   'CONTENT_BUG_VOTE_OUT_OF_RANGE',
   'CONTENT_BUG_VOTE_OUT_OF_SET',
   'CONTENT_BUG_DISABLE_RLS',
+  'CONTENT_BUG_SKIP_ERASURE',
 ] as const
 const FIELD_OF = {
   CONTENT_BUG_FEED_REVERSED: 'feedReversed',
@@ -24,6 +25,7 @@ const FIELD_OF = {
   CONTENT_BUG_VOTE_OUT_OF_RANGE: 'voteOutOfRange',
   CONTENT_BUG_VOTE_OUT_OF_SET: 'voteOutOfSet',
   CONTENT_BUG_DISABLE_RLS: 'disableRls',
+  CONTENT_BUG_SKIP_ERASURE: 'skipErasure',
 } as const
 
 describe('resolveFaults (property)', () => {
@@ -59,6 +61,7 @@ describe('resolveFaults (property)', () => {
       expect(typeof faults.voteOutOfRange).toBe('boolean')
       expect(typeof faults.voteOutOfSet).toBe('boolean')
       expect(typeof faults.disableRls).toBe('boolean')
+      expect(typeof faults.skipErasure).toBe('boolean')
       expect(faults.voteSlowMs).toBe(0)
     },
   )
@@ -72,6 +75,7 @@ describe('resolveFaults (property)', () => {
       voteOutOfRange: false,
       voteOutOfSet: false,
       disableRls: false,
+      skipErasure: false,
     })
     expect(Object.isFrozen(NO_FAULTS)).toBe(true)
   })

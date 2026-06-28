@@ -19,6 +19,7 @@ const CONTENT = 'content'
 const FLAGS = 'flags'
 const DONATIONS = 'donations'
 const MODERATOR = 'moderator'
+const IDENTITY = 'identity'
 
 /** `qaroom.content.posts.<community_id>.created` — emitted when a post is created. */
 export function postCreated(communityId: CommunityId): string {
@@ -47,6 +48,16 @@ export function donationStateChanged(communityId: CommunityId): string {
  */
 export function moderationDecisionRecorded(communityId: CommunityId): string {
   return `${ROOT}.${MODERATOR}.decision.${communityId}.recorded`
+}
+
+/**
+ * `qaroom.identity.user.<community_id>.erased` — emitted by identity-service when a GDPR erasure is
+ * requested for a user, once per community the user belonged to (Milestone 13, ADR-0036). The
+ * downstream services (content, donations) consume it and delete that community's slice of the
+ * user's data; the per-community decomposition keeps `community_id` at the fixed position 3.
+ */
+export function userErased(communityId: CommunityId): string {
+  return `${ROOT}.${IDENTITY}.user.${communityId}.erased`
 }
 
 /** Tenant-scoped subscription: every flags event for one community (test-only; the gateway feed binds the entity-level `FLAGS_FEED_SUBJECT`). */
@@ -94,6 +105,16 @@ export const DONATIONS_FEED_SUBJECT = `${ROOT}.${DONATIONS}.donation.>`
 export const POSTS_FEED_SUBJECT = `${ROOT}.${CONTENT}.posts.>`
 export const VOTES_FEED_SUBJECT = `${ROOT}.${CONTENT}.votes.>`
 export const MODERATION_FEED_SUBJECT = `${ROOT}.${MODERATOR}.decision.>`
+
+/**
+ * Entity-level filter for the GDPR erasure cascade (Milestone 13, ADR-0036): content- and
+ * donations-service each bind a durable to this so they receive every community's `user.erased`
+ * across all tenants (a user's data spans the communities they belonged to). `community_id` stays
+ * wildcarded at the fixed position 3. Authored here only (the `qaroom/no-raw-nats-subject` rule).
+ * Deliberately NOT part of `ALL_FEED_SUBJECTS` — that set is the webhooks external fan-out; erasure
+ * is an internal control-plane cascade, not an outbound-delivery domain event.
+ */
+export const USER_ERASED_FEED_SUBJECT = `${ROOT}.${IDENTITY}.user.>`
 
 /**
  * The canonical fan-out set: every entity-level feed subject, in publish-grammar order. The
