@@ -3,17 +3,17 @@
   <img alt="QARoom detection matrix: every seeded bug down the side, every testing technique across the top, each cell marked catch or — honest miss. Most cells are misses, on purpose." src="docs/assets/detection-matrix-light.svg" width="100%">
 </picture>
 
-# QARoom · testability as an architectural property
+# QARoom · a checking + evidence architecture in service of a testing mission
 
 [![License: MIT](https://img.shields.io/badge/license-MIT-blue)](LICENSE)
 [![CI](https://img.shields.io/github/actions/workflow/status/mariusargatu/QARoom/ci.yml?branch=main&label=CI)](https://github.com/mariusargatu/QARoom/actions)
 [![Live demo](https://img.shields.io/badge/demo-live-EAB24E)](https://mariusargatu.github.io/QARoom/)
 
-A multi-tenant social platform (communities, posts, votes, donations) built as a working demonstration that **testability can be an architectural property, not a phase**. The system is shaped to be tested; the tests are shaped to its boundaries. Neither is bolted on.
+A multi-tenant social platform (communities, posts, votes, donations) built as a working demonstration of a dual claim: **organizationally**, quality is an *architectural property the system makes cheap to sustain* across people, agents, and time; **technically**, its checks are made *severe* and *tamper-evident*, so **green means something even when agents write the code**. The machine *checks*; the *testing* — the conjectures, the threat model, the judgment that a leak matters — is the human act the checks serve ([the honest name, ADR-0030](docs/adr/0030-checking-architecture-in-service-of-a-testing-mission.md)).
 
 ## Why look at this repo?
 
-- **Testability is designed in, not bolted on.** Every architectural choice exists to expose a seam a specific testing technique needs — the whole reasoning on one page: **[ARCHITECTURE.md](ARCHITECTURE.md)**.
+- **Quality is designed in, not bolted on — and the division of labor is explicit.** Agents do the spec-derived mechanical mass; humans spend scarce judgment on the emergent risk surface; the gates verify the agent's output is real. Every architectural choice exposes a seam a specific technique needs — the whole reasoning on one page: **[ARCHITECTURE.md](ARCHITECTURE.md)**; the cost, frictions, and when *not* to adopt it: **[docs/operating-model.md](docs/operating-model.md)**.
 - **Don't trust the green check — falsify it.** Every claim ships with the bug that breaks it and the test that catches it. `pnpm prove <id> --break` turns a real test red on demand: **[docs/claims.md](docs/claims.md)**.
 - **An honest detection matrix.** The hero image above is real and drift-gated: bug × technique, and most cells are deliberate *misses* — coverage theater is the thing this repo refuses to perform: **[docs/detection-matrix.md](docs/detection-matrix.md)**.
 - **One source, derived everywhere.** Zod is the single contract; OpenAPI, AsyncAPI, the DB constraints, and the property generators are all generated from it, and drift fails loudly: **[ARCHITECTURE.md §4](ARCHITECTURE.md#4-why-the-contracts-cant-quietly-lie-triangulation)**.
