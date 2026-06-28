@@ -6,7 +6,7 @@ import {
   runMigration,
 } from '@qaroom/contracts'
 import type { Clock } from '@qaroom/determinism'
-import { idempotencyResponsesMigration } from '@qaroom/messaging/migrations'
+import { idempotencyResponsesMigration, outboxMigration } from '@qaroom/messaging/migrations'
 import { eq, sql } from 'drizzle-orm'
 import type { IdentityDb, SqlExecutor } from './client'
 import { communities } from './schema'
@@ -127,6 +127,12 @@ export const IDENTITY_MIGRATIONS: readonly Migration<SqlExecutor>[] = [
   // The Idempotency-Key replay store is the shared @qaroom/messaging fragment (one shape
   // across services), not a per-service copy of the DDL.
   idempotencyResponsesMigration,
+  // The transactional outbox (Commitment 17): identity became a producer in Milestone 13 — the GDPR
+  // erasure saga (ADR-0036) stages one `user.erased` event per community in the same transaction as
+  // the local user delete, and the relay drains them to JetStream. identity does NOT consume, so it
+  // adopts only the outbox fragment (no `processed_events`), per the "compose the fragments it needs"
+  // guidance in @qaroom/messaging/migrations.
+  outboxMigration,
 ]
 
 const composed = composeMigrations(IDENTITY_MIGRATIONS)

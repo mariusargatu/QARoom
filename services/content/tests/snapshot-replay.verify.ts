@@ -49,6 +49,7 @@ const faults: FaultConfig = {
   voteOutOfRange: false,
   voteOutOfSet: false,
   disableRls: false,
+  skipErasure: false,
 }
 const app = buildApp({
   db,

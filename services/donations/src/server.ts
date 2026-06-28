@@ -10,6 +10,7 @@ import { buildApp } from './app'
 import { startDonationsConsumer } from './consumer'
 import { ensureSchema } from './db/migrate'
 import { schema } from './db/schema'
+import { startDonationsErasureConsumer } from './erasure'
 import { createPaymentClient } from './payment-client'
 
 const connectionString =
@@ -41,6 +42,8 @@ runServer(
       )
       // Consume flags-service events to keep the local gating cache current.
       await startDonationsConsumer(nats, QAROOM_STREAM, db, deps.clock)
+      // Consume identity's `user.erased` events (GDPR erasure cascade, ADR-0036): delete the user's donations.
+      await startDonationsErasureConsumer(nats, QAROOM_STREAM, db, deps.clock)
     }
 
     const payment = replaying ? replayPayment : createPaymentClient(paymentBaseUrl)

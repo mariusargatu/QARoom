@@ -40,6 +40,14 @@ export interface FaultConfig {
    * set on a real deployment. 0/false = off (RLS enabled).
    */
   disableRls: boolean
+  /**
+   * Skip the GDPR erasure handler (ADR-0036), so a `user.erased` event is acked WITHOUT deleting the
+   * user's posts/votes. The `user-erased-everywhere` claim arms this to prove the cross-service saga
+   * is really removing the user everywhere: with content's handler disabled, content still returns the
+   * erased user's data, so the saga reaches `Incomplete` and the no-service-returns-the-user property
+   * reds. Unguarded like the other content toggles; never set on a real deployment. 0/false = off.
+   */
+  skipErasure: boolean
 }
 
 /** What `buildApp` receives. `lamport` and `faults` are optional; the app fills sane defaults. */

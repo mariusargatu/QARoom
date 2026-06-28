@@ -1,4 +1,4 @@
-import { connectServiceDb } from '@qaroom/messaging'
+import { connectNats, connectServiceDb, createRelay, natsPublisher } from '@qaroom/messaging'
 import { intFromEnv, pgPoolMax, resolveBootDeps, runServer } from '@qaroom/service-kit'
 import { buildIdentity } from './app'
 import { runIdentityMigration } from './db/migrate'
@@ -7,7 +7,9 @@ import { ProductionKeyMaterialSource } from './keys'
 
 const connectionString =
   process.env.DATABASE_URL ?? 'postgres://qaroom:qaroom@localhost:5433/qaroom_identity'
+const natsUrl = process.env.NATS_URL ?? 'nats://localhost:4222'
 const port = intFromEnv('PORT', 8082)
+const RELAY_INTERVAL_MS = 1000
 
 runServer(
   async () => {
@@ -15,7 +17,7 @@ runServer(
     // its own key. `signing_keys` is excluded (private JWK material — security), and `sessions`
     // with it: a session's `kid` points at that un-exported key, so a captured token could never
     // verify against the fresh key a replay env mints — replay clients re-authenticate instead.
-    const { deps } = resolveBootDeps()
+    const { deps, replaying } = resolveBootDeps()
     const { db, snapshotStore } = connectServiceDb({
       connectionString,
       schema,
@@ -24,6 +26,14 @@ runServer(
     })
     // Provision schema + seed the general community through the migration state machine.
     await runIdentityMigration(db, { clock: deps.clock })
+    // Transactional-outbox relay (Commitment 17): identity became a producer in Milestone 13 (the
+    // GDPR erasure saga, ADR-0036) — drain staged `user.erased` events to JetStream. Skipped under
+    // snapshot-replay (no NATS in the replay env), exactly like content-service's relay boot.
+    if (!replaying) {
+      const nats = await connectNats(natsUrl)
+      const relay = createRelay({ db, publisher: natsPublisher(nats.js), clock: deps.clock })
+      relay.start(RELAY_INTERVAL_MS)
+    }
     const built = buildIdentity({
       db,
       ...deps,

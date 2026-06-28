@@ -7,7 +7,9 @@
     ".": "./src/app.ts",
     "./operations": "./src/contract/operations.ts",
     "./db/migrate": "./src/db/migrate.ts",
-    "./db/client": "./src/db/client.ts"
+    "./db/client": "./src/db/client.ts",
+    "./erasure": "./src/erasure.ts",
+    "./config/faults": "./src/config/faults.ts"
   },
   "scripts": {
     "build": "tsc -p tsconfig.json",

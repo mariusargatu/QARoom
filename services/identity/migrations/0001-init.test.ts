@@ -16,6 +16,8 @@ const EXPECTED_TABLES = [
   'communities',
   'idempotency_responses',
   'memberships',
+  // identity became an outbox producer in Milestone 13 (the GDPR erasure saga, ADR-0036).
+  'outbox',
   'sessions',
   'signing_keys',
   'users',
