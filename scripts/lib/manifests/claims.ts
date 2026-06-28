@@ -662,6 +662,38 @@ const RAW: Claim[] = [
     evidence: { runner: '@qaroom/identity', field: 'passed' },
     tier: 'simulate',
   },
+  {
+    // T24 (ADR-0037): the promotion ledger is itself a Goodhart target. `green_head` ≠ `true_head`:
+    // deployable trust is a separate, lagging pointer advanced only by tier verdicts, and the cheapest
+    // way to advance it is NOT to fix the code but to relabel a real RED as `flaky` (≈84% of nightly
+    // reds genuinely are flake, so the relabel hides in the noise). So the verdict logic lives under
+    // the same governance as the other invariant sources (T23): CODEOWNERS + a META-GATE that
+    // "measures the measure". The toggle arms exactly that relabel (a real red → flaky); the meta-gate
+    // (classifyVerdict: a deterministic failure must be `red`) reds. The in-process teeth of T24-A; the
+    // CI orchestration (tier map, batch+bisect, auto-revert bot) is Tier-B, named in ADR-0037.
+    id: 'relabeled-red-stays-red',
+    claim:
+      "The promotion ledger's verdict logic cannot launder a real red into a flake to advance green_head: a deterministic, reproducible failure classifies as `red`, never `flaky`. Relabelling a confirmed red as flaky — the cheapest Goodhart move on the ledger — is caught by the meta-gate that measures the measure, the same governance the invariant sources sit under (CODEOWNERS + the promotion-ledger-guard diff-over-commits flag).",
+    boundary: 'agentic',
+    registryRow: 'agentic',
+    technique:
+      'meta-gate over the verdict logic (a real red must classify as red; deterministic, in-process — keyless, cannot rot)',
+    toggle: 'LEDGER_RELABEL_RED_AS_FLAKY',
+    gate: {
+      cmd: 'pnpm',
+      args: [
+        '--filter',
+        '@qaroom/promotion-ledger',
+        'exec',
+        'vitest',
+        'run',
+        '-t',
+        'a real red is never relabeled flaky',
+      ],
+    },
+    evidence: { runner: '@qaroom/promotion-ledger', field: 'passed' },
+    tier: 'simulate',
+  },
 ]
 
 /** The validated manifest. Throws at import if any claim violates the schema. */
