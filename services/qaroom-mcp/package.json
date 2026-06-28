@@ -19,6 +19,7 @@
     "@qaroom/contracts": "workspace:*",
     "@qaroom/determinism": "workspace:*",
     "@qaroom/gateway": "workspace:*",
+    "@qaroom/otel": "workspace:*",
     "@qaroom/service-kit": "workspace:*",
     "@typescript-eslint/parser": "^8.21.0",
     "ajv": "^8.17.0",
