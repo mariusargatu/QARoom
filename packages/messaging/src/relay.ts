@@ -3,6 +3,7 @@ import { context, extractTraceContext, type TracedSpan, traced, withTenant } fro
 import { sql } from 'drizzle-orm'
 import { createDrainLoop } from './drain-loop'
 import { buildEventHeaders } from './headers'
+import { assertLegalOutboxCommit } from './outbox-invariant'
 import {
   type EventPublisher,
   type PendingEvent,
@@ -75,6 +76,11 @@ export function createRelay(opts: {
       await tx.execute(sql`UPDATE outbox SET attempts = attempts + 1 WHERE id = ${event.eventId}`)
       return false
     }
+    // The model↔code binding (ADR-0024, Phase 3, T19): stamping published_at is the committed
+    // Pending -> Sent edge of spec/tla/Outbox.tla. We only reach here after a successful publish
+    // (a failure returned above), so this pins SentImpliesPublished at the real boundary — a row
+    // can never be marked Sent without a real NATS publish.
+    assertLegalOutboxCommit('Pending', 'Sent', true)
     await tx.execute(
       sql`UPDATE outbox SET published_at = ${opts.clock.now().toISOString()}::timestamptz WHERE id = ${event.eventId}`,
     )
