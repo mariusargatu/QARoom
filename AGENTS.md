@@ -89,41 +89,45 @@ Reach for a repo-map or code graph only if cross-service scale ever makes agenti
 - `scripts/`: orchestration scripts. `bootstrap-k3d.sh`/`teardown-k3d.sh`, `smoke.sh`, `check-tenant-spans.ts`, `aggregate-test-results.ts`.
 - `.claude/`: agent definitions and skills.
 
-## Conventions you must follow
+## Conventions — the gate is the spec
 
-These are enforced by lint and CI. Violating them will fail the build.
+These are not prose rules to memorize; each is a **gate** that fails the build. This table is a *thin
+index* to the enforcer, not a second copy of it — the rule lives in the lint plugin
+([`tools/eslint-plugin-qaroom/index.js`](tools/eslint-plugin-qaroom/index.js)) or the named drift gate,
+and the folded convention map is [`docs/05-conventions.md`](docs/05-conventions.md). Restating a "must"
+in prose without a gate is debt ([ADR-0038](docs/adr/0038-operating-model-onboarding-agent-tax-and-incident-to-claim.md));
+where there is no hard gate, the row says so rather than claim one.
 
-- **No direct `new Date()` in non-test code.** Use the injected `Clock`.
-- **No `Math.random()` or `crypto.randomUUID()` in non-test code.** Use injected `Randomness` or `IdGenerator`.
-- **No `toMatchSnapshot()` anywhere.** Snapshot testing is forbidden.
-- **No conditional logic in tests** (`if`, `try/catch` for assertion purposes). Two tests instead.
-- **No barrel exports for non-public APIs.** Each module imports what it needs directly.
-- **No files longer than 500 lines, including tests.** Refactor.
-- **No `any` in non-test code.** Use `unknown` if type information is genuinely absent.
-- **Every non-2xx response uses RFC 7807 Problem Details** with `retryable`, `next_actions`, `failure_domain` extensions.
-- **Every span carries `tenant.id`.**
-- **Every NATS event has a Zod schema and a name.** Never publish untyped JSON. Subject grammar: `qaroom.<service>.<entity>.<community_id>.<event>`. `community_id` is fixed position 3, never optional.
-- **Every event publisher sets `Nats-Msg-Id` from the `IdGenerator`.** Consumers dedupe via the `processed_events` table (helpers in `@qaroom/messaging`). Raw `qaroom.*` subject string literals at call sites fail lint. Use the `subjects.ts` builders.
-- **Single-writer-per-resource.** Mutations include `Idempotency-Key`; replays served from per-service `idempotency_responses`. Concurrent writes serialized by Postgres advisory locks + `SELECT … FOR UPDATE`.
-- **Every mutating endpoint declares OAS `links`** so Schemathesis stateful-links has something to follow.
-
-### Common mistakes (wrong → right)
-
-The same conventions as above, as the wrong/right pairs an agent trips on mid-edit:
-
-| You wrote (fails the build) | Write instead |
+| Convention (wrong → right) | Enforced by |
 |---|---|
-| `new Date()` in non-test code | `clock.now()` — the injected `Clock` |
-| `Math.random()` / `crypto.randomUUID()` in non-test code | `randomness.next()` / `idGenerator.next()` |
-| `expect(x).toMatchSnapshot()` | a typed assertion against an explicit expected value |
-| `if`/`try-catch` to branch an assertion in a test | two tests, one per case |
-| `publish('qaroom.content.post.…')` (raw subject literal) | a `subjects.ts` builder (`community_id` stays fixed at position 3) |
-| `throw new Error()` / bare JSON on a non-2xx response | RFC 7807 Problem Details with `retryable` / `next_actions` / `failure_domain` |
-| `: any` in non-test code | `unknown`, then narrow |
-| re-stating a bound (e.g. vote ±1) in a second place | derive it from the one source (`VOTE_VALUES`); duplication is a bug, not a pattern |
-| a file past 500 lines (tests included) | split it |
+| `new Date()` → `clock.now()` (the injected `Clock`) | lint `qaroom/no-new-date` |
+| `Math.random()` / `crypto.randomUUID()` → `randomness.next()` / `idGenerator.next()` | lint `qaroom/no-unseeded-random` |
+| `expect(x).toMatchSnapshot()` → a typed assertion vs an explicit expected value | lint `qaroom/no-snapshot` |
+| `if` / `try-catch` to branch an assertion in a test → two tests, one per case | lint `qaroom/no-conditional-in-test` |
+| `export *` for a non-public API → named re-exports | lint `qaroom/no-public-barrel` |
+| a raw `qaroom.…` subject literal → a `subjects.ts` builder (`community_id` fixed at position 3; grammar `qaroom.<service>.<entity>.<community_id>.<event>`) | lint `qaroom/no-raw-nats-subject` + `pnpm asyncapi:verify` |
+| `: any` in non-test code → `unknown`, then narrow | biome `noExplicitAny` |
+| a file past 500 lines (tests included) → split it | lint `max-lines` (500) |
+| re-stating a bound (vote ±1) in a second place → derive it from the one source (`VOTE_VALUES`) | `pnpm claims:verify` (`deriver-conformance`) + the `invariant-guard` workflow |
+| a tracked count (ADRs / services / boundaries …) hand-typed in a second doc → leave it to the stats block | `pnpm census` (the one-location gate, b4 — [ADR-0038](docs/adr/0038-operating-model-onboarding-agent-tax-and-incident-to-claim.md)) |
+| `throw new Error()` / bare JSON on a non-2xx → RFC 7807 Problem Details (`retryable` / `next_actions` / `failure_domain`) | Zod `errors.ts` + `pnpm openapi:verify` + Schemathesis (live) |
+| a span without `tenant.id` | the in-process tenant-span gate ([ADR-0028](docs/adr/0028-in-process-tenant-span-gate-primary-live-audit-corroboration.md)) + `pnpm check:tenant-spans` (live) + the `tenant-span-everywhere` claim |
+| a mutation without `Idempotency-Key`, a publisher without `Nats-Msg-Id` (dedupe via `processed_events`) | the `@qaroom/messaging` dedup suite + [ADR-0011](docs/adr/0011-async-dedup-outbox-msgid-processed-events.md) — *no single lint rule; carried by the messaging tests* |
+| a mutating endpoint without OAS `links` | consumed by Schemathesis stateful-links — *named gap: nothing asserts every mutating op declares them* |
+
+The last two rows are honestly **gaps**, not lint rules: the `Nats-Msg-Id` / `Idempotency-Key` discipline
+is carried by the messaging suite (not one AST rule), and OAS-`links` *presence* has no gate — Schemathesis
+only follows the links that exist. Both are real conventions; neither is theater-claimed as lint-enforced.
 
 ## How to make changes
+
+**New here?** Start with the getting-started gradient — [`docs/getting-started.md`](docs/getting-started.md)
+walks one schema change through every derived artifact, and [`docs/add-a-field.md`](docs/add-a-field.md) is
+the mechanical recipe (edit Zod → `pnpm openapi:generate` → scaffold → **stop at the judgment review**).
+The *why* behind this shape is [ADR-0030](docs/adr/0030-checking-architecture-in-service-of-a-testing-mission.md)
+(checking + evidence) and [ADR-0038](docs/adr/0038-operating-model-onboarding-agent-tax-and-incident-to-claim.md)
+(the operating model: onboarding, the agent-pays-the-tax split, the incident→claim loop). When a change
+comes out of an incident, close the loop: [`docs/incident-to-claim.md`](docs/incident-to-claim.md).
 
 For any non-trivial change:
 

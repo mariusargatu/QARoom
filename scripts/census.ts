@@ -1,5 +1,12 @@
 import { existsSync, readdirSync, readFileSync } from 'node:fs'
 import { resolve } from 'node:path'
+import { pathToFileURL } from 'node:url'
+import { BOUNDARY_REGISTRY } from './lib/manifests/boundary-registry'
+import { CLAIMS } from './lib/manifests/claims'
+import { BOUNDARIES_END, BOUNDARIES_START } from './render-boundaries'
+import { README_END, README_START } from './render-claims'
+import { COST_END, COST_START } from './render-cost'
+import { adrCount, countWorkspace, STATS_END, STATS_START } from './render-stats'
 
 /**
  * `pnpm census`: the orphan + reverse-drift gate (sibling of chaos:verify / tour:verify). Phase 1
@@ -22,6 +29,17 @@ import { resolve } from 'node:path'
  *                 rollout/seed/tour scripts paste these ids by hand (a generated env fragment was
  *                 rejected as over-built); this grep pins each copy to its source, so changing the
  *                 contract constant can no longer silently desync the shell harness.
+ *   (b4) ONE-LOC  the one-location invariant (T25 / ADR-0038): a tracked count (services, packages,
+ *                 ADRs, boundaries, falsifiable claims) has exactly ONE editable home — the stats
+ *                 block (scripts/render-stats.ts, byte-gated by claims:verify) and the manifests it
+ *                 derives from. Any DEFINITE restatement of that number in a second front-door doc
+ *                 (a hand-typed "All 23 ADRs", "13 boundaries") that disagrees with the derived
+ *                 source is RED — the same number hand-editable in two files is the drift class this
+ *                 closes. Hedged forms ("~12 boundaries", "about 24") are prose, not a second home,
+ *                 and are skipped; the byte-gated render blocks (stats/claims/boundaries/cost) are
+ *                 their canonical home, so they are skipped too. Counts derive from the SAME helpers
+ *                 the stats block uses (countWorkspace/adrCount + the manifests), so this gate and the
+ *                 stats line can never disagree on how a count is computed.
  *
  * Exits non-zero on any violation, naming the file + the offending name.
  */
@@ -160,6 +178,100 @@ function idDriftFailures(): string[] {
   })
 }
 
+// (b4) the front-door docs whose CURRENT tracked totals are authoritative. ADRs are NOT scanned (a
+// Layer-1 narrative ADR is full of contextual + historical numbers — "the 17 commitments", "ten
+// milestones" — that are not a second home for the live total); the landscape docs are.
+export const ONE_LOCATION_DOCS = ['AGENTS.md', 'ARCHITECTURE.md', 'README.md'] as const
+
+// The byte-gated render blocks: each tracked count's ONE editable home (gated by claims:verify). Lines
+// inside any of these are skipped — restating the number there IS the canonical projection, not drift.
+const BLOCK_MARKERS = [
+  STATS_START,
+  STATS_END,
+  README_START,
+  README_END,
+  BOUNDARIES_START,
+  BOUNDARIES_END,
+  COST_START,
+  COST_END,
+] as const
+
+// A DEFINITE restatement of a tracked count: `<n> <noun>`, the same five nouns the stats line derives.
+// `claims` alone is excluded (a "4 claims" subset count is legitimate prose) — only "falsifiable claims"
+// matches, the exact phrase the stats block uses.
+const TRACKED_NOUN = /\b(\d+)\s+(falsifiable claims|services|packages|boundaries|ADRs?)\b/g
+const NOUN_TO_KEY: Record<string, string> = {
+  services: 'service',
+  packages: 'package',
+  adrs: 'ADR',
+  adr: 'ADR',
+  boundaries: 'boundary',
+  'falsifiable claims': 'claim',
+}
+// A hedge token immediately before the number ("~12", "about 24", "over 30 boundaries") marks an
+// APPROXIMATION — prose, not a second editable home — so it is skipped. A bare count ("13 boundaries",
+// "All 23 ADRs") is a definite restatement and is pinned to the derived source.
+const HEDGE =
+  /(?:~|≈|\babout|\baround|\broughly|\bnearly|\bover|\balmost|\bmore than|\bup to|\bat least)\s*$/i
+
+/** The counts a tracked restatement is pinned to, derived from the SAME source as the stats block. */
+export function trackedCounts(): Readonly<Record<string, number>> {
+  return {
+    service: countWorkspace('services').count,
+    package: countWorkspace('packages').count,
+    ADR: adrCount(),
+    boundary: BOUNDARY_REGISTRY.length,
+    claim: CLAIMS.length,
+  }
+}
+
+/**
+ * (b4) Pure core: every DEFINITE restatement of a tracked count in a front-door doc that disagrees
+ * with the derived source. Lines inside a byte-gated render block (the count's one home) and hedged
+ * approximations are skipped. Exported so census.test.ts can drive it with fixtures (the drift-failure
+ * test): an out-of-band edit of a tracked number reds the gate; the in-band repo stays green.
+ */
+export function oneLocationFailures(
+  docs: readonly { readonly path: string; readonly text: string }[],
+  derived: Readonly<Record<string, number>>,
+): string[] {
+  const failures: string[] = []
+  for (const { path, text } of docs) {
+    let inBlock = false
+    const lines = text.split('\n')
+    for (let i = 0; i < lines.length; i++) {
+      const line = lines[i] ?? ''
+      if (BLOCK_MARKERS.some((m) => line.includes(m))) {
+        inBlock = !inBlock
+        continue
+      }
+      if (inBlock) continue
+      for (const match of line.matchAll(TRACKED_NOUN)) {
+        const before = line.slice(0, match.index)
+        if (HEDGE.test(before)) continue
+        const n = Number(match[1])
+        const key = NOUN_TO_KEY[(match[2] ?? '').toLowerCase()]
+        if (key === undefined) continue
+        const expected = derived[key]
+        if (expected !== undefined && n !== expected) {
+          failures.push(
+            `ONE-LOCATION: ${path}:${i + 1} restates "${match[0]}" but the derived ${key} count is ${expected} — a tracked count has ONE home (the stats block / manifest). Align the prose to ${expected}, hedge it (~${expected}), or drop the count.`,
+          )
+        }
+      }
+    }
+  }
+  return failures
+}
+
+function oneLocationDriftFailures(): string[] {
+  const docs = ONE_LOCATION_DOCS.filter((p) => existsSync(resolve(ROOT, p))).map((p) => ({
+    path: p,
+    text: read(p),
+  }))
+  return oneLocationFailures(docs, trackedCounts())
+}
+
 function main(): void {
   const failures: string[] = []
   const notes: string[] = []
@@ -183,21 +295,27 @@ function main(): void {
   const idDrift = idDriftFailures()
   for (const d of idDrift) failures.push(d)
 
+  const oneLoc = oneLocationDriftFailures()
+  for (const o of oneLoc) failures.push(o)
+
   process.stdout.write(
-    `census: ${subjects.length} fold/verify subject(s), ${missing.length} missing doc-cited script(s), ${idDrift.length} shell-script id-drift(s)\n`,
+    `census: ${subjects.length} fold/verify subject(s), ${missing.length} missing doc-cited script(s), ${idDrift.length} shell-script id-drift(s), ${oneLoc.length} one-location count-drift(s)\n`,
   )
   for (const note of notes) process.stdout.write(`  ⓘ ${note}\n`)
 
   if (failures.length > 0) {
     for (const f of failures) process.stderr.write(`  ✗ ${f}\n`)
     process.stderr.write(
-      `\ncensus FAILED: ${failures.length} violation(s); wire the orphan into a lane, add the missing script, or align the shell-script id\n`,
+      `\ncensus FAILED: ${failures.length} violation(s); wire the orphan into a lane, add the missing script, align the shell-script id, or fix the one-location count drift\n`,
     )
     process.exit(1)
   }
   process.stdout.write(
-    'census ✓: every fold/verify subject is wired, every doc-cited script exists, and every shell-script community-id matches a canonical contract id\n',
+    'census ✓: every fold/verify subject is wired, every doc-cited script exists, every shell-script community-id matches a canonical contract id, and every tracked count has one home\n',
   )
 }
 
-main()
+// Only run when invoked directly, not when imported by census.test.ts (the b4 drift-failure test).
+if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) {
+  main()
+}
