@@ -151,6 +151,41 @@ export const OPERATIONS: readonly OasOperation[] = [
     ],
   },
   {
+    operationId: 'deleteUser',
+    method: 'delete',
+    path: '/api/users/{userId}',
+    summary: 'Erase a user (GDPR right-to-erasure)',
+    description:
+      'Erases a user across the platform. Identity deletes its own user data and stages one `user.erased` event per community the user belonged to; content- and donations-service consume those and delete their slice. Orchestrated as the erasure saga (ADR-0036); returns 202 Accepted because the cross-service cascade settles asynchronously. Idempotent on the Idempotency-Key header.',
+    tags: ['users'],
+    mutating: true,
+    params: [userIdParam, idempotencyKeyHeaderParam],
+    responses: [
+      {
+        code: 202,
+        description: 'The erasure was accepted; the cross-service cascade is in progress.',
+        bodyRef: 'UserErasureAccepted',
+        example: {
+          saga_id: 'erasure_01HZY0K7M3QF8VN2J5RX9TB4CG',
+          user_id: EXAMPLE_USER_ID,
+          status: 'Cascading',
+          communities: [EXAMPLE_COMMUNITY_ID],
+        },
+        links: {
+          GetErasedUser: {
+            operationId: 'getUser',
+            parameters: { userId: '$response.body#/user_id' },
+            description:
+              'Fetch the erased user — once the saga settles it returns 404, the erasure made observable.',
+          },
+        },
+      },
+      validation400,
+      userNotFound,
+      idempotencyConflict409,
+    ],
+  },
+  {
     operationId: 'createCommunity',
     method: 'post',
     path: '/api/communities',

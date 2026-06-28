@@ -3,6 +3,7 @@ import { and, desc, eq, sql } from 'drizzle-orm'
 import type { IdentityDb } from './db/client'
 import { communities, memberships, sessions, signingKeys, users } from './db/schema'
 import type { RepoDeps } from './deps'
+import { publishUserErased } from './events/user-erased'
 
 /** snake_case records matching the contracts; route handlers parse/brand them. */
 export interface UserRecord {
@@ -72,6 +73,57 @@ export async function getUser(db: IdentityDb, userId: string): Promise<UserRecor
   const rows = await db.select().from(users).where(eq(users.id, userId)).limit(1)
   const r = rows[0]
   return r ? rowToUser(r) : null
+}
+
+export interface EraseUserResult {
+  /** The erasure saga's handle (`erasure_<ulid>`), returned in the 202 and used for tracking. */
+  sagaId: string
+  /** The communities a `user.erased` event was staged for — the per-tenant cascade fan-out. */
+  communities: string[]
+}
+
+/**
+ * Erase a user (GDPR right-to-erasure, ADR-0036). Identity-OWNED step of the cross-service saga:
+ * in ONE transaction it advisory-locks the user (single-writer), deletes the user's identity-local
+ * rows (sessions, memberships, the user), and stages one `user.erased` event on the outbox per
+ * community the user belonged to — captured BEFORE the memberships are deleted. The relay drains
+ * those events; content- and donations-service consume them and delete their slice. Returns null
+ * when no such user exists (route → 404), so a missing user is never a silent no-op success.
+ *
+ * NAMED limitation (ADR-0036): the fan-out is driven by MEMBERSHIP. Data a user left behind in a
+ * community whose membership was already removed is not reached by this cascade and needs a separate
+ * sweep — a conscious v1 boundary, not an oversight.
+ */
+export async function eraseUser(
+  db: IdentityDb,
+  deps: RepoDeps,
+  userId: string,
+): Promise<EraseUserResult | null> {
+  const requestedAt = deps.clock.now()
+  const sagaId = deps.ids.next('erasure')
+  const result = await db.transaction(async (tx): Promise<EraseUserResult | null> => {
+    await advisoryLock(tx, userId)
+    const existing = await tx
+      .select({ id: users.id })
+      .from(users)
+      .where(eq(users.id, userId))
+      .limit(1)
+    if (existing.length === 0) return null
+    const userMemberships = await tx
+      .select({ communityId: memberships.communityId })
+      .from(memberships)
+      .where(eq(memberships.userId, userId))
+    const communityIds = userMemberships.map((m) => m.communityId)
+    await tx.delete(sessions).where(eq(sessions.userId, userId))
+    await tx.delete(memberships).where(eq(memberships.userId, userId))
+    await tx.delete(users).where(eq(users.id, userId))
+    for (const communityId of communityIds) {
+      await publishUserErased(tx, deps.ids, { userId, communityId, requestedAt })
+    }
+    return { sagaId, communities: communityIds }
+  })
+  if (result) deps.lamport.bump()
+  return result
 }
 
 /** Create a community. Returns null when the slug is already taken (route → 409 conflict). */

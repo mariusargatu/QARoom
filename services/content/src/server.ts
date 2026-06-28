@@ -1,10 +1,17 @@
-import { connectNats, connectServiceDb, createRelay, natsPublisher } from '@qaroom/messaging'
+import {
+  connectNats,
+  connectServiceDb,
+  createRelay,
+  natsPublisher,
+  QAROOM_STREAM,
+} from '@qaroom/messaging'
 import { intFromEnv, pgPoolMax, resolveBootDeps, runServer } from '@qaroom/service-kit'
 import { buildApp } from './app'
 import { resolveFaults } from './config/faults'
 import { runContentBackfill } from './db/backfill'
 import { ensureSchema } from './db/migrate'
 import { schema } from './db/schema'
+import { startContentErasureConsumer } from './erasure'
 
 const connectionString =
   process.env.DATABASE_URL ?? 'postgres://qaroom:qaroom@localhost:5432/qaroom_content'
@@ -33,6 +40,9 @@ runServer(
       const nats = await connectNats(natsUrl)
       const relay = createRelay({ db, publisher: natsPublisher(nats.js), clock: deps.clock })
       relay.start(RELAY_INTERVAL_MS)
+      // Consume identity's `user.erased` events (GDPR erasure cascade, ADR-0036): delete the user's
+      // posts/votes per community. `faults` carries the CONTENT_BUG_SKIP_ERASURE deliberate-bug switch.
+      await startContentErasureConsumer(nats, QAROOM_STREAM, db, deps.clock, faults)
       const app = await buildApp({ ...deps, db, snapshotStore, faults })
       // sync-publish (deliberate-bug demo, failure-modes.md#02): drain the outbox ON the request
       // path before the response leaves, undoing Commitment 17's isolation — a slow broker now

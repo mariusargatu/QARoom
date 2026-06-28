@@ -134,6 +134,92 @@ paths:
           schema:
             type: string
             pattern: ^user_[0-9A-HJKMNP-TV-Z]{26}$
+    delete:
+      operationId: deleteUser
+      summary: Erase a user (GDPR right-to-erasure)
+      description: Erases a user across the platform. Identity deletes its own user data and stages one `user.erased` event per community the user belonged to; content- and donations-service consume those and delete their slice. Orchestrated as the erasure saga (ADR-0036); returns 202 Accepted because the cross-service cascade settles asynchronously. Idempotent on the Idempotency-Key header.
+      responses:
+        "202":
+          description: The erasure was accepted; the cross-service cascade is in progress.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/UserErasureAccepted"
+              example:
+                saga_id: erasure_01HZY0K7M3QF8VN2J5RX9TB4CG
+                user_id: user_01HZY0K7M3QF8VN2J5RX9TB4CF
+                status: Cascading
+                communities:
+                  - comm_01HZY0K7M3QF8VN2J5RX9TB4CD
+          links:
+            GetErasedUser:
+              operationId: getUser
+              parameters:
+                userId: $response.body#/user_id
+              description: Fetch the erased user — once the saga settles it returns 404, the erasure made observable.
+        "400":
+          description: The request body or headers failed validation.
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ProblemDetails"
+              example:
+                type: https://qaroom.dev/errors/validation-failed
+                title: Request failed validation
+                status: 400
+                detail: Request failed validation.
+                instance: /api/users/user_01HZY0K7M3QF8VN2J5RX9TB4CF
+                retryable: false
+                next_actions: []
+                failure_domain: validation
+        "404":
+          description: No user with that id exists.
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ProblemDetails"
+              example:
+                type: https://qaroom.dev/errors/user-not-found
+                title: User not found
+                status: 404
+                detail: User not found.
+                instance: /api/users/user_01HZY0K7M3QF8VN2J5RX9TB4CF
+                retryable: false
+                next_actions: []
+                failure_domain: not_found
+        "409":
+          description: This Idempotency-Key was already used for a request with a different body.
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ProblemDetails"
+              example:
+                type: https://qaroom.dev/errors/idempotency-key-conflict
+                title: Idempotency-Key reused with a different body
+                status: 409
+                detail: Idempotency-Key reused with a different body.
+                instance: /api/users
+                retryable: false
+                next_actions: []
+                failure_domain: conflict
+      tags:
+        - users
+      parameters:
+        - name: userId
+          in: path
+          required: true
+          description: Target user.
+          schema:
+            type: string
+            pattern: ^user_[0-9A-HJKMNP-TV-Z]{26}$
+        - name: Idempotency-Key
+          in: header
+          required: true
+          description: Client-supplied key making this mutation safely retryable (Commitment 4).
+          schema:
+            type: string
+            minLength: 1
+            maxLength: 255
   /api/communities:
     post:
       operationId: createCommunity
@@ -1020,6 +1106,28 @@ components:
         - created_at
       additionalProperties: false
       description: A user identity.
+    UserErasureAccepted:
+      type: object
+      properties:
+        saga_id:
+          type: string
+        user_id:
+          $ref: "#/components/schemas/UserId"
+        status:
+          type: string
+          enum:
+            - Cascading
+        communities:
+          type: array
+          items:
+            type: string
+      required:
+        - saga_id
+        - user_id
+        - status
+        - communities
+      additionalProperties: false
+      description: Acknowledges an accepted user-erasure saga.
     UserId:
       type: string
       pattern: ^user_[0-9A-HJKMNP-TV-Z]{26}$

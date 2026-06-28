@@ -631,6 +631,37 @@ const RAW: Claim[] = [
     evidence: { runner: '@qaroom/messaging', field: 'passed' },
     tier: 'simulate',
   },
+  {
+    // T14 (ADR-0036): the GDPR erasure saga as a cross-service distributed-correctness guarantee.
+    // identity deletes its user data and stages one `user.erased` per community on the outbox; the
+    // relay publishes them; content and donations consume and delete their slice, deduping on the
+    // event id so a redelivery is a no-op. The saga machine tracks per-service completion. Disabling
+    // one service's handler (CONTENT_BUG_SKIP_ERASURE) leaves that service still returning the user,
+    // so the saga reaches Incomplete and the no-service-returns-the-user property reds. Driven
+    // end-to-end IN-PROCESS (the T22 cross-service composition pattern, ADR-0029), so it is Tier-A.
+    id: 'user-erased-everywhere',
+    claim:
+      'A GDPR erasure removes the user from every service: identity deletes its user data and emits a per-community `user.erased` event; content and donations consume it and delete their slice (dedup-guarded, so a redelivery never double-effects). After the cross-service saga settles, no service returns the user. Disabling one service’s erasure handler (CONTENT_BUG_SKIP_ERASURE) leaves that service still returning the user — the saga reaches Incomplete and this property reds. The guarantee is distributed correctness across the cascade, not a single-service delete.',
+    boundary: 'process-async',
+    registryRow: 'process-async',
+    technique:
+      'in-process cross-service saga (identity → outbox relay → content/donations consumers over the in-memory broker)',
+    toggle: 'CONTENT_BUG_SKIP_ERASURE',
+    gate: {
+      cmd: 'pnpm',
+      args: [
+        '--filter',
+        '@qaroom/identity',
+        'exec',
+        'vitest',
+        'run',
+        '-t',
+        'no service returns an erased user',
+      ],
+    },
+    evidence: { runner: '@qaroom/identity', field: 'passed' },
+    tier: 'simulate',
+  },
 ]
 
 /** The validated manifest. Throws at import if any claim violates the schema. */

@@ -46,6 +46,11 @@ export {
   PostCreatedEvent,
 } from './events/post-created'
 export {
+  USER_ERASED_EVENT,
+  USER_ERASED_VERSION,
+  UserErasedEvent,
+} from './events/user-erased'
+export {
   VOTE_CAST_EVENT,
   VOTE_CAST_VERSION,
   VoteCastEvent,
@@ -116,6 +121,22 @@ export type {
   TransitionSink,
 } from './machines/apply-event'
 export { applyMachineEvent, NOOP_TRANSITION_SINK } from './machines/apply-event'
+export type {
+  ErasureContext,
+  ErasureEvent,
+  ErasureMachine,
+  ErasureState,
+} from './machines/erasure.machine'
+export { erasureMachine, isErasureTerminal } from './machines/erasure.machine'
+export type {
+  ErasureParticipant,
+  ErasureSagaResult,
+  ErasureTransitionRecord,
+  ErasureTransitionSink,
+  ParticipantOutcome,
+  RunErasureSagaOptions,
+} from './machines/erasure.runner'
+export { runErasureSaga } from './machines/erasure.runner'
 export type { Migration } from './machines/migration'
 export { composeMigrations } from './machines/migration'
 export type {
@@ -233,6 +254,8 @@ export {
   postsCreatedAnyCommunity,
   QAROOM_STREAM_SUBJECTS,
   subjectMatchesFilter,
+  USER_ERASED_FEED_SUBJECT,
+  userErased,
   VOTE_CAST_ADDRESS,
   VOTES_FEED_SUBJECT,
   voteCast,
@@ -240,7 +263,7 @@ export {
 export { Capabilities, Capability, SYSTEM_OPERATIONS, SystemState } from './system'
 export { RunnerResult, SCHEMA_VERSION, TestResultsSummary } from './test-results-schema'
 export { RedeemTicketRequest, RedeemTicketResponse, TicketResponse } from './ticket'
-export { CreateUserRequest, User } from './user'
+export { CreateUserRequest, User, UserErasureAccepted } from './user'
 export {
   CastVoteRequest,
   CastVoteResponse,
