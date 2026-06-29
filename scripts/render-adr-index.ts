@@ -26,15 +26,15 @@ function decisionLine(heading: string): string {
 
 export function readAdrs(): Adr[] {
   return adrFiles().map((file) => {
-      const src = readFileSync(resolve(ADR_DIR, file), 'utf8')
-      const num = file.slice(0, 4)
-      const heading = src.match(/^# (.+)$/m)?.[1] ?? file
-      // Tolerate both `- **Status:**` and `**Status:**`; keep only the glanceable head
-      // (everything before the first `(`, `,`, `—`, or `.`) — the nuance lives in the file.
-      const rawStatus = src.match(/^-? *\*\*Status:\*\*\s*(.+)$/m)?.[1]?.trim() ?? '—'
-      const status = (rawStatus.split(/[(,—.]/)[0] ?? rawStatus).trim()
-      return { num, status, title: decisionLine(heading), file }
-    })
+    const src = readFileSync(resolve(ADR_DIR, file), 'utf8')
+    const num = file.slice(0, 4)
+    const heading = src.match(/^# (.+)$/m)?.[1] ?? file
+    // Tolerate both `- **Status:**` and `**Status:**`; keep only the glanceable head
+    // (everything before the first `(`, `,`, `—`, or `.`) — the nuance lives in the file.
+    const rawStatus = src.match(/^-? *\*\*Status:\*\*\s*(.+)$/m)?.[1]?.trim() ?? '—'
+    const status = (rawStatus.split(/[(,—.]/)[0] ?? rawStatus).trim()
+    return { num, status, title: decisionLine(heading), file }
+  })
 }
 
 export function renderAdrIndex(adrs: Adr[]): string {
