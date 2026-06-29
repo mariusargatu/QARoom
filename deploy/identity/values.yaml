@@ -10,6 +10,11 @@ otel:
 postgres:
   enabled: true
   database: qaroom_identity
+extraEnv:
+  # Async messaging: identity became a NATS producer in Milestone 13 (the GDPR erasure saga,
+  # ADR-0036) — server.ts connects to JetStream to drain its outbox. Without this it falls back to
+  # nats://localhost:4222 and crash-loops in-cluster (in-proc tests don't exercise this boot path).
+  NATS_URL: nats://qaroom-nats.observability.svc.cluster.local:4222
 gc:
   enabled: true
   package: "@qaroom/identity"
