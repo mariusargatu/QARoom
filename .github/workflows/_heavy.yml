@@ -16,6 +16,7 @@ jobs:
   # path (CONTENT_BUG_VOTE_SLOW_MS) must breach the vote SLO and make k6 exit 99.
   load:
     runs-on: ubuntu-latest
+    timeout-minutes: 45
     steps:
       - uses: actions/checkout@v7
       - uses: ./.github/actions/setup-workspace
@@ -80,6 +81,7 @@ jobs:
   # suite per mutant; each package enforces its own thresholds.break.
   mutation:
     runs-on: ubuntu-latest
+    timeout-minutes: 45
     steps:
       - uses: actions/checkout@v7
       - uses: ./.github/actions/setup-workspace
@@ -101,6 +103,7 @@ jobs:
   # cached by version.
   evomaster:
     runs-on: ubuntu-latest
+    timeout-minutes: 45
     steps:
       - uses: actions/checkout@v7
       - uses: ./.github/actions/setup-workspace
@@ -139,6 +142,7 @@ jobs:
   # steady-state harness. KinD's containerd socket differs from k3d's (CHAOS_CONTAINERD_SOCKET).
   chaos:
     runs-on: ubuntu-latest
+    timeout-minutes: 45
     steps:
       - uses: actions/checkout@v7
       - uses: ./.github/actions/setup-workspace

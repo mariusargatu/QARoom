@@ -31,6 +31,7 @@ jobs:
   # dispatch; heavy on the weekly cron (gated on commits in the last 7d) or an opt-in dispatch.
   gate:
     runs-on: ubuntu-latest
+    timeout-minutes: 10
     outputs:
       integration: ${{ steps.decide.outputs.integration }}
       heavy: ${{ steps.decide.outputs.heavy }}
