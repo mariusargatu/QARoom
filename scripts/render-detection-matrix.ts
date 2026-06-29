@@ -312,7 +312,11 @@ function buildTiers(): SvgTier[] {
   // tier just shows blank (n/a) cells there.
   const inProcCols = [...TS_COLUMNS, ...PY_COLUMNS]
   const tiers: SvgTier[] = [
-    { label: 'Tier A · in-proc', columns: inProcCols, grid: tierGrid('in-proc', inProcCols, TOGGLES) },
+    {
+      label: 'Tier A · in-proc',
+      columns: inProcCols,
+      grid: tierGrid('in-proc', inProcCols, TOGGLES),
+    },
   ]
   if (artifact.cells.some((c) => c.tier === 'cluster')) {
     tiers.push({
@@ -323,7 +327,11 @@ function buildTiers(): SvgTier[] {
   }
   if (artifact.cells.some((c) => c.tier === 'llm')) {
     const llmCols = [...LLM_COLUMNS, 'metamorphic']
-    tiers.push({ label: 'Tier C · real model', columns: llmCols, grid: tierGrid('llm', llmCols, TOGGLES) })
+    tiers.push({
+      label: 'Tier C · real model',
+      columns: llmCols,
+      grid: tierGrid('llm', llmCols, TOGGLES),
+    })
   }
   return tiers
 }
