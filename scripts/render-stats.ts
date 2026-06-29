@@ -32,11 +32,20 @@ export function countWorkspace(dir: string): { count: number; names: string[] } 
   return { count: names.length, names }
 }
 
-/** Count committed ADRs (`docs/adr/NNNN-*.md`). Exported for the one-location drift gate. */
-export function adrCount(): number {
+/** Committed ADR filenames (`docs/adr/NNNN-*.md`), sorted. The ONE scan of the ADR dir — both the
+ * count below and render-adr-index.ts derive from it, so the index and the stats line can't disagree
+ * on what an ADR is. */
+export function adrFiles(): string[] {
   const dir = resolve(ROOT, 'docs/adr')
-  if (!existsSync(dir)) return 0
-  return readdirSync(dir).filter((f) => /^\d{4}-.*\.md$/.test(f)).length
+  if (!existsSync(dir)) return []
+  return readdirSync(dir)
+    .filter((f) => /^\d{4}-.*\.md$/.test(f))
+    .sort()
+}
+
+/** Count committed ADRs. Exported for the one-location drift gate. */
+export function adrCount(): number {
+  return adrFiles().length
 }
 
 export const STATS_START =

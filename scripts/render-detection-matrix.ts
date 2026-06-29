@@ -307,35 +307,23 @@ function tierGrid(
 }
 
 function buildTiers(): SvgTier[] {
+  // Every tier renders against the FULL bug list (TOGGLES), so all grids + the coverage strip share
+  // one row axis and a single column of row labels lines up across them; a bug that doesn't declare a
+  // tier just shows blank (n/a) cells there.
+  const inProcCols = [...TS_COLUMNS, ...PY_COLUMNS]
   const tiers: SvgTier[] = [
-    {
-      label: 'Tier A · in-proc',
-      grid: tierGrid(
-        'in-proc',
-        [...TS_COLUMNS, ...PY_COLUMNS],
-        TOGGLES.filter((t) => t.tiers.includes('in-proc')),
-      ),
-    },
+    { label: 'Tier A · in-proc', columns: inProcCols, grid: tierGrid('in-proc', inProcCols, TOGGLES) },
   ]
   if (artifact.cells.some((c) => c.tier === 'cluster')) {
     tiers.push({
       label: 'Tier B · live cluster',
-      grid: tierGrid(
-        'cluster',
-        LIVE_COLUMNS,
-        TOGGLES.filter((t) => t.tiers.includes('cluster')),
-      ),
+      columns: LIVE_COLUMNS,
+      grid: tierGrid('cluster', LIVE_COLUMNS, TOGGLES),
     })
   }
   if (artifact.cells.some((c) => c.tier === 'llm')) {
-    tiers.push({
-      label: 'Tier C · real model',
-      grid: tierGrid(
-        'llm',
-        [...LLM_COLUMNS, 'metamorphic'],
-        TOGGLES.filter((t) => t.tiers.includes('llm')),
-      ),
-    })
+    const llmCols = [...LLM_COLUMNS, 'metamorphic']
+    tiers.push({ label: 'Tier C · real model', columns: llmCols, grid: tierGrid('llm', llmCols, TOGGLES) })
   }
   return tiers
 }
@@ -343,11 +331,14 @@ function buildTiers(): SvgTier[] {
 /** The left coverage strip: one mark per bug (manifest order), encoding its bug-level coverage. */
 function buildCoverageStrip(): CoverageMark[] {
   return TOGGLES.map((t) => {
-    if (caughtInProc.has(t.id)) return { status: 'in-proc' as const }
-    const d = defenseByToggle.get(t.id)
-    if (d === 'defended') return { status: 'deeper' as const }
-    if (d === 'awaiting') return { status: 'awaiting' as const }
-    return { status: 'open' as const }
+    const status = caughtInProc.has(t.id)
+      ? ('in-proc' as const)
+      : defenseByToggle.get(t.id) === 'defended'
+        ? ('deeper' as const)
+        : defenseByToggle.get(t.id) === 'awaiting'
+          ? ('awaiting' as const)
+          : ('open' as const)
+    return { status, label: t.id }
   })
 }
 
