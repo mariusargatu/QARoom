@@ -40,6 +40,13 @@ import { adrCount, countWorkspace, STATS_END, STATS_START } from './render-stats
  *                 their canonical home, so they are skipped too. Counts derive from the SAME helpers
  *                 the stats block uses (countWorkspace/adrCount + the manifests), so this gate and the
  *                 stats line can never disagree on how a count is computed.
+ *   (b5) NATS WIRE every service whose src connects to NATS (a `connectNats` caller) MUST declare
+ *                 NATS_URL in deploy/<svc>/values.yaml. Without it the boot falls back to
+ *                 nats://localhost:4222 and CrashLoopBackOffs in-cluster — the exact Milestone-13
+ *                 identity bug (it became a producer via the GDPR erasure saga, ADR-0036, but its
+ *                 values.yaml never got the env). In-proc tests inject their own NATS, so this
+ *                 source-vs-deploy wiring drift is invisible until a live cluster; this static check
+ *                 is the cheap always-on complement to the dispatch-only cluster readiness gate.
  *
  * Exits non-zero on any violation, naming the file + the offending name.
  */
@@ -272,6 +279,63 @@ function oneLocationDriftFailures(): string[] {
   return oneLocationFailures(docs, trackedCounts())
 }
 
+// (b5) a service's NATS wiring: src that connects to NATS, paired with its deploy values.
+export interface NatsService {
+  readonly name: string
+  readonly callsNats: boolean // src references connectNats (a JetStream producer or consumer)
+  readonly valuesExists: boolean // deploy/<name>/values.yaml present (i.e. the service is cluster-deployed)
+  readonly valuesHasNatsUrl: boolean
+}
+
+/**
+ * (b5) Pure core (no fs): every cluster-deployed `connectNats` service that omits NATS_URL. Forward
+ * direction only — the reverse (NATS_URL set, no connectNats) false-positives on the Python
+ * moderator-agent, which speaks NATS through a different client. Exported so census.test.ts drives it
+ * with fixtures: the identity-shaped row reds, a wired row stays green.
+ */
+export function natsWiringFailures(services: readonly NatsService[]): string[] {
+  return services
+    .filter((s) => s.callsNats && s.valuesExists && !s.valuesHasNatsUrl)
+    .map(
+      (s) =>
+        `NATS WIRING: services/${s.name} connects to NATS (connectNats) but deploy/${s.name}/values.yaml declares no NATS_URL — in-cluster it falls back to nats://localhost:4222 and CrashLoopBackOffs (the M13 identity bug). Add extraEnv.NATS_URL.`,
+    )
+}
+
+/** Does any .ts file under `dir` contain `token`? — the connectNats read-site probe for b5. */
+function treeHasToken(dir: string, token: string): boolean {
+  if (!existsSync(dir)) return false
+  for (const e of readdirSync(dir, { withFileTypes: true })) {
+    const p = resolve(dir, e.name)
+    if (e.isDirectory()) {
+      if (treeHasToken(p, token)) return true
+    } else if (e.isFile() && e.name.endsWith('.ts') && readFileSync(p, 'utf8').includes(token)) {
+      return true
+    }
+  }
+  return false
+}
+
+/** (b5) fs wrapper: build the NatsService list from the real tree and run the pure core. Exported so
+ *  census.test.ts asserts the current repo is fully wired (a regression that drops NATS_URL reds it). */
+export function natsWiringDriftFailures(): string[] {
+  const servicesDir = resolve(ROOT, 'services')
+  if (!existsSync(servicesDir)) return []
+  const services: NatsService[] = readdirSync(servicesDir, { withFileTypes: true })
+    .filter((e) => e.isDirectory())
+    .map((e) => {
+      const name = e.name
+      const valuesExists = existsSync(resolve(ROOT, 'deploy', name, 'values.yaml'))
+      return {
+        name,
+        callsNats: treeHasToken(resolve(servicesDir, name, 'src'), 'connectNats'),
+        valuesExists,
+        valuesHasNatsUrl: valuesExists && read(`deploy/${name}/values.yaml`).includes('NATS_URL'),
+      }
+    })
+  return natsWiringFailures(services)
+}
+
 function main(): void {
   const failures: string[] = []
   const notes: string[] = []
@@ -298,20 +362,23 @@ function main(): void {
   const oneLoc = oneLocationDriftFailures()
   for (const o of oneLoc) failures.push(o)
 
+  const natsWiring = natsWiringDriftFailures()
+  for (const w of natsWiring) failures.push(w)
+
   process.stdout.write(
-    `census: ${subjects.length} fold/verify subject(s), ${missing.length} missing doc-cited script(s), ${idDrift.length} shell-script id-drift(s), ${oneLoc.length} one-location count-drift(s)\n`,
+    `census: ${subjects.length} fold/verify subject(s), ${missing.length} missing doc-cited script(s), ${idDrift.length} shell-script id-drift(s), ${oneLoc.length} one-location count-drift(s), ${natsWiring.length} nats-wiring gap(s)\n`,
   )
   for (const note of notes) process.stdout.write(`  ⓘ ${note}\n`)
 
   if (failures.length > 0) {
     for (const f of failures) process.stderr.write(`  ✗ ${f}\n`)
     process.stderr.write(
-      `\ncensus FAILED: ${failures.length} violation(s); wire the orphan into a lane, add the missing script, align the shell-script id, or fix the one-location count drift\n`,
+      `\ncensus FAILED: ${failures.length} violation(s); wire the orphan into a lane, add the missing script, align the shell-script id, fix the one-location count drift, or declare the missing NATS_URL\n`,
     )
     process.exit(1)
   }
   process.stdout.write(
-    'census ✓: every fold/verify subject is wired, every doc-cited script exists, every shell-script community-id matches a canonical contract id, and every tracked count has one home\n',
+    'census ✓: every fold/verify subject is wired, every doc-cited script exists, every shell-script community-id matches a canonical contract id, every tracked count has one home, and every NATS-connecting service declares NATS_URL\n',
   )
 }
 
