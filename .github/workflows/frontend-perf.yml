@@ -25,6 +25,8 @@ name: frontend-perf
 
 on:
   workflow_dispatch:
+  # Also callable by nightly.yml as a reusable workflow (fold frontend perf into a scheduled run).
+  workflow_call: {}
 
 # Least privilege: read-only checkout. Evidence leaves via upload-artifact, not a write-back.
 permissions:
@@ -78,12 +80,13 @@ jobs:
         run: |
           pnpm k6:gen
           git diff --exit-code load-tests/lib/slo-thresholds.gen.json
-      - name: Start content-service
-        run: |
-          DATABASE_URL=postgres://qaroom:qaroom@localhost:5432/qaroom_content \
-            NATS_URL=nats://localhost:4222 PORT=8081 \
-            pnpm --filter @qaroom/content exec tsx src/server.ts &
-          for i in $(seq 1 30); do curl -fs http://localhost:8081/system/state && break || sleep 1; done
+      - uses: ./.github/actions/serve-and-wait
+        with:
+          filter: "@qaroom/content"
+          port: 8081
+          env: |
+            DATABASE_URL=postgres://qaroom:qaroom@localhost:5432/qaroom_content
+            NATS_URL=nats://localhost:4222
       - name: k6 soak + stress (feed + vote-cast) — surface leak/breaking-point data
         run: |
           mkdir -p test-results

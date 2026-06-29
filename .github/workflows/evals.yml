@@ -1,0 +1,86 @@
+name: Evals
+
+# The cost-bounded, key-gated real-OpenAI eval tier — extracted from the old ci.yml schedule cron into
+# its own file so it fires evals ALONE on the weekly cron (no build/cluster lanes ride along) and shows
+# zero PR checks. Pre-flight cost guard runs always (keyless); the golden-set + metamorphic pytest, the
+# DeepEval quality suite, and the DeepTeam red-team hit real OpenAI and run only when OPENAI_API_KEY is
+# present — a missing key degrades to a recorded skip, never a hard fail. PyRIT (longest, most spend)
+# stays gauntlet-only (`pnpm gauntlet --pyrit`). ADR-0017 / ADR-0020.
+on:
+  schedule:
+    - cron: '0 6 * * 1'   # Mondays 06:00 UTC
+  workflow_dispatch:
+    inputs:
+      run_evals:
+        description: Run the real-OpenAI eval suites (otherwise this dispatch is a no-op).
+        type: boolean
+        default: true
+
+permissions:
+  contents: read
+
+jobs:
+  moderator-evals:
+    if: github.event_name == 'schedule' || inputs.run_evals
+    runs-on: ubuntu-latest
+    env:
+      OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
+    steps:
+      - uses: actions/checkout@v7
+      - uses: ./.github/actions/setup-workspace
+      - uses: astral-sh/setup-uv@v7
+        with:
+          version: "0.8.15"
+      - name: Pre-flight cost guard (estimate vs MODERATOR_EVAL_BUDGET_TOKENS)
+        working-directory: services/moderator-agent
+        run: uv run python -m moderator_agent.eval_cost_guard
+      - name: Golden-set + metamorphic paraphrase-invariance (real OpenAI)
+        if: env.OPENAI_API_KEY != ''
+        working-directory: services/moderator-agent
+        run: uv run pytest -q -m llm
+      - name: Fold the golden runner into summary.json
+        if: env.OPENAI_API_KEY != ''
+        run: pnpm golden:results
+      - name: DeepEval quality suite (RAG + agentic + G-Eval, real OpenAI)
+        if: env.OPENAI_API_KEY != ''
+        run: pnpm --filter @qaroom/moderator-agent run eval:deepeval
+      - name: Fold the deepeval runner into summary.json
+        if: env.OPENAI_API_KEY != ''
+        run: pnpm deepeval:results
+      - name: DeepTeam red-team (OWASP LLM Top 10 subset, real OpenAI)
+        if: env.OPENAI_API_KEY != ''
+        run: pnpm --filter @qaroom/moderator-agent run eval:deepteam
+      - name: Fold the deepteam runner into summary.json
+        if: env.OPENAI_API_KEY != ''
+        run: pnpm deepteam:results
+      - name: Note when the evals are skipped
+        if: env.OPENAI_API_KEY == ''
+        run: 'echo "OPENAI_API_KEY not set: eval suites skipped (cost guard still ran)."'
+      - name: Upload golden-set partial
+        if: always() && env.OPENAI_API_KEY != ''
+        uses: actions/upload-artifact@v7
+        with:
+          name: partial-golden
+          path: services/moderator-agent/evals/golden/gold.json
+          if-no-files-found: warn
+      - name: Upload DeepEval partial
+        if: always() && env.OPENAI_API_KEY != ''
+        uses: actions/upload-artifact@v7
+        with:
+          name: partial-deepeval
+          path: services/moderator-agent/test-results/deepeval-output.json
+          if-no-files-found: warn
+      - name: Upload DeepTeam partial
+        if: always() && env.OPENAI_API_KEY != ''
+        uses: actions/upload-artifact@v7
+        with:
+          name: partial-deepteam
+          path: services/moderator-agent/test-results/deepteam-output.json
+          if-no-files-found: warn
+
+  # Terminal evidence fan-in: fold the eval partials into one test-results/summary.json (regenerates
+  # the in-proc base, since no partial-verify rides this run). always() so a keyless run still stamps.
+  envelope:
+    needs: moderator-evals
+    if: always()
+    uses: ./.github/workflows/_envelope.yml

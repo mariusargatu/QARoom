@@ -1,0 +1,103 @@
+name: Release
+
+# The MANUAL promotion pipeline — run from the Actions tab when cutting a release candidate. Staged
+# like a real-world release: BUILD (every service image compiles) -> TEST (the full integration tier,
+# optionally + heavy) -> PROMOTE (a gate that requires every prior stage green, then stamps the RC).
+# Nothing here runs on a PR or a schedule, so the dispatch-first cost intent is intact (ADR-0040).
+#
+# HONEST SCOPE: QARoom publishes no images to a registry (Tilt/KinD load images into the local
+# cluster, nothing is pushed — see security.yml). So "build" is build-only (proves the Dockerfiles
+# compile) and "promote" is a verified-release-candidate GATE + evidence stamp, not a cloud deploy.
+# The cluster-smoke + deploy-time negative test that WOULD be the deploy gate already run inside the
+# integration tier. When a registry + real environment exist, the build stage gains a push and the
+# promote stage gains a deploy step — the staging is already shaped for it.
+on:
+  workflow_dispatch:
+    inputs:
+      environment:
+        description: Target environment label for this release candidate (dry-run — no cloud deploy).
+        type: choice
+        options:
+          - staging
+          - production
+        default: staging
+      include_heavy:
+        description: Also run the heavy tier (k6 / mutation / evomaster / chaos) before promoting.
+        type: boolean
+        default: true
+
+permissions:
+  contents: read
+
+jobs:
+  # Stage 1 — BUILD. Every service Dockerfile must compile. No registry push (QARoom publishes none);
+  # one matrix entry per service so a single broken image is isolated.
+  build:
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        service: [content, identity, gateway, donations, flags, webhooks, moderator-agent, web]
+    steps:
+      - uses: actions/checkout@v7
+      - name: Build ${{ matrix.service }} image (compile only — not pushed)
+        run: docker build -f services/${{ matrix.service }}/Dockerfile -t qaroom/${{ matrix.service }}:${{ github.sha }} .
+
+  # Stage 2 — TEST. The full integration tier (contracts, fuzz, cluster-smoke + deploy negative test,
+  # tracetest, web CT, coverage) and, by default, the heavy tier.
+  integration:
+    needs: build
+    uses: ./.github/workflows/_integration.yml
+
+  heavy:
+    needs: build
+    if: ${{ inputs.include_heavy }}
+    uses: ./.github/workflows/_heavy.yml
+
+  # Evidence fan-in for the release candidate.
+  envelope:
+    needs: [integration, heavy]
+    if: always()
+    uses: ./.github/workflows/_envelope.yml
+
+  # Stage 3 — PROMOTE. The gate: every prior stage must be green (heavy may be skipped when opted out).
+  # On green this is where a real deploy would fire; here it stamps the verified release candidate.
+  promote:
+    needs: [build, integration, heavy, envelope]
+    if: always()
+    runs-on: ubuntu-latest
+    steps:
+      - name: Promotion gate — require every stage green
+        env:
+          BUILD: ${{ needs.build.result }}
+          INTEGRATION: ${{ needs.integration.result }}
+          HEAVY: ${{ needs.heavy.result }}
+          ENVELOPE: ${{ needs.envelope.result }}
+          ENVIRONMENT: ${{ inputs.environment }}
+          SHA: ${{ github.sha }}
+        run: |
+          set -euo pipefail
+          ok() { [ "$1" = "success" ] || { [ "$2" = "allow-skip" ] && [ "$1" = "skipped" ]; }; }
+          fail=0
+          for stage in "build:$BUILD:no" "integration:$INTEGRATION:no" "heavy:$HEAVY:allow-skip" "envelope:$ENVELOPE:no"; do
+            name="${stage%%:*}"; rest="${stage#*:}"; res="${rest%%:*}"; mode="${rest#*:}"
+            if ok "$res" "$mode"; then
+              echo "✓ $name = $res"
+            else
+              echo "✗ $name = $res"; fail=1
+            fi
+          done
+          {
+            echo "## Release candidate — $ENVIRONMENT"
+            echo
+            echo "| stage | result |"
+            echo "|---|---|"
+            echo "| build | $BUILD |"
+            echo "| integration | $INTEGRATION |"
+            echo "| heavy | $HEAVY |"
+            echo "| envelope | $ENVELOPE |"
+          } >> "$GITHUB_STEP_SUMMARY"
+          if [ "$fail" -ne 0 ]; then
+            echo "::error::Release candidate $SHA NOT promotable — a stage is red." ; exit 1
+          fi
+          echo "::notice::Release candidate $SHA verified for $ENVIRONMENT (dry-run — no cloud deploy)."

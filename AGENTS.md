@@ -200,14 +200,22 @@ Always check the current milestone before introducing infrastructure that doesn'
 
 ## CI gates
 
-CI is **dispatch-first** (`.github/workflows/ci.yml`): the heavy tiers (chart/cluster/load/mutation/chaos) run on demand from the Actions tab by choosing a cumulative `tier` (`light` < `merge` < `nightly`). There are two automatic triggers, both deliberately cheap: a `pull_request` trigger that runs ONLY the in-process `verify` job (lint + typecheck + scripts tests + test + every in-proc drift gate that needs no `uv`/cluster — `claims:verify` stays in the dispatch-only `claims` job because its moderator teeth need `uv`), so `verify` can be a required status check; and one weekly `schedule` cron that fires the keyed `eval` tier alone (cost-bounded; consumes `secrets.OPENAI_API_KEY`). The PR lane has no `paths-ignore` (a path-filtered required check never reports on an excluded PR and deadlocks merge). The other push-triggered workflow is `.github/workflows/pages.yml`, scoped to `site/**`: it deploys the static site (a one-page plain-English testing overview at [mariusargatu.github.io/QARoom](https://mariusargatu.github.io/QARoom/)) and runs no build/test lane. Locally the same bar is `pnpm verify` (fast lane, mirrors the CI `verify` job) and `pnpm gauntlet` (full). Tier map: light = verify/claims/contracts/fuzz*/web-stories/moderator; merge = + chart/cluster-smoke/tracetest/web-component; nightly = + load/mutation/evomaster/chaos; evals (golden/DeepEval/DeepTeam) run on the cron or a dispatch with `run_evals: true`.
+CI is **trigger-scoped** ([ADR-0040](docs/adr/0040-trigger-scoped-ci-pipeline.md)): each workflow is triggered only by the event it serves, so a pull request shows the few checks that matter and **no grey "Skipped" jobs** (a workflow that isn't triggered emits zero checks — unlike a false-`if:` job, which still renders "Skipped"). This keeps the dispatch-first **cost** intent (no CI storm on the expensive lanes) while fixing the skipped-job UX the old single-file packaging caused. The layout:
+
+- **PR lane** — `ci.yml` runs ONE job, `verify` (lint + typecheck + scripts tests + test + every in-proc drift gate that needs no `uv`/cluster), plus `actionlint`. It is a required status check, kept an inline top-level job named exactly `verify` (a `workflow_call` job would rename the context and break branch protection) and has no `paths-ignore` (a path-filtered required check deadlocks merge). `reviewer-agents.yml` (`review`, required) and `auto-merge-router.yml` (`route`, advisory) also run; the four advisory guards (`invariant-guard`/`gate-guard`/`promotion-ledger-guard`/`agent-controls`) are path-filtered and appear only when their paths are touched.
+- **`nightly.yml`** (`schedule` + dispatch) — **integration tier nightly, heavy tier weekly**, both activity-gated (a scheduled run with no new commits short-circuits). Calls the reusable `_integration.yml` (claims, contracts, fuzz, web-stories, moderator, chart, cluster-smoke, tracetest, web-component, web-visual, coverage) and `_heavy.yml` (load, mutation, evomaster, chaos), then the terminal `_envelope.yml`.
+- **`release.yml`** (manual `workflow_dispatch`) — the staged promotion pipeline: build → integration (+ optional heavy) → promote.
+- **`evals.yml`** (weekly `schedule` + dispatch) — the cost-bounded keyed eval tier alone (consumes `secrets.OPENAI_API_KEY`; honest-skips without it).
+- **`security.yml`** / **`frontend-perf.yml`** — dispatch + `workflow_call` (folded into the nightly run). **`pages.yml`** — push to `main` (scoped to `site/**`), deploys the static site, no build/test lane.
+
+Locally the same bar is `pnpm verify` (fast lane, mirrors the CI `verify` job) and `pnpm gauntlet` (full).
 
 The merge bar (enforced by the dispatched lanes, and required of any PR before merge) is:
 
 1. Unit, property, integration, and contract tests pass (`pnpm test`).
 2. Lint and type-check pass (`pnpm lint`, `pnpm typecheck`).
 3. `oasdiff` reports no undeclared breaking changes.
-4. `test-results/summary.json` is produced and validates against its frozen schema. The terminal `summary-envelope` job fans every lane's evidence partial into one envelope; missing key/cluster lanes are deferred, not fatal.
+4. `test-results/summary.json` is produced and validates against its frozen schema. The reusable `_envelope.yml` terminal job fans every lane's evidence partial (from the same run) into one envelope; missing key/cluster lanes are deferred, not fatal.
 5. PR description includes the required sections (What, Why, Test plan, Demonstration if introducing a technique).
 
 ## Where to ask "is this in scope?"
