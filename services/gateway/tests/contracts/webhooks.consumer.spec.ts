@@ -203,10 +203,9 @@ describe('gateway → webhooks consumer contract', () => {
       .withRequest(
         'POST',
         `/api/communities/${COMMUNITY}/webhook-subscriptions/${EXISTING_SUB}/pause`,
-        (b) =>
-          b
-            .headers({ 'content-type': 'application/json', 'Idempotency-Key': like(IDEM_PAUSE) })
-            .jsonBody({}),
+        // Bodyless POST (no requestBody in the OAS): an empty `{}` body tripped a pact-core framing
+        // bug that hung the provider's parser ~30s. Matches the bodyless delete interaction.
+        (b) => b.headers({ 'Idempotency-Key': like(IDEM_PAUSE) }),
       )
       .willRespondWith(200, (b) => b.jsonBody(like(pausedSubscriptionBody)))
       .executeTest(async (mock) => {
@@ -227,10 +226,8 @@ describe('gateway → webhooks consumer contract', () => {
       .withRequest(
         'POST',
         `/api/communities/${COMMUNITY}/webhook-subscriptions/${EXISTING_SUB}/resume`,
-        (b) =>
-          b
-            .headers({ 'content-type': 'application/json', 'Idempotency-Key': like(IDEM_RESUME) })
-            .jsonBody({}),
+        // Bodyless POST (see the pause interaction above — avoids the pact-core empty-body hang).
+        (b) => b.headers({ 'Idempotency-Key': like(IDEM_RESUME) }),
       )
       .willRespondWith(409, (b) =>
         b

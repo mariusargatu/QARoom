@@ -36,7 +36,13 @@ await runProviderVerification({
           createdAt: now,
           updatedAt: now,
         })
-        .onConflictDoNothing()
+        // Upsert-to-Active (not DoNothing): now that the pause interaction actually transitions the
+        // row to Paused, a later interaction needing "an Active subscription" (e.g. resume's illegal-
+        // transition 409) must RESET it — DoNothing would leave it Paused and resume would wrongly 200.
+        .onConflictDoUpdate({
+          target: webhookSubscriptions.id,
+          set: { status: 'Active', updatedAt: now },
+        })
       return { description: `seeded subscription ${p.subscription_id}` }
     },
     'no such webhook subscription exists': async (params) => {

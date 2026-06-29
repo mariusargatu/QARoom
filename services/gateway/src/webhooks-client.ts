@@ -44,18 +44,19 @@ export function createWebhooksClient(
       call({ method: 'GET', path: `${base(communityId)}/${subscriptionId}` }),
     deleteWebhook: (communityId, subscriptionId, idempotencyKey) =>
       call({ method: 'DELETE', path: `${base(communityId)}/${subscriptionId}`, idempotencyKey }),
+    // pause/resume are bodyless state-toggles (no requestBody in the OAS). Sending an empty `{}` JSON
+    // body tripped a pact-core verifier framing bug (content-length: 2, body bytes never delivered →
+    // the provider's parser blocked ~30s); a bodyless POST (like delete) sidesteps it.
     pauseWebhook: (communityId, subscriptionId, idempotencyKey) =>
       call({
         method: 'POST',
         path: `${base(communityId)}/${subscriptionId}/pause`,
-        body: {},
         idempotencyKey,
       }),
     resumeWebhook: (communityId, subscriptionId, idempotencyKey) =>
       call({
         method: 'POST',
         path: `${base(communityId)}/${subscriptionId}/resume`,
-        body: {},
         idempotencyKey,
       }),
     listWebhookDeliveries: (communityId, subscriptionId) =>

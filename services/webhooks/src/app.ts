@@ -27,7 +27,7 @@ export function buildApp(deps: WebhooksDeps): FastifyInstance {
     lamport,
   }
 
-  return buildServiceApp({
+  const app = buildServiceApp({
     service: 'webhooks',
     clock: deps.clock,
     lamport,
@@ -44,4 +44,15 @@ export function buildApp(deps: WebhooksDeps): FastifyInstance {
     },
     registerRoutes: (app) => registerWebhookRoutes(app, routeDeps),
   })
+  // pause/resume are bodyless state-toggle POSTs (no requestBody in the OAS). Fastify 415s a POST
+  // that arrives without a content-type, so tolerate an EMPTY body on an unmatched content-type:
+  // an empty payload parses to `undefined` and the handler runs. A NON-empty body with an
+  // unsupported content-type still 415s (the contract is preserved). application/json is handled by
+  // the default parser, so valid create/CRUD bodies are unaffected.
+  app.addContentTypeParser('*', { parseAs: 'buffer' }, (_req, body, done) => {
+    if (body.length === 0) return done(null, undefined)
+    const err = Object.assign(new Error('Unsupported Media Type'), { statusCode: 415 })
+    done(err)
+  })
+  return app
 }
