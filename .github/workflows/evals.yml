@@ -23,6 +23,7 @@ jobs:
   moderator-evals:
     if: github.event_name == 'schedule' || inputs.run_evals
     runs-on: ubuntu-latest
+    timeout-minutes: 40
     env:
       OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
     steps:
