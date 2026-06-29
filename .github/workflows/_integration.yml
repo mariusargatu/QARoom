@@ -1,0 +1,312 @@
+# Integration tier — REUSABLE workflow (workflow_call only -> zero PR checks). The "does it actually
+# integrate" lanes that exceed the cheap PR `verify` budget: consumer-driven contracts, trust-boundary
+# fuzzing, Storybook stories, the Python moderator, the KinD cluster + chart + trace-based tests, the
+# browser component/visual lanes, and the coverage floor. Lifted out of the old ci.yml monolith with
+# the per-job `if: workflow_dispatch && tier == ...` guards REMOVED — cost-gating now lives in WHICH
+# orchestrator calls this (nightly.yml runs it nightly; release.yml runs it on a manual promotion).
+# Each evidence-folding lane uploads a partial-* artifact for the caller's terminal _envelope job.
+name: _integration
+
+on:
+  workflow_call: {}
+
+permissions:
+  contents: read
+
+jobs:
+  # Falsifiable-claims gate: needs BOTH pnpm (webhook-claim teeth) AND uv (moderator-claim teeth, via
+  # the pgvector service). Regenerates the in-proc summary (the runners the claims point at), folds the
+  # moderator runner, then runs claims:verify + the detection-matrix census + rendered-doc drift gate.
+  claims:
+    runs-on: ubuntu-latest
+    services:
+      moderator-pg:
+        image: pgvector/pgvector:pg18
+        env:
+          POSTGRES_USER: qaroom
+          POSTGRES_PASSWORD: qaroom
+          POSTGRES_DB: qaroom_moderator
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U qaroom" --health-interval 5s --health-timeout 5s --health-retries 10
+    steps:
+      - uses: actions/checkout@v7
+      - uses: ./.github/actions/setup-workspace
+      - uses: astral-sh/setup-uv@v7
+        with:
+          version: "0.8.15"
+      - name: Aggregate the in-proc summary (the runners the claims' evidence resolves against)
+        run: pnpm test-results:generate && pnpm mbt:results
+      - name: Fold the moderator runner (moderator-abstain + input-guard evidence)
+        env:
+          QAROOM_TEST_DATABASE_URL: postgresql://qaroom:qaroom@localhost:5432/qaroom_moderator
+        run: |
+          (cd services/moderator-agent && uv run pytest -q)
+          pnpm moderator:results
+      - name: claims:verify (evidence + wired + teeth + README drift)
+        run: pnpm claims:verify
+      - name: Detection-matrix census + rendered-doc drift gate
+        run: pnpm matrix:verify
+
+  # Consumer-driven contract verification: each provider verifies every pact under services/*/pacts
+  # that names it, against a real Postgres (Testcontainers). One matrix entry per provider (was five
+  # sequential steps in the monolith).
+  contracts:
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        provider: [content, identity, donations, flags, webhooks]
+    steps:
+      - uses: actions/checkout@v7
+      - uses: ./.github/actions/setup-workspace
+      - name: Pact provider verification (${{ matrix.provider }})
+        run: pnpm pact:verify --provider ${{ matrix.provider }}
+
+  # Trust-boundary fuzzing for the gateway: a TWO-service boot (content + gateway, gateway proxies
+  # content) — kept as its own job because its topology differs from the single-service fuzz matrix
+  # below. Schemathesis proves no generated input yields a 5xx or a spec violation.
+  fuzz-gateway:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+      - uses: ./.github/actions/setup-workspace
+      - name: Start Postgres + NATS
+        run: docker compose -f services/content/docker-compose.yaml up -d --wait
+      - uses: ./.github/actions/serve-and-wait
+        with:
+          filter: "@qaroom/content"
+          port: 8081
+          env: |
+            DATABASE_URL=postgres://qaroom:qaroom@localhost:5432/qaroom_content
+            NATS_URL=nats://localhost:4222
+      - uses: ./.github/actions/serve-and-wait
+        with:
+          filter: "@qaroom/gateway"
+          port: 8090
+          env: |
+            CONTENT_BASE_URL=http://localhost:8081
+      - name: Schemathesis gate (gateway)
+        run: bash scripts/schemathesis-gate.sh services/gateway http://host.docker.internal:8090
+
+  # Trust-boundary fuzzing for the single-service boundaries (identity + webhooks): each has a reachable
+  # OAS with branded params + strict bodies. Uniform topology -> one matrix on the serve-and-wait
+  # composite (collapses the two near-identical fuzz-identity / fuzz-webhooks jobs).
+  fuzz:
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - service: identity
+            filter: "@qaroom/identity"
+            compose: services/identity/docker-compose.yaml
+            db: postgres://qaroom:qaroom@localhost:5433/qaroom_identity
+            port: 8082
+          - service: webhooks
+            filter: "@qaroom/webhooks"
+            compose: services/webhooks/docker-compose.yaml
+            db: postgres://qaroom:qaroom@localhost:5436/qaroom_webhooks
+            port: 8087
+    steps:
+      - uses: actions/checkout@v7
+      - uses: ./.github/actions/setup-workspace
+      - name: Start ${{ matrix.service }} Postgres
+        run: docker compose -f ${{ matrix.compose }} up -d --wait
+      - uses: ./.github/actions/serve-and-wait
+        with:
+          filter: ${{ matrix.filter }}
+          port: ${{ matrix.port }}
+          env: |
+            DATABASE_URL=${{ matrix.db }}
+      - name: Schemathesis gate (${{ matrix.service }})
+        run: bash scripts/schemathesis-gate.sh services/${{ matrix.service }} http://host.docker.internal:${{ matrix.port }}
+
+  # Storybook portable stories headless (ADR-0005): every story's play() + addon-a11y in real Chromium
+  # via the Vitest runner. Catches the broken-atom regression early (a11y set to fail).
+  web-stories:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+      - uses: ./.github/actions/setup-workspace
+      - name: Install Chromium
+        run: pnpm --filter @qaroom/web exec playwright install --with-deps chromium
+      - name: Storybook stories (play + a11y, headless)
+        run: pnpm --filter @qaroom/web run test:stories
+
+  # Python moderator-agent (ADR-0018): ruff + pyright + pytest against a pgvector Postgres. Folds a
+  # `moderator` runner into summary.json and uploads partial-moderator for the terminal envelope.
+  moderator:
+    runs-on: ubuntu-latest
+    services:
+      moderator-pg:
+        image: pgvector/pgvector:pg18
+        env:
+          POSTGRES_USER: qaroom
+          POSTGRES_PASSWORD: qaroom
+          POSTGRES_DB: qaroom_moderator
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U qaroom" --health-interval 5s --health-timeout 5s --health-retries 10
+    steps:
+      - uses: actions/checkout@v7
+      - uses: ./.github/actions/setup-workspace
+      - uses: astral-sh/setup-uv@v7
+        with:
+          version: "0.8.15"
+      - name: Lint (ruff)
+        working-directory: services/moderator-agent
+        run: uv run ruff check . && uv run ruff format --check .
+      - name: Typecheck (pyright)
+        working-directory: services/moderator-agent
+        run: uv run pyright
+      - name: Test (pytest — in-memory fakes + pgvector integration)
+        working-directory: services/moderator-agent
+        env:
+          QAROOM_TEST_DATABASE_URL: postgresql://qaroom:qaroom@localhost:5432/qaroom_moderator
+        # --cov-fail-under is the Python half of the coverage floor gate (the TS half is the `coverage`
+        # job below). Runs here, with the DB up, so integration paths count toward the floor.
+        run: uv run pytest -q --cov --cov-fail-under=74
+      - name: Fold moderator runner into summary.json
+        if: always()
+        run: pnpm moderator:results || true
+      - name: Upload moderator pytest report partial
+        if: always()
+        uses: actions/upload-artifact@v7
+        with:
+          name: partial-moderator
+          path: services/moderator-agent/test-results/pytest-summary.json
+          if-no-files-found: warn
+
+  # Cheap manifest gate: the shared Helm chart + observability manifests lint and validate against the
+  # Kubernetes schemas (kubeconform) — catches malformed manifests in seconds.
+  chart:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+      - uses: azure/setup-helm@v5
+        with:
+          version: v4.1.1
+      - name: Install kubeconform
+        # Pinned (bump deliberately): an unpinned `curl | sudo tar` from a moving release is a
+        # supply-chain foot-gun and makes the chart lane non-reproducible.
+        run: |
+          curl -sSL https://github.com/yannh/kubeconform/releases/download/v0.6.7/kubeconform-linux-amd64.tar.gz \
+            | sudo tar -xz -C /usr/local/bin kubeconform
+      - name: Lint + validate chart releases
+        run: |
+          for svc in content identity gateway moderator-agent webhooks; do
+            helm lint packages/helm-template -f deploy/$svc/values.yaml
+            helm template $svc packages/helm-template -f deploy/$svc/values.yaml \
+              | kubeconform -strict -summary -ignore-missing-schemas
+          done
+      - name: Validate observability manifests
+        run: kubeconform -strict -summary -ignore-missing-schemas deploy/observability/*.yaml
+
+  # Bring the whole stack up on KinD (shared cluster-up composite), smoke every service's liveness
+  # probe through its Service, and prove the deliberate-broken value fails the smoke.
+  cluster-smoke:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+      - uses: ./.github/actions/setup-workspace
+      - uses: ./.github/actions/cluster-up
+        with:
+          services: content identity gateway
+          wait-observability: "false"
+          pod-wait-timeout: "180s"
+      - name: Smoke (each service's liveness probe via its Service)
+        run: bash scripts/smoke.sh
+      - name: Negative test — a broken service.targetPort must fail the smoke
+        run: |
+          helm upgrade content packages/helm-template -n qaroom \
+            -f deploy/content/values.yaml -f deploy/content/values.broken.yaml --set image.pullPolicy=Never
+          if bash scripts/smoke.sh; then
+            echo "ERROR: smoke passed with a broken targetPort"; exit 1
+          fi
+          echo "✓ broken value correctly failed the smoke"
+          helm upgrade content packages/helm-template -n qaroom \
+            -f deploy/content/values.yaml --set image.pullPolicy=Never
+
+  # Trace-based testing: bring the stack up on KinD with NATS + Tracetest, then assert the publish-side
+  # post.created trace spans sync HTTP and async messaging coherently.
+  tracetest:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+      - uses: ./.github/actions/setup-workspace
+      - uses: ./.github/actions/cluster-up
+        with:
+          services: content identity flags donations gateway
+          pod-wait-timeout: "240s"
+      - name: Install the Tracetest CLI
+        run: curl -L https://raw.githubusercontent.com/kubeshop/tracetest/main/install-cli.sh | sudo bash
+      - name: Assert the full Tracetest suite (all 5 trace-based tests)
+        run: |
+          kubectl port-forward -n observability svc/qaroom-tracetest 11633:11633 &
+          for _ in $(seq 1 30); do curl -fs http://localhost:11633 >/dev/null && break; sleep 2; done
+          tracetest configure --server-url http://localhost:11633
+          # Unique per-run id so the rollout/donation tests don't hit idempotent replay.
+          RUN_ID=$(date +%s)
+          tracetest run test -f services/content/tests/tracetest/post-created-publish.yaml --wait-for-result
+          tracetest run test -f services/content/tests/tracetest/feed-read.yaml --wait-for-result
+          tracetest run test -f services/content/tests/tracetest/create-missing-idempotency-key.yaml --wait-for-result
+          tracetest run test -f services/flags/tests/tracetest/rollout-transition.yaml --vars runId="$RUN_ID" --wait-for-result
+          tracetest run test -f services/donations/tests/tracetest/donation-create-publish.yaml --vars runId="$RUN_ID" --wait-for-result
+
+  # Screenplay component tests in Vitest browser mode + story coverage (ADR-0027). One browser runtime,
+  # one V8 coverage source. Folds web-component + coverage runners and uploads their partials.
+  web-component:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+      - uses: ./.github/actions/setup-workspace
+      - name: Install Chromium
+        run: pnpm --filter @qaroom/web exec playwright install --with-deps chromium
+      - name: Screenplay component tests (Vitest browser) + V8 coverage
+        run: pnpm --filter @qaroom/web run test:component:coverage
+      - name: Story coverage (V8)
+        run: pnpm --filter @qaroom/web run test:stories:coverage
+      - name: Fold web-component runner into summary.json
+        if: always()
+        run: pnpm --filter @qaroom/web run test:component:results
+      - name: Upload the web-component Vitest report partial
+        if: always()
+        uses: actions/upload-artifact@v7
+        with:
+          name: partial-web-component
+          path: services/web/test-results/component.json
+          if-no-files-found: warn
+      - name: Upload the web coverage partials (story + component V8; also human-inspectable)
+        if: always()
+        uses: actions/upload-artifact@v7
+        with:
+          name: partial-web-coverage
+          path: |
+            services/web/coverage
+            services/web/coverage-component
+          if-no-files-found: warn
+
+  # Visual regression in the PINNED container (ADR-0027 §3). Pixel baselines are font/AA-sensitive, so
+  # the gate renders in the exact env that produced the committed baseline. Requires the baseline to be
+  # seeded first (`pnpm visual:update`, committed); until then this lane creates-and-fails by design.
+  web-visual:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+      - name: Visual-regression gate (pinned container)
+        run: |
+          docker build -f services/web/Dockerfile.visual -t qaroom/visual .
+          docker run --rm qaroom/visual
+
+  # Coverage floor gate: LINE coverage for every TS package against a committed floor, fails on a drop.
+  # The moderator (Python) half is gated in the `moderator` job via `pytest --cov-fail-under`.
+  coverage:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+      - uses: ./.github/actions/setup-workspace
+      - name: Coverage floor gate
+        run: pnpm coverage

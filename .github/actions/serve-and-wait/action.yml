@@ -1,0 +1,63 @@
+name: Serve and wait
+description: >-
+  Start a QARoom service via `tsx src/server.ts` in the background and poll its health endpoint
+  until it answers (or fail after N attempts). DRYs the start-service + curl-retry block that was
+  copy-pasted across the fuzz / load / evomaster lanes. Thin on purpose: the caller still brings up
+  Postgres/NATS (a one-line `docker compose up`) and runs the actual test step after this. A service
+  that needs a second process (e.g. the gateway, which proxies content) calls this action twice.
+
+inputs:
+  filter:
+    description: pnpm workspace filter for the service to boot (e.g. "@qaroom/content").
+    required: true
+  port:
+    description: PORT the service listens on (also used to poll the health endpoint).
+    required: true
+  env:
+    description: >-
+      Extra environment for the service, one KEY=VALUE per line (e.g. DATABASE_URL=..., NATS_URL=...).
+      Values may contain "=" and "/"; only the first "=" splits the key from the value.
+    required: false
+    default: ""
+  health-path:
+    description: Health endpoint path to poll for readiness.
+    required: false
+    default: /system/state
+  attempts:
+    description: Max readiness attempts, one second apart.
+    required: false
+    default: "30"
+
+runs:
+  using: composite
+  steps:
+    - name: Start ${{ inputs.filter }} and wait for ${{ inputs.health-path }} on :${{ inputs.port }}
+      shell: bash
+      env:
+        SVC_FILTER: ${{ inputs.filter }}
+        SVC_PORT: ${{ inputs.port }}
+        EXTRA_ENV: ${{ inputs.env }}
+        HEALTH_PATH: ${{ inputs.health-path }}
+        ATTEMPTS: ${{ inputs.attempts }}
+      run: |
+        set -euo pipefail
+        # Export the caller-supplied KEY=VALUE lines into this shell so the backgrounded server
+        # (and every later step in the job — GitHub does not reap background processes between
+        # steps) inherits them. Split on the first "=" only so URL values keep their own "=".
+        if [ -n "${EXTRA_ENV}" ]; then
+          while IFS='=' read -r key val; do
+            [ -n "${key}" ] || continue
+            export "${key}=${val}"
+          done <<< "${EXTRA_ENV}"
+        fi
+        export PORT="${SVC_PORT}"
+        pnpm --filter "${SVC_FILTER}" exec tsx src/server.ts &
+        for _ in $(seq 1 "${ATTEMPTS}"); do
+          if curl -fs "http://localhost:${SVC_PORT}${HEALTH_PATH}" >/dev/null 2>&1; then
+            echo "✓ ${SVC_FILTER} ready on :${SVC_PORT}${HEALTH_PATH}"
+            exit 0
+          fi
+          sleep 1
+        done
+        echo "ERROR: ${SVC_FILTER} not ready on :${SVC_PORT}${HEALTH_PATH} after ${ATTEMPTS}s" >&2
+        exit 1

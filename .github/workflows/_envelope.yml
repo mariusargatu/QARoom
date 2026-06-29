@@ -1,0 +1,124 @@
+# Evidence fan-in (T3) — REUSABLE workflow (workflow_call only, so it never triggers on a PR and
+# emits zero PR checks). This is the single place a complete test-results/summary.json is assembled.
+# Every runner-folding job in the SAME run (the lanes called by the orchestrator that calls this)
+# uploads its RAW result report as a `partial-*` artifact; this job downloads whatever ran and
+# re-folds each through its existing *-results fold script into ONE envelope, then verifies it
+# against the FROZEN schema (packages/contracts/test-results-schema.ts — ADR-0024 invariant source,
+# UNCHANGED; only this job's host workflow moved). `if: always()` + per-partial guards mean a lane
+# that did not run (key/cluster absent) is a SKIP, never a failure: the census runs at the in-proc
+# tier, so absent cluster/keyed runners resolve DEFERRED, not fatal.
+#
+# Called as the terminal job of nightly.yml / release.yml / evals.yml:
+#   envelope:
+#     needs: [integration, heavy, ...]
+#     if: always()
+#     uses: ./.github/workflows/_envelope.yml
+# Artifacts are scoped to the whole run, INCLUDING jobs from nested reusable workflows, so a no-name
+# download-artifact here sees every partial the called lanes produced in the same run.
+name: _envelope
+
+on:
+  workflow_call: {}
+
+permissions:
+  contents: read
+
+jobs:
+  summary-envelope:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+      - uses: ./.github/actions/setup-workspace
+      - name: Download every evidence partial that was produced
+        # No `name:` -> downloads all partials from this run into partials/<artifact-name>/. Tolerant
+        # of the empty set (e.g. a keyless schedule cron) via continue-on-error.
+        continue-on-error: true
+        uses: actions/download-artifact@v8
+        with:
+          path: partials
+      - name: Assemble one envelope — base, then fold each present partial
+        run: |
+          set -eu
+          mkdir -p test-results services/web/test-results services/web/coverage services/web/coverage-component \
+            services/moderator-agent/test-results services/moderator-agent/evals/golden \
+            services/content/tests/evomaster-generated
+
+          # Base envelope (vitest aggregate + mbt-edge-coverage + commit stamp). Reuse the verify
+          # job's base when present (a run that folded a partial-verify); otherwise regenerate it so
+          # the census still has its one hard requirement (the vitest aggregate) and a real commit
+          # stamp. foldRunner preserves the base commit/generated_at across folds.
+          if [ -f partials/partial-verify/summary.json ]; then
+            cp partials/partial-verify/summary.json test-results/summary.json
+            echo "base: reused the verify partial"
+          else
+            echo "base: no verify partial — regenerating in-proc base"
+            pnpm test-results:generate && pnpm mbt:results
+          fi
+
+          # Fold each partial that a job actually uploaded. Gating on the PARTIAL (not the canonical
+          # path) keeps a committed-but-not-run fixture (e.g. the committed gold.json) from folding
+          # spuriously. `|| true` keeps a runner's own red (already failing its source job) from
+          # failing the assembly — the schema/census step below is this job's gate.
+          if [ -f partials/partial-moderator/pytest-summary.json ]; then
+            cp partials/partial-moderator/pytest-summary.json services/moderator-agent/test-results/
+            pnpm moderator:results || true
+          fi
+          if [ -f partials/partial-web-component/component.json ]; then
+            cp partials/partial-web-component/component.json services/web/test-results/
+            pnpm --filter @qaroom/web run test:component:results || true
+          fi
+          # The web-coverage partial carries two V8 summaries (story run + component run, ADR-0027);
+          # the multi-path upload preserves their coverage/ and coverage-component/ subdirs.
+          if [ -f partials/partial-web-coverage/coverage/coverage-summary.json ]; then
+            cp partials/partial-web-coverage/coverage/coverage-summary.json services/web/coverage/
+          fi
+          if [ -f partials/partial-web-coverage/coverage-component/coverage-summary.json ]; then
+            cp partials/partial-web-coverage/coverage-component/coverage-summary.json services/web/coverage-component/
+          fi
+          if [ -f services/web/coverage/coverage-summary.json ] || [ -f services/web/coverage-component/coverage-summary.json ]; then
+            pnpm coverage:results || true
+          fi
+          if ls partials/partial-load/k6-*.json >/dev/null 2>&1; then
+            cp partials/partial-load/k6-*.json test-results/
+            pnpm k6:results || true
+          fi
+          if ls partials/partial-mutation/stryker-*.json >/dev/null 2>&1; then
+            cp partials/partial-mutation/stryker-*.json test-results/
+            pnpm stryker:results || true
+          fi
+          if ls partials/partial-evomaster/*_Test.js >/dev/null 2>&1; then
+            cp -R partials/partial-evomaster/. services/content/tests/evomaster-generated/
+            pnpm evomaster:results || true
+          fi
+          if [ -f partials/partial-chaos/chaos.json ]; then
+            cp partials/partial-chaos/chaos.json test-results/
+            pnpm chaos:results || true
+          fi
+          if [ -f partials/partial-golden/gold.json ]; then
+            cp partials/partial-golden/gold.json services/moderator-agent/evals/golden/
+            pnpm golden:results || true
+          fi
+          if [ -f partials/partial-deepeval/deepeval-output.json ]; then
+            cp partials/partial-deepeval/deepeval-output.json services/moderator-agent/test-results/
+            pnpm deepeval:results || true
+          fi
+          if [ -f partials/partial-deepteam/deepteam-output.json ]; then
+            cp partials/partial-deepteam/deepteam-output.json services/moderator-agent/test-results/
+            pnpm deepteam:results || true
+          fi
+      - name: Verify the complete envelope (frozen schema + census)
+        # in-proc tier: a scheduled/release run cannot satisfy --tier full (no ingress E2E / journey /
+        # tenant-spans / PyRIT here), so absent cluster/keyed runners resolve DEFERRED, never fatal.
+        env:
+          QAROOM_VERIFY_TIER: in-proc
+        run: pnpm test-results:verify
+      - name: Render the complete envelope to the run summary
+        if: always()
+        run: pnpm test-results:report
+      - name: Upload the single complete test-results envelope
+        if: always()
+        uses: actions/upload-artifact@v7
+        with:
+          name: test-results-summary
+          path: test-results/summary.json
+          if-no-files-found: warn
