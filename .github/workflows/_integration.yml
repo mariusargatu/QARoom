@@ -19,6 +19,7 @@ jobs:
   # moderator runner, then runs claims:verify + the detection-matrix census + rendered-doc drift gate.
   claims:
     runs-on: ubuntu-latest
+    timeout-minutes: 30
     services:
       moderator-pg:
         image: pgvector/pgvector:pg18
@@ -54,6 +55,7 @@ jobs:
   # sequential steps in the monolith).
   contracts:
     runs-on: ubuntu-latest
+    timeout-minutes: 30
     strategy:
       fail-fast: false
       matrix:
@@ -69,6 +71,7 @@ jobs:
   # below. Schemathesis proves no generated input yields a 5xx or a spec violation.
   fuzz-gateway:
     runs-on: ubuntu-latest
+    timeout-minutes: 30
     steps:
       - uses: actions/checkout@v7
       - uses: ./.github/actions/setup-workspace
@@ -95,6 +98,7 @@ jobs:
   # composite (collapses the two near-identical fuzz-identity / fuzz-webhooks jobs).
   fuzz:
     runs-on: ubuntu-latest
+    timeout-minutes: 30
     strategy:
       fail-fast: false
       matrix:
@@ -139,6 +143,7 @@ jobs:
   # via the Vitest runner. Catches the broken-atom regression early (a11y set to fail).
   web-stories:
     runs-on: ubuntu-latest
+    timeout-minutes: 30
     steps:
       - uses: actions/checkout@v7
       - uses: ./.github/actions/setup-workspace
@@ -151,6 +156,7 @@ jobs:
   # `moderator` runner into summary.json and uploads partial-moderator for the terminal envelope.
   moderator:
     runs-on: ubuntu-latest
+    timeout-minutes: 30
     services:
       moderator-pg:
         image: pgvector/pgvector:pg18
@@ -196,6 +202,7 @@ jobs:
   # Kubernetes schemas (kubeconform) — catches malformed manifests in seconds.
   chart:
     runs-on: ubuntu-latest
+    timeout-minutes: 30
     steps:
       - uses: actions/checkout@v7
       - uses: azure/setup-helm@v5
@@ -221,6 +228,7 @@ jobs:
   # probe through its Service, and prove the deliberate-broken value fails the smoke.
   cluster-smoke:
     runs-on: ubuntu-latest
+    timeout-minutes: 30
     steps:
       - uses: actions/checkout@v7
       - uses: ./.github/actions/setup-workspace
@@ -246,6 +254,7 @@ jobs:
   # post.created trace spans sync HTTP and async messaging coherently.
   tracetest:
     runs-on: ubuntu-latest
+    timeout-minutes: 30
     steps:
       - uses: actions/checkout@v7
       - uses: ./.github/actions/setup-workspace
@@ -272,6 +281,7 @@ jobs:
   # one V8 coverage source. Folds web-component + coverage runners and uploads their partials.
   web-component:
     runs-on: ubuntu-latest
+    timeout-minutes: 30
     steps:
       - uses: actions/checkout@v7
       - uses: ./.github/actions/setup-workspace
@@ -306,6 +316,7 @@ jobs:
   # seeded first (`pnpm visual:update`, committed); until then this lane creates-and-fails by design.
   web-visual:
     runs-on: ubuntu-latest
+    timeout-minutes: 30
     steps:
       - uses: actions/checkout@v7
       - name: Visual-regression gate (pinned container)
@@ -317,6 +328,7 @@ jobs:
   # The moderator (Python) half is gated in the `moderator` job via `pytest --cov-fail-under`.
   coverage:
     runs-on: ubuntu-latest
+    timeout-minutes: 30
     steps:
       - uses: actions/checkout@v7
       - uses: ./.github/actions/setup-workspace
