@@ -5,6 +5,11 @@ folded into the one frozen `test-results/summary.json` envelope, composition obs
 deliberately. The complement of per-PR CI: CI optimizes for fast isolated feedback; the gauntlet
 answers *"what actually happens when everything runs together at the max?"*
 
+Running it for real paid off. [Seam A](#seam-a-chaos-state-replay-the-finale), replaying a large chaos
+bundle, uncovered **three restore defects in sequence, each hidden behind the previous** (a 1MB body
+limit, a swallowed error, and the real cause: `MAX_PARAMETERS_EXCEEDED`). That cascade is the case for
+running everything together, not just in isolation.
+
 ```bash
 pnpm gauntlet                  # all phases (≈2.5–3.5 h, ~70% walk-away)
 pnpm gauntlet --only 1         # one phase

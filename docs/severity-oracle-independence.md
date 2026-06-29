@@ -1,5 +1,10 @@
 # Severity is the unit: ranking the boundary checks by oracle independence
 
+**In one line:** a test is worth `P(red | behavior broken)`, the chance it actually goes red when the
+code is actually wrong. This page ranks every boundary's defense by that probability, and says plainly
+where we *chose* a weaker check. The point is not to push every check to the top rung (complexity must
+earn its place). It is to **know each check's rank** instead of trusting a green blindly.
+
 Companion analysis for [ADR-0031](adr/0031-mutation-testing-the-testing-utils-harness-surface.md) (which
 extends [ADR-0016](adr/0016-testing-your-tests.md)) and STORY **Pillar 1 — severity**. It ranks the
 techniques that defend the [boundary registry](../scripts/lib/manifests/boundary-registry.ts) and
