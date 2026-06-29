@@ -151,18 +151,45 @@ export function renderMatrixSvg(
   const awaitingNote = cov.awaiting > 0 ? ` · ${cov.awaiting} awaiting a deeper lane` : ''
   const headerLines: [number, number, string, string, string][] = [
     [18, 14, titleColor(p), 'Detection matrix: do the tests catch a planted bug?', '600'],
-    [40, 10.5, p.label, 'Each row is one deliberately planted bug; each column is a testing technique trying to catch it,', 'normal'],
-    [55, 10.5, p.label, 'grouped into in-process, live-cluster, and LLM lanes. A ✓ is a catch; a soft tint is a technique', 'normal'],
-    [70, 10.5, p.label, 'correctly ignoring a bug outside its area; blank is not-applicable. A sparse grid is specialization.', 'normal'],
-    [88, 11.5, p.caught, `${caughtBugs} of ${rows} bugs caught · ${cov.open} open gaps${awaitingNote}`, '600'],
+    [
+      40,
+      10.5,
+      p.label,
+      'Each row is one deliberately planted bug; each column is a testing technique trying to catch it,',
+      'normal',
+    ],
+    [
+      55,
+      10.5,
+      p.label,
+      'grouped into in-process, live-cluster, and LLM lanes. A ✓ is a catch; a soft tint is a technique',
+      'normal',
+    ],
+    [
+      70,
+      10.5,
+      p.label,
+      'correctly ignoring a bug outside its area; blank is not-applicable. A sparse grid is specialization.',
+      'normal',
+    ],
+    [
+      88,
+      11.5,
+      p.caught,
+      `${caughtBugs} of ${rows} bugs caught · ${cov.open} open gaps${awaitingNote}`,
+      '600',
+    ],
   ]
-  for (const [y, size, fill, s, weight] of headerLines) groups.push(text(PAD, y, size, fill, s, { weight }))
+  for (const [y, size, fill, s, weight] of headerLines)
+    groups.push(text(PAD, y, size, fill, s, { weight }))
   rightExtent = Math.max(rightExtent, PAD + Math.ceil(96 * CHAR))
 
   // ---- row labels (one bug per row, right-aligned in the gutter) ----
   for (let r = 0; r < rows; r++) {
     const cy = gridTop + r * (CELL + GAP) + CELL - 3
-    groups.push(text(gutterRight, cy, ROW_LABEL_SIZE, p.label, coverage[r].label, { anchor: 'end' }))
+    groups.push(
+      text(gutterRight, cy, ROW_LABEL_SIZE, p.label, coverage[r].label, { anchor: 'end' }),
+    )
   }
 
   // ---- coverage strip (one cell per bug) ----
@@ -192,7 +219,9 @@ export function renderMatrixSvg(
     }
     for (let r = 0; r < tier.grid.length; r++) {
       for (let c = 0; c < cols; c++) {
-        groups.push(gridCellSvg(tier.grid[r][c], x + c * (CELL + GAP), gridTop + r * (CELL + GAP), p))
+        groups.push(
+          gridCellSvg(tier.grid[r][c], x + c * (CELL + GAP), gridTop + r * (CELL + GAP), p),
+        )
       }
     }
     rightExtent = Math.max(rightExtent, x + cols * (CELL + GAP) - GAP)
