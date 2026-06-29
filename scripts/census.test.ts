@@ -1,7 +1,14 @@
 import { readFileSync } from 'node:fs'
 import { resolve } from 'node:path'
 import { describe, expect, it } from 'vitest'
-import { ONE_LOCATION_DOCS, oneLocationFailures, trackedCounts } from './census'
+import {
+  type NatsService,
+  natsWiringDriftFailures,
+  natsWiringFailures,
+  ONE_LOCATION_DOCS,
+  oneLocationFailures,
+  trackedCounts,
+} from './census'
 
 /**
  * The drift-failure test for the one-location invariant (T25 / ADR-0038, census check b4). The gate's
@@ -68,5 +75,49 @@ describe('one-location invariant (census b4)', () => {
   it('ignores a non-tracked count (a subset "4 claims" or a milestone count is legitimate prose)', () => {
     const docs = [{ path: 'FIXTURE.md', text: '4 claims demo the mechanic across 12 milestones.' }]
     expect(oneLocationFailures(docs, trackedCounts())).toEqual([])
+  })
+})
+
+/**
+ * The drift-failure test for the NATS-wiring invariant (census check b5). The gate's claim: a service
+ * whose src connects to NATS must declare NATS_URL in its deploy values, or it CrashLoopBackOffs
+ * in-cluster (the Milestone-13 identity bug). `natsWiringFailures` is the pure core, driven with
+ * fixtures; the repo-clean test runs the real fs probe so a future hand-edit that drops NATS_URL from
+ * a connectNats service fails this unit AND `pnpm census`.
+ */
+describe('NATS wiring invariant (census b5)', () => {
+  it('passes on the real tree: every connectNats service declares NATS_URL', () => {
+    expect(natsWiringDriftFailures()).toEqual([])
+  })
+
+  it('reds the identity-shaped case: connects to NATS, deployed, but no NATS_URL', () => {
+    const services: NatsService[] = [
+      { name: 'identity', callsNats: true, valuesExists: true, valuesHasNatsUrl: false },
+    ]
+    const failures = natsWiringFailures(services)
+    expect(failures).toHaveLength(1)
+    expect(failures[0]).toContain('NATS WIRING: services/identity')
+    expect(failures[0]).toContain('NATS_URL')
+  })
+
+  it('stays green when a connectNats service declares NATS_URL', () => {
+    const services: NatsService[] = [
+      { name: 'content', callsNats: true, valuesExists: true, valuesHasNatsUrl: true },
+    ]
+    expect(natsWiringFailures(services)).toEqual([])
+  })
+
+  it('does not flag a service that never connects to NATS (the web frontend has no broker)', () => {
+    const services: NatsService[] = [
+      { name: 'web', callsNats: false, valuesExists: true, valuesHasNatsUrl: false },
+    ]
+    expect(natsWiringFailures(services)).toEqual([])
+  })
+
+  it('does not flag a connectNats service that is not cluster-deployed (no values.yaml = out of scope)', () => {
+    const services: NatsService[] = [
+      { name: 'some-tool', callsNats: true, valuesExists: false, valuesHasNatsUrl: false },
+    ]
+    expect(natsWiringFailures(services)).toEqual([])
   })
 })
