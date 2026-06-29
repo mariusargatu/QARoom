@@ -114,12 +114,24 @@ jobs:
       - uses: ./.github/actions/setup-workspace
       - name: Start ${{ matrix.service }} Postgres
         run: docker compose -f ${{ matrix.compose }} up -d --wait
+      # identity became a NATS producer in M13 (ADR-0036) and HARD-fails at boot if the broker is
+      # absent (deliberately, so the misconfig is loud — census b5 guards the same). Unlike webhooks
+      # (NATS fail-soft, HTTP-only boot), it needs a real JetStream broker to come up, so give the
+      # identity lane one (mirrors content's docker-compose nats: nats:2-alpine -js -m 8222).
+      - name: Start NATS (JetStream) for identity — it publishes at boot and does not fail-soft
+        if: matrix.service == 'identity'
+        run: |
+          docker run -d --name nats -p 4222:4222 -p 8222:8222 nats:2-alpine -js -m 8222
+          for _ in $(seq 1 15); do curl -fs http://localhost:8222/healthz >/dev/null 2>&1 && break; sleep 1; done
       - uses: ./.github/actions/serve-and-wait
         with:
           filter: ${{ matrix.filter }}
           port: ${{ matrix.port }}
+          # webhooks fail-softs the broker (no NATS started above), so this points at a broker that is
+          # only actually up for the identity entry; webhooks boots HTTP-only as before.
           env: |
             DATABASE_URL=${{ matrix.db }}
+            NATS_URL=nats://localhost:4222
       - name: Schemathesis gate (${{ matrix.service }})
         run: bash scripts/schemathesis-gate.sh services/${{ matrix.service }} http://host.docker.internal:${{ matrix.port }}
 
