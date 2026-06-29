@@ -48,3 +48,4 @@ This index is generated from the files (`pnpm adr:index`), so the table can't dr
 | [0037](0037-promotion-ledger-green-head-and-governed-verdict-logic.md) | Proposed | Promotion-ledger CI, green_head, risk-tiers, and governed verdict logic (T24) |
 | [0038](0038-operating-model-onboarding-agent-tax-and-incident-to-claim.md) | Proposed | The operating model, onboarding gradient, agent-absorbs-the-triangulation-tax, and the incident→claim loop (T25/T04) |
 | [0039](0039-the-100-feature-agentic-stress-test.md) | Proposed | The 100-feature agentic stress test, five instrumented metrics, prepared not run (T26) |
+| [0040](0040-trigger-scoped-ci-pipeline.md) | Proposed | A trigger-scoped CI pipeline, fast PR lane, scheduled nightly, manual release |

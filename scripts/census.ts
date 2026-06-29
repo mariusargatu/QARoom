@@ -14,7 +14,7 @@ import { adrCount, countWorkspace, STATS_END, STATS_START } from './render-stats
  * lane — no cluster, no network:
  *
  *   (b1) ORPHAN   every scripts/*-results.ts fold-script and every *:verify npm gate must be RUN by
- *                 .github/workflows/ci.yml OR scripts/lib/gauntlet-plan.ts — by its npm name or the
+ *                 ANY .github/workflows/*.yml OR scripts/lib/gauntlet-plan.ts — by its npm name or the
  *                 underlying scripts/<file> it shells out to. A fold-script wired into nothing never
  *                 lands its runner in summary.json (the evidence is silently absent); a :verify gate
  *                 wired into nothing is dead code that looks alive. Allowlist a genuinely manual
@@ -72,6 +72,7 @@ const ALLOWLIST: readonly AllowEntry[] = [
 ]
 
 const CI_PATH = '.github/workflows/ci.yml'
+const WORKFLOWS_DIR = '.github/workflows'
 const PLAN_PATH = 'scripts/lib/gauntlet-plan.ts'
 const PKG_PATH = 'package.json'
 
@@ -90,6 +91,22 @@ const SCRIPT_IN_CMD = /scripts\/([A-Za-z0-9._/-]+\.(?:ts|sh|js|mjs|py))/g
 function read(path: string): string {
   const full = resolve(ROOT, path)
   return existsSync(full) ? readFileSync(full, 'utf8') : ''
+}
+
+/**
+ * (b1) The CI wiring text: EVERY workflow file under .github/workflows, concatenated. CI is
+ * trigger-scoped (ADR-0040), so a fold-script's `pnpm X:results` may be wired in any of ci.yml /
+ * nightly.yml / _integration.yml / _heavy.yml / _envelope.yml / evals.yml, not just ci.yml. Reading
+ * the whole directory is a strict superset of the old single-file scan, so a subject wired before
+ * stays wired.
+ */
+function readWorkflows(): string {
+  const dir = resolve(ROOT, WORKFLOWS_DIR)
+  if (!existsSync(dir)) return ''
+  return readdirSync(dir)
+    .filter((f) => f.endsWith('.yml') || f.endsWith('.yaml'))
+    .map((f) => read(`${WORKFLOWS_DIR}/${f}`))
+    .join('\n')
 }
 
 interface Subject {
@@ -137,7 +154,7 @@ function classifyOrphan(subject: Subject, wiring: string): OrphanResult {
   if (entry) return { ok: true, allowed: `${subject.id}: orphan, allowlisted — ${entry.reason}` }
   return {
     ok: false,
-    failure: `ORPHAN: ${subject.id} is run by neither ${CI_PATH} nor ${PLAN_PATH} (wire it into a lane, or add it to the census ALLOWLIST with a reason)`,
+    failure: `ORPHAN: ${subject.id} is run by neither any ${WORKFLOWS_DIR}/*.yml nor ${PLAN_PATH} (wire it into a lane, or add it to the census ALLOWLIST with a reason)`,
   }
 }
 
@@ -343,7 +360,7 @@ function main(): void {
   if (!existsSync(resolve(ROOT, CI_PATH))) failures.push(`census cannot read ${CI_PATH}`)
   if (!existsSync(resolve(ROOT, PLAN_PATH))) failures.push(`census cannot read ${PLAN_PATH}`)
 
-  const wiring = `${read(CI_PATH)}\n${read(PLAN_PATH)}`
+  const wiring = `${readWorkflows()}\n${read(PLAN_PATH)}`
   const pkg = JSON.parse(read(PKG_PATH)) as { scripts?: Record<string, string> }
   const subjects = orphanSubjects(pkg.scripts ?? {})
 

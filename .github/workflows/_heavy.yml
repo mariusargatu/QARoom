@@ -1,0 +1,163 @@
+# Heavy tier — REUSABLE workflow (workflow_call only -> zero PR checks). The lanes whose search /
+# soak / chaos budgets far exceed even the nightly integration window: k6 vs SLOs, Stryker mutation,
+# EvoMaster v6 black-box, and Chaos Mesh. Lifted from the old ci.yml `nightly` tier with the per-job
+# tier guards REMOVED. Called WEEKLY by nightly.yml (and on demand by release.yml) — never nightly,
+# never on a PR, preserving the dispatch-first cost intent (ADR-0040). Each lane uploads a partial-*.
+name: _heavy
+
+on:
+  workflow_call: {}
+
+permissions:
+  contents: read
+
+jobs:
+  # Load testing vs SLOs: clean run must pass, then PROVE the gate is sensitive — a deliberate slow
+  # path (CONTENT_BUG_VOTE_SLOW_MS) must breach the vote SLO and make k6 exit 99.
+  load:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+      - uses: ./.github/actions/setup-workspace
+      - name: Start Postgres + NATS (compose waits for both healthchecks)
+        run: docker compose -f services/content/docker-compose.yaml up -d --wait
+      - name: Generate k6 thresholds from SLO_TARGETS (and fail on drift vs committed)
+        run: |
+          pnpm k6:gen
+          git diff --exit-code load-tests/lib/slo-thresholds.gen.json
+      - uses: ./.github/actions/serve-and-wait
+        with:
+          filter: "@qaroom/content"
+          port: 8081
+          env: |
+            DATABASE_URL=postgres://qaroom:qaroom@localhost:5432/qaroom_content
+            NATS_URL=nats://localhost:4222
+      - name: k6 — vote casting + feed (clean run must pass)
+        run: |
+          mkdir -p test-results
+          for script in vote-cast feed; do
+            docker run --rm --network host --user "$(id -u):$(id -g)" -v "$PWD":/work -w /work \
+              grafana/k6 run "load-tests/$script.js" \
+              -e CONTENT_BASE_URL=http://localhost:8081 -e K6_SLO_MULTIPLIER=3
+          done
+      - name: Fold the clean k6 results into summary.json
+        run: pnpm k6:results
+      - name: Stop the clean server before the slow-path reboot
+        run: |
+          # pnpm's $! is only the wrapper, so kill the real tsx process and wait for :8081 to free
+          # before relaunching with the slow-path toggle (so k6 measures the SLOW server).
+          pkill -f 'tsx src/server.ts' || true
+          for _ in $(seq 1 15); do curl -fs http://localhost:8081/system/state >/dev/null 2>&1 || break; sleep 1; done
+      - uses: ./.github/actions/serve-and-wait
+        with:
+          filter: "@qaroom/content"
+          port: 8081
+          env: |
+            DATABASE_URL=postgres://qaroom:qaroom@localhost:5432/qaroom_content
+            NATS_URL=nats://localhost:4222
+            CONTENT_BUG_VOTE_SLOW_MS=800
+      - name: Negative test — a deliberate slow path must breach the vote SLO (k6 exit 99)
+        run: |
+          set +e
+          docker run --rm --network host --user "$(id -u):$(id -g)" -v "$PWD":/work -w /work \
+            grafana/k6 run load-tests/vote-cast.js \
+            -e CONTENT_BASE_URL=http://localhost:8081 -e K6_SLO_MULTIPLIER=3
+          code=$?
+          set -e
+          if [ "$code" -ne 99 ]; then
+            echo "ERROR: expected k6 exit 99 (SLO threshold breach), got $code"; exit 1
+          fi
+          echo "✓ slow path correctly breached the vote SLO (k6 exit 99)"
+      - name: Upload k6 result partials
+        if: always()
+        uses: actions/upload-artifact@v7
+        with:
+          name: partial-load
+          path: test-results/k6-*.json
+          if-no-files-found: warn
+
+  # Mutation testing on the locked critical-modules list (ADR-0016). Stryker re-runs each module's
+  # suite per mutant; each package enforces its own thresholds.break.
+  mutation:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+      - uses: ./.github/actions/setup-workspace
+      - name: Stryker on the critical modules
+        run: pnpm stryker:critical
+      - name: Merge mutation results into summary.json
+        if: always()
+        run: pnpm stryker:results || true
+      - name: Upload Stryker result partials
+        if: always()
+        uses: actions/upload-artifact@v7
+        with:
+          name: partial-mutation
+          path: test-results/stryker-*.json
+          if-no-files-found: warn
+
+  # Search-based fuzzing (EvoMaster v6 black-box, ADR-0016). Runs from the committed OAS and gates
+  # DETERMINISTICALLY on "ran + emitted >=1 test file" (never the stochastic fault count). The jar is
+  # cached by version.
+  evomaster:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+      - uses: ./.github/actions/setup-workspace
+      - uses: actions/setup-java@v5
+        with:
+          distribution: temurin
+          java-version: '17'
+      - name: Cache the EvoMaster v6.0.0 jar
+        uses: actions/cache@v6
+        with:
+          path: .evomaster/evomaster.jar
+          key: evomaster-jar-v6.0.0
+      - name: Start Postgres + NATS (compose waits for both healthchecks)
+        run: docker compose -f services/content/docker-compose.yaml up -d --wait
+      - uses: ./.github/actions/serve-and-wait
+        with:
+          filter: "@qaroom/content"
+          port: 8081
+          env: |
+            DATABASE_URL=postgres://qaroom:qaroom@localhost:5432/qaroom_content
+            NATS_URL=nats://localhost:4222
+      - name: EvoMaster black-box search
+        run: pnpm evomaster
+      - name: Gate — ran and emitted >=1 test file; merge into summary.json
+        if: always()
+        run: pnpm evomaster:results
+      - name: Upload EvoMaster generated suite partial
+        if: always()
+        uses: actions/upload-artifact@v7
+        with:
+          name: partial-evomaster
+          path: services/content/tests/evomaster-generated
+          if-no-files-found: warn
+
+  # Chaos tier (ADR-0014): bring the full stack up on KinD, install Chaos Mesh, run the TypeScript
+  # steady-state harness. KinD's containerd socket differs from k3d's (CHAOS_CONTAINERD_SOCKET).
+  chaos:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+      - uses: ./.github/actions/setup-workspace
+      - uses: ./.github/actions/cluster-up
+        with:
+          services: content identity flags donations gateway
+      - name: Install Chaos Mesh (KinD containerd socket)
+        run: CHAOS_CONTAINERD_SOCKET=/run/containerd/containerd.sock pnpm chaos:install
+      - name: Chaos smoke — prove injection works
+        run: pnpm chaos:smoke
+      - name: Run chaos experiments (steady-state harness)
+        run: pnpm chaos:run
+      - name: Merge chaos runner into summary.json
+        if: always()
+        run: pnpm chaos:results
+      - name: Upload chaos report partial
+        if: always()
+        uses: actions/upload-artifact@v7
+        with:
+          name: partial-chaos
+          path: test-results/chaos.json
+          if-no-files-found: warn

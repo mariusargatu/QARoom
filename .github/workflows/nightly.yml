@@ -1,0 +1,100 @@
+name: Nightly
+
+# The scheduled regression suite — the lanes the cheap PR `verify` deliberately skips, run on a cron
+# instead of per-PR so the dispatch-first COST intent holds (ADR-0040). Two cadences, both ACTIVITY-
+# GATED (a scheduled run with no new commits since the last window short-circuits — no minute-burn on
+# idle days, GitHub's own pattern for scheduled workflows):
+#   - integration tier — NIGHTLY (contracts, fuzz, cluster-smoke, tracetest, web CT, coverage, ...)
+#   - heavy tier        — WEEKLY  (k6 vs SLOs, Stryker mutation, EvoMaster, Chaos Mesh) + security scans
+# Everything is also runnable on demand via the Actions tab (workflow_dispatch always runs, gate
+# bypassed; `include_heavy` opts the heavy tier into a manual run). Zero PR checks — this workflow is
+# never triggered by a pull request.
+on:
+  schedule:
+    - cron: '0 4 * * *'   # daily 04:00 UTC — integration tier
+    - cron: '0 5 * * 0'   # Sunday 05:00 UTC — integration + heavy + security
+  workflow_dispatch:
+    inputs:
+      include_heavy:
+        description: Also run the heavy tier (k6 / mutation / evomaster / chaos) on this manual run.
+        type: boolean
+        default: false
+
+# contents: read for the lanes; security-events: write so the called security.yml can push SARIF to
+# the code-scanning tab (a called workflow's token is capped by the caller's grant).
+permissions:
+  contents: read
+  security-events: write
+
+jobs:
+  # Decide what runs: integration on any scheduled run (gated on commits in the last 24h) or any
+  # dispatch; heavy on the weekly cron (gated on commits in the last 7d) or an opt-in dispatch.
+  gate:
+    runs-on: ubuntu-latest
+    outputs:
+      integration: ${{ steps.decide.outputs.integration }}
+      heavy: ${{ steps.decide.outputs.heavy }}
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          fetch-depth: 0
+      - name: Decide which tiers to run
+        id: decide
+        env:
+          EVENT: ${{ github.event_name }}
+          SCHED: ${{ github.event.schedule }}
+          INCLUDE_HEAVY: ${{ inputs.include_heavy }}
+        run: |
+          set -euo pipefail
+          is_dispatch=false; [ "$EVENT" = "workflow_dispatch" ] && is_dispatch=true
+          is_weekly=false;   [ "$SCHED" = "0 5 * * 0" ] && is_weekly=true
+          recent() { [ -n "$(git log --since="$1" --oneline)" ]; }
+
+          # integration: every dispatch, or a scheduled run with commits in the last 24h
+          if [ "$is_dispatch" = true ]; then integration=true
+          elif recent '24 hours ago'; then integration=true
+          else integration=false; fi
+
+          # heavy: an opt-in dispatch, or the weekly cron with commits in the last 7d
+          if [ "$is_dispatch" = true ] && [ "$INCLUDE_HEAVY" = "true" ]; then heavy=true
+          elif [ "$is_weekly" = true ] && recent '7 days ago'; then heavy=true
+          else heavy=false; fi
+
+          echo "integration=$integration" >> "$GITHUB_OUTPUT"
+          echo "heavy=$heavy" >> "$GITHUB_OUTPUT"
+          echo "decided: integration=$integration heavy=$heavy (event=$EVENT sched='$SCHED' dispatch_heavy=${INCLUDE_HEAVY:-})"
+
+  integration:
+    needs: gate
+    if: needs.gate.outputs.integration == 'true'
+    uses: ./.github/workflows/_integration.yml
+
+  heavy:
+    needs: gate
+    if: needs.gate.outputs.heavy == 'true'
+    uses: ./.github/workflows/_heavy.yml
+
+  # Static supply-chain / appsec scans (Semgrep / osv / Checkov / SBOM / ZAP). Weekly, alongside the
+  # heavy tier — keeps the daily run lean. zap-baseline honest-skips with no live target.
+  security:
+    needs: gate
+    if: needs.gate.outputs.heavy == 'true'
+    uses: ./.github/workflows/security.yml
+    with:
+      tier: nightly
+
+  # Frontend health & perf depth (Lighthouse / bundle budget / k6 soak+stress). Weekly with the heavy
+  # tier — exceeds the nightly integration budget; uploads its reports as artifacts (not folded into
+  # the envelope, matching its dispatch-only history).
+  frontend-perf:
+    needs: gate
+    if: needs.gate.outputs.heavy == 'true'
+    uses: ./.github/workflows/frontend-perf.yml
+
+  # Terminal evidence fan-in: assemble ONE test-results/summary.json from every partial-* this run
+  # produced (integration always; heavy only when it ran). always() so a skipped heavy tier still
+  # assembles the integration envelope.
+  envelope:
+    needs: [integration, heavy]
+    if: always()
+    uses: ./.github/workflows/_envelope.yml

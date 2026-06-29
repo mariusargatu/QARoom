@@ -76,6 +76,18 @@ on:
           tunnel, or a deployed preview). Leave EMPTY to honest-skip the cluster-needing scan.
         type: string
         default: ''
+  # Also callable by an orchestrator (nightly.yml) as a reusable workflow. workflow_call inputs are
+  # `type: string` (choice is dispatch-only); the jobs read inputs.tier / inputs.zap_target either way.
+  workflow_call:
+    inputs:
+      tier:
+        description: Cumulative tier (light|merge|nightly).
+        type: string
+        default: light
+      zap_target:
+        description: DAST target URL; empty honest-skips the ZAP lane.
+        type: string
+        default: ''
 
 # Least privilege: read-only by default. The SARIF-uploading jobs widen to `security-events: write`
 # at the job level (where they genuinely need it); the SBOM job stays read-only.
