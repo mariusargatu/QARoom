@@ -1,8 +1,10 @@
 # Failure modes (Milestone 6)
 
-> **Section order:** these entries are not in strict numeric order; each carries a stable
-> `<a id="NN-…">` anchor, so the `failure-modes.md#NN` cross-references elsewhere resolve regardless
-> of position. Pair each entry with its like-numbered `chaos-experiments/NN-*.yaml`.
+**In one line:** nine chaos experiments, each a *property check* with a planted bug, not a stunt. The
+sharpest result is [#05 clock skew](#05-clock-skew-between-services-timechaos): it **refuted our own
+design assumption.** We expected business logic to be immune to OS clock skew because it reads the
+injected `Clock`. In production that turns out to be *false* (the skew poisons the postgres-js pool and
+the pod does not recover on its own). That is the kind of finding chaos testing exists to surface.
 
 Every chaos experiment in `chaos-experiments/` is paired with an entry here (change both or
 neither). Each entry states the **trigger**, the **steady-state property** the system must keep

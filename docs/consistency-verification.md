@@ -80,49 +80,32 @@ invariant on committed state after each step. The crash must roll back to a re-c
 (at-least-once), never a silent drop, a premature dead-letter, or a stuck delivery. It is the
 deterministic, model-level twin of the full-system crash the DST slice fuzzes with `failingDb`.
 
-## 3. Elle — the deferred apex (named, with rationale)
+## 3. Elle, the deferred apex (named, with rationale)
 
-**Elle** is Jepsen's transactional-consistency checker: it records a history of operations (reads and
-writes against keys), builds the dependency graph (write-write, write-read, read-write / anti-dependency
-edges), and **detects cycles** that witness Adya-hierarchy anomalies — G0 (dirty write), G1a/b/c (aborted
-/ intermediate / circular information flow), G2 (anti-dependency cycles), lost updates — to decide whether
-a history is compatible with a target isolation level (serializable, snapshot isolation, etc.). It is the
-strongest *black-box* consistency oracle available: it needs no internal instrumentation, only the
-observed history, and it explains a violation with a concrete cycle.
+**Elle** is Jepsen's transactional consistency checker. It records a history of operations, builds the
+dependency graph, and **detects cycles** that witness Adya hierarchy anomalies (dirty writes, lost
+updates, anti dependency cycles), deciding whether a history is compatible with a target isolation
+level. It is the strongest black box consistency check available: no internal instrumentation, just
+the observed history, and it explains a violation with a concrete cycle.
 
-**Decision: recommended apex, DEFERRED. Named here, not built — and deliberately not faked with a token
-demonstrator.** The rationale, honestly:
+**Decision: recommended apex, DEFERRED. Named, not built, and deliberately not faked.** Two reasons:
 
-1. **It is a high-effort sub-project, not a slice.** A faithful Elle run needs (a) a per-service
-   **op-history recorder** capturing reads/writes with their transactional outcomes, (b) a **workload
-   generator** that produces *contending multi-key transactions* (Elle's anomalies are cross-key
-   phenomena), (c) a **consistency-model choice** to check against, and (d) the Elle checker itself
-   (`elle-cljc` / the Jepsen Clojure stack, or a faithful port). That is a multi-week effort whose cost
-   ADR-style discipline ("complexity must earn its place") requires us to weigh against the marginal
-   coverage it buys here.
+1. **The anomalies Elle targets are precluded by design, and already verified.** QARoom is
+   single writer per resource (Commitment 4): every mutation takes a Postgres advisory lock plus
+   `SELECT … FOR UPDATE`. Lost updates and dirty writes, Elle's bread and butter, are exactly what that
+   prevents, and it is already pinned by the idempotency and tenancy property tests and `Dedup.tla` / `Outbox.tla`.
+   There is no unguarded multi key transaction workload here; the outbox and the business write
+   share *one* transaction by construction (Commitment 17), which `Outbox.tla` *proves* rather than
+   discovers empirically.
 
-2. **The anomalies Elle targets are largely precluded by design — and already verified.** QARoom is
-   **single-writer-per-resource** (Commitment 4): every mutation takes a Postgres **advisory lock** plus
-   `SELECT … FOR UPDATE`, serializing concurrent writes to a resource. Lost updates and dirty writes —
-   Elle's bread and butter — are exactly what that discipline prevents, and it is already pinned by the
-   per-service idempotency and tenancy property tests and by `Dedup.tla`/`Outbox.tla`. There is **no
-   multi-key interactive-transaction workload** in QARoom whose isolation anomalies are currently
-   unguarded; the outbox and the business write share *one* transaction by construction (Commitment 17),
-   which is the property `Outbox.tla` proves rather than something to discover empirically.
+2. **A token "Elle" would over claim.** A hand rolled lost update detector over a tiny op log is not Elle
+   (no Adya cycle detection, no isolation semantics). Shipping one under that name would misrepresent the
+   coverage, so we name the real technique and its real gap instead.
 
-3. **A token "Elle" would over-claim.** A hand-rolled lost-update detector over a tiny op-log is *not*
-   Elle (no Adya cycle-detection, no isolation-model semantics), and shipping one labelled "Elle" would
-   misrepresent the coverage. Per the project's honesty discipline, we name the real technique and its
-   real gap rather than ship a demonstrator that looks like more than it is.
-
-**When to build it.** The moment QARoom grows a genuinely **multi-key, multi-row interactive
-transaction** whose correctness depends on an isolation level (a plausible future: a cross-community
-transfer, or a moderation action that atomically mutates several rows under read-modify-write), Elle
-becomes the right black-box oracle — the single-writer lock no longer trivially precludes the anomaly,
-and the dependency-cycle witness is worth its cost. The adoption path: add an op-history recorder behind
-the existing `SqlExecutor` seam, generate contending transfers, and run the history through `elle-cljc`
-against snapshot-isolation. Until then, the consistency frontier is better served by the TLA+ suite
-(exhaustive over the protocols that *do* exist) and DST (the trace-finder).
+**When to build it.** The moment QARoom grows a genuine multi key transaction whose correctness depends
+on an isolation level (a cross community transfer, say), the single writer lock no longer precludes the
+anomaly and Elle earns its multi week cost: a recorder behind the `SqlExecutor` seam, a contending
+workload, the history run through `elle-cljc`. Until then the frontier is better served by TLA+ and DST.
 
 ## 4. DST stays scoped — no superseding ADR
 

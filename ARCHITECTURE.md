@@ -1,5 +1,14 @@
 # QARoom Architecture
 
+> **The two minute version (plain English).** QARoom is a small, realistic app built to demonstrate
+> good testing on a modern stack (TypeScript services, a React frontend, a Python AI service, async
+> messaging, Kubernetes). The big idea: **a green test suite only matters if you can show the failure
+> it would catch.** So every guarantee here ships with the bug that breaks it and one command to watch a
+> real test go red (`pnpm prove <id> --break`). The system is *designed* to be testable, with
+> controllable time, inspectable state, and hand drawn diagrams of what is legal. That is what makes the
+> harder tests possible at all: the AI feature, events between services, failure injection. The rest of
+> this page is the detailed version. The [README](README.md) is the fast one.
+
 > **Thesis (the dual claim):**
 > — **Organizationally,** quality is an *architectural property the system makes cheap to sustain*
 > across people, agents, and time — not a property of any one test run.
@@ -7,36 +16,27 @@
 > ([ADR-0030](docs/adr/0030-checking-architecture-in-service-of-a-testing-mission.md)): its checks are
 > made *severe* and *tamper-evident*, so **green means something even when agents write the code.**
 >
-> The machine *checks* (algorithmic verification of a pre-stated proposition); the *testing* — choosing
-> the invariants and the threat model, interpreting a counterexample, deciding a leak matters — is the
-> human act the checks serve. **The division of labor:** agents do the spec-derived mechanical mass;
-> humans spend scarce judgment on the emergent, unspecified risk surface; the gates verify the agent's
-> output is real. Intent without an executable check is just a wish — which is why every claim ships with
-> the toggle that turns its gate red (`pnpm prove <id> --break`).
+> The machine *checks* (algorithmic verification of a pre-stated proposition); the *testing*, which means
+> choosing the invariants and threat model and judging that a counterexample matters, is the human act the
+> checks serve. The division of labor: agents do the spec-derived mechanical mass; humans spend scarce
+> judgment on the emergent risk surface; the gates verify the agent's output is real. Every claim ships
+> with the toggle that turns its gate red (`pnpm prove <id> --break`).
 >
-> This is the one-page mental model. The system, the testing, and the decisions all live here; the
-> living detail is one layer down — the **diagrams** in the [Structurizr model site](https://mariusargatu.github.io/QARoom/architecture/),
-> the **decisions** in [`docs/adr/`](docs/adr/), the **operating model** (cost, frictions, restraint) in
-> [`docs/operating-model.md`](docs/operating-model.md), and the **enforced contracts** in the code
-> ([where the truth lives](#8-where-the-truth-lives)). Read this first, then descend.
+> This is the one-page mental model. Read it first, then descend: the **diagrams** in the
+> [Structurizr model site](https://mariusargatu.github.io/QARoom/architecture/), the **decisions** in
+> [`docs/adr/`](docs/adr/) (and how each technique was first vetted, the Milestone-0
+> [**spikes**](docs/spikes/)), the **operating model** (cost, frictions, restraint) in
+> [`docs/operating-model.md`](docs/operating-model.md), the **enforced contracts** in the code
+> ([where the truth lives](#8-where-the-truth-lives)).
 
-QARoom is a multi-tenant social platform (communities, posts, votes, donations behind a
-flag) built as a *specimen*. The product is the demonstration that defense-in-depth-and-breadth
-*checking* — algorithmic verification serving a human testing strategy — can be an emergent property of
-how a distributed system is built. Every architectural choice "points back to one or more testing
-techniques it enables" ([ADR-0001](docs/adr/0001-foundational-decisions.md)); every technique sits at
-the architectural boundary it defends (the boundary map in §3). The two halves are the same decision
-viewed from opposite ends. The mission is **falsification, not confirmation**
-([ADR-0030](docs/adr/0030-checking-architecture-in-service-of-a-testing-mission.md)): a green suite
-*corroborates* — the conjecture survived this round's attempts to break it — it never *proves*
-correctness, and the unit of quality is **severity** (`P(red | behavior broken)`), measured by mutation
-testing and `prove --break`, not coverage.
-
-The ethos throughout: **complexity must earn its place** — the architecture is "sized exactly
-for v1: nothing more than needed to demonstrate the techniques, nothing less than needed to make
-those demonstrations credible" ([ADR-0001](docs/adr/0001-foundational-decisions.md)) — and
-**numbers are derived, never hand-typed** (CI projects them from
-[`test-results/summary.json`](test-results/) and the drift-gated detection matrix).
+QARoom is a multi-tenant social platform (communities, posts, votes, donations behind a flag) built as
+a *specimen*: a demonstration that defense-in-depth-and-breadth *checking* can be an emergent property
+of how a distributed system is built. Every architectural choice points back to a testing technique it
+enables, and every technique sits at the boundary it defends (§3): the same decision from opposite ends
+([ADR-0001](docs/adr/0001-foundational-decisions.md)). The mission is **falsification, not confirmation**:
+a green suite *corroborates*, it never *proves*; the unit of quality is **severity** (`P(red | behavior
+broken)`), measured by mutation testing and `prove --break`, not coverage. Two rules hold throughout:
+**complexity must earn its place** (sized exactly for v1) and **numbers are derived, never typed by hand**.
 
 ---
 
@@ -315,41 +315,19 @@ The only lane that spends real money is LLM evaluation; it is cost-bounded befor
 ## 6. Decisions and their reasoning
 
 The 16+1 commitments in [ADR-0001](docs/adr/0001-foundational-decisions.md) are **immutable once
-code lands**; library/version/format choices stay open, made milestone by milestone. Each ADR
-below is a *what + why (+ what it rejected)*; follow the link for the full rejected-alternatives list.
+code lands**; library/version/format choices stay open, made milestone by milestone. Each ADR is a
+*what + why (+ what it rejected)*.
 
-<details>
-<summary><b>The foundational ADRs (0001&ndash;0023), one line each</b> &mdash; what each locks, and why (expand)</summary>
-
-| ADR | What it locks / decides | Why (and the headline rejection) |
-|---|---|---|
-| [0001](docs/adr/0001-foundational-decisions.md) | The 17 foundational commitments (micro+K8s, triangulated contracts, sync+async hybrid, graphs, determinism, observable state, tenancy, RFC 7807, machine-readable outputs, monorepo, dedup). | "Sized exactly for v1." **Rejected:** monolith (forces techniques into unnatural shapes), gRPC/GraphQL (immature contract testing), service mesh, full Antithesis-style DST, generated-only OpenAPI (the auto-update tautology). |
-| [0002](docs/adr/0002-asyncapi-drift-gate.md) | Use `@asyncapi/diff` as a detector; classify breaking/non-breaking **in-house, direction-aware**. | Spike-5: its default classification parked genuinely-breaking payload changes as "unclassified"; the same change flips breaking-ness producer↔consumer. **Rejected:** shipping the direction-blind built-in classifier. |
-| [0003](docs/adr/0003-websocket-mock-strategy.md) | WS testing starts with mock-socket + Playwright WS + polling-parity; Microcks-async **deferred**. | Serving a WS AsyncAPI binding needs a 3-container ensemble — disproportionate at M0 for an M5 feature. *Deferred, not refuted.* |
-| [0004](docs/adr/0004-code-intelligence-stack.md) | Agentic search (grep/glob/read) + LSP; **no embedding/RAG index**; heavier layers trigger-gated. | 2025–26 evidence: agentic search beats a vector index for code (Anthropic A/B-dropped it). "Indexes go stale on every edit." **Rejected:** RAG-now, SCIP-now. |
-| [0005](docs/adr/0005-frontend-testing-stack.md) | Story-as-source-of-truth fanned across Storybook + Playwright CT + Screenplay + XState MBT, one shared vocabulary. | RTL-only "misses two categorical UI failures: visual regressions and sequence-dependent state bugs." One Task runs as both CT and E2E. |
-| [0006](docs/adr/0006-mcp-as-tested-service.md) | One cross-service MCP server as a *tested* service, read-first, four typed gates; mutating `callTool` deferred. | The ecosystem ships MCP "trust-me"; QARoom already owns the rigor (Zod schemas, `/system/capabilities`). **Rejected:** OpenAPI→MCP generators (drop our invariants), Inspector-as-test-suite. |
-| [0007](docs/adr/0007-communities-as-tenants-shared-schema-discriminator.md) | identity owns the community registry; `general` is a reserved branded id, not literal `comm_general`. | Registry in content "would scatter tenancy truth"; widening the parser would ripple through OpenAPI/Schemathesis/guards. |
-| [0008](docs/adr/0008-jwt-signing-key-model-and-rotation-contract.md) | ES256 JWKs in Postgres, `rotate()` with Clock-driven grace, behind a `KeyMaterialSource` seam; JWT as five tested properties. | The default is to *trust* issuance and find gaps in incidents; QARoom's thesis is "these are properties with a contract." **Rejected:** static key, HS256, wall-clock expiry. |
-| [0009](docs/adr/0009-kubernetes-and-keeping-dev-fast.md) | k3d local / KinD CI / Tilt inner loop; one shared Helm chart; hand-authored minimal observability; `TenantSpanProcessor` on `onStart`. | "Minimal, readable, fast." **Rejected:** kube-prometheus-stack/Jaeger operator (too heavy/opaque), response-hook for tenant.id (only `onStart` sees every span). |
-| [0010](docs/adr/0010-sync-vs-async-and-otel-propagation-contract.md) | Split by observation; propagate trace context through NATS headers, capturing the carrier **at enqueue** on the outbox row. | "By publish time the request span is long gone" — capture-at-enqueue is how one Jaeger trace spans the sync request and the async emit. |
-| [0011](docs/adr/0011-async-dedup-outbox-msgid-processed-events.md) | The four-part dedup discipline; **deliberately ship no async fuzzer**, document the gap. | "The spec carries no causal oracle" — AsyncAPI is channel-centric, so a black-box fuzzer could only check the weak oracle. **Rejected:** Specmatic-async (no NATS), porting EvoMaster (pub/sub severs all four feedback preconditions). |
-| [0012](docs/adr/0012-feature-rollout-state-machine-and-reverse-conformance.md) | Rollout as one invoke-free XState machine = single authority on legality; MBT from it; reverse-conformance via spans emitted **after** commit, always-sampled. | "A feature flag is not a boolean: it is the current state of a gradual rollout." **Rejected:** boolean flag, trusting `/system/state` for conformance (a stale actor can lie; spans are the truth). |
-| [0013](docs/adr/0013-websocket-short-lived-ticket-auth.md) | 30s one-use server-side WS ticket in `Sec-WebSocket-Protocol`, redeemed in `preValidation`. | The browser WS API forbids custom headers; query-string and long-lived-subprotocol tokens both leak into logs. Leak window ≤30s, one-use. |
-| [0014](docs/adr/0014-chaos-as-property-check.md) | Every chaos experiment = a steady-state hypothesis in TypeScript; Chaos Mesh (infra) + Litmus (HTTP) together. | Chaos "degrades into theatre when it just breaks things and watches"; QARoom verifies documented behaviour holds. Two tools because "Chaos Mesh HTTPChaos is unreliable on k3d's flannel CNI" (confirmed empirically). |
-| [0015](docs/adr/0015-scenarios-as-first-class-artifacts.md) | Scenario = DB + Lamport + clock seed via `/system/snapshot` as app-level JSON; **the documented limits are the deliverable.** | The middle path between luck and a hypervisor: "be honest, up front, about what that scope cannot reproduce." **Rejected:** full DST, `pg_dump` (opaque, non-diffable). |
-| [0016](docs/adr/0016-testing-your-tests.md) | M8 adds k6 / Stryker (locked critical modules) / EvoMaster, cost-scoped to nightly/weekly lanes. | They "ask a different question": is the suite any good (mutation), what inputs has nobody written (search-based fuzz), does it meet SLO under load. k6 gates server-side TTFB (`http_req_duration` "flakes on the shared runner"). |
-| [0017](docs/adr/0017-testing-ai-integrated-systems.md) | A real-OpenAI eval lane (golden + metamorphic) cost-guarded + key-gated; deterministic fakes in the logic lane; SME-labelled oracle with Fleiss' Kappa. | "Every technique before M9 assumes a deterministic SUT." The golden+metamorphic pair is the headline: a prompt-bug toggle passes the golden eval yet fails on paraphrases. |
-| [0018](docs/adr/0018-moderator-agent-architecture.md) | The one Python service (uv/3.13/LangGraph); it **owns its decisions, never enforces**; three-layer dedup asymmetry; plain DI (not record/replay). | It must honour the commitments "without the TS lint/codegen machinery, and without quietly forking the conventions." Porting the TS dedup stack "costs more than it teaches." |
-| [0019](docs/adr/0019-webhooks-as-a-tested-delivery-edge.md) | webhooks as a new edge service: NATS→durable ledger→relay worker; delivery XState + reverse-conformance; pure-function capped-jittered retry; HMAC + SSRF + at-least-once. | "The point is the testing techniques unique to delivery systems." A pure-function retry makes "the hardest-to-test part the easiest." **Rejected:** deliver inside the consumer, Svix/Hookdeck (hides the story), a transactional outbox (publish-side, webhooks publishes nothing). |
-| [0020](docs/adr/0020-moderator-rag-and-eval-stack.md) | Moderator → retrieval-grounded RAG agent (5-node trajectory, citation-bearing `disposition`, abstain path); breaking event v2; DeepEval + DeepTeam, **Promptfoo dropped**. | "OpenAI acquired Promptfoo — an OpenAI-owned harness evaluating OpenAI models is the conflict ADR-0017 warned about." Honest: "this is a demonstration re-scope; the moderator does not need RAG to function" — but RAG makes retrieval/agentic behaviour first-class testable. |
-| [0021](docs/adr/0021-separable-retrieval-components.md) | Tokenizer behind a port (`cl100k_base`, token-bounded) + a reranker as a 6th observable LangGraph node, with a grounding guard. | The tokenizer fix is "the one real correctness fix: chars ≠ tokens"; the reranker is "the seam, the observable node, the separable tests — not a quality claim." |
-| [0022](docs/adr/0022-gateway-fronts-identity-and-moderation-for-the-web-edge.md) | Thin additive gateway passthrough (9 ops) so the browser reaches identity + moderation reads same-origin. | "The gap was purely at the edge." **Rejected:** per-service ingress (multiplies origins, forces CORS). Stated plainly: the unauthenticated REST plane makes impersonation trivial — "an accepted property of a demo, not a hidden vulnerability." |
-| [0023](docs/adr/0023-remove-llms-txt-affordance.md) | Delete `/.well-known/llms.txt`; the agent front door is AGENTS.md + `/system/capabilities` + qaroom-mcp. | "Twelve milestones later the file has had zero consumers … its first reader ever was the audit that caught it lying." Closes the drift class "by removal instead of by seven new gates." |
-
-</details>
-
-> The decisions past 0023 — the agentic-development, check-governance, observability-hardening, data-lifecycle, promotion-ledger, and operating-model run ([ADR-0030](docs/adr/0030-checking-architecture-in-service-of-a-testing-mission.md) onward) — live one-file-each in [`docs/adr/`](docs/adr/); the live total is in the stats line in §1 (derived, never hand-typed). The table above is deliberately not re-counted in prose: a tracked total has one home (the [one-location census gate](scripts/census.ts), [ADR-0038](docs/adr/0038-operating-model-onboarding-agent-tax-and-incident-to-claim.md)).
+**The full set (number, status, and the decision in one line) is the generated index at
+[`docs/adr/README.md`](docs/adr/README.md)** (drift-checked against the files, so it can't go stale).
+Start at the immutable [0001](docs/adr/0001-foundational-decisions.md) (the 17 commitments: micro+K8s,
+triangulated contracts, sync+async hybrid, state graphs, determinism, observable state, tenancy, RFC
+7807, machine-readable outputs, monorepo, dedup; rejecting the monolith, gRPC/GraphQL, a service mesh,
+and full DST). Decisions **0024+** are the active frontier: agentic development as a tested boundary,
+check governance + tamper-evidence, observability hardening, the data-lifecycle erasure saga, the
+promotion ledger, and the operating model. A tracked total has one home (the
+[census gate](scripts/census.ts), [ADR-0038](docs/adr/0038-operating-model-onboarding-agent-tax-and-incident-to-claim.md)),
+never prose.
 
 ---
 
@@ -358,7 +336,12 @@ below is a *what + why (+ what it rejected)*; follow the link for the full rejec
 Honesty about scope is part of the deliverable. The omissions are part of the contract:
 
 - **No service mesh** (Istio/Linkerd) — Chaos Mesh + Litmus + manual OTel propagation cover the same ground; a mesh would bury the testing story under wiring.
-- **Almost no edge authentication — the gateway auth model, stated once.** Three inbound paths differ by design, which is easy to misread as a contradiction, so here it is in one place. (1) **Proxy plane** (the [ADR-0022](docs/adr/0022-gateway-fronts-identity-and-moderation-for-the-web-edge.md) identity/moderation passthroughs plus the content/flags/donations/webhooks routes): the gateway forwards the caller's `Authorization` header **verbatim and never decodes it** — where a token matters, the *upstream* verifies it against its own JWKS (identity does this on `POST /ws/tickets`). This REST plane is unauthenticated by design, so impersonation is trivial — an accepted property of a demo, not a hidden vulnerability — with rate-limiting keyed on a caller-supplied principal header or IP. (2) **Events-polling read** (`GET /api/communities/:cid/events`) is the one exception: since [ADR-0025](docs/adr/0025-edge-token-verification-for-rest-membership.md) the gateway verifies the ES256 access token **at the edge** (locally, against identity's cached JWKS) and enforces community membership — the polling analogue of the WS path's `ws-not-a-member` 403 — so the fallback cannot leak another tenant's stream (the `events-polling-membership` claim in §4). (3) **WebSocket upgrade** authenticates with a 30-second one-use ticket carried in the subprotocol and redeemed against identity before the socket upgrades ([ADR-0013](docs/adr/0013-websocket-short-lived-ticket-auth.md)). Broadening edge verification to the rest of the proxy plane is parked for a future Milestone 13. **CSRF/CORS posture:** the browser reaches exactly one origin (`*.localhost` via Traefik) and auth is a **bearer token, never a cookie**, so there is no ambient credential a cross-origin page could ride — CSRF is mitigated structurally by same-origin + bearer-not-cookie, and no cross-origin browser surface (hence no CORS allowance) is exposed by design. **DoS beyond the token bucket is out of scope, named:** the per-caller rate limit (`failure_domain: rate_limit`) defends against a single noisy principal, not against volumetric/distributed denial-of-service — that belongs to an edge/CDN layer this specimen deliberately omits.
+- **Almost no edge authentication. The gateway auth model, stated once.** Three inbound paths differ by design (easy to misread as a contradiction), so here they are in one place:
+  - **(1) Proxy plane** ([ADR-0022](docs/adr/0022-gateway-fronts-identity-and-moderation-for-the-web-edge.md) identity/moderation passthroughs + the content/flags/donations/webhooks routes): the gateway forwards the caller's `Authorization` header **verbatim and never decodes it**. Where a token matters, the *upstream* verifies it (identity does, on `POST /ws/tickets`). Unauthenticated by design, so impersonation is trivial: an accepted property of a demo, not a hidden vulnerability.
+  - **(2) Events-polling read** (`GET /api/communities/:cid/events`) is the one exception: since [ADR-0025](docs/adr/0025-edge-token-verification-for-rest-membership.md) the gateway verifies the ES256 token **at the edge** (against identity's cached JWKS) and enforces membership (the polling analogue of the WS `ws-not-a-member` 403), so the fallback can't leak another tenant's stream (the `events-polling-membership` claim, §4).
+  - **(3) WebSocket upgrade** uses a 30 second one-use ticket in the subprotocol, redeemed against identity before the socket upgrades ([ADR-0013](docs/adr/0013-websocket-short-lived-ticket-auth.md)). Broadening edge verification across the proxy plane is parked for Milestone 13.
+  - **CSRF/CORS:** the browser reaches exactly one origin (`*.localhost` via Traefik) and auth is a **bearer token, never a cookie**, so there is no ambient credential a cross-origin page could ride, and no cross-origin surface exposed (hence no CORS allowance). CSRF is mitigated structurally.
+  - **DoS:** the per-caller rate limit (`failure_domain: rate_limit`) defends against one noisy principal, not volumetric or distributed DoS; that belongs to an edge/CDN layer this specimen omits.
 - **No real OAuth / federated identity, no real payments, no multi-region, no i18n** — each adds cost without teaching a *new* technique. The payment provider is Microcks-mocked, so donations still exercises an untrusted-external-boundary defense.
 - **Security scanning is a representative slice, not a production AppSec program.** [`.github/workflows/security.yml`](.github/workflows/security.yml) ships one scanner per category — **SAST** (Semgrep), **SCA / dependency scanning** (osv-scanner over both lockfiles), **IaC/K8s misconfig** (Checkov on `deploy/**` + the helm-rendered manifests), and an **SBOM** (Syft/SPDX) — dispatch-first + tier-gated, mirroring `ci.yml`. Findings are **informational** on this first pass (a baseline on a never-scanned tree; flipping to fail-on-finding is the deliberate next step). **DAST** is the gap that remains: an OWASP **ZAP** baseline scan against `qaroom.localhost` is wired as a **dispatch-gated, cluster-needing (Tier-B) job, deferred to dispatch** — it needs a running cluster to point at. Named-still-out: container-image scanning (no registry to push to yet), secret scanning (better as a pre-commit hook), and SLSA/signing provenance (nothing to attest until a published artifact exists). **No visual-regression**, **no accessibility-as-a-milestone** — out of the architectural lens (web *does* run Storybook a11y checks). `toMatchSnapshot()` is forbidden repo-wide.
 - **No MCP server per service** in v1 — designed-for-later; the seam is Commitment 7's `/system/capabilities`. (The cross-service variant shipped in Milestone 10, ADR-0006.)
