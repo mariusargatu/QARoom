@@ -105,21 +105,21 @@
     ]
   },
   "devDependencies": {
-    "@biomejs/biome": "2.5.0",
+    "@biomejs/biome": "2.5.1",
     "@qaroom/contracts": "workspace:*",
     "@qaroom/otel": "workspace:*",
     "@qaroom/promotion-ledger": "workspace:*",
     "@qaroom/testing-utils": "workspace:*",
-    "@types/node": "^24.0.0",
-    "@typescript-eslint/parser": "^8.21.0",
-    "eslint": "^9.18.0",
+    "@types/node": "^26.0.1",
+    "@typescript-eslint/parser": "^8.62.1",
+    "eslint": "^10.6.0",
     "eslint-plugin-qaroom": "workspace:*",
-    "tsx": "^4.19.0",
-    "turbo": "^2.3.0",
-    "typescript": "^5.7.0",
+    "tsx": "^4.22.4",
+    "turbo": "^2.10.1",
+    "typescript": "^6.0.3",
     "vitest": "catalog:",
     "yaml": "^2.7.0",
     "zod": "^4.0.0",
-    "mutation-testing-metrics": "3.7.3"
+    "mutation-testing-metrics": "3.8.0"
   }
 }
