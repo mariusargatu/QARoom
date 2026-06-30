@@ -11,7 +11,7 @@
 # Node). Chromium + its OS deps + fonts come from the repo's pinned Playwright (1.60.0) via
 # `playwright install --with-deps`, installed to PLAYWRIGHT_BROWSERS_PATH so the same env var lets
 # both `playwright` (E2E) and `@vitest/browser-playwright` (component) find them.
-FROM node:24-bookworm-slim
+FROM node:26-bookworm-slim
 
 ENV PNPM_HOME=/pnpm
 ENV PATH="$PNPM_HOME:$PATH"
