@@ -246,7 +246,7 @@ jobs:
       - name: OWASP ZAP baseline scan against the supplied edge -> report artifact
         if: inputs.zap_target != ''
         # Informational baseline: alerts do not red the lane (cmd_options -I), matching the POSTURE above.
-        uses: zaproxy/action-baseline@v0.14.0
+        uses: zaproxy/action-baseline@v0.15.0
         with:
           target: ${{ inputs.zap_target }}
           cmd_options: '-I'
