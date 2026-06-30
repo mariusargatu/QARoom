@@ -12,11 +12,11 @@
     "test": "vitest run"
   },
   "dependencies": {
-    "pure-rand": "^6.1.0",
-    "ulid": "^2.3.0"
+    "pure-rand": "^8.4.1",
+    "ulid": "^3.0.2"
   },
   "devDependencies": {
-    "typescript": "^5.7.0",
+    "typescript": "^6.0.3",
     "vitest": "catalog:"
   }
 }
