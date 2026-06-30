@@ -2,7 +2,7 @@
 #   docker build -f services/web/Dockerfile -t qaroom/web .
 # Builds the Vite bundle and serves it with `vite preview`. VITE_API_BASE_URL is a BUILD arg
 # (Vite inlines VITE_* at build time, not runtime).
-FROM node:24-slim AS base
+FROM node:26-slim AS base
 ENV PNPM_HOME=/pnpm
 ENV PATH="$PNPM_HOME:$PATH"
 RUN corepack enable
