@@ -12,7 +12,7 @@ mDraft     = component "draft (node)"      "Single LLM call -> citation-bearing 
 mSelfCheck = component "self_check (node)" "Pure validation: grounding guard, precedent consistency, never-confidently-approve-flagged (escalate), abstain on low confidence. Toggles: MODERATOR_DISABLE_ABSTAIN / _APPROVE_GUARD." "Python / LangGraph"
 mRecord    = component "record (node)"     "Persist the decision + publish moderation.decision.recorded. Idempotent on event_id." "Python / LangGraph"
 mPublisher = component "publisher"         "NATS publisher for moderation.decision.recorded (Nats-Msg-Id = stable decision event_id)." "Python"
-mLlm       = component "llm client"        "Provider-agnostic LlmClient seam (LangChain init_chat_model; openai:gpt-5-nano). Lazy; every call is a GenAI-semconv span." "Python"
+mLlm       = component "llm client"        "Provider-agnostic LlmClient seam (LangChain init_chat_model; openai:gpt-5-mini). Lazy; every call is a GenAI-semconv span." "Python"
 mTokenize  = component "tokenizer"         "Tokenizer port (TiktokenTokenizer cl100k_base, token-bounded; WordTokenizer fake). ADR-0021." "Python"
 mCorpus    = component "policy corpus store" "Per-community policy corpus in pgvector, seeded from rules/<community>.yaml + embedded." "Python / pgvector"
 mKnowledge = component "knowledge store"   "Index of similar past decisions (precedent recall) in pgvector." "Python / pgvector"

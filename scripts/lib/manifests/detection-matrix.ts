@@ -456,7 +456,7 @@ export const TOGGLES: DetectionToggle[] = z.array(DetectionToggle).parse([
       'The safety invariant (never confidently approve flagged content): the approve-side mirror of ' +
       'disable-abstain. Deterministic, keyless teeth — self_check escalates a confident approve that ' +
       'diverges from majority-remove precedent; the toggle ships it as approve. This is the bar that ' +
-      'lets the cheaper gpt-5-nano draft model stay safe (gold agreement is only a screen).',
+      'lets the cheaper gpt-5-mini draft model stay safe (gold agreement is only a screen).',
   },
   {
     id: 'moderator-rerank-bug',

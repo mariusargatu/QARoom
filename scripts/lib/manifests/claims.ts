@@ -151,7 +151,7 @@ const RAW: Claim[] = [
   {
     id: 'moderator-no-confident-approve-of-flag',
     claim:
-      'The moderator never confidently approves content the precedent flags: an approve that diverges from majority-remove precedent escalates to a human instead. The safety invariant, not gold-set agreement, is the bar — which is what lets the cheaper gpt-5-nano draft model stay safe (a confident-but-wrong approve is caught structurally, not shipped).',
+      'The moderator never confidently approves content the precedent flags: an approve that diverges from majority-remove precedent escalates to a human instead. The safety invariant, not gold-set agreement, is the bar — which is what lets the cheaper gpt-5-mini draft model stay safe (a confident-but-wrong approve is caught structurally, not shipped).',
     boundary: 'external-dep',
     registryRow: 'external-dep',
     technique: 'deterministic self-check test (no LLM, no cluster)',

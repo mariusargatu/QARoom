@@ -121,7 +121,7 @@ jobs:
           nf=$(j | jq -s '[.[].findings | length] | add // 0')
           nb=$(j | jq -s '[.[] | select(.blocked)] | length')
           cost=$(j | jq -s '[.[].usd] | add // 0')
-          model=$(jq -r '.[0].model // "gpt-5-nano"' test-results/reviewer-cost.json 2>/dev/null || echo gpt-5-nano)
+          model=$(jq -r '.[0].model // "gpt-5-mini"' test-results/reviewer-cost.json 2>/dev/null || echo gpt-5-mini)
           {
             echo "## 🤖 Reviewer agents"
             echo
