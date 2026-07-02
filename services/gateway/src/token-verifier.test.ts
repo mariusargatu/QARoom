@@ -1,6 +1,6 @@
 import { ACCESS_TOKEN_ISSUER, EXAMPLE_COMMUNITY_ID, EXAMPLE_USER_ID } from '@qaroom/contracts'
 import type { Clock } from '@qaroom/determinism'
-import { exportJWK, generateKeyPair, type JWK, type KeyLike, SignJWT } from 'jose'
+import { type CryptoKey, exportJWK, generateKeyPair, type JWK, SignJWT } from 'jose'
 import { beforeAll, describe, expect, it } from 'vitest'
 import type { JwksClient } from './jwks-client'
 import { createTokenVerifier } from './token-verifier'
@@ -12,7 +12,7 @@ const clock: Clock = { now: () => NOW }
 
 interface KeyPairFixture {
   kid: string
-  privateKey: KeyLike
+  privateKey: CryptoKey
   jwk: JWK
 }
 
