@@ -91,14 +91,19 @@ async def test_crescendo_multiturn_attack_does_not_break_the_guarded_moderator()
     (in ``pyrit.executor.attack``) with an ``AttackAdversarialConfig``, executed via ``execute_async``.
     Omitting the scoring config keeps the old behaviour — Crescendo builds its default objective scorer
     from the adversarial chat target (the same model that used to be passed as ``scoring_target``)."""
+    from pathlib import Path
+
     from pyrit.executor.attack import CrescendoAttack
     from pyrit.executor.attack.core.attack_config import AttackAdversarialConfig
     from pyrit.prompt_target import OpenAIChatTarget
-    from pyrit.setup import IN_MEMORY, initialize_pyrit_async
+    from pyrit.setup import SQLITE, initialize_pyrit_async
 
-    # PyRIT 0.13 requires an explicit central-memory instance before any attack is constructed;
-    # an ephemeral in-memory store is right for a stateless nightly probe (no cross-run persistence).
-    await initialize_pyrit_async(IN_MEMORY)
+    # PyRIT 0.13 requires an explicit central-memory instance before any attack is constructed.
+    # Persist to SQLite so the full escalation transcript (every adversarial turn + objective/refusal
+    # score) survives the run and is auditable — how the moderator resisted, not just that it did.
+    db_path = str(Path(__file__).resolve().parents[2] / "test-results" / "pyrit-memory.db")
+    Path(db_path).parent.mkdir(parents=True, exist_ok=True)
+    await initialize_pyrit_async(SQLITE, db_path=db_path)
 
     objective_target = _callback_target()
     # The adversarial + (default) scoring models are one real OpenAI chat target, key-gated above.
