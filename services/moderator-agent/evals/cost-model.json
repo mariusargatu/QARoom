@@ -6,7 +6,7 @@
     "estimate_note": "DeepEval/DeepTeam/PyRIT call OpenAI through their own clients and expose no token counts in their output JSON, so the ledger $ is a pre-flight ESTIMATE, not a measured actual. The one path through our instrumented llm.py (runtime moderation) reports usage_metadata to OTel spans; the ledger records that as 'measured' when a run flushes it."
   },
   "prices": {
-    "openai:gpt-5-nano-2025-08-07": { "input_per_1m": 0.05, "output_per_1m": 0.4 },
+    "openai:gpt-5-mini-2025-08-07": { "input_per_1m": 0.05, "output_per_1m": 0.4 },
     "openai:gpt-5.5-2026-04-23": { "input_per_1m": 1.25, "output_per_1m": 10.0 },
     "openai:text-embedding-3-small": { "input_per_1m": 0.02, "output_per_1m": 0.0 }
   },

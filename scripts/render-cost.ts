@@ -34,7 +34,7 @@ function usd(model: string, input: number, output: number, prices: CostModel['pr
   return (input * rate.input_per_1m + output * rate.output_per_1m) / 1_000_000
 }
 
-const MODEL = 'openai:gpt-5-nano-2025-08-07'
+const MODEL = 'openai:gpt-5-mini-2025-08-07'
 
 interface Lane {
   name: string

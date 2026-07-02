@@ -40,7 +40,7 @@ testing techniques are in [ADR-0017] + [ADR-0020], the architecture in [ADR-0018
 - **Input guard:** `guard.py`: fences the untrusted post body in unforgeable delimiters + a
   system-prompt defense clause (the DeepTeam prompt-injection target); `MODERATOR_DISABLE_INPUT_GUARD=1`
   is the deliberate bug (failure-modes §09).
-- **LLM seam:** `llm.py`: LangChain `init_chat_model`/`init_embeddings` in prod (provider-agnostic, lazy; the model is set in `config.py`, currently `openai:gpt-5-nano-2025-08-07`), deterministic fakes in tests.
+- **LLM seam:** `llm.py`: LangChain `init_chat_model`/`init_embeddings` in prod (provider-agnostic, lazy; the model is set in `config.py`, currently `openai:gpt-5-mini-2025-08-07`), deterministic fakes in tests.
 - **Persistence:** `persistence/`: own Postgres + pgvector; the per-community **policy corpus**
   (rules + escalation guidelines + precedent) is embedded data, seeded from `rules/<community>.yaml`,
   not prompt-baked.

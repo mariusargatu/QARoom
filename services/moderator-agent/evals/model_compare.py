@@ -87,7 +87,7 @@ def main() -> None:
     models = sys.argv[1:] or [
         "openai:gpt-5.5-2026-04-23",
         "openai:gpt-5-mini",
-        "openai:gpt-5-nano",
+        "openai:gpt-5-mini",
     ]
     cases = [c for c in json.loads(GOLD.read_text())["cases"] if c.get("status") == "gold"]
     print(f"{len(cases)} gold cases\n")
