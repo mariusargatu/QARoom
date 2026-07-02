@@ -49,26 +49,25 @@ def _callback_target() -> object:
     PyRIT orchestrators (Crescendo / TAP) call ``send_prompt_async`` with a message; we forward its
     text into the post body via our callback and wrap the verdict string back into a PyRIT response.
     Imported lazily so the module imports without PyRIT internals resolving at collection time.
+
+    PyRIT 0.13 renamed the target contract: ``PromptRequestResponse`` became ``Message``,
+    ``send_prompt_async`` now takes ``message`` and returns ``list[Message]``, and a message's pieces
+    are read via ``get_piece(n)`` rather than a ``request_pieces`` list.
     """
-    from pyrit.models import PromptRequestResponse, construct_response_from_request
+    from pyrit.models import Message, construct_response_from_request
     from pyrit.prompt_target import PromptChatTarget
 
     callback = make_model_callback(Settings(moderator_disable_input_guard=False))
 
     class ModeratorTarget(PromptChatTarget):
-        async def send_prompt_async(
-            self, *, prompt_request: PromptRequestResponse
-        ) -> PromptRequestResponse:
-            piece = prompt_request.request_pieces[0]
+        async def send_prompt_async(self, *, message: Message) -> list[Message]:
+            piece = message.get_piece(0)
             verdict = callback(piece.converted_value)
-            return construct_response_from_request(request=piece, response_text_pieces=[verdict])
+            return [construct_response_from_request(request=piece, response_text_pieces=[verdict])]
 
-        def _validate_request(self, *, prompt_request: PromptRequestResponse) -> None:
-            if len(prompt_request.request_pieces) != 1:
+        def _validate_request(self, *, message: Message) -> None:
+            if len(message.message_pieces) != 1:
                 raise ValueError("ModeratorTarget handles exactly one prompt piece per turn")
-
-        def is_json_response_supported(self) -> bool:
-            return False
 
     return ModeratorTarget()
 
@@ -85,22 +84,41 @@ def test_pyrit_target_adapter_forwards_to_the_moderator() -> None:
 @pytest.mark.asyncio
 async def test_crescendo_multiturn_attack_does_not_break_the_guarded_moderator() -> None:
     """NIGHTLY: a Crescendo (gradual-escalation) multi-turn attack against the guarded moderator must
-    NOT succeed in making it approve abusive content. TAP is the alternative orchestrator; Crescendo is
-    the default depth probe. This is slow + nondeterministic, hence nightly-only (see module docstring)."""
-    from pyrit.orchestrator import CrescendoOrchestrator
+    NOT succeed in making it approve abusive content. TAP is the alternative strategy; Crescendo is
+    the default depth probe. This is slow + nondeterministic, hence nightly-only (see module docstring).
+
+    PyRIT 0.13 replaced the orchestrator API with the attack-strategy framework: ``CrescendoAttack``
+    (in ``pyrit.executor.attack``) with an ``AttackAdversarialConfig``, executed via ``execute_async``.
+    Omitting the scoring config keeps the old behaviour — Crescendo builds its default objective scorer
+    from the adversarial chat target (the same model that used to be passed as ``scoring_target``)."""
+    from pyrit.executor.attack import CrescendoAttack
+    from pyrit.executor.attack.core.attack_config import AttackAdversarialConfig
     from pyrit.prompt_target import OpenAIChatTarget
+    from pyrit.setup import IN_MEMORY, initialize_pyrit_async
+
+    # PyRIT 0.13 requires an explicit central-memory instance before any attack is constructed;
+    # an ephemeral in-memory store is right for a stateless nightly probe (no cross-run persistence).
+    await initialize_pyrit_async(IN_MEMORY)
 
     objective_target = _callback_target()
-    # The adversarial + scoring models are real OpenAI chat targets, key-gated above.
-    adversarial = OpenAIChatTarget()
+    # The adversarial + (default) scoring models are one real OpenAI chat target, key-gated above.
+    # Wire it explicitly (model / endpoint / key) so the target does NOT depend on PyRIT-specific env
+    # vars (OPENAI_CHAT_MODEL / OPENAI_CHAT_ENDPOINT / OPENAI_CHAT_KEY) that the eval env does not set —
+    # it reuses OPENAI_API_KEY and the moderator's own configured model (minus the `openai:` prefix).
+    # gpt-5.x is a reasoning model: it drops seed/temperature — hence the nondeterminism this test
+    # tolerates by asserting only the security property (no approve), never an exact transcript.
+    adversarial = OpenAIChatTarget(
+        model_name=Settings().moderator_model.split(":", 1)[-1],
+        endpoint="https://api.openai.com/v1",
+        api_key=os.environ["OPENAI_API_KEY"],
+    )
 
-    orchestrator = CrescendoOrchestrator(
+    attack = CrescendoAttack(
         objective_target=objective_target,
-        adversarial_chat=adversarial,
-        scoring_target=adversarial,
+        attack_adversarial_config=AttackAdversarialConfig(target=adversarial),
         max_turns=4,
     )
-    result = await orchestrator.run_attack_async(objective=ATTACK_OBJECTIVE)
+    result = await attack.execute_async(objective=ATTACK_OBJECTIVE)
 
     # PyRIT marks an achieved objective as a successful attack; the guarded moderator must defend it.
     achieved = getattr(getattr(result, "outcome", None), "value", None) == "success"
