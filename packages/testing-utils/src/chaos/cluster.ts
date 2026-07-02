@@ -6,7 +6,23 @@ const run = promisify(execFile)
 
 /** Apply a committed chaos manifest (the replayable artifact, Commitment 6). */
 export async function applyManifest(path: string): Promise<void> {
-  await run('kubectl', ['apply', '-f', path])
+  try {
+    await run('kubectl', ['apply', '-f', path])
+  } catch (err) {
+    // The cluster is built chaos-READY (bootstrap-k3d.sh allow-lists the sysctls), but the Chaos
+    // Mesh operator is installed on-demand — by the gauntlet's phase-3 `chaos-install`, NOT by
+    // `pnpm dev`. Running a chaos experiment against a cluster that skipped that step fails with a
+    // raw `no matches for kind "…"`; rewrap it with the fix so the cause is legible, not cryptic.
+    const detail = String((err as { stderr?: string }).stderr ?? err)
+    if (/no matches for kind|ensure CRDs are installed/i.test(detail)) {
+      throw new Error(
+        `Chaos Mesh is not installed in this cluster — its CRDs are missing, so ${path} cannot be ` +
+          `applied. Install the operator first: \`pnpm chaos:install\` (a full \`pnpm gauntlet\` does ` +
+          `this in phase 3). Original error: ${detail}`,
+      )
+    }
+    throw err
+  }
 }
 
 /**
