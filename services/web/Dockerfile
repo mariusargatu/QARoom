@@ -5,7 +5,7 @@
 FROM node:26-slim AS base
 ENV PNPM_HOME=/pnpm
 ENV PATH="$PNPM_HOME:$PATH"
-RUN corepack enable
+RUN npm install -g corepack@latest && corepack enable
 WORKDIR /repo
 
 # tsconfig.base.json is required: services/web/tsconfig.json extends it, so the `tsc` build step
