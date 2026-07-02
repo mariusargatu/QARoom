@@ -3,6 +3,7 @@ import { createProductionDeps, intFromEnv, runServer } from '@qaroom/service-kit
 import { buildGatewayApp } from './app'
 import { CircuitBreaker } from './circuit-breaker'
 import { createContentClient } from './content-client'
+import { UNLIMITED_RATE_LIMIT } from './deps'
 import { createDonationsClient } from './donations-client'
 import { startWsFeed } from './event-consumer'
 import { CommunityEventStream } from './event-stream'
@@ -45,7 +46,15 @@ runServer(
             threshold: BREAKER_THRESHOLD,
             cooldownMs: BREAKER_COOLDOWN_MS,
           })
+    // GATEWAY_DISABLE_RATE_LIMIT=1 lifts BOTH buckets to effectively-unlimited for the schema-fuzz
+    // window only (Schemathesis drains the tight auth bucket and misreads its own 429s as contract
+    // violations). The limiter stays wired; production never sets it. Strict === '1' like every toggle.
+    const rateLimitOverride =
+      process.env.GATEWAY_DISABLE_RATE_LIMIT === '1'
+        ? { rateLimit: UNLIMITED_RATE_LIMIT, authRateLimit: UNLIMITED_RATE_LIMIT }
+        : {}
     return buildGatewayApp({
+      ...rateLimitOverride,
       content: createContentClient(contentBaseUrl, { timeoutMs }),
       donations: createDonationsClient(donationsBaseUrl, { timeoutMs, breaker }),
       flags: createFlagsClient(flagsBaseUrl, { timeoutMs }),

@@ -56,3 +56,11 @@ export const DEFAULT_RATE_LIMIT: RateLimitConfig = { capacity: 600, refillPerSec
 /** Tight default for the credential endpoint: a small burst, slow refill — enough for legitimate
  * session issuance, hostile to credential stuffing. Independent of the general limiter. */
 export const DEFAULT_AUTH_RATE_LIMIT: RateLimitConfig = { capacity: 10, refillPerSec: 1 }
+
+/** Effectively-unlimited config: the limiter stays wired (429 path + headers intact) but never trips.
+ * Used only when GATEWAY_DISABLE_RATE_LIMIT=1 — so schema-fuzzing (Schemathesis) does not drain the
+ * tight auth bucket and misread its own 429s as contract violations. Never set in production. */
+export const UNLIMITED_RATE_LIMIT: RateLimitConfig = {
+  capacity: 1_000_000,
+  refillPerSec: 1_000_000,
+}

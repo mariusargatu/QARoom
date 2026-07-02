@@ -50,6 +50,19 @@ const donationsGated409 = problemResponse(
   'conflict',
   { description: 'The donations feature flag has not reached Enabled for this community.' },
 )
+// The gateway EDGE 401: only routes that verify the bearer at the edge (ADR-0025 — currently
+// `listEvents` + the WS handshake) return it. Not stamped fleet-wide: proxied routes let the
+// downstream service own auth, and the public login/signup ops never 401. Attached per-op below.
+const authRequired401 = problemResponse(
+  401,
+  'token-missing',
+  'Authentication failed',
+  'authentication',
+  {
+    description: 'The bearer token is missing, malformed, or expired at the gateway edge.',
+    instance: '/api/communities/comm_01HZY0K7M3QF8VN2J5RX9TB4CD/events',
+  },
+)
 const donationNotFound404 = problemResponse(
   404,
   'donation-not-found',
@@ -332,7 +345,10 @@ const RAW_OPERATIONS: readonly OasOperation[] = [
         schema: { type: 'integer', minimum: 0 },
       },
     ],
-    responses: [{ code: 200, description: 'A page of push envelopes.', bodyRef: 'EventPage' }],
+    responses: [
+      { code: 200, description: 'A page of push envelopes.', bodyRef: 'EventPage' },
+      authRequired401,
+    ],
   },
   ...WEBHOOK_OPERATIONS,
   ...IDENTITY_OPERATIONS,

@@ -332,10 +332,16 @@ export function buildPlan(ctx: PreflightCtx, opts: GauntletOpts): GauntletStep[]
       6,
       'schemathesis-live',
       'gate',
-      `${PF} gateway:18090:80,identity:18082:80,webhooks:18087:80 -- pnpm schemathesis:results gateway:services/gateway:http://host.docker.internal:18090 identity:services/identity:http://host.docker.internal:18082 webhooks:services/webhooks:http://host.docker.internal:18087`,
+      // Drop the gateway rate limiter for the fuzz window only (restored on exit, even on failure):
+      // the fuzzer otherwise drains the tight auth bucket (/sessions, /users) and the conformance
+      // checks misread its own 429s as contract violations. GATEWAY_DISABLE_RATE_LIMIT lifts both
+      // buckets; a rollout applies it, and the trap restores the limiter so later phases (concurrent-
+      // sim's 429 rate-shed demo) still see it. Beats pacing, which only shielded the general bucket.
+      `kubectl -n qaroom set env deploy/gateway GATEWAY_DISABLE_RATE_LIMIT=1 && kubectl -n qaroom rollout status deploy/gateway --timeout=120s && trap 'kubectl -n qaroom set env deploy/gateway GATEWAY_DISABLE_RATE_LIMIT- >/dev/null 2>&1 && kubectl -n qaroom rollout status deploy/gateway --timeout=120s >/dev/null 2>&1' EXIT; ${PF} gateway:18090:80,identity:18082:80,webhooks:18087:80 -- pnpm schemathesis:results gateway:services/gateway:http://host.docker.internal:18090 identity:services/identity:http://host.docker.internal:18082 webhooks:services/webhooks:http://host.docker.internal:18087`,
       {
-        // Paced under the gateway limiter's 10/s refill — at full speed the fuzzer drains the
-        // bucket and the conformance checks misread its own 429s as contract violations.
+        // SCHEMATHESIS_RATE_LIMIT stays as a fallback: the disable toggle only bites once the gateway
+        // image carries it (rebuilt in phase 3), so `--only 6` against a stale image still needs pacing
+        // to avoid draining the limiter. With the toggle live, the limiter is off and pacing is moot.
         env: { SCHEMATHESIS_MAX_EXAMPLES: '50', SCHEMATHESIS_RATE_LIMIT: '8/s' },
         timeoutMs: 40 * 60_000,
         skipReason: noCluster,

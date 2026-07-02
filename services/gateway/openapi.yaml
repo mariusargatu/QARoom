@@ -1108,6 +1108,21 @@ paths:
                 retryable: false
                 next_actions: []
                 failure_domain: validation
+        "401":
+          description: The bearer token is missing, malformed, or expired at the gateway edge.
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ProblemDetails"
+              example:
+                type: https://qaroom.dev/errors/token-missing
+                title: Authentication failed
+                status: 401
+                detail: Authentication failed.
+                instance: /api/communities/comm_01HZY0K7M3QF8VN2J5RX9TB4CD/events
+                retryable: false
+                next_actions: []
+                failure_domain: authentication
         "404":
           description: The community or addressed resource does not exist.
           content:
