@@ -27,7 +27,7 @@ export function buildApp(deps: WebhooksDeps): FastifyInstance {
     lamport,
   }
 
-  return buildServiceApp({
+  const app = buildServiceApp({
     service: 'webhooks',
     clock: deps.clock,
     lamport,
@@ -44,4 +44,18 @@ export function buildApp(deps: WebhooksDeps): FastifyInstance {
     },
     registerRoutes: (app) => registerWebhookRoutes(app, routeDeps),
   })
+
+  // Accept a bodyless POST on the pure state-toggle routes (pause/resume) instead of 415ing it.
+  // Default Fastify 415s any request that signals a body (Content-Length or Transfer-Encoding) with
+  // no matching Content-Type. A toggle needs no body, so this catch-all drains an unknown/empty body
+  // to `undefined`; the built-in JSON parser still handles create's typed body. It also makes the
+  // routes verifiable: pact-core replays a bodyless request as `Transfer-Encoding: chunked` with an
+  // empty chunk and no Content-Type, which the default would otherwise reject.
+  app.addContentTypeParser('*', (_req, payload, done) => {
+    payload.on('data', () => {})
+    payload.on('end', () => done(null, undefined))
+    payload.on('error', done)
+  })
+
+  return app
 }

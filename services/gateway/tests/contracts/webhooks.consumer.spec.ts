@@ -203,10 +203,9 @@ describe('gateway → webhooks consumer contract', () => {
       .withRequest(
         'POST',
         `/api/communities/${COMMUNITY}/webhook-subscriptions/${EXISTING_SUB}/pause`,
-        (b) =>
-          b
-            .headers({ 'content-type': 'application/json', 'Idempotency-Key': like(IDEM_PAUSE) })
-            .jsonBody({}),
+        // No body: pause is a pure state toggle. The client sends none, so neither Content-Type nor
+        // a JSON body appears here (an empty `{}` body tripped a pact-core verify serialization bug).
+        (b) => b.headers({ 'Idempotency-Key': like(IDEM_PAUSE) }),
       )
       .willRespondWith(200, (b) => b.jsonBody(like(pausedSubscriptionBody)))
       .executeTest(async (mock) => {
@@ -227,10 +226,8 @@ describe('gateway → webhooks consumer contract', () => {
       .withRequest(
         'POST',
         `/api/communities/${COMMUNITY}/webhook-subscriptions/${EXISTING_SUB}/resume`,
-        (b) =>
-          b
-            .headers({ 'content-type': 'application/json', 'Idempotency-Key': like(IDEM_RESUME) })
-            .jsonBody({}),
+        // No body: resume is a pure state toggle (see the pause interaction above).
+        (b) => b.headers({ 'Idempotency-Key': like(IDEM_RESUME) }),
       )
       .willRespondWith(409, (b) =>
         b

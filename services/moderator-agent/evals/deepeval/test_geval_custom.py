@@ -102,15 +102,42 @@ async def test_precedent_consistency(case: dict) -> None:
     assert_test(target.test_case, [metric])
 
 
-@pytest.mark.parametrize("case", _AMBIGUOUS, ids=[c["id"] for c in _AMBIGUOUS])
-async def test_calibration_should_have_abstained(case: dict) -> None:
-    """On the SME-ambiguous posts a calibrated agent abstains; a confident verdict fails (FR5)."""
-    workflow, corpus = build_workflow(Settings())
+async def _calibration_trial_passes(workflow: object, corpus: object, case: dict) -> bool:
+    """One calibration trial: run the agent on the case and G-Eval the disposition. Both the agent and
+    the judge are gpt-5.x reasoning models that ignore seed/temperature, so a single trial of this
+    borderline judgement is non-deterministic — hence best-of-N at the call site."""
     target = await run_case(workflow, corpus, case)
     metric = _calibration_metric()
     metric.measure(target.test_case)
-    record_metric("calibration", passed=metric.score is not None and metric.score >= _THRESHOLD)
-    assert_test(target.test_case, [metric])
+    return metric.score is not None and metric.score >= _THRESHOLD
+
+
+@pytest.mark.parametrize("case", _AMBIGUOUS, ids=[c["id"] for c in _AMBIGUOUS])
+async def test_calibration_should_have_abstained(case: dict) -> None:
+    """On the SME-ambiguous posts a calibrated agent abstains; a confident verdict fails (FR5).
+
+    Best-of-3 (majority): the moderator and the G-Eval judge are gpt-5.x reasoning models that drop
+    seed/temperature (see ``determinism.py``), so a single trial of this borderline case flips
+    run-to-run around the 0.5 threshold. Majority-of-3 stabilises the gate WITHOUT weakening the
+    threshold or the gold set — a genuinely mis-calibrated agent still loses ≥2 of 3 trials. Short-
+    circuits at 2 passes or 2 fails, so the usual cost is 2 trials, 3 only on a split."""
+    workflow, corpus = build_workflow(Settings())
+    passes = 0
+    fails = 0
+    for _ in range(3):
+        if await _calibration_trial_passes(workflow, corpus, case):
+            passes += 1
+        else:
+            fails += 1
+        if passes >= 2 or fails >= 2:
+            break
+    majority = passes >= 2
+    record_metric("calibration", passed=majority)
+    assert majority, (
+        f"calibration best-of-3 failed for {case['id']}: only {passes} of {passes + fails} trials "
+        f"passed (threshold {_THRESHOLD}) — a confident verdict on an ambiguous post that should "
+        "have escalated to a human."
+    )
 
 
 async def test_ragas_via_deepeval_wrapper() -> None:

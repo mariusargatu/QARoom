@@ -13,8 +13,11 @@ postgres:
 extraEnv:
   # NATS: publishes donation.state.changed, consumes flag.state.changed (gating cache).
   NATS_URL: nats://qaroom-nats.observability.svc.cluster.local:4222
-  # The (Microcks-mocked) payment provider, served from payment-provider.openapi.yaml.
-  PAYMENT_PROVIDER_BASE_URL: http://qaroom-microcks.observability.svc.cluster.local:8080/rest/QARoom+Payment+Provider+%28mock%29/1.0.0
+  # The (Microcks-mocked) payment provider, served from payment-provider.openapi.yaml. Microcks mock
+  # URLs encode service-name spaces as %20 (NOT `+`, which is a literal plus in a URL path) and keep
+  # parens LITERAL (NOT %28/%29) — the `+`/`%28` form 404s every charge → donations 502 (the long-
+  # standing payment-mock bug). Verified: this exact path returns 200 {"status":"captured"}.
+  PAYMENT_PROVIDER_BASE_URL: "http://qaroom-microcks.observability.svc.cluster.local:8080/rest/QARoom%20Payment%20Provider%20(mock)/1.0.0"
 gc:
   enabled: true
   package: "@qaroom/donations"

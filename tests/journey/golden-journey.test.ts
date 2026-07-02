@@ -143,13 +143,29 @@ describe('golden journey: one user, the whole platform, live', () => {
     expect(feed.status).toBe(200)
     expect(feedHasPost(feed.body, postId), JSON.stringify(feed.body)).toBe(true)
 
-    // 8. donations: a donation (crosses the flags gate + Microcks-mocked provider).
-    const donation = await client.post(
+    // 8a. flags: open the donations gate for THIS community first. The flag is per-community and
+    // opt-in (default Off); only the `Enabled` rollout state opens it, and donations-service learns
+    // of the change ASYNCHRONOUSLY via a NATS flag-state event. So drive the rollout Off→Enabling→
+    // Canary→Enabled, then poll until the gate has propagated (flags→NATS→donations) before donating.
+    for (const event of ['EnableRequested', 'CanaryConfirmed', 'RolloutCompleted'] as const) {
+      const advance = await client.post(
+        `/api/communities/${communityId}/flags/donations/rollout`,
+        { event },
+        { token },
+      )
+      expect([200, 201], JSON.stringify(advance.body)).toContain(advance.status)
+    }
+    // 8b. donations: a donation (crosses the flags gate + Microcks-mocked provider). The gate lives
+    // in donations-service's LOCAL flag cache, fed by the NATS flag-state event — so the flags-service
+    // reporting `enabled` does NOT mean donations saw it yet. Poll the write itself until the gate has
+    // propagated (retry a 409 `gated`); a persistent non-2xx (e.g. a 502 payment fault) still fails.
+    const donation = await client.pollPostUntil(
       `/api/communities/${communityId}/donations`,
       { donor_id: userId, amount_cents: 500, currency: 'USD' },
-      { token },
+      (r) => r.status === 201 || r.status === 202,
+      { token, ...POLL },
     )
-    expect([201, 202]).toContain(donation.status)
+    expect([201, 202], JSON.stringify(donation.body)).toContain(donation.status)
 
     // 9. webhooks: a subscription, then an at-least-once delivery must land (NATS fan-out).
     const subscription = await client.post(
@@ -160,8 +176,22 @@ describe('golden journey: one user, the whole platform, live', () => {
     expect(subscription.status, JSON.stringify(subscription.body)).toBe(201)
     const subscriptionId = idOf(subscription.body)
 
+    // 9b. content: a post AFTER subscribing. Webhooks is event-driven (at-least-once to subscribers
+    // active AT event time) — the step-5 post.created fired before any subscriber existed, so it never
+    // fans out here. This post is the event that reaches the new subscription (and the moderator).
+    const watchedPost = await client.post(
+      `/api/communities/${communityId}/posts`,
+      {
+        author_id: userId,
+        title: 'Second post, now with a webhook watching',
+        body: 'Trigger the fan-out.',
+      },
+      { token },
+    )
+    expect(watchedPost.status, JSON.stringify(watchedPost.body)).toBe(201)
+
     // 10. The webhook delivery and the moderation disposition are independent async NATS fan-outs
-    // from traffic already produced — poll for both concurrently rather than 30s + 30s in series.
+    // from the post just produced — poll for both concurrently rather than 30s + 30s in series.
     const [deliveries, moderation] = await Promise.all([
       client.pollUntil(
         `/api/communities/${communityId}/webhook-subscriptions/${subscriptionId}/deliveries`,

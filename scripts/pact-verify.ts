@@ -47,11 +47,18 @@ process.stdout.write(
   `verifying ${pactFiles.length} pact(s) against provider "${provider}":\n${pactFiles.map((f) => `  - ${f}`).join('\n')}\n`,
 )
 
+// Kernel-level watchdog: if the child wedges (pact-core FFI has stalled the in-process event loop,
+// where in-process JS timers can't fire), SIGKILL it instead of hanging CI for hours. The leaked
+// Testcontainer is reaped by ryuk. Slightly above the in-helper 120s graceful timeout so the child
+// gets to clean up first when it can. Override with PACT_VERIFY_TIMEOUT_MS.
+const childTimeout = (Number(process.env.PACT_VERIFY_TIMEOUT_MS) || 120_000) + 30_000
 execFileSync(
   'pnpm',
   ['--filter', `@qaroom/${provider}`, 'exec', 'tsx', 'tests/contracts/provider.verify.ts'],
   {
     cwd: ROOT,
     stdio: 'inherit',
+    timeout: childTimeout,
+    killSignal: 'SIGKILL',
   },
 )

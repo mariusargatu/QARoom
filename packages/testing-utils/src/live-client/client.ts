@@ -106,6 +106,28 @@ export class GatewayClient {
     }
     return last
   }
+
+  /** Poll a POST until `predicate` holds or the deadline passes — for a write whose PRECONDITION
+   * lands asynchronously (e.g. a donation gated until the flag-enable event propagates flags→NATS→
+   * donations). Each attempt gets a fresh Idempotency-Key, so rejected tries store nothing and the
+   * first accepted one is the sole effect. Polling the write is the only way to observe the consuming
+   * service's local gate — the flags-service resolving `enabled` does not mean donations saw it yet. */
+  async pollPostUntil(
+    path: string,
+    body: unknown,
+    predicate: (res: GatewayResponse) => boolean,
+    opts: RequestOptions & { readonly withinMs: number; readonly everyMs: number },
+  ): Promise<GatewayResponse> {
+    const deadline = opts.withinMs
+    let waited = 0
+    let last = await this.post(path, body, opts)
+    while (!predicate(last) && waited < deadline) {
+      await delay(opts.everyMs)
+      waited += opts.everyMs
+      last = await this.post(path, body, opts)
+    }
+    return last
+  }
 }
 
 function safeJson(text: string): unknown {

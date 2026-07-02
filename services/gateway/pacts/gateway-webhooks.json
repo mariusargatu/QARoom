@@ -642,24 +642,12 @@
         }
       ],
       "request": {
-        "body": {
-          "content": {},
-          "contentType": "application/json",
-          "encoded": false
-        },
         "headers": {
-          "Content-Type": [
-            "application/json"
-          ],
           "Idempotency-Key": [
             "idem-wh-pause"
-          ],
-          "content-type": [
-            "application/json"
           ]
         },
         "matchingRules": {
-          "body": {},
           "header": {
             "Idempotency-Key": {
               "combine": "AND",
@@ -788,24 +776,12 @@
         }
       ],
       "request": {
-        "body": {
-          "content": {},
-          "contentType": "application/json",
-          "encoded": false
-        },
         "headers": {
-          "Content-Type": [
-            "application/json"
-          ],
           "Idempotency-Key": [
             "idem-wh-resume"
-          ],
-          "content-type": [
-            "application/json"
           ]
         },
         "matchingRules": {
-          "body": {},
           "header": {
             "Idempotency-Key": {
               "combine": "AND",

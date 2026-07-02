@@ -53,19 +53,36 @@ export async function runProviderVerification<Schema extends Record<string, unkn
   const address = app.server.address()
   const port = typeof address === 'object' && address !== null ? address.port : 0
 
+  // ponytail: hard wall-clock so a wedged verifier (pact-core FFI has been seen to stall the
+  // in-process event loop, where its own per-request timeout can't fire) fails the lane in minutes
+  // instead of hanging CI for hours. Override with PACT_VERIFY_TIMEOUT_MS if a fleet ever needs more.
+  const timeoutMs = Number(process.env.PACT_VERIFY_TIMEOUT_MS) || 120_000
+  let timer: NodeJS.Timeout | undefined
+  const timeout = new Promise<never>((_, reject) => {
+    timer = setTimeout(
+      () => reject(new Error(`pact verification exceeded ${timeoutMs}ms — verifier wedged`)),
+      timeoutMs,
+    )
+    timer.unref()
+  })
+
   let failed = false
   try {
-    await new Verifier({
-      provider: opts.provider,
-      providerBaseUrl: `http://127.0.0.1:${port}`,
-      pactUrls: pactFiles,
-      ...(opts.stateHandlers ? { stateHandlers: opts.stateHandlers(db) } : {}),
-    }).verifyProvider()
+    await Promise.race([
+      new Verifier({
+        provider: opts.provider,
+        providerBaseUrl: `http://127.0.0.1:${port}`,
+        pactUrls: pactFiles,
+        ...(opts.stateHandlers ? { stateHandlers: opts.stateHandlers(db) } : {}),
+      }).verifyProvider(),
+      timeout,
+    ])
     process.stdout.write('✓ pact provider verification passed\n')
   } catch (err) {
     failed = true
     process.stderr.write(`✗ pact provider verification failed: ${String(err)}\n`)
   } finally {
+    clearTimeout(timer)
     await app.close()
     await sql.end()
     await container.stop()

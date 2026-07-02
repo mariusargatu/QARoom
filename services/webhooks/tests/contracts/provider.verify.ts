@@ -23,6 +23,9 @@ await runProviderVerification({
     'a webhook subscription exists': async (params) => {
       const p = params as Record<string, string>
       const now = clock.now()
+      // Upsert to Active, not insert-if-absent: the state is "an *Active* subscription exists", so it
+      // must reset status even when a prior interaction (e.g. pause) already left the row Paused.
+      // `onConflictDoNothing` bled state between interactions and made resume see Paused → 200 not 409.
       await db
         .insert(webhookSubscriptions)
         .values({
@@ -36,8 +39,11 @@ await runProviderVerification({
           createdAt: now,
           updatedAt: now,
         })
-        .onConflictDoNothing()
-      return { description: `seeded subscription ${p.subscription_id}` }
+        .onConflictDoUpdate({
+          target: webhookSubscriptions.id,
+          set: { status: 'Active', updatedAt: now },
+        })
+      return { description: `seeded active subscription ${p.subscription_id}` }
     },
     'no such webhook subscription exists': async (params) => {
       const p = params as Record<string, string>

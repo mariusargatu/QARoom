@@ -44,18 +44,18 @@ export function createWebhooksClient(
       call({ method: 'GET', path: `${base(communityId)}/${subscriptionId}` }),
     deleteWebhook: (communityId, subscriptionId, idempotencyKey) =>
       call({ method: 'DELETE', path: `${base(communityId)}/${subscriptionId}`, idempotencyKey }),
+    // No request body: pause/resume are pure state toggles — the provider reads only path params.
+    // Sending `{}` was pointless and tripped a pact-core empty-object serialization bug on verify.
     pauseWebhook: (communityId, subscriptionId, idempotencyKey) =>
       call({
         method: 'POST',
         path: `${base(communityId)}/${subscriptionId}/pause`,
-        body: {},
         idempotencyKey,
       }),
     resumeWebhook: (communityId, subscriptionId, idempotencyKey) =>
       call({
         method: 'POST',
         path: `${base(communityId)}/${subscriptionId}/resume`,
-        body: {},
         idempotencyKey,
       }),
     listWebhookDeliveries: (communityId, subscriptionId) =>
