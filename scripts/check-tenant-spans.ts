@@ -66,10 +66,32 @@ interface JaegerTrace {
 
 const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms))
 
+/**
+ * Fetch through a `kubectl port-forward`, which drops the SPDY stream mid-request often enough to
+ * flake a gate ("other side closed" / UND_ERR_SOCKET). The forward itself is fine (with-port-forward
+ * waited for readiness); a dropped connection just needs a retry, not a red. Retries transport
+ * throws AND 5xx (Jaeger briefly 503s while the pod settles) with linear backoff; a real 4xx is not
+ * retried. Fails only after the connection stays broken across every attempt.
+ */
+async function fetchThroughForward(url: string, attempts = 5): Promise<Response> {
+  let lastErr: unknown
+  for (let i = 0; i < attempts; i++) {
+    try {
+      const res = await fetch(url)
+      if (res.ok || res.status < 500) return res
+      lastErr = new Error(`HTTP ${res.status}`)
+    } catch (err) {
+      lastErr = err
+    }
+    await sleep(500 * (i + 1))
+  }
+  throw new Error(`Jaeger unreachable after ${attempts} attempts (${url}): ${String(lastErr)}`)
+}
+
 async function collectSpans(): Promise<AuditSpan[]> {
   const spans: AuditSpan[] = []
   for (const service of SERVICES) {
-    const res = await fetch(
+    const res = await fetchThroughForward(
       `${JAEGER}/api/traces?service=${service}&lookback=${LOOKBACK}&limit=${LIMIT}`,
     )
     if (!res.ok) {
