@@ -76,8 +76,17 @@ K6_EXIT=$?
 # gauntlet run lost its clean vote-cast baseline this way).
 TAG="${EXPERIMENT%%-*}"
 if [[ -f "test-results/k6-${SCRIPT}.json" ]]; then
+  # Measure-only runs (multiplier > 1) are OBSERVE-class: a breached SLO under chaos is the expected
+  # payload, not a failure. Stamp `observe:true` so k6:results folds the breach as DATA, not a
+  # `failed` that pollutes the phase-8 envelope census (an observation that gated would be theater).
+  # The ARMED deliberate-bug demo (K6_SLO_MULTIPLIER=1) is left unstamped → its breach still gates
+  # red, so `pnpm prove chaos-sync-publish --break` keeps its teeth.
+  if [[ "${MULTIPLIER}" != "1" ]]; then
+    node -e 'const f=process.argv[1],fs=require("fs");const j=JSON.parse(fs.readFileSync(f,"utf8"));j.observe=true;fs.writeFileSync(f,JSON.stringify(j))' \
+      "test-results/k6-${SCRIPT}.json"
+  fi
   mv "test-results/k6-${SCRIPT}.json" "test-results/k6-${SCRIPT}-chaos${TAG}.json"
-  echo "✓ summary: test-results/k6-${SCRIPT}-chaos${TAG}.json (k6 exit ${K6_EXIT})"
+  echo "✓ summary: test-results/k6-${SCRIPT}-chaos${TAG}.json (k6 exit ${K6_EXIT}, observe=$([[ "${MULTIPLIER}" != "1" ]] && echo true || echo false))"
 fi
 if [[ -f "${CLEAN_BACKUP:-}" ]]; then
   mv "$CLEAN_BACKUP" "test-results/k6-${SCRIPT}.json"

@@ -27,6 +27,9 @@ interface Metric {
 interface K6Summary {
   metrics?: Record<string, Metric>
   state?: { testRunDurationMs?: number }
+  /** Stamped by k6-under-chaos.sh on measure-only runs: a breach under chaos is the expected
+   * payload, so it folds as DATA, not a `failed` that would pollute the phase-8 envelope census. */
+  observe?: boolean
 }
 
 const scripts = files.map((rel) => {
@@ -39,9 +42,13 @@ const scripts = files.map((rel) => {
     }
   }
   const waiting = metrics['http_req_waiting{scenario:measure}']?.values ?? {}
+  const observe = data.observe === true
   return {
     script: basename(rel).replace(/^k6-|\.json$/g, ''),
-    passed: breaches.length === 0,
+    // An observe (measure-only chaos) run cannot fail: the breach IS the measurement. The armed
+    // demo run is NOT observe, so its breach still counts and reds `prove chaos-sync-publish --break`.
+    observe,
+    passed: observe || breaches.length === 0,
     breaches,
     latency_ms: { p50: waiting['p(50)'], p95: waiting['p(95)'], p99: waiting['p(99)'] },
     error_rate: metrics['http_req_failed{scenario:measure}']?.values?.rate,
