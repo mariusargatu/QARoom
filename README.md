@@ -82,7 +82,14 @@ pnpm prove           # the list of guarantees you can break on demand
 pnpm dev             # every service plus dashboards on a local cluster
 pnpm dev:down        # tear it down
 ```
-> Heavy: about 15 containers and a monitoring stack. Give Docker 8 GB RAM and 4 CPUs. You do not need it to read the code or run the tests.
+> Heavy: about 15 containers and a monitoring stack. Give Docker 8 GB RAM and 4 CPUs. You do not need it to read the code or run the tests. Chaos experiments need `pnpm chaos:install` on top; the full run below installs it for you.
+
+**Run every technique at once (the orchestrated full proof, about 3 hours):**
+
+```bash
+pnpm gauntlet        # all 30 in dependency order: gate what must hold, observe what may vary
+```
+> It gates what must always be true, observes what is expected to degrade under load or chaos, and folds every result into one honest envelope. [How it works](docs/gauntlet.md)
 
 ---
 
@@ -137,6 +144,7 @@ Scan to your world.
 - [**The live walkthrough**](https://mariusargatu.github.io/QARoom/): plain English tour. Best first stop.
 - [**ARCHITECTURE.md**](ARCHITECTURE.md): the whole system and how it is tested, on one page. Starts with a two minute plain summary.
 - [**What it catches, and what it misses**](docs/detection-matrix.md): the honest grid from the top of this page.
+- [**The gauntlet**](docs/gauntlet.md): run every technique at once against the live system, in dependency order, with the gate / observe / infra rules that keep the result honest.
 - [**The guarantees you can break**](docs/claims.md): every promise, its bug, and the command to test it.
 - [**The decisions**](docs/adr/README.md): every significant choice, with the alternatives it rejected.
 - [**The operating model**](docs/operating-model.md): what this costs, where it rubs, what it deliberately refuses to do.
