@@ -13,7 +13,7 @@
     "eslint": "^9.0.0"
   },
   "devDependencies": {
-    "@typescript-eslint/parser": "^8.62.1",
+    "@typescript-eslint/parser": "^8.63.0",
     "eslint": "^10.6.0",
     "vitest": "catalog:"
   }

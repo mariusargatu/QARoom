@@ -21,18 +21,18 @@
     "@qaroom/gateway": "workspace:*",
     "@qaroom/otel": "workspace:*",
     "@qaroom/service-kit": "workspace:*",
-    "@typescript-eslint/parser": "^8.62.1",
+    "@typescript-eslint/parser": "^8.63.0",
     "ajv": "^8.17.0",
     "ajv-formats": "^3.0.1",
     "eslint": "^10.6.0",
     "eslint-plugin-qaroom": "workspace:*",
-    "fastify": "^5.9.0",
+    "fastify": "^5.10.0",
     "zod": "^4.0.0"
   },
   "devDependencies": {
     "@qaroom/testing-utils": "workspace:*",
     "fast-check": "catalog:",
-    "tsx": "^4.22.4",
+    "tsx": "^4.23.0",
     "typescript": "^6.0.3",
     "vitest": "catalog:",
     "yaml": "^2.7.0"
