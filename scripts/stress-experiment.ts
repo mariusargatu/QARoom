@@ -1,5 +1,6 @@
-import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs'
+import { mkdirSync, writeFileSync } from 'node:fs'
 import { resolve } from 'node:path'
+import { assertNoDrift } from './lib/assert-no-drift'
 import { computeMetrics } from './stress-experiment/metrics'
 import { renderSidecar, renderStressReport } from './stress-experiment/report'
 import { STRESS_SCENARIO } from './stress-experiment/scenario'
@@ -27,14 +28,7 @@ function main(): void {
   const doc = renderStressReport(metrics)
 
   if (process.argv.includes('--check')) {
-    const committed = existsSync(DOC) ? readFileSync(DOC, 'utf8') : ''
-    if (committed !== doc) {
-      process.stderr.write(
-        '✗ docs/stress-experiment.md is STALE (or absent) — run `pnpm stress:render` and commit\n',
-      )
-      process.exit(1)
-    }
-    process.stdout.write('✓ docs/stress-experiment.md matches a fresh render of the 5 metrics\n')
+    assertNoDrift([{ path: DOC, rendered: doc }], '`pnpm stress:render` and commit')
     return
   }
 

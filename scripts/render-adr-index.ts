@@ -1,6 +1,7 @@
 import { readFileSync, writeFileSync } from 'node:fs'
 import { resolve } from 'node:path'
 import { pathToFileURL } from 'node:url'
+import { assertNoDrift } from './lib/assert-no-drift'
 import { adrFiles } from './render-stats'
 
 /**
@@ -62,12 +63,7 @@ ${rows}
 function main(): void {
   const rendered = renderAdrIndex(readAdrs())
   if (process.argv.includes('--check')) {
-    const current = readFileSync(OUT, 'utf8')
-    if (current !== rendered) {
-      process.stderr.write('adr:index drift: run `pnpm adr:index` and commit docs/adr/README.md\n')
-      process.exit(1)
-    }
-    process.stdout.write('adr:index ✓: docs/adr/README.md matches the ADR files\n')
+    assertNoDrift([{ path: OUT, rendered }], '`pnpm adr:index` and commit')
     return
   }
   writeFileSync(OUT, rendered)
