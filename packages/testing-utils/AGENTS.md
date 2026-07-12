@@ -23,6 +23,16 @@ Pact↔OpenAPI cross-check. **Production code must never import from here.** Rea
 - `screenplay-ct/`: `createComponentActor` (ADR-0027): adapts a `vitest-browser-react` `render()`
   result to the `InteractWithComponent` ability over a `UiDriver`. Typed structurally (no browser-runner
   import), so the core `screenplay/` stays runtime-free. Replaces the old Playwright-CT bridge.
+- `http/`: `mockUpstream()` + the injectable undici `fetch` a client under test receives — the
+  outbound-HTTP mock/fault seam. Node's built-in global `fetch` is NOT interceptable, so inject this one.
+- `scenario/`: the deterministic scenario harness (fault primitives `failingDb` / `brokerDouble` /
+  `InMemoryBroker`) composed with each service's app factory; folded by `pnpm scenario:results`.
+- `contracts/`: `runProviderVerification` — the Pact **provider**-verification runner. Distinct from
+  `contract-crosscheck/` (the Pact↔OpenAPI *shape* cross-check) — same word, different gate.
+- `async-diff/`: the AsyncAPI drift gate (ADR-0002) — a direction-aware breaking-change classifier, the
+  async mirror of the `oasdiff` REST gate; consumed by `scripts/asyncapi-verify.ts` (not a test fixture).
+- `chaos/`: cluster helpers for the Tier-B chaos suites (`applyManifest`, `portForward`, `runSteadyState`).
+- `live-client/`: `GatewayClient`, a typed HTTP client for live-cluster (Tier-B) tests through the gateway.
 
 ## Property-based testing discipline
 

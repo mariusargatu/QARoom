@@ -22,7 +22,7 @@ repo-root `AGENTS.md` first.
   live in `@qaroom/testing-utils`, NOT here. **Production code must never import from testing-utils.**
 - **No globals.** Leaking `new Date()` / `Math.random()` / `crypto.randomUUID()` into business code
   is a P0 defect, fenced by `eslint-plugin-qaroom` (`eslint.config.js`). `production/` is the sole
-  exempt glob — keep the leak out of every other file. See "Conventions you must follow" in the
+  exempt glob — keep the leak out of every other file. See "Conventions — the gate is the spec" in the
   repo-root `AGENTS.md`.
 
 ## Commands

@@ -24,7 +24,8 @@ export interface OasResponse {
   /** Defaults to `application/json`; error responses use `application/problem+json`. */
   contentType?: string
   example?: unknown
-  /** OAS `links` object. Mutating endpoints must declare at least one (docs/05 L122). */
+  /** OAS `links` object. Mutating endpoints should declare at least one so Schemathesis
+   * stateful-links can chain them; presence is an ungated convention (AGENTS.md names the gap). */
   links?: Record<string, unknown>
 }
 

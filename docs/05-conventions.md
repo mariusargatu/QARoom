@@ -4,9 +4,9 @@
 
 - **The lint rules:** [`tools/eslint-plugin-qaroom`](../tools/eslint-plugin-qaroom) + Biome (no `new Date()`/`Math.random()` in non-test code, no `toMatchSnapshot`, no conditional logic in tests, no raw NATS subjects, file-length, etc.).
 - **The drift gates:** `pnpm claims:verify` / `boundaries:render` / `cost:render` / `matrix:verify` / `tour:verify` / `openapi:verify` / `asyncapi:verify` / `mcp:verify` / `census`.
-- **The human summary:** [`AGENTS.md`](../AGENTS.md) → "Conventions you must follow".
+- **The human summary:** [`AGENTS.md`](../AGENTS.md#conventions--the-gate-is-the-spec) → "Conventions — the gate is the spec".
 - **The contracts:** Zod in `packages/contracts/`; RFC 7807 in `packages/contracts/src/errors.ts`; subject grammar in `packages/contracts/src/subjects.ts`.
 
-**Where the old section numbers went** (for legacy `docs/05 §N` / `conventions §N` citations in the code): **§2** (conventions) → [`AGENTS.md`](../AGENTS.md) "Conventions you must follow" · **§3** (NATS subject grammar) → `packages/contracts/src/subjects.ts`.
+**Where the old section numbers went** (for legacy `docs/05 §N` / `conventions §N` citations in the code): **§2** (conventions) → [`AGENTS.md`](../AGENTS.md#conventions--the-gate-is-the-spec) "Conventions — the gate is the spec" · **§3** (NATS subject grammar) → `packages/contracts/src/subjects.ts`.
 
 The one-page landscape is [`ARCHITECTURE.md`](../ARCHITECTURE.md).

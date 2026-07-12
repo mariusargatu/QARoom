@@ -27,7 +27,7 @@ Read the repo-root `AGENTS.md` first.
   reuses the same shell; readiness is an injected callback, never an imported DB module.
 - **The determinism trio is wired here** (`createProductionDeps`: `SystemClock` / `UlidIdGenerator` /
   `CryptoRandomness`); tests inject the seeded doubles instead. **Production code must never import
-  from testing-utils.** See "Conventions you must follow" in the repo-root `AGENTS.md`.
+  from testing-utils.** See "Conventions — the gate is the spec" in the repo-root `AGENTS.md`.
 
 ## Commands
 

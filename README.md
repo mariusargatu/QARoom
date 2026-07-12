@@ -87,7 +87,7 @@ pnpm dev:down        # tear it down
 **Run every technique at once (the orchestrated full proof, about 3 hours):**
 
 ```bash
-pnpm gauntlet        # all 30 in dependency order: gate what must hold, observe what may vary
+pnpm gauntlet        # every technique with a live phase, in dependency order: gate what must hold, observe what may vary
 ```
 > It gates what must always be true, observes what is expected to degrade under load or chaos, and folds every result into one honest envelope. [How it works](docs/gauntlet.md)
 
@@ -98,44 +98,44 @@ pnpm gauntlet        # all 30 in dependency order: gate what must hold, observe 
 Scan to your world.
 
 #### Frontend -> the React UI
-1. **Storybook** play tests + accessibility
-2. **Playwright** component tests and model based E2E
-3. **Visual regression** on pinned baselines
+- **Storybook** play tests + accessibility
+- **Playwright** component tests and model based E2E
+- **Visual regression** on pinned baselines
 
 #### Backend -> one service at a time
-4. **Vitest / pytest** unit tests
-5. **PGlite** integration on a real in process Postgres
-6. **fast-check** property based tests
-7. **Zod** one schema, OpenAPI generated from it
-8. **Schemathesis** API fuzzing
+- **Vitest / pytest** unit tests
+- **PGlite** integration on a real in process Postgres
+- **fast-check** property based tests
+- **Zod** one schema, OpenAPI generated from it
+- **Schemathesis** API fuzzing
 
 #### Distributed -> between services
-9. **Pact v4** contract tests, cross checked against OpenAPI
-10. **oasdiff + AsyncAPI diff** breaking change gates
-11. **Outbox + dedup** typed events, never lost or doubled
-12. **Tracetest** trace structure assertions
-13. **Reverse conformance** running system vs its state machine
-14. **XState** model based testing
-15. **OpenTelemetry** observability as a test surface
-16. **Microcks** external payment mock
-17. **Golden journey** full path across services
+- **Pact v4** contract tests, cross checked against OpenAPI
+- **oasdiff + AsyncAPI diff** breaking change gates
+- **Outbox + dedup** typed events, never lost or doubled
+- **Tracetest** trace structure assertions
+- **Reverse conformance** running system vs its state machine
+- **XState** model based testing
+- **OpenTelemetry** observability as a test surface
+- **Microcks** external payment mock
+- **Golden journey** full path across services
 
 #### LLM apps -> the non deterministic part
-18. **DeepEval** graded answer evals
-19. **Metamorphic** paraphrase invariance
-20. **DeepTeam + PyRIT** red teaming, OWASP LLM Top 10
-21. **Pydantic vs Zod** structured output across languages
-22. **LangGraph** trajectory reverse conformance
-23. **Prompt injection guards** on input and retrieved docs
-24. **Safety invariant** blocks a confidently wrong approval
+- **DeepEval** graded answer evals
+- **Metamorphic** paraphrase invariance
+- **DeepTeam + PyRIT** red teaming, OWASP LLM Top 10
+- **Pydantic vs Zod** structured output across languages
+- **LangGraph** trajectory reverse conformance
+- **Prompt injection guards** on input and retrieved docs
+- **Safety invariant** blocks a confidently wrong approval
 
 #### Context dependent -> reach for when the risk earns the cost
-25. **Stryker** mutation testing (does the suite have teeth)
-26. **EvoMaster** search based fuzzing
-27. **k6** load vs SLOs
-28. **Chaos Mesh + Litmus** chaos engineering
-29. **Scenario replay** capture and reproduce incidents
-30. **TLA+ / DST / CrossHair** formal, simulation, and symbolic checks
+- **Stryker** mutation testing (does the suite have teeth)
+- **EvoMaster** search based fuzzing
+- **k6** load vs SLOs
+- **Chaos Mesh + Litmus** chaos engineering
+- **Scenario replay** capture and reproduce incidents
+- **TLA+ / DST / CrossHair** formal, simulation, and symbolic checks
 
 ---
 

@@ -1,3 +1,8 @@
+// MANUAL, CLUSTER-ONLY tool — not wired to any gate (invoked via `pnpm sim` / `pnpm sim:dry`). Its
+// live-cluster seam oracles (single-writer vote-sum, tenant isolation, flags→NATS→donations) are NOT
+// covered by the gauntlet (phase 5 is k6 LOAD, not these seams), so do not delete it as "redundant".
+// The right next step is to promote it into a named gauntlet cluster phase that folds a seam-oracle
+// evidence partial into summary.json (2026-07-10 audit, F27); until then it is an ungated hammer.
 import { type RolloutState, rolloutMachine } from '@qaroom/contracts'
 
 // Legal events per state, read straight from the rollout machine config (the single source of truth —

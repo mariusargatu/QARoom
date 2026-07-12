@@ -3,13 +3,16 @@
  *
  * Biome owns formatting + `noExplicitAny`. This plugin owns the rules that are
  * either AST-heavy or QARoom-specific:
- *   - no-new-date            (Commitment 6 / docs/05 L228)
- *   - no-unseeded-random     (Commitment 6 / docs/05 L229)
- *   - test-name-shape        (docs/05 L232, Milestone 0 spike 6)
- *   - no-conditional-in-test (docs/05 L230)
- *   - no-snapshot            (docs/05 L227)
- *   - no-public-barrel       (docs/05 L319)
+ *   - no-new-date            (Commitment 6)
+ *   - no-unseeded-random     (Commitment 6)
+ *   - test-name-shape        (Milestone 0 spike 6)
+ *   - no-conditional-in-test (AGENTS.md "Conventions — the gate is the spec")
+ *   - no-snapshot            (Commitment 3 — snapshots make drift invisible)
+ *   - no-public-barrel       (AGENTS.md "Conventions — the gate is the spec")
  *   - no-raw-nats-subject    (Commitment 17 / Milestone 4)
+ *
+ * Citations are stable anchors (Commitment ids, spikes, the AGENTS.md conventions
+ * section), never doc line numbers: a folded doc moves lines and strands the reader.
  *
  * Rules are plain JS so they need no build step.
  */
@@ -145,10 +148,13 @@ const testNameShape = {
 const noConditionalInTest = {
   meta: {
     type: 'problem',
-    docs: { description: 'No conditional logic in tests; write two tests instead (docs/05 L230).' },
+    docs: {
+      description:
+        'No conditional logic in tests; write two tests instead (AGENTS.md "Conventions — the gate is the spec").',
+    },
     schema: [],
     messages: {
-      cond: 'Conditional logic in tests is forbidden (docs/05 L230). Split into two tests, each asserting one branch.',
+      cond: 'Conditional logic in tests is forbidden — split into two tests, each asserting one branch (AGENTS.md "Conventions — the gate is the spec").',
     },
   },
   create(context) {
@@ -175,11 +181,14 @@ const SNAPSHOT_MATCHERS = new Set([
 const noSnapshot = {
   meta: {
     type: 'problem',
-    docs: { description: 'Snapshot testing is forbidden anywhere (docs/05 L227).' },
+    docs: {
+      description:
+        'Snapshot testing is forbidden anywhere (Commitment 3 — it makes drift invisible).',
+    },
     schema: [],
     messages: {
       snapshot:
-        'Snapshot matcher `{{name}}` is forbidden (docs/05 L227). Assert explicit, hand-authored expectations.',
+        'Snapshot matcher `{{name}}` is forbidden — it makes drift invisible (Commitment 3). Assert explicit, hand-authored expectations.',
     },
   },
   create(context) {
@@ -203,12 +212,13 @@ const noPublicBarrel = {
   meta: {
     type: 'suggestion',
     docs: {
-      description: 'No `export *` barrels; re-export named symbols explicitly (docs/05 L319).',
+      description:
+        'No `export *` barrels; re-export named symbols explicitly (AGENTS.md "Conventions — the gate is the spec").',
     },
     schema: [],
     messages: {
       barrel:
-        'Barrel `export *` is forbidden (docs/05 L319). Re-export the specific named symbols you mean to expose.',
+        'Barrel `export *` is forbidden (AGENTS.md "Conventions — the gate is the spec"). Re-export the specific named symbols you mean to expose.',
     },
   },
   create(context) {

@@ -5,8 +5,8 @@ the template every later service follows. Read the repo-root `AGENTS.md` first.
 
 > **Layout note (2026-06-18):** content now uses a layered `src/` (folders by concern, below) and is
 > the *new* reference shape. `identity`/`flags`/`donations`/`webhooks` still carry the older flat
-> layout and are migrating to match — those cascades are tracked separately. When scaffolding a new
-> service, copy content's structure.
+> layout — converting them is unscheduled debt with no owner yet (there is no tracking artifact in
+> this repo; do not infer one). When scaffolding a new service, copy content's structure regardless.
 
 ## Endpoints
 

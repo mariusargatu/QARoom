@@ -6,22 +6,17 @@ tokens. This is the substrate the Milestone-8 component tests exercise.
 
 ## Tiers (import direction is downward only)
 
-```
-pages        Login, Communities, CommunityFeed,   : composition roots; wire hooks/session -> organisms
-             Submit, PostDetail, Donate, Flags,      (one per route; no stories — like a controller)
-             Members, Webhooks, Moderation,
-             Activity, Profile, NotFound
-  └ templates  AppShell (sidebar+topbar+outlet),  : pure layout, named slots, no data
-               CenteredShell, DashboardTemplate
-      └ organisms  SidebarNav, TopBar, CommunityTabs, PostCard, PostList, PostComposer,
-                   IdentityPicker, FlagList, MemberList, AddMemberForm, WebhookForm,
-                   WebhookList, DeliveryList, DecisionCard, ModerationDecisionList, RightRail,
-                   RolloutPanel, DonationForm, DonationList, NotificationFeed  : feature sections
-          └ molecules  FormField, VoteControl, SortTabs, EmptyState, ErrorState, MenuDropdown,
-                       RolloutStepper, DonationAmountField                      : small compositions
-              └ atoms  Button, Badge, Spinner, Input, Textarea, Select, Card,
-                       Avatar, Skeleton, IconButton                            : primitives, token-styled
-```
+Each tier's members live in `src/components/<tier>/` — run `ls` there for the current roster instead
+of trusting a hand-copied list (which drifts every milestone). What each tier *is*, top to bottom:
+
+- **pages** (`ls src/components/pages/`) — one composition root per route; wire hooks/session →
+  organisms. Controllers, not reusable; no stories.
+- **templates** (`ls src/components/templates/`) — pure layout, named slots, no data. `AppShell` is the
+  authenticated frame: a slim top masthead over a **single centered reading column** — no left sidebar
+  (explicitly rejected, DESIGN.md "Warm Commons"); navigation lives in the masthead's own dropdowns.
+- **organisms** (`ls src/components/organisms/`) — feature sections: the masthead, forms, lists, panels.
+- **molecules** (`ls src/components/molecules/`) — small compositions (form fields, tabs, empty/error states).
+- **atoms** (`ls src/components/atoms/`) — token-styled primitives (buttons, inputs, badges, …).
 
 The full consumer + operator surface (Milestone 14, the deferred frontend slot) is built on this
 library and backed by the gateway's identity + moderation passthrough (ADR-0022). Same-tier imports
@@ -47,7 +42,7 @@ Every component lives in its own folder with:
 - `Component.tsx`: `forwardRef` + `displayName`, styled only via semantic-token utilities.
 - `index.ts`: a one-line named-export barrel (no `export *`; the `qaroom/no-public-barrel` rule).
 - `Component.stories.tsx`: CSF-factory Storybook stories declaring `args` per state (the source of truth).
-- `Component.browser.test.tsx`: Screenplay component test in Vitest browser mode (load-bearing components, ADR-0027).
+- `Component.browser.test.tsx`: Screenplay component test in Vitest browser mode (most components, ADR-0027).
 
 ## Semantic tokens (no raw colours)
 
