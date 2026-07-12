@@ -30,18 +30,9 @@ from pathlib import Path
 from typing import Any
 
 from moderator_agent.config import Settings
-from moderator_agent.determinism import seeded_trio
-from moderator_agent.lamport import LamportGate
-from moderator_agent.llm import LangChainEmbedder, LangChainLlmClient
-from moderator_agent.persistence.memory import (
-    InMemoryDecisionStore,
-    InMemoryKnowledgeStore,
-    InMemoryPolicyCorpusStore,
-)
-from moderator_agent.persistence.rules_seed import load_corpus_dir
-from moderator_agent.rerank import LlmReranker
-from moderator_agent.schemas import ModerationDecision, PolicyEntry, PostCreatedEvent
-from moderator_agent.wiring import RULES_DIR
+from moderator_agent.eval_support import EVAL_COMMUNITY, build_live_workflow, gold_event
+from moderator_agent.ports import PolicyCorpusStore
+from moderator_agent.schemas import ModerationDecision, PolicyEntry
 from moderator_agent.workflow.graph import ModerationWorkflow
 
 # NOTE: ``deepeval`` is NOT imported at module top-level on purpose — see the module docstring's IMPORT
@@ -51,9 +42,8 @@ from moderator_agent.workflow.graph import ModerationWorkflow
 SEED = (
     12  # Milestone 12 — surfaced in the report's `seed` field; the LLM is the only stochastic dep.
 )
-COMMUNITY = (
-    "comm_" + "0" * 26
-)  # the seeded `rules/comm_0…0.yaml` corpus the gold set is judged against
+# The seeded `rules/comm_0…0.yaml` corpus the gold set is judged against (the shared eval tenant).
+COMMUNITY = EVAL_COMMUNITY
 _GOLD = Path(__file__).resolve().parents[1] / "golden" / "gold.json"
 
 
@@ -78,10 +68,6 @@ def _llm_test_case(*, input_text: str, actual_output: str, retrieval_context: li
     return LLMTestCase(
         input=input_text, actual_output=actual_output, retrieval_context=retrieval_context
     )
-
-
-def _corpus_entries(community_id: str = COMMUNITY) -> list[PolicyEntry]:
-    return load_corpus_dir(RULES_DIR).get(community_id, [])
 
 
 def load_gold_cases(limit: int | None = None) -> list[dict]:
@@ -139,33 +125,19 @@ def citation_grounding_metric(threshold: float = 0.5, *, model: str | None = Non
 
 def build_workflow(
     settings: Settings, community_id: str = COMMUNITY
-) -> tuple[ModerationWorkflow, InMemoryPolicyCorpusStore]:
+) -> tuple[ModerationWorkflow, PolicyCorpusStore]:
     """The REAL RAG target: live LLM + embedder over in-memory stores seeded from the corpus.
 
     Stores are in-memory (no Postgres/NATS) but the LLM and embedder are the production LangChain
     clients — so retrieval is real over the seeded corpus and the verdict is a genuine model call.
+    The wiring is the shared ``build_live_workflow`` (one copy across all eval entrypoints).
     """
-    clock, ids, _ = seeded_trio()
-    corpus = InMemoryPolicyCorpusStore()
-    corpus.set_entries(community_id, _corpus_entries(community_id))
-    workflow = ModerationWorkflow(
-        llm=LangChainLlmClient(settings),
-        embedder=LangChainEmbedder(settings),
-        reranker=LlmReranker(settings),
-        knowledge=InMemoryKnowledgeStore(),
-        corpus=corpus,
-        decisions=InMemoryDecisionStore(),
-        clock=clock,
-        ids=ids,
-        lamport=LamportGate(ids),
-        settings=settings,
-    )
-    return workflow, corpus
+    return build_live_workflow(settings, community_id=community_id)
 
 
 async def run_case(
     workflow: ModerationWorkflow,
-    corpus: InMemoryPolicyCorpusStore,
+    corpus: PolicyCorpusStore,
     case: dict,
     community_id: str = COMMUNITY,
 ) -> TargetCase:
@@ -176,16 +148,7 @@ async def run_case(
     the G-Eval / agentic metrics that reason over the disposition directly.
     """
     post = case["post"]
-    suffix = case["id"].replace("cand_", "").rjust(26, "0")
-    event = PostCreatedEvent(
-        event_id="evt_" + suffix,
-        post_id="post_" + suffix,
-        community_id=community_id,
-        author_id="user_" + "0" * 26,
-        title="moderation review",
-        body=post,
-        created_at="2026-06-05T00:00:00.000Z",
-    )
+    event = gold_event(case, community_id=community_id)
     decision = await workflow.run(event)
     # Judge the metric against the REAL two-stage retrieval (ADR-0021) the draft reasons over: embed the
     # post, retrieve the wide candidate set, rerank to the top-k. The old `corpus.retrieve(..., [], ...)`

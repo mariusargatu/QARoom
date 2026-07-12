@@ -2,11 +2,14 @@
 
 from __future__ import annotations
 
+from dataclasses import dataclass
+from typing import cast
+
 from moderator_agent.api.app import AppDeps, build_app
 from moderator_agent.config import Settings
-from moderator_agent.determinism import seeded_trio
+from moderator_agent.determinism import Clock, IdGenerator, seeded_trio
 from moderator_agent.lamport import LamportGate
-from moderator_agent.llm import LlmClient, RuleKeywordLlm, ZeroEmbedder
+from moderator_agent.llm import Embedder, LlmClient, RuleKeywordLlm, ZeroEmbedder
 from moderator_agent.persistence.memory import (
     InMemoryDecisionStore,
     InMemoryIdempotencyStore,
@@ -99,6 +102,65 @@ def make_event(
     )
 
 
+@dataclass(frozen=True)
+class _BuiltWorkflow:
+    """The full wired set both ``make_workflow`` and ``make_app_client`` need — so the API-client path
+    gets identical set_rules/hasattr handling and the same clock/ids/corpus as the workflow path."""
+
+    workflow: ModerationWorkflow
+    decisions: InMemoryDecisionStore
+    knowledge: InMemoryKnowledgeStore
+    corpus: InMemoryPolicyCorpusStore
+    clock: Clock
+    ids: IdGenerator
+
+
+def _build_workflow(
+    *,
+    settings: Settings,
+    llm: LlmClient | None = None,
+    embedder: Embedder | None = None,
+    reranker: Reranker | None = None,
+    decisions: InMemoryDecisionStore | None = None,
+    knowledge: InMemoryKnowledgeStore | None = None,
+    corpus: InMemoryPolicyCorpusStore | None = None,
+    publisher: EventPublisher | None = None,
+    sink: list[dict] | None = None,
+    community_id: str = COMMUNITY,
+    checkpointer: object = None,
+) -> _BuiltWorkflow:
+    clock, ids, _ = seeded_trio()
+    decisions = decisions or InMemoryDecisionStore()
+    knowledge = knowledge or InMemoryKnowledgeStore()
+    # Only the in-memory store carries rules; a custom double (e.g. a failure injector) may not.
+    if hasattr(knowledge, "set_rules"):
+        knowledge.set_rules(community_id, DEFAULT_RULES)
+    corpus = corpus or make_corpus(community_id)
+    workflow = ModerationWorkflow(
+        llm=llm or RuleKeywordLlm(),
+        embedder=embedder or ZeroEmbedder(),
+        reranker=reranker or IdentityReranker(),
+        knowledge=knowledge,
+        corpus=corpus,
+        decisions=decisions,
+        clock=clock,
+        ids=ids,
+        lamport=LamportGate(ids),
+        settings=settings,
+        publisher=publisher,
+        checkpointer=checkpointer,
+        sink=sink,
+    )
+    return _BuiltWorkflow(
+        workflow=workflow,
+        decisions=decisions,
+        knowledge=knowledge,
+        corpus=corpus,
+        clock=clock,
+        ids=ids,
+    )
+
+
 def make_workflow(
     *,
     llm: LlmClient | None = None,
@@ -115,61 +177,38 @@ def make_workflow(
     checkpointer: object = None,
 ) -> tuple[ModerationWorkflow, InMemoryDecisionStore, InMemoryKnowledgeStore]:
     settings = settings or Settings(moderator_prompt_bug=prompt_bug)
-    clock, ids, _ = seeded_trio()
-    decisions = decisions or InMemoryDecisionStore()
-    knowledge = knowledge or InMemoryKnowledgeStore()
-    # Only the in-memory store carries rules; a custom double (e.g. a failure injector) may not.
-    if hasattr(knowledge, "set_rules"):
-        knowledge.set_rules(community_id, DEFAULT_RULES)
-    corpus = corpus or make_corpus(community_id)
-    workflow = ModerationWorkflow(
-        llm=llm or RuleKeywordLlm(),
-        embedder=embedder or ZeroEmbedder(),  # type: ignore[arg-type]
-        reranker=reranker or IdentityReranker(),
+    # The public param stays ``object | None`` (a test may pass a bare embed-double); ``ZeroEmbedder``
+    # satisfies ``Embedder``, so the fallback inside ``_build_workflow`` is well-typed once bridged.
+    built = _build_workflow(
+        settings=settings,
+        llm=llm,
+        embedder=cast("Embedder | None", embedder),
+        reranker=reranker,
+        decisions=decisions,
         knowledge=knowledge,
         corpus=corpus,
-        decisions=decisions,
-        clock=clock,
-        ids=ids,
-        lamport=LamportGate(ids),
-        settings=settings,
         publisher=publisher,
-        checkpointer=checkpointer,
         sink=sink,
+        community_id=community_id,
+        checkpointer=checkpointer,
     )
-    return workflow, decisions, knowledge
+    return built.workflow, built.decisions, built.knowledge
 
 
 def make_app_client(*, llm: LlmClient | None = None):
     from fastapi.testclient import TestClient
 
     settings = Settings()
-    clock, ids, _ = seeded_trio()
-    decisions = InMemoryDecisionStore()
-    knowledge = InMemoryKnowledgeStore()
-    knowledge.set_rules(COMMUNITY, DEFAULT_RULES)
-    corpus = make_corpus()
-    workflow = ModerationWorkflow(
-        llm=llm or RuleKeywordLlm(),
-        embedder=ZeroEmbedder(),
-        reranker=IdentityReranker(),
-        knowledge=knowledge,
-        corpus=corpus,
-        decisions=decisions,
-        clock=clock,
-        ids=ids,
-        lamport=LamportGate(ids),
-        settings=settings,
-    )
+    built = _build_workflow(settings=settings, llm=llm)
     app = build_app(
         AppDeps(
-            workflow=workflow,
-            decisions=decisions,
-            knowledge=knowledge,
-            corpus=corpus,
+            workflow=built.workflow,
+            decisions=built.decisions,
+            knowledge=built.knowledge,
+            corpus=built.corpus,
             idempotency=InMemoryIdempotencyStore(),
-            clock=clock,
-            lamport=LamportGate(ids),
+            clock=built.clock,
+            lamport=LamportGate(built.ids),
             settings=settings,
         )
     )

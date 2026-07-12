@@ -22,19 +22,15 @@ from opentelemetry import trace as _otel_trace
 from . import telemetry
 from .config import load_settings
 from .determinism import production_trio
-from .lamport import LamportGate
+from .eval_support import EVAL_COMMUNITY, build_live_workflow
 from .langfuse_integration import LangfuseClient
 from .langfuse_seed import GOLD_PATH, VERDICT_TO_DISPOSITION, seed_langfuse
-from .llm import LangChainEmbedder, LangChainLlmClient
 from .persistence.corpus import PgPolicyCorpusStore
 from .persistence.db import open_pool
-from .persistence.memory import InMemoryDecisionStore, InMemoryKnowledgeStore
-from .rerank import LlmReranker
 from .schemas import PostCreatedEvent, iso_z
-from .workflow.graph import ModerationWorkflow
 
 # The community the policy corpus is seeded under (rules/<community_id>.yaml) — retrieval is per-tenant.
-_CORPUS_COMMUNITY = "comm_" + "0" * 26
+_CORPUS_COMMUNITY = EVAL_COMMUNITY
 
 
 async def main() -> int:
@@ -49,17 +45,14 @@ async def main() -> int:
 
     clock, ids, _ = production_trio()
     pool = await open_pool(settings.database_url)
-    workflow = ModerationWorkflow(
-        llm=LangChainLlmClient(settings),
-        embedder=LangChainEmbedder(settings),
-        reranker=LlmReranker(settings),
-        knowledge=InMemoryKnowledgeStore(),
-        corpus=PgPolicyCorpusStore(pool),
-        decisions=InMemoryDecisionStore(),
+    # Shared eval-target wiring: production clock/ids (so events + traces share them) over the Pg corpus
+    # already seeded in Postgres (no in-memory seeding), with the Langfuse observability sink attached.
+    workflow, _ = build_live_workflow(
+        settings,
+        community_id=_CORPUS_COMMUNITY,
         clock=clock,
         ids=ids,
-        lamport=LamportGate(ids),
-        settings=settings,
+        corpus=PgPolicyCorpusStore(pool),
         langfuse=langfuse,
     )
 

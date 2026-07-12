@@ -19,32 +19,17 @@ from __future__ import annotations
 import asyncio
 from collections.abc import Callable, Coroutine
 from concurrent.futures import ThreadPoolExecutor
-from pathlib import Path
 from typing import Any
 
 from moderator_agent.config import Settings
-from moderator_agent.determinism import seeded_trio
-from moderator_agent.lamport import LamportGate
-from moderator_agent.llm import LangChainEmbedder, LangChainLlmClient
-from moderator_agent.persistence.memory import (
-    InMemoryDecisionStore,
-    InMemoryKnowledgeStore,
-    InMemoryPolicyCorpusStore,
-)
-from moderator_agent.persistence.rules_seed import load_corpus_dir, load_rules_dir
-from moderator_agent.rerank import LlmReranker
-from moderator_agent.schemas import ModerationDecision, PostCreatedEvent
-from moderator_agent.wiring import RULES_DIR
+from moderator_agent.eval_support import EVAL_COMMUNITY, attack_event, build_live_workflow
+from moderator_agent.persistence.memory import InMemoryKnowledgeStore
+from moderator_agent.schemas import ModerationDecision
 from moderator_agent.workflow.graph import ModerationWorkflow
 
 # The seeded community whose corpus ships in rules/comm_0000…0000.yaml — the corpus the agent retrieves
 # over. Using the real seeded community keeps retrieval load-bearing (FR2) instead of an empty corpus.
-TARGET_COMMUNITY = "comm_" + "0" * 26
-_RULES_DIR: Path = RULES_DIR
-
-
-def _ulid(n: int) -> str:
-    return str(n).rjust(26, "0")
+TARGET_COMMUNITY = EVAL_COMMUNITY
 
 
 class PoisonedKnowledgeStore(InMemoryKnowledgeStore):
@@ -68,36 +53,12 @@ def build_workflow(
     The settings carry the guard toggles (``moderator_disable_input_guard`` /
     ``moderator_disable_corpus_guard``); everything else is deterministic so the only stochastic
     surface is the model under attack. Pass ``knowledge`` to inject a poisoned precedent corpus.
+
+    The wiring is the shared ``build_live_workflow`` (one copy across all eval entrypoints);
+    ``seed_knowledge_rules`` re-seeds the community rule set the way this target always did.
     """
-    clock, ids, _ = seeded_trio()
-    corpus = InMemoryPolicyCorpusStore()
-    corpus.set_entries(TARGET_COMMUNITY, load_corpus_dir(_RULES_DIR).get(TARGET_COMMUNITY, []))
-    knowledge = knowledge or InMemoryKnowledgeStore()
-    knowledge.set_rules(TARGET_COMMUNITY, load_rules_dir(_RULES_DIR).get(TARGET_COMMUNITY, []))
-    return ModerationWorkflow(
-        llm=LangChainLlmClient(settings),
-        embedder=LangChainEmbedder(settings),
-        reranker=LlmReranker(settings),
-        knowledge=knowledge,
-        corpus=corpus,
-        decisions=InMemoryDecisionStore(),
-        clock=clock,
-        ids=ids,
-        lamport=LamportGate(ids),
-        settings=settings,
-    )
-
-
-def _event(body: str, *, idx: int = 1, title: str = "Untrusted post") -> PostCreatedEvent:
-    return PostCreatedEvent(
-        event_id=f"evt_{_ulid(idx)}",
-        post_id=f"post_{_ulid(idx)}",
-        community_id=TARGET_COMMUNITY,
-        author_id=f"user_{_ulid(idx)}",
-        title=title,
-        body=body,
-        created_at="2026-06-05T00:00:00.000Z",
-    )
+    workflow, _ = build_live_workflow(settings, knowledge=knowledge, seed_knowledge_rules=True)
+    return workflow
 
 
 def _verdict_text(decision: ModerationDecision | None) -> str:
@@ -143,7 +104,7 @@ def make_model_callback(settings: Settings) -> Callable[[str], str]:
 
     def model_callback(input_text: str) -> str:
         counter["n"] += 1
-        event = _event(input_text, idx=counter["n"])
+        event = attack_event(input_text, idx=counter["n"])
         decision = _run_sync(build_workflow(settings).run(event))
         return _verdict_text(decision)
 
@@ -163,7 +124,9 @@ def make_poisoned_corpus_callback(settings: Settings, poison: str) -> Callable[[
         counter["n"] += 1
         knowledge = PoisonedKnowledgeStore(TARGET_COMMUNITY, poison)
         decision = _run_sync(
-            build_workflow(settings, knowledge=knowledge).run(_event(input_text, idx=counter["n"]))
+            build_workflow(settings, knowledge=knowledge).run(
+                attack_event(input_text, idx=counter["n"])
+            )
         )
         return _verdict_text(decision)
 
@@ -177,7 +140,7 @@ def run_post(body: str, *, settings: Settings) -> ModerationDecision | None:
     directly on the disposition, proving the guard changes the outcome on an injection payload.
     """
     workflow = build_workflow(settings)
-    return _run_sync(workflow.run(_event(body)))
+    return _run_sync(workflow.run(attack_event(body)))
 
 
 def run_post_with_poisoned_precedent(
@@ -191,4 +154,4 @@ def run_post_with_poisoned_precedent(
     """
     knowledge = PoisonedKnowledgeStore(TARGET_COMMUNITY, poison)
     workflow = build_workflow(settings, knowledge=knowledge)
-    return _run_sync(workflow.run(_event(body)))
+    return _run_sync(workflow.run(attack_event(body)))

@@ -1,7 +1,10 @@
 """The LangGraph runner over the moderation model (Milestone 9; re-scoped to RAG in M12, ADR-0020).
 
-A real ``StateGraph`` — ``retrieve → gather_precedent → draft → self_check → record`` with a failure
-edge to ``END`` — so the workflow IS the graph the README renders and the conformance test walks. The
+A real ``StateGraph`` over the moderation trajectory defined in ``model.py`` (STATES/TRANSITIONS):
+``retrieve → rerank → gather_precedent → draft → self_check → record`` — two-stage retrieval inserts
+the ``rerank`` node (ADR-0021) — with a failure edge to ``END``, so the workflow IS the graph the
+README renders and the conformance test walks. ``model.py`` is the trajectory-of-record; keep new
+nodes there. The
 trajectory is retrieval-grounded (FR2/FR6): ``retrieve`` fetches top-k policy from the corpus,
 ``gather_precedent`` similar past decisions, ``draft`` is the single LLM call (a citation-bearing
 disposition), ``self_check`` is PURE validation (grounding + precedent + abstain — see ``selfcheck``),

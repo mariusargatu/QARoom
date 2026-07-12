@@ -19,59 +19,25 @@ import sys
 from pathlib import Path
 
 from moderator_agent.config import Settings
-from moderator_agent.determinism import seeded_trio
-from moderator_agent.lamport import LamportGate
-from moderator_agent.llm import LangChainEmbedder, LangChainLlmClient
-from moderator_agent.persistence.memory import (
-    InMemoryDecisionStore,
-    InMemoryKnowledgeStore,
-    InMemoryPolicyCorpusStore,
-)
-from moderator_agent.persistence.rules_seed import load_corpus_dir
-from moderator_agent.rerank import LlmReranker
-from moderator_agent.schemas import PostCreatedEvent
-from moderator_agent.wiring import RULES_DIR
+from moderator_agent.eval_support import build_live_workflow, gold_event
 from moderator_agent.workflow.graph import ModerationWorkflow
 
-COMMUNITY = "comm_" + "0" * 26
 GOLD = Path(__file__).resolve().parent / "golden" / "gold.json"
 EXPECT = {"allow": "approve", "flag": "remove"}
 
 
 def _build(model: str) -> ModerationWorkflow:
     settings = Settings(moderator_model=model)
-    clock, ids, _ = seeded_trio()
-    corpus = InMemoryPolicyCorpusStore()
-    corpus.set_entries(COMMUNITY, load_corpus_dir(RULES_DIR).get(COMMUNITY, []))
-    return ModerationWorkflow(
-        llm=LangChainLlmClient(settings),
-        embedder=LangChainEmbedder(settings),
-        reranker=LlmReranker(settings),
-        knowledge=InMemoryKnowledgeStore(),
-        corpus=corpus,
-        decisions=InMemoryDecisionStore(),
-        clock=clock,
-        ids=ids,
-        lamport=LamportGate(ids),
-        settings=settings,
-    )
+    # Same wiring as every other eval target (the shared builder); only the model id varies here.
+    workflow, _ = build_live_workflow(settings)
+    return workflow
 
 
 async def _run_model(model: str, cases: list[dict]) -> tuple[int, int, int]:
     wf = _build(model)
     match = abstain = miss = 0
     for case in cases:
-        suffix = case["id"].replace("cand_", "").rjust(26, "0")
-        event = PostCreatedEvent(
-            event_id="evt_" + suffix,
-            post_id="post_" + suffix,
-            community_id=COMMUNITY,
-            author_id="user_" + "0" * 26,
-            title="moderation review",
-            body=case["post"],
-            created_at="2026-06-05T00:00:00.000Z",
-        )
-        decision = await wf.run(event)
+        decision = await wf.run(gold_event(case))
         disposition = decision.disposition if decision else "escalate_to_human"
         want = EXPECT.get(case["gold_verdict"])
         if disposition == "escalate_to_human":
