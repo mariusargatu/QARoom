@@ -102,7 +102,13 @@
   "pnpm": {
     "onlyBuiltDependencies": [
       "esbuild"
-    ]
+    ],
+    "overrides": {
+      "qs": "^6.15.3",
+      "js-yaml": "^4.3.0",
+      "esbuild": "^0.25.4",
+      "@opentelemetry/core": "^2.8.0"
+    }
   },
   "devDependencies": {
     "@biomejs/biome": "2.5.1",
