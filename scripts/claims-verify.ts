@@ -108,6 +108,23 @@ function checkTaxonomy(claim: Claim): Result {
   return { ok: true, detail: `row '${claim.registryRow}' maps lane '${claim.boundary}'` }
 }
 
+// Every claim in this manifest is SHIPPED (it carries teeth). So the boundary-registry row it points
+// at must not still call its lead technique 'deferred' — that stale word byte-renders into
+// ARCHITECTURE.md §3 and lies to the reader (the 2026-07-10 audit found agent-trajectory-on-model
+// shipped while its registry row still said 'deferred'). This ties the free-text leadTechnique field
+// to the claims manifest so the front-door can't drift back.
+function checkLeadTechniqueShipped(claim: Claim): Result {
+  const row = BOUNDARY_REGISTRY.find((b) => b.id === claim.registryRow)
+  if (!row) return { ok: true, detail: 'no registry row (taxonomy owns this failure)' }
+  if (/\bdeferred\b/i.test(row.leadTechnique)) {
+    return {
+      ok: false,
+      detail: `registry row '${row.id}' calls its lead technique 'deferred', but claim '${claim.id}' ships it — re-word boundary-registry.ts and re-render`,
+    }
+  }
+  return { ok: true, detail: 'lead technique is not stale-deferred' }
+}
+
 function checkWired(claim: Claim): Result {
   // The toggle is read either as the literal env var (TS: process.env.CHAOS_WEBHOOK_…) or via a
   // settings field whose name is the lower-snake of the var (pydantic-settings auto-maps it).
@@ -255,6 +272,7 @@ function main(): void {
   for (const claim of CLAIMS) {
     const checks: [string, Result][] = [
       ['taxonomy', checkTaxonomy(claim)],
+      ['shipped-tech', checkLeadTechniqueShipped(claim)],
       ['evidence', checkEvidence(claim)],
       ['wired', checkWired(claim)],
       ['teeth', checkTeeth(claim)],
@@ -274,7 +292,7 @@ function main(): void {
       const teeth = deferrals.length > 0 ? 'teeth DEFERRED' : 'teeth'
       const note = warns.length > 0 ? ` (${warns.map(([n]) => `${n}: stale`).join(', ')})` : ''
       process.stdout.write(
-        `  ${mark} ${claim.id}: schema, taxonomy, evidence, wired, ${teeth}${note}\n`,
+        `  ${mark} ${claim.id}: schema, taxonomy, shipped-tech, evidence, wired, ${teeth}${note}\n`,
       )
       for (const [name, r] of warns) process.stdout.write(`      ⚠ ${name}: ${r.detail}\n`)
       for (const [name, r] of deferrals) process.stdout.write(`      ⏸ ${name}: ${r.detail}\n`)

@@ -75,6 +75,20 @@ export const Claim = z
   .strict()
 export type Claim = z.infer<typeof Claim>
 
+/**
+ * The simulate-tier gates are all `pnpm --filter <pkg> exec vitest run -t "<test name>"`; only the
+ * package filter and the test-name substring vary. `vitestGate` surfaces those two differentiators
+ * instead of burying them in a copy-pasted 8-element array (17× before this helper).
+ *
+ * NOTE: vitest `-t` is a REGEX, so `testName` must be a regex-safe SUBSTRING of the real title — a
+ * literal `+`/`-` would be a quantifier and match zero tests (a false GREEN). That judgment stays
+ * with whoever picks the substring; the helper cannot make it for them.
+ */
+const vitestGate = (filter: string, testName: string): Gate => ({
+  cmd: 'pnpm',
+  args: ['--filter', filter, 'exec', 'vitest', 'run', '-t', testName],
+})
+
 // Phase-1 flagship claims. Each verified to genuinely falsify via env toggle (the guarantee test
 // reads the toggle from env, so setting it turns that exact test RED). Distinct boundaries, two
 // services, two languages — proving the mechanic generalizes before scaling to one-per-boundary.
@@ -87,18 +101,7 @@ const RAW: Claim[] = [
     registryRow: 'delivery-edge',
     technique: 'property test (HMAC-SHA256, timestamp-bound)',
     toggle: 'CHAOS_WEBHOOK_SIGN_BODY_ONLY',
-    gate: {
-      cmd: 'pnpm',
-      args: [
-        '--filter',
-        '@qaroom/webhooks',
-        'exec',
-        'vitest',
-        'run',
-        '-t',
-        'binds the timestamp into the signature',
-      ],
-    },
+    gate: vitestGate('@qaroom/webhooks', 'binds the timestamp into the signature'),
     evidence: { runner: '@qaroom/webhooks', field: 'passed' },
     tier: 'simulate',
   },
@@ -110,18 +113,7 @@ const RAW: Claim[] = [
     registryRow: 'delivery-edge',
     technique: 'property test over generated receiver-failure sequences',
     toggle: 'CHAOS_WEBHOOK_DROP_ON_FAIL',
-    gate: {
-      cmd: 'pnpm',
-      args: [
-        '--filter',
-        '@qaroom/webhooks',
-        'exec',
-        'vitest',
-        'run',
-        '-t',
-        'every delivery reaches a terminal state',
-      ],
-    },
+    gate: vitestGate('@qaroom/webhooks', 'every delivery reaches a terminal state'),
     evidence: { runner: '@qaroom/webhooks', field: 'passed' },
     tier: 'simulate',
   },
@@ -234,20 +226,7 @@ const RAW: Claim[] = [
     registryRow: 'process-rest',
     technique: 'property test (Zod-derived ±1 arbitrary) over the real castVote + DB CHECK',
     toggle: 'CONTENT_BUG_VOTE_OUT_OF_RANGE',
-    gate: {
-      cmd: 'pnpm',
-      args: [
-        '--filter',
-        '@qaroom/content',
-        'exec',
-        'vitest',
-        'run',
-        '-t',
-        // vitest -t is a REGEX: the test name's literal `+`/`-` would be quantifiers, matching
-        // zero tests (a false GREEN). Filter on a regex-safe substring of the same test name.
-        'score reconciles to upvotes minus downvotes',
-      ],
-    },
+    gate: vitestGate('@qaroom/content', 'score reconciles to upvotes minus downvotes'),
     evidence: { runner: '@qaroom/content', field: 'passed' },
     tier: 'simulate',
   },
@@ -265,18 +244,7 @@ const RAW: Claim[] = [
     registryRow: 'process-rest',
     technique: 'set-membership property over the real castVote + the votes_value_check IN-clause',
     toggle: 'CONTENT_BUG_VOTE_OUT_OF_SET',
-    gate: {
-      cmd: 'pnpm',
-      args: [
-        '--filter',
-        '@qaroom/content',
-        'exec',
-        'vitest',
-        'run',
-        '-t',
-        'rejects an out-of-set vote value',
-      ],
-    },
+    gate: vitestGate('@qaroom/content', 'rejects an out-of-set vote value'),
     evidence: { runner: '@qaroom/content', field: 'passed' },
     tier: 'simulate',
   },
@@ -288,18 +256,7 @@ const RAW: Claim[] = [
     registryRow: 'tenancy',
     technique: 'property-based isolation test (three-tenant interleave)',
     toggle: 'CONTENT_BUG_TENANT_LEAK',
-    gate: {
-      cmd: 'pnpm',
-      args: [
-        '--filter',
-        '@qaroom/content',
-        'exec',
-        'vitest',
-        'run',
-        '-t',
-        'appear only in their own feed',
-      ],
-    },
+    gate: vitestGate('@qaroom/content', 'appear only in their own feed'),
     evidence: { runner: '@qaroom/content', field: 'passed' },
     tier: 'simulate',
   },
@@ -319,18 +276,7 @@ const RAW: Claim[] = [
     technique:
       'RLS policy under a non-superuser role (in-process PGlite, Tier-A) over a filter-free read',
     toggle: 'CONTENT_BUG_DISABLE_RLS',
-    gate: {
-      cmd: 'pnpm',
-      args: [
-        '--filter',
-        '@qaroom/content',
-        'exec',
-        'vitest',
-        'run',
-        '-t',
-        'RLS blocks a broken service layer',
-      ],
-    },
+    gate: vitestGate('@qaroom/content', 'RLS blocks a broken service layer'),
     evidence: { runner: '@qaroom/content', field: 'passed' },
     tier: 'simulate',
   },
@@ -402,18 +348,7 @@ const RAW: Claim[] = [
     registryRow: 'tenancy',
     technique: 'gateway edge token verification + membership check (negative test)',
     toggle: 'GATEWAY_BUG_SKIP_EVENTS_AUTHZ',
-    gate: {
-      cmd: 'pnpm',
-      args: [
-        '--filter',
-        '@qaroom/gateway',
-        'exec',
-        'vitest',
-        'run',
-        '-t',
-        'rejects a non-member with 403 not-a-member',
-      ],
-    },
+    gate: vitestGate('@qaroom/gateway', 'rejects a non-member with 403 not-a-member'),
     evidence: { runner: '@qaroom/gateway', field: 'passed' },
     tier: 'simulate',
   },
@@ -425,18 +360,7 @@ const RAW: Claim[] = [
     registryRow: 'websocket',
     technique: 'fast-check property over overlapping push+poll feeds (pure `prepend` reducer)',
     toggle: 'WEB_BUG_WS_NO_DEDUP',
-    gate: {
-      cmd: 'pnpm',
-      args: [
-        '--filter',
-        '@qaroom/web',
-        'exec',
-        'vitest',
-        'run',
-        '-t',
-        'dedupes by seq under interleaved push and poll',
-      ],
-    },
+    gate: vitestGate('@qaroom/web', 'dedupes by seq under interleaved push and poll'),
     evidence: { runner: '@qaroom/web', field: 'passed' },
     tier: 'simulate',
   },
@@ -457,18 +381,10 @@ const RAW: Claim[] = [
     technique:
       'OpenAPI drift gate (Zod round-trip: the regenerated spec must equal the committed openapi.yaml)',
     toggle: 'AGENT_DESYNC_OPENAPI',
-    gate: {
-      cmd: 'pnpm',
-      args: [
-        '--filter',
-        '@qaroom/content',
-        'exec',
-        'vitest',
-        'run',
-        '-t',
-        'byte-identical to what Zod and the operation registry generate',
-      ],
-    },
+    gate: vitestGate(
+      '@qaroom/content',
+      'byte-identical to what Zod and the operation registry generate',
+    ),
     evidence: { runner: '@qaroom/content', field: 'passed' },
     tier: 'simulate',
   },
@@ -481,18 +397,7 @@ const RAW: Claim[] = [
     technique:
       'mutation gate over the agent oracle (deterministic in-process twin of `pnpm stryker:harness`, ADR-0031)',
     toggle: 'AGENT_EMIT_ASSERTIONLESS_TEST',
-    gate: {
-      cmd: 'pnpm',
-      args: [
-        '--filter',
-        '@qaroom/testing-utils',
-        'exec',
-        'vitest',
-        'run',
-        '-t',
-        'kills every mutant of the target',
-      ],
-    },
+    gate: vitestGate('@qaroom/testing-utils', 'kills every mutant of the target'),
     evidence: { runner: '@qaroom/testing-utils', field: 'passed' },
     tier: 'simulate',
   },
@@ -505,18 +410,7 @@ const RAW: Claim[] = [
     technique:
       'tenant-isolation invariant property over a leak armed alongside green-theater tests',
     toggle: 'AGENT_PATCH_AROUND_GATE',
-    gate: {
-      cmd: 'pnpm',
-      args: [
-        '--filter',
-        '@qaroom/content',
-        'exec',
-        'vitest',
-        'run',
-        '-t',
-        'even when an agent games the gate',
-      ],
-    },
+    gate: vitestGate('@qaroom/content', 'even when an agent games the gate'),
     evidence: { runner: '@qaroom/content', field: 'passed' },
     tier: 'simulate',
   },
@@ -536,18 +430,7 @@ const RAW: Claim[] = [
     technique:
       'tool-use reverse-conformance over a seeded, deterministic trajectory (the in-process TS twin of the moderator trajectory-DST, T21)',
     toggle: 'AGENT_OFF_GRAPH_TOOL_CALL',
-    gate: {
-      cmd: 'pnpm',
-      args: [
-        '--filter',
-        '@qaroom/qaroom-mcp',
-        'exec',
-        'vitest',
-        'run',
-        '-t',
-        'stays on the allowed graph',
-      ],
-    },
+    gate: vitestGate('@qaroom/qaroom-mcp', 'stays on the allowed graph'),
     evidence: { runner: '@qaroom/qaroom-mcp', field: 'passed' },
     tier: 'simulate',
   },
@@ -566,18 +449,7 @@ const RAW: Claim[] = [
     technique:
       'deriver-conformance check (recompute the ±1 set from VOTE_VALUES, sample the live arbitrary, diff)',
     toggle: 'AGENT_WEAKEN_VOTE_DERIVER',
-    gate: {
-      cmd: 'pnpm',
-      args: [
-        '--filter',
-        '@qaroom/testing-utils',
-        'exec',
-        'vitest',
-        'run',
-        '-t',
-        'the vote deriver emits exactly the VOTE_VALUES set',
-      ],
-    },
+    gate: vitestGate('@qaroom/testing-utils', 'the vote deriver emits exactly the VOTE_VALUES set'),
     evidence: { runner: '@qaroom/testing-utils', field: 'passed' },
     tier: 'simulate',
   },
@@ -593,18 +465,7 @@ const RAW: Claim[] = [
     registryRow: 'observability',
     technique: 'PII-in-spans audit (deterministic, in-process — keyless, cannot rot)',
     toggle: 'CHAOS_SPAN_PII',
-    gate: {
-      cmd: 'pnpm',
-      args: [
-        '--filter',
-        '@qaroom/otel',
-        'exec',
-        'vitest',
-        'run',
-        '-t',
-        'emits no span carrying PII',
-      ],
-    },
+    gate: vitestGate('@qaroom/otel', 'emits no span carrying PII'),
     evidence: { runner: '@qaroom/otel', field: 'passed' },
     tier: 'simulate',
   },
@@ -616,18 +477,7 @@ const RAW: Claim[] = [
     registryRow: 'process-async',
     technique: 'backpressure SLO gate (deterministic backlog model over CONSUMER_LAG_SLO)',
     toggle: 'CHAOS_CONSUMER_STALL',
-    gate: {
-      cmd: 'pnpm',
-      args: [
-        '--filter',
-        '@qaroom/messaging',
-        'exec',
-        'vitest',
-        'run',
-        '-t',
-        'keeps consumer lag within the SLO',
-      ],
-    },
+    gate: vitestGate('@qaroom/messaging', 'keeps consumer lag within the SLO'),
     evidence: { runner: '@qaroom/messaging', field: 'passed' },
     tier: 'simulate',
   },
@@ -647,18 +497,7 @@ const RAW: Claim[] = [
     technique:
       'in-process cross-service saga (identity → outbox relay → content/donations consumers over the in-memory broker)',
     toggle: 'CONTENT_BUG_SKIP_ERASURE',
-    gate: {
-      cmd: 'pnpm',
-      args: [
-        '--filter',
-        '@qaroom/identity',
-        'exec',
-        'vitest',
-        'run',
-        '-t',
-        'no service returns an erased user',
-      ],
-    },
+    gate: vitestGate('@qaroom/identity', 'no service returns an erased user'),
     evidence: { runner: '@qaroom/identity', field: 'passed' },
     tier: 'simulate',
   },
@@ -679,18 +518,7 @@ const RAW: Claim[] = [
     technique:
       'meta-gate over the verdict logic (a real red must classify as red; deterministic, in-process — keyless, cannot rot)',
     toggle: 'LEDGER_RELABEL_RED_AS_FLAKY',
-    gate: {
-      cmd: 'pnpm',
-      args: [
-        '--filter',
-        '@qaroom/promotion-ledger',
-        'exec',
-        'vitest',
-        'run',
-        '-t',
-        'a real red is never relabeled flaky',
-      ],
-    },
+    gate: vitestGate('@qaroom/promotion-ledger', 'a real red is never relabeled flaky'),
     evidence: { runner: '@qaroom/promotion-ledger', field: 'passed' },
     tier: 'simulate',
   },

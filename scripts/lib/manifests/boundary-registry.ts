@@ -117,7 +117,7 @@ const RAW: BoundaryEntry[] = [
     breaks:
       'an agent edits a test, neuters an oracle, drifts a generated artifact, or patches around a gate to force a green',
     leadTechnique:
-      'treat agent output as untrusted: mutation-killed assertions, the OpenAPI drift gate, and single-source invariant property gates the agent cannot game (tool-trajectory reverse-conformance deferred, ADR-0032)',
+      'treat agent output as untrusted: mutation-killed assertions, the OpenAPI drift gate, single-source invariant property gates the agent cannot game, and tool-use reverse-conformance over the qaroom-mcp agent trajectory (ADR-0032)',
     lanes: ['agentic'],
   },
 ]
