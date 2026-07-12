@@ -27,21 +27,21 @@
     "@qaroom/otel": "workspace:*",
     "@qaroom/service-kit": "workspace:*",
     "drizzle-orm": "^0.45.2",
-    "fastify": "^5.9.0",
+    "fastify": "^5.10.0",
     "postgres": "^3.4.0",
     "zod": "^4.0.0"
   },
   "devDependencies": {
-    "@electric-sql/pglite": "^0.5.3",
+    "@electric-sql/pglite": "^0.5.4",
     "@fast-check/vitest": "catalog:",
-    "@pact-foundation/pact": "^17.0.0",
+    "@pact-foundation/pact": "^17.0.1",
     "@qaroom/testing-utils": "workspace:*",
     "@vitest/coverage-v8": "catalog:",
     "@testcontainers/postgresql": "^12.0.4",
     "drizzle-kit": "^0.31.10",
     "fast-check": "catalog:",
-    "tsx": "^4.22.4",
-    "typescript": "^6.0.3",
+    "tsx": "^4.23.0",
+    "typescript": "^7.0.2",
     "vitest": "catalog:"
   }
 }
