@@ -20,7 +20,7 @@ import {
  * and proven blindness. Cells fold idempotently into test-results/detection-matrix.json.
  *
  *   pnpm matrix                      # plan + current cell status
- *   pnpm matrix --verify             # manifest census: every toggle's env is really read,
+ *   pnpm matrix --check              # manifest census: every toggle's env is really read,
  *                                    # and the declared guard matches the read site
  *   pnpm matrix --baseline           # record standing reds (same commit/seed) before any tier
  *   pnpm matrix --tier in-proc       # Tier A: ~17 toggles × full in-proc battery (~90 min)
@@ -59,7 +59,7 @@ function foldCells(artifact: DetectionMatrixArtifact, cells: MatrixCell[]): void
   artifact.cells = [...artifact.cells.filter((c) => !replaced.has(cellKey(c))), ...cells]
 }
 
-// ── --verify: the census — the manifest can never name a toggle nothing reads, and the
+// ── --check: the census — the manifest can never name a toggle nothing reads, and the
 // declared guard must match what the read site actually does (cheap heuristic greps, same
 // spirit as the env-name check): a node-env-gated read lives in a file that mentions NODE_ENV,
 // an unguarded one must not, and settings-load is exactly the pydantic settings-load timing. ──
@@ -76,7 +76,7 @@ const guardViolation = (toggle: DetectionToggle, src: string): string | null => 
   return null
 }
 
-if (args.includes('--verify')) {
+if (args.includes('--check')) {
   let bad = 0
   for (const toggle of TOGGLES) {
     const path = resolve(ROOT, toggle.readSite.file)

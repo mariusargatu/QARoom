@@ -138,7 +138,7 @@ jobs:
       # Detection-matrix drift gate (census half — in-proc, no live matrix run): the manifest <-> env
       # read sites. The rendered-matrix/SVG drift half runs in the _integration matrix lane.
       - name: Verify detection matrix (census only)
-        run: pnpm tsx scripts/detection-matrix.ts --verify
+        run: pnpm tsx scripts/detection-matrix.ts --check
 
       # Stress-experiment drift gate (T26, ADR-0039): docs/stress-experiment.md must agree with a fresh
       # render of the 5 instrumented metrics (derived-only).

@@ -214,7 +214,7 @@ Locally the same bar is `pnpm verify` (fast lane) and `pnpm gauntlet` (full). `p
 [`scripts/ci-verify-parity.test.ts`](scripts/ci-verify-parity.test.ts), which permits only a *named*
 delta set: CI adds `prove:adversarial` + the web component census; `pnpm verify` adds `anchored:coverage`
 (an advisory sidecar, not a merge gate) and the full `matrix:verify`, whose census half CI runs as
-`detection-matrix.ts --verify`. Typecheck runs via turbo in CI.
+`detection-matrix.ts --check`. Typecheck runs via turbo in CI.
 
 The merge bar (enforced by the dispatched lanes, and required of any PR before merge) is:
 

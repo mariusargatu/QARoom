@@ -28,10 +28,10 @@ const ALLOWED_DELTAS: Record<string, string> = {
   typecheck: 'runs via turbo in CI (moderator pyright is in the _integration lane)',
   // Advisory sidecar generator (ADR-0033), not a merge gate — deliberately not a CI step.
   'anchored:coverage': 'advisory sidecar (ADR-0033), not a CI gate by design',
-  // CI runs the census half as `pnpm tsx scripts/detection-matrix.ts --verify`; the rendered-matrix
+  // CI runs the census half as `pnpm tsx scripts/detection-matrix.ts --check`; the rendered-matrix
   // /SVG drift half runs in the _integration matrix lane, not the PR lane.
   'matrix:verify':
-    'census half runs in CI as detection-matrix.ts --verify; render half in _integration',
+    'census half runs in CI as detection-matrix.ts --check; render half in _integration',
 }
 
 describe('pnpm verify and the CI verify job stay in parity', () => {

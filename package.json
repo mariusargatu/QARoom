@@ -36,7 +36,7 @@
     "gauntlet:report": "tsx scripts/gauntlet-report.ts",
     "matrix": "tsx scripts/detection-matrix.ts",
     "matrix:render": "tsx scripts/render-detection-matrix.ts",
-    "matrix:verify": "tsx scripts/detection-matrix.ts --verify && tsx scripts/render-detection-matrix.ts --check",
+    "matrix:verify": "tsx scripts/detection-matrix.ts --check && tsx scripts/render-detection-matrix.ts --check",
     "jobs:gc-dedup": "pnpm --filter @qaroom/content exec tsx src/jobs/gc-dedup.ts",
     "jobs:gc-dedup:donations": "pnpm --filter @qaroom/donations exec tsx src/jobs/gc-dedup.ts",
     "jobs:gc-dedup:flags": "pnpm --filter @qaroom/flags exec tsx src/jobs/gc-dedup.ts",

@@ -10,7 +10,7 @@ export type { ToggleGuard, ToggleTiming } from './detection-matrix-schema'
  * of claims.ts: claims are the permanent gates; this manifest is the experiment's ground truth.
  *
  * The census rule: a toggle may only be listed if non-test code actually reads its env var
- * (`pnpm matrix --verify` greps each readSite, mirroring claims-verify's checkWired): the
+ * (`pnpm matrix --check` greps each readSite, mirroring claims-verify's checkWired): the
  * manifest can never name a toggle nothing reads. The same census checks each declared
  * `guard` against the read site, so guard metadata cannot drift from the code.
  *
