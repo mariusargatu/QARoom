@@ -126,6 +126,12 @@ jobs:
       - name: Registry census (boundary registry / gate roster has no orphans or drift)
         run: pnpm census
 
+      # ADR index drift gate (in-proc, no uv/cluster): the generated docs/adr/README.md must match the
+      # ADR files on disk. Previously this ran ONLY in local `pnpm verify`, so the index could drift on
+      # main with every CI check green — scripts/ci-verify-parity.test.ts pins that CI runs it.
+      - name: Verify ADR index (generated docs/adr/README.md matches the ADR files)
+        run: pnpm adr:index --check
+
       - name: Web component census (every atomic-design component has a CSF-factory story, ADR-0027)
         run: pnpm --filter @qaroom/web run census
 

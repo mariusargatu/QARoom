@@ -56,7 +56,13 @@ jobs:
           PR: ${{ github.event.pull_request.number }}
         run: |
           set -euo pipefail
-          PATHS='packages/contracts/ spec/ scripts/lib/manifests/claims.ts scripts/lib/manifests/detection-matrix.ts scripts/lib/manifests/boundary-registry.ts packages/testing-utils/src/generators/ packages/testing-utils/src/agentic/ scripts/stryker-critical.ts scripts/stryker-harness.ts scripts/prove.ts scripts/prove-adversarial.ts scripts/claims-verify.ts scripts/deriver-conformance.ts scripts/lib/claim-evidence.ts packages/promotion-ledger/src/verdict.ts packages/promotion-ledger/src/green-head.ts packages/promotion-ledger/src/ledger.ts docs/adr/0001-foundational-decisions.md'
+          # This diff filter MUST list the same paths as `on.pull_request.paths` above (a path that
+          # triggers the workflow but is absent here silently escapes the flag — the exact bug that hid
+          # `**/stryker.config.json`). scripts/invariant-guard-paths.test.ts asserts on.paths == PATHS
+          # (both normalized) and that both are a subset of CODEOWNERS, so the two lists can't drift
+          # again. `:(glob)**/stryker.config.json` uses git glob magic so `**` matches any depth even
+          # under the shell's unquoted expansion (globstar is off; a bare `**/…` would match nothing).
+          PATHS='packages/contracts/ spec/ scripts/lib/manifests/claims.ts scripts/lib/manifests/detection-matrix.ts scripts/lib/manifests/boundary-registry.ts packages/testing-utils/src/generators/ packages/testing-utils/src/agentic/ scripts/stryker-critical.ts scripts/stryker-harness.ts :(glob)**/stryker.config.json scripts/prove.ts scripts/prove-adversarial.ts scripts/claims-verify.ts scripts/deriver-conformance.ts scripts/lib/claim-evidence.ts packages/promotion-ledger/src/verdict.ts packages/promotion-ledger/src/green-head.ts packages/promotion-ledger/src/ledger.ts docs/adr/0001-foundational-decisions.md'
           changed=$(git diff --name-only "$BASE_SHA" "$HEAD_SHA" -- $PATHS || true)
           if [ -z "$changed" ]; then
             echo "No invariant sources touched." | tee -a "$GITHUB_STEP_SUMMARY"

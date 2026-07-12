@@ -104,6 +104,7 @@ where there is no hard gate, the row says so rather than claim one.
 | `Math.random()` / `crypto.randomUUID()` → `randomness.next()` / `idGenerator.next()` | lint `qaroom/no-unseeded-random` |
 | `expect(x).toMatchSnapshot()` → a typed assertion vs an explicit expected value | lint `qaroom/no-snapshot` |
 | `if` / `try-catch` to branch an assertion in a test → two tests, one per case | lint `qaroom/no-conditional-in-test` |
+| a test title that says "works" / only names the function under test → a title stating the invariant | lint `qaroom/test-name-shape` |
 | `export *` for a non-public API → named re-exports | lint `qaroom/no-public-barrel` |
 | a raw `qaroom.…` subject literal → a `subjects.ts` builder (`community_id` fixed at position 3; grammar `qaroom.<service>.<entity>.<community_id>.<event>`) | lint `qaroom/no-raw-nats-subject` + `pnpm asyncapi:verify` |
 | `: any` in non-test code → `unknown`, then narrow | biome `noExplicitAny` |
@@ -208,7 +209,12 @@ CI is **trigger-scoped** ([ADR-0040](docs/adr/0040-trigger-scoped-ci-pipeline.md
 - **`evals.yml`** (weekly `schedule` + dispatch) — the cost-bounded keyed eval tier alone (consumes `secrets.OPENAI_API_KEY`; honest-skips without it).
 - **`security.yml`** / **`frontend-perf.yml`** — dispatch + `workflow_call` (folded into the nightly run). **`pages.yml`** — push to `main` (scoped to `site/**`), deploys the static site, no build/test lane.
 
-Locally the same bar is `pnpm verify` (fast lane, mirrors the CI `verify` job) and `pnpm gauntlet` (full).
+Locally the same bar is `pnpm verify` (fast lane) and `pnpm gauntlet` (full). `pnpm verify` and the CI
+`verify` job run the same core drift gates, pinned in parity by
+[`scripts/ci-verify-parity.test.ts`](scripts/ci-verify-parity.test.ts), which permits only a *named*
+delta set: CI adds `prove:adversarial` + the web component census; `pnpm verify` adds `anchored:coverage`
+(an advisory sidecar, not a merge gate) and the full `matrix:verify`, whose census half CI runs as
+`detection-matrix.ts --verify`. Typecheck runs via turbo in CI.
 
 The merge bar (enforced by the dispatched lanes, and required of any PR before merge) is:
 
@@ -229,7 +235,9 @@ If still unsure, do not invent. Open a discussion in the PR or wait for input.
 Current-milestone essentials (full layout, including the Milestone 5–6 E2E/MBT/component/chaos
 conventions, lives in `packages/testing-utils/AGENTS.md`):
 
-- **Co-located unit tests:** `src/foo.ts` ↔ `src/foo.test.ts`. **Integration:** `src/foo.spec.ts`.
+- **Co-located unit tests:** `src/foo.ts` ↔ `src/foo.test.ts`. **Integration:** `src/foo.spec.ts`. (This
+  `.test`/`.spec` split is a *navigational* convention — it is **not** gate-enforced; nothing separates the
+  tiers and coverage/lint treat both identically. A real selector would be a vitest project keyed on `*.spec.ts`.)
 - **Property tests:** alongside unit tests, named `*.property.test.ts`.
 - **Contract tests:** `services/<consumer>/tests/contracts/`; provider verification in the provider.
 - **Generators, matchers, harness:** `packages/testing-utils/`, reach for an existing one first.
