@@ -91,6 +91,13 @@ serviceAccount:
   create: true
   name: ""
 
+# Pod/container hardening for our own images (deployment.yaml, gc-cronjob.yaml — see _helpers.tpl).
+# 10001 is an arbitrary high UID/GID (avoids colliding with any host user; CKV_K8S_40) that has no
+# meaning inside the node/python base images beyond "not root" — nothing in either image chowns
+# files to a named user, so any UID works as long as it isn't 0.
+securityContext:
+  runAsUser: 10001
+
 # Per-service Postgres StatefulSet. content/identity = true; gateway = false.
 postgres:
   enabled: false

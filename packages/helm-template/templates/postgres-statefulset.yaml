@@ -3,9 +3,16 @@ apiVersion: apps/v1
 kind: StatefulSet
 metadata:
   name: {{ include "qaroom-service.pgFullname" . }}
+  namespace: {{ .Release.Namespace }}
   labels:
     {{- include "qaroom-service.labels" . | nindent 4 }}
     qaroom.io/component: postgres
+  annotations:
+    checkov.io/skip1: CKV_K8S_23=upstream postgres image's entrypoint starts as root then gosu's into its own postgres user
+    checkov.io/skip2: CKV_K8S_40=same startup sequence as skip1 — forcing a fixed non-default UID would break the image's own user switch
+    checkov.io/skip3: CKV_K8S_22=postgres writes to /var/run/postgresql and /tmp beyond the PGDATA volume already mounted; no dedicated volumes plumbed for those yet
+    checkov.io/skip4: CKV_K8S_15=dev-only per-service Postgres (ADR-0009), not a production deployment
+    checkov.io/skip5: CKV_K8S_43=same dev-only scope as skip4
 spec:
   serviceName: {{ include "qaroom-service.pgFullname" . }}
   replicas: 1
@@ -19,9 +26,15 @@ spec:
         {{- include "qaroom-service.selectorLabels" . | nindent 8 }}
         qaroom.io/component: postgres
     spec:
+      automountServiceAccountToken: false
+      securityContext:
+        seccompProfile:
+          type: RuntimeDefault
       containers:
         - name: postgres
           image: {{ .Values.postgres.image }}
+          securityContext:
+            {{- include "qaroom-service.postgresSecurityContext" . | nindent 12 }}
           ports:
             - name: postgres
               containerPort: 5432

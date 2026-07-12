@@ -181,7 +181,7 @@ jobs:
           mkdir -p scan-target/rendered
           cp -R deploy scan-target/deploy
           for svc in content identity gateway moderator-agent webhooks; do
-            helm template "$svc" packages/helm-template -f "deploy/$svc/values.yaml" \
+            helm template "$svc" packages/helm-template --namespace qaroom -f "deploy/$svc/values.yaml" \
               > "scan-target/rendered/$svc.yaml"
           done
       - name: Checkov (IaC/K8s misconfig) on deploy/** + rendered manifests -> SARIF

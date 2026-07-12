@@ -2,8 +2,19 @@ apiVersion: apps/v1
 kind: Deployment
 metadata:
   name: {{ include "qaroom-service.fullname" . }}
+  namespace: {{ .Release.Namespace }}
   labels:
     {{- include "qaroom-service.labels" . | nindent 4 }}
+  annotations:
+    # No registry backs these images — kind load pushes a freshly built local image straight into
+    # the cluster, so there is nothing to pull "Always" and no digest to pin (CKV_K8S_14/15/43).
+    checkov.io/skip1: CKV_K8S_14=local kind-loaded image, no registry to tag beyond `latest`
+    checkov.io/skip2: CKV_K8S_15=local kind-loaded image, IfNotPresent/Never by design (no registry to pull Always from)
+    checkov.io/skip3: CKV_K8S_43=local kind-loaded image, no registry to resolve a digest against
+    # Not enabled: unverified across all five services without a live cluster check — moderator-
+    # agent's transformers/tokenizers stack in particular needs a writable HF cache dir that no
+    # image declares yet. Tracked as a real gap, not silently accepted (CKV_K8S_22).
+    checkov.io/skip4: CKV_K8S_22=no writable-cache volume plumbed for moderator-agent's ML stack yet
 spec:
   replicas: {{ .Values.replicaCount }}
   # Zero-unavailability rolling update (T13). maxUnavailable:0 keeps the desired replica count up
@@ -34,10 +45,16 @@ spec:
       {{- end }}
     spec:
       serviceAccountName: {{ include "qaroom-service.serviceAccountName" . }}
+      # No service calls the K8s API — nothing needs its own token mounted (CKV_K8S_38).
+      automountServiceAccountToken: false
+      securityContext:
+        {{- include "qaroom-service.podSecurityContext" . | nindent 8 }}
       containers:
         - name: {{ include "qaroom-service.name" . }}
           image: "{{ .Values.image.repository }}:{{ .Values.image.tag }}"
           imagePullPolicy: {{ .Values.image.pullPolicy }}
+          securityContext:
+            {{- include "qaroom-service.containerSecurityContext" . | nindent 12 }}
           ports:
             - name: http
               containerPort: {{ .Values.container.port }}

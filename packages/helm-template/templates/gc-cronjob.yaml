@@ -10,9 +10,17 @@ apiVersion: batch/v1
 kind: CronJob
 metadata:
   name: {{ include "qaroom-service.fullname" . }}-gc-dedup
+  namespace: {{ .Release.Namespace }}
   labels:
     {{- include "qaroom-service.labels" . | nindent 4 }}
     qaroom.io/component: gc-dedup
+  annotations:
+    checkov.io/skip1: CKV_K8S_14=local kind-loaded image, no registry to tag beyond `latest`
+    checkov.io/skip2: CKV_K8S_15=local kind-loaded image, IfNotPresent/Never by design (no registry to pull Always from)
+    checkov.io/skip3: CKV_K8S_43=local kind-loaded image, no registry to resolve a digest against
+    checkov.io/skip4: CKV_K8S_22=no writable-cache volume plumbed for moderator-agent's ML stack yet
+    checkov.io/skip5: CKV_K8S_8=one-shot batch Job with restartPolicy Never; activeDeadlineSeconds is its liveness bound, not a probe
+    checkov.io/skip6: CKV_K8S_9=one-shot batch Job with restartPolicy Never has no long-lived process for a readiness probe to poll
 spec:
   schedule: {{ .Values.gc.schedule | quote }}
   concurrencyPolicy: Forbid
@@ -34,6 +42,9 @@ spec:
         spec:
           restartPolicy: Never
           serviceAccountName: {{ include "qaroom-service.serviceAccountName" . }}
+          automountServiceAccountToken: false
+          securityContext:
+            {{- include "qaroom-service.podSecurityContext" . | nindent 12 }}
           containers:
             - name: gc-dedup
               # Defaults to the service image. Override gc.image with a restart-free `-gc`
@@ -41,6 +52,8 @@ spec:
               # (CI loads plain images, so the override there is honored as-is).
               image: "{{ .Values.gc.image | default .Values.image.repository }}:{{ .Values.image.tag }}"
               imagePullPolicy: {{ .Values.image.pullPolicy }}
+              securityContext:
+                {{- include "qaroom-service.containerSecurityContext" . | nindent 16 }}
               command: ["pnpm", "--filter", {{ .Values.gc.package | quote }}, "exec", "tsx", "src/jobs/gc-dedup.ts"]
               env:
                 - name: NODE_ENV
