@@ -70,6 +70,24 @@ function runBreak(claim: Claim): number {
     return 2
   }
   const red = run.status !== 0 // a non-zero gate = the guarantee test FAILED = the bug was caught
+  // …BUT a live/k6 gate can also exit non-zero because the load driver could not REACH the target at
+  // all (a port-forward that binds loopback while k6 runs in docker; a pod mid-rollout). That is a
+  // TRANSPORT failure, not the guarantee being caught: the gate never exercised the SLO/invariant, so
+  // reporting it as "falsifiable" is a false RED (the exact mislabel the 2026-07-10 audit found on the
+  // outbox live claim, where k6 got `connection refused` yet the run read as caught). Classify it as
+  // status 2 — "gate could not run" — the same honest bucket as a missing `uv`, so claims-verify never
+  // banks a live claim's teeth on a run that never connected. These markers do not appear when an
+  // in-process gate legitimately reds (a vitest assertion failure carries none of them).
+  const output = `${run.stdout ?? ''}${run.stderr ?? ''}`
+  const TRANSPORT_FAILURE =
+    /connection refused|dial tcp|ECONNREFUSED|EHOSTUNREACH|no route to host|could not resolve host|context deadline exceeded|i\/o timeout/i
+  if (red && TRANSPORT_FAILURE.test(output)) {
+    process.stdout.write(
+      `  ${c.amber('✗ GATE COULD NOT RUN')}: the target was unreachable (transport failure), not a caught guarantee failure.\n` +
+        `  ${c.dim('a connection error is not a falsification — the gate never exercised the guarantee. Re-run against a reachable, primed target (the gauntlet cluster lane).')}\n`,
+    )
+    return 2
+  }
   if (red) {
     const tail = `${run.stdout ?? ''}${run.stderr ?? ''}`
       .split('\n')

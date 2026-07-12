@@ -7,6 +7,13 @@
 #   scripts/with-port-forward.sh observability/qaroom-tracetest:11633:11633,gateway:18090:80 -- cmd
 #
 # Default namespace: qaroom (override per-spec with the ns/ prefix). Exit code is the command's.
+#
+# Binding address: forwards bind WPF_ADDRESS (default 0.0.0.0). This is load-bearing for the
+# docker-based gates (e.g. the outbox live-claim k6 run, which reaches the forward via
+# host.docker.internal / the Docker host gateway): a 127.0.0.1-only bind REFUSES that connection, so
+# the k6 run failed on transport and `prove --break` mislabelled the transport error a caught SLO
+# breach (the false-RED the 2026-07-10 audit found). 0.0.0.0 still serves localhost, so host-side
+# callers (the Jaeger tenant-span audit) are unaffected. Override with WPF_ADDRESS=127.0.0.1.
 set -uo pipefail
 
 if [[ $# -lt 3 ]]; then
@@ -39,7 +46,7 @@ for spec in "${FORWARDS[@]}"; do
     rest="${spec#*/}"
   fi
   IFS=':' read -r svc lport rport <<<"$rest"
-  kubectl -n "$ns" port-forward "svc/${svc}" "${lport}:${rport}" >/dev/null 2>&1 &
+  kubectl -n "$ns" port-forward --address "${WPF_ADDRESS:-0.0.0.0}" "svc/${svc}" "${lport}:${rport}" >/dev/null 2>&1 &
   PIDS+=($!)
 done
 
