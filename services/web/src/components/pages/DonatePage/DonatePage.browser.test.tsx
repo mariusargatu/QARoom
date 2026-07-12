@@ -8,7 +8,7 @@ import {
   EXAMPLE_USER_ID,
   FlagResolution,
 } from '@qaroom/contracts'
-import { TESTID } from '@qaroom/testing-utils/screenplay'
+import { TESTID } from '@qaroom/testing-utils/testids'
 import { Route, Routes } from 'react-router-dom'
 import { expect, test, vi } from 'vitest'
 import { render } from 'vitest-browser-react'

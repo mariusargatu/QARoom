@@ -1,4 +1,4 @@
-import { TESTID } from '@qaroom/testing-utils/screenplay'
+import { TESTID } from '@qaroom/testing-utils/testids'
 import { useState } from 'react'
 import { Button } from '../components/atoms/Button'
 

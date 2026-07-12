@@ -21,4 +21,5 @@ export type { Task } from './task'
 export { advanceRollout } from './tasks/advance-rollout'
 export { castDonation } from './tasks/cast-donation'
 export { clickTheButton } from './tasks/click-the-button'
-export { TESTID } from './testids'
+// TESTID is NOT re-exported here: its one public path is `@qaroom/testing-utils/testids`
+// (services/web/AGENTS.md). Importing it via this barrel was a second path for one concept.
