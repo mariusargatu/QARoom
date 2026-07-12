@@ -51,29 +51,33 @@ runs:
         df -h /
 
     - name: Install Helm
-      uses: azure/setup-helm@v4
+      uses: azure/setup-helm@1a275c3b69536ee54be43f2070a358922e12c8d4 # v4
       with:
         version: v4.1.1
 
     - name: Create the KinD cluster
-      uses: helm/kind-action@v1
+      uses: helm/kind-action@ef37e7f390d99f746eb8b610417061a60e82a6cc # v1
       with:
         cluster_name: qaroom
 
     - name: Build + load service images
       shell: bash
+      env:
+        SERVICES: ${{ inputs.services }}
       run: |
-        for svc in ${{ inputs.services }}; do
+        for svc in $SERVICES; do
           docker build -f services/$svc/Dockerfile -t qaroom/$svc:latest .
           kind load docker-image qaroom/$svc:latest --name qaroom
         done
 
     - name: Namespaces + observability
       shell: bash
+      env:
+        OBSERVABILITY: ${{ inputs.observability }}
       run: |
         kubectl create namespace qaroom
         kubectl create namespace observability
-        if [ "${{ inputs.observability }}" = "full" ]; then
+        if [ "$OBSERVABILITY" = "full" ]; then
           kubectl apply -f deploy/observability/
         else
           # core: everything except langfuse (the ClickHouse/MinIO/Redis/web/worker stack)
@@ -90,12 +94,16 @@ runs:
 
     - name: Install services (images pulled locally via kind load)
       shell: bash
+      env:
+        SERVICES: ${{ inputs.services }}
       run: |
-        for svc in ${{ inputs.services }}; do
+        for svc in $SERVICES; do
           helm install $svc packages/helm-template -n qaroom \
             -f deploy/$svc/values.yaml --set image.pullPolicy=Never
         done
 
     - name: Wait for pod readiness
       shell: bash
-      run: kubectl wait --for=condition=ready pod --all -n qaroom --timeout=${{ inputs.pod-wait-timeout }}
+      env:
+        POD_WAIT_TIMEOUT: ${{ inputs.pod-wait-timeout }}
+      run: kubectl wait --for=condition=ready pod --all -n qaroom --timeout="$POD_WAIT_TIMEOUT"

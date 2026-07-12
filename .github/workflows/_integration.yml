@@ -32,9 +32,9 @@ jobs:
         options: >-
           --health-cmd "pg_isready -U qaroom" --health-interval 5s --health-timeout 5s --health-retries 10
     steps:
-      - uses: actions/checkout@v7
+      - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7
       - uses: ./.github/actions/setup-workspace
-      - uses: astral-sh/setup-uv@v7
+      - uses: astral-sh/setup-uv@37802adc94f370d6bfd71619e3f0bf239e1f3b78 # v7
         with:
           version: "0.8.15"
       - name: Aggregate the in-proc summary (the runners the claims' evidence resolves against)
@@ -61,7 +61,7 @@ jobs:
       matrix:
         provider: [content, identity, donations, flags, webhooks]
     steps:
-      - uses: actions/checkout@v7
+      - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7
       - uses: ./.github/actions/setup-workspace
       - name: Pact provider verification (${{ matrix.provider }})
         run: pnpm pact:verify --provider ${{ matrix.provider }}
@@ -73,7 +73,7 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 30
     steps:
-      - uses: actions/checkout@v7
+      - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7
       - uses: ./.github/actions/setup-workspace
       - name: Start Postgres + NATS
         run: docker compose -f services/content/docker-compose.yaml up -d --wait
@@ -114,7 +114,7 @@ jobs:
             db: postgres://qaroom:qaroom@localhost:5436/qaroom_webhooks
             port: 8087
     steps:
-      - uses: actions/checkout@v7
+      - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7
       - uses: ./.github/actions/setup-workspace
       - name: Start ${{ matrix.service }} Postgres
         run: docker compose -f ${{ matrix.compose }} up -d --wait
@@ -145,7 +145,7 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 30
     steps:
-      - uses: actions/checkout@v7
+      - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7
       - uses: ./.github/actions/setup-workspace
       - name: Install Chromium
         run: pnpm --filter @qaroom/web exec playwright install --with-deps chromium
@@ -169,9 +169,9 @@ jobs:
         options: >-
           --health-cmd "pg_isready -U qaroom" --health-interval 5s --health-timeout 5s --health-retries 10
     steps:
-      - uses: actions/checkout@v7
+      - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7
       - uses: ./.github/actions/setup-workspace
-      - uses: astral-sh/setup-uv@v7
+      - uses: astral-sh/setup-uv@37802adc94f370d6bfd71619e3f0bf239e1f3b78 # v7
         with:
           version: "0.8.15"
       - name: Lint (ruff)
@@ -192,7 +192,7 @@ jobs:
         run: pnpm moderator:results || true
       - name: Upload moderator pytest report partial
         if: always()
-        uses: actions/upload-artifact@v7
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
         with:
           name: partial-moderator
           path: services/moderator-agent/test-results/pytest-summary.json
@@ -204,8 +204,8 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 30
     steps:
-      - uses: actions/checkout@v7
-      - uses: azure/setup-helm@v5
+      - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7
+      - uses: azure/setup-helm@9bc31f4ebc9c6b171d7bfbaa5d006ae7abdb4310 # v5
         with:
           version: v4.1.1
       - name: Install kubeconform
@@ -230,7 +230,7 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 30
     steps:
-      - uses: actions/checkout@v7
+      - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7
       - uses: ./.github/actions/setup-workspace
       - uses: ./.github/actions/cluster-up
         with:
@@ -256,7 +256,7 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 30
     steps:
-      - uses: actions/checkout@v7
+      - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7
       - uses: ./.github/actions/setup-workspace
       - uses: ./.github/actions/cluster-up
         with:
@@ -283,7 +283,7 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 30
     steps:
-      - uses: actions/checkout@v7
+      - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7
       - uses: ./.github/actions/setup-workspace
       - name: Install Chromium
         run: pnpm --filter @qaroom/web exec playwright install --with-deps chromium
@@ -296,14 +296,14 @@ jobs:
         run: pnpm --filter @qaroom/web run test:component:results
       - name: Upload the web-component Vitest report partial
         if: always()
-        uses: actions/upload-artifact@v7
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
         with:
           name: partial-web-component
           path: services/web/test-results/component.json
           if-no-files-found: warn
       - name: Upload the web coverage partials (story + component V8; also human-inspectable)
         if: always()
-        uses: actions/upload-artifact@v7
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
         with:
           name: partial-web-coverage
           path: |
@@ -318,7 +318,7 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 30
     steps:
-      - uses: actions/checkout@v7
+      - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7
       - name: Visual-regression gate (pinned container)
         run: |
           docker build -f services/web/Dockerfile.visual -t qaroom/visual .
@@ -330,7 +330,7 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 30
     steps:
-      - uses: actions/checkout@v7
+      - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7
       - uses: ./.github/actions/setup-workspace
       - name: Coverage floor gate
         run: pnpm coverage

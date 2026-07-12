@@ -39,7 +39,7 @@ jobs:
   lighthouse:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v7
+      - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7
       - uses: ./.github/actions/setup-workspace
       - name: Build the web app (tsc + vite build)
         run: pnpm --filter @qaroom/web build
@@ -47,7 +47,7 @@ jobs:
         run: pnpm dlx @lhci/cli@0.15.1 autorun
       - name: Upload Lighthouse reports
         if: always()
-        uses: actions/upload-artifact@v7
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
         with:
           name: partial-lighthouse
           path: |
@@ -59,7 +59,7 @@ jobs:
   bundle-budget:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v7
+      - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7
       - uses: ./.github/actions/setup-workspace
       - name: Build the web app (tsc + vite build)
         run: pnpm --filter @qaroom/web build
@@ -72,7 +72,7 @@ jobs:
   k6-soak-stress:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v7
+      - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7
       - uses: ./.github/actions/setup-workspace
       - name: Start Postgres + NATS (compose waits for both healthchecks)
         run: docker compose -f services/content/docker-compose.yaml up -d --wait
@@ -104,7 +104,7 @@ jobs:
         run: pnpm k6:results
       - name: Upload k6 soak/stress partials + folded summary
         if: always()
-        uses: actions/upload-artifact@v7
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
         with:
           name: partial-frontend-perf-k6
           path: |

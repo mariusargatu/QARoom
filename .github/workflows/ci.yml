@@ -37,7 +37,7 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 20
     steps:
-      - uses: actions/checkout@v7
+      - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7
 
       # Lint the workflow YAML itself (expressions, needs/if/matrix graph, runner labels, and — via
       # the runner's preinstalled shellcheck — the `run:` shell blocks). Cheap, and now load-bearing:
@@ -150,7 +150,7 @@ jobs:
       # scheduled/release _envelope job reuses it as the base when present.
       - name: Upload the in-proc base summary partial
         if: always()
-        uses: actions/upload-artifact@v7
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
         with:
           name: partial-verify
           path: test-results/summary.json

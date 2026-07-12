@@ -104,8 +104,8 @@ jobs:
       contents: read
       security-events: write
     steps:
-      - uses: actions/checkout@v7
-      - uses: actions/setup-python@v6
+      - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7
+      - uses: actions/setup-python@ece7cb06caefa5fff74198d8649806c4678c61a1 # v6
         with:
           python-version: '3.13'
       - name: Install Semgrep (pinned — bump deliberately)
@@ -116,13 +116,13 @@ jobs:
         run: semgrep scan --config=p/ci --sarif --output=semgrep.sarif --metrics=off
       - name: Upload SARIF to the code-scanning Security tab (best-effort)
         continue-on-error: true
-        uses: github/codeql-action/upload-sarif@v4
+        uses: github/codeql-action/upload-sarif@99df26d4f13ea111d4ec1a7dddef6063f76b97e9 # v4
         with:
           sarif_file: semgrep.sarif
           category: semgrep
       - name: Upload the Semgrep SARIF as a workflow artifact (evidence)
         if: always()
-        uses: actions/upload-artifact@v7
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
         with:
           name: scan-semgrep-sarif
           path: semgrep.sarif
@@ -138,7 +138,7 @@ jobs:
       contents: read
       security-events: write
     steps:
-      - uses: actions/checkout@v7
+      - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7
       - name: Install osv-scanner (pinned — bump deliberately; mirrors the kubeconform install)
         run: |
           curl -sSL https://github.com/google/osv-scanner/releases/download/v2.4.0/osv-scanner_linux_amd64 \
@@ -150,13 +150,13 @@ jobs:
         run: '"$RUNNER_TEMP/osv-scanner" scan --recursive --format sarif ./ > osv-scanner.sarif'
       - name: Upload SARIF to the code-scanning Security tab (best-effort)
         continue-on-error: true
-        uses: github/codeql-action/upload-sarif@v4
+        uses: github/codeql-action/upload-sarif@99df26d4f13ea111d4ec1a7dddef6063f76b97e9 # v4
         with:
           sarif_file: osv-scanner.sarif
           category: osv-scanner
       - name: Upload the osv-scanner SARIF as a workflow artifact (evidence)
         if: always()
-        uses: actions/upload-artifact@v7
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
         with:
           name: scan-osv-scanner-sarif
           path: osv-scanner.sarif
@@ -172,8 +172,8 @@ jobs:
       contents: read
       security-events: write
     steps:
-      - uses: actions/checkout@v7
-      - uses: azure/setup-helm@v5
+      - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7
+      - uses: azure/setup-helm@9bc31f4ebc9c6b171d7bfbaa5d006ae7abdb4310 # v5
         with:
           version: v4.1.1
       - name: Render the shared Helm chart per service (the real K8s manifests Checkov checks)
@@ -185,7 +185,7 @@ jobs:
               > "scan-target/rendered/$svc.yaml"
           done
       - name: Checkov (IaC/K8s misconfig) on deploy/** + rendered manifests -> SARIF
-        uses: bridgecrewio/checkov-action@v12
+        uses: bridgecrewio/checkov-action@7b972723c44fb3d256283fac96fae5d7c1894bb7 # v12
         with:
           directory: scan-target
           framework: kubernetes
@@ -195,13 +195,13 @@ jobs:
           soft_fail: true
       - name: Upload SARIF to the code-scanning Security tab (best-effort)
         continue-on-error: true
-        uses: github/codeql-action/upload-sarif@v4
+        uses: github/codeql-action/upload-sarif@99df26d4f13ea111d4ec1a7dddef6063f76b97e9 # v4
         with:
           sarif_file: results.sarif
           category: checkov
       - name: Upload the Checkov SARIF as a workflow artifact (evidence)
         if: always()
-        uses: actions/upload-artifact@v7
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
         with:
           name: scan-checkov-sarif
           path: results.sarif
@@ -216,9 +216,9 @@ jobs:
     permissions:
       contents: read
     steps:
-      - uses: actions/checkout@v7
+      - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7
       - name: Generate an SPDX SBOM with Syft (anchore/sbom-action)
-        uses: anchore/sbom-action@v0
+        uses: anchore/sbom-action@e22c389904149dbc22b58101806040fa8d37a610 # v0
         with:
           path: .
           format: spdx-json
@@ -246,7 +246,7 @@ jobs:
       - name: OWASP ZAP baseline scan against the supplied edge -> report artifact
         if: inputs.zap_target != ''
         # Informational baseline: alerts do not red the lane (cmd_options -I), matching the POSTURE above.
-        uses: zaproxy/action-baseline@v0.15.0
+        uses: zaproxy/action-baseline@de8ad967d3548d44ef623df22cf95c3b0baf8b25 # v0.15.0
         with:
           target: ${{ inputs.zap_target }}
           cmd_options: '-I'
