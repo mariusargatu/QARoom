@@ -48,6 +48,12 @@ jobs:
           # NON-root user (`generatr`), which cannot create build/ in the runner-owned checkout —
           # so pre-create the output dir world-writable before the container writes into it.
           mkdir -p build/site && chmod -R 777 build
+          # structurizr-site-generatr reads each ADR filename's numeric prefix as its id, so any
+          # non-ADR file in docs/adr crashes the whole build (README.md parses "READ" -> a
+          # NumberFormatException, which broke every deploy since the generated index landed). Drop
+          # the generated ADR index from THIS ephemeral build only; it stays in the repo for GitHub
+          # folder rendering and the adr-index gate.
+          rm -f docs/adr/README.md
           docker run --rm -v "$PWD:/var/model" \
             ghcr.io/avisi-cloud/structurizr-site-generatr@sha256:dc91858de351d430e92fb0f72c1580e7827f52c37f67d1dcd8a3b4d23b34c472 \
             generate-site -w docs/structurizr/workspace.dsl
