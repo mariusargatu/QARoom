@@ -19,7 +19,7 @@
     "./mbt": "./src/screenplay/mbt/index.ts",
     "./testids": "./src/screenplay/testids.ts",
     "./vitest-timeouts": "./src/vitest-timeouts.ts",
-    "./vitest-config": "./src/vitest-base.ts",
+    "./vitest-config": "./src/vitest-config.ts",
     "./http": "./src/http/mock-upstream.ts",
     "./scenario": "./src/scenario/index.ts",
     "./agentic": "./src/agentic/index.ts"
