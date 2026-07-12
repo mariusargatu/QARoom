@@ -305,7 +305,12 @@ const RAW: Claim[] = [
         '--',
         'env',
         'JAEGER_QUERY_URL=http://localhost:16686',
-        'TENANT_SPAN_LOOKBACK=15m',
+        // Deterministic falsifier mode (check-tenant-spans.ts): audit only spans that START after
+        // arming, polling until the always-on flags outbox relay emits fresh ones. Whole-window mode
+        // (LOOKBACK alone) can read pre-arm clean spans and false-green — the load-induced flake the
+        // audit's own docstring warns of, and why the ad-hoc `prove --break` path was not self-contained.
+        'TENANT_SPAN_SINCE_START=1',
+        'TENANT_SPAN_LOOKBACK=5m',
         'pnpm',
         'check:tenant-spans',
       ],
