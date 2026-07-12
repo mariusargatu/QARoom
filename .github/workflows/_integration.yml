@@ -260,22 +260,22 @@ jobs:
       - uses: ./.github/actions/setup-workspace
       - uses: ./.github/actions/cluster-up
         with:
-          services: content identity flags donations gateway
+          # webhooks is up too: it owns a tracetest spec (webhook-create-coherent-trace) and, being a
+          # pure consumer of all five channels, must be running for that trace to complete.
+          services: content identity flags donations gateway webhooks
           pod-wait-timeout: "240s"
       - name: Install the Tracetest CLI
         run: curl -L https://raw.githubusercontent.com/kubeshop/tracetest/main/install-cli.sh | sudo bash
-      - name: Assert the full Tracetest suite (all 5 trace-based tests)
+      - name: Assert the full Tracetest suite (every on-disk trace spec) + fold evidence
         run: |
           kubectl port-forward -n observability svc/qaroom-tracetest 11633:11633 &
           for _ in $(seq 1 30); do curl -fs http://localhost:11633 >/dev/null && break; sleep 2; done
           tracetest configure --server-url http://localhost:11633
-          # Unique per-run id so the rollout/donation tests don't hit idempotent replay.
-          RUN_ID=$(date +%s)
-          tracetest run test -f services/content/tests/tracetest/post-created-publish.yaml --wait-for-result
-          tracetest run test -f services/content/tests/tracetest/feed-read.yaml --wait-for-result
-          tracetest run test -f services/content/tests/tracetest/create-missing-idempotency-key.yaml --wait-for-result
-          tracetest run test -f services/flags/tests/tracetest/rollout-transition.yaml --vars runId="$RUN_ID" --wait-for-result
-          tracetest run test -f services/donations/tests/tracetest/donation-create-publish.yaml --vars runId="$RUN_ID" --wait-for-result
+          # `pnpm tracetest:results` discovers every services/*/tests/tracetest/*.yaml (so a new spec
+          # cannot be orphaned), uses the current-CLI --vars varset with a unique runId (dodging
+          # idempotent replay), and folds a `tracetest` runner into summary.json. The old inline list
+          # used the removed --wait-for-result syntax and omitted the webhooks spec.
+          TRACETEST_RUN_ID=$(date +%s) pnpm tracetest:results
 
   # Screenplay component tests in Vitest browser mode + story coverage (ADR-0027). One browser runtime,
   # one V8 coverage source. Folds web-component + coverage runners and uploads their partials.

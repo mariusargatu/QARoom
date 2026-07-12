@@ -2,33 +2,31 @@ import { spawnSync } from 'node:child_process'
 import { writeFileSync } from 'node:fs'
 import { resolve } from 'node:path'
 import { foldRunner } from './lib/fold-runner'
+import { discoverTracetestDefs } from './lib/tracetest-defs'
 
 /**
- * Run the Tracetest suite (the same five defs as the CI tracetest job) against a live cluster and
- * fold the outcome into the frozen test-results/summary.json envelope as a `tracetest` runner.
- * Until now the trace-based layer lived only as a CI job, so it never appeared in the summary
- * (the "evidence fragmentation" gap). The invocation is lifted verbatim from ci.yml — verdicts
+ * Run the Tracetest suite against a live cluster and fold the outcome into the frozen
+ * test-results/summary.json envelope as a `tracetest` runner. Until now the trace-based layer lived
+ * only as a CI job, so it never appeared in the summary (the "evidence fragmentation" gap). Verdicts
  * key on the CLI exit code, the signal CI already gates on.
+ *
+ * The suite is DISCOVERED from disk (every services/*​/tests/tracetest/*.yaml), not a hand-list — so
+ * a new spec can never be orphaned the way the webhooks trace spec once was (2026-07-10 audit). The
+ * CI tracetest lane calls this same script (`pnpm tracetest:results`), so the two can't drift.
  *
  * Prerequisites: a reachable Tracetest server. With TRACETEST_SERVER_URL set the script runs
  * `tracetest configure` first; otherwise it assumes the CLI is already configured (CI pattern:
  * port-forward svc/qaroom-tracetest 11633 and configure once).
  *
- *   pnpm tracetest:results                                       # all five defs
+ *   pnpm tracetest:results                                       # every on-disk def
  *   pnpm tracetest:results services/content/tests/tracetest/feed-read.yaml
  */
 const ROOT = process.cwd()
 const summaryPath = resolve(ROOT, 'test-results/summary.json')
 
-// The committed suite (mirrors ci.yml). Defs with `${var:runId}` need a unique per-run id so
-// their Idempotency-Key does not hit idempotent replay and suppress the transition.
-const DEFAULT_DEFS: string[] = [
-  'services/content/tests/tracetest/post-created-publish.yaml',
-  'services/content/tests/tracetest/feed-read.yaml',
-  'services/content/tests/tracetest/create-missing-idempotency-key.yaml',
-  'services/flags/tests/tracetest/rollout-transition.yaml',
-  'services/donations/tests/tracetest/donation-create-publish.yaml',
-]
+// The committed suite = every spec on disk. Defs with `${var:runId}` need a unique per-run id so
+// their Idempotency-Key does not hit idempotent replay and suppress the transition (handled below).
+const DEFAULT_DEFS: string[] = discoverTracetestDefs(ROOT)
 
 const cli = process.argv.slice(2)
 const defs: string[] = cli.length > 0 ? cli : DEFAULT_DEFS
