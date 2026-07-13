@@ -23,7 +23,7 @@ Read the repo-root `AGENTS.md` first, then `services/content/AGENTS.md` (the ser
 ## Where things live
 
 - **Schemas:** `@qaroom/contracts` (`community.ts`, `user.ts`, `session.ts`). Never hand-edit `openapi.yaml`.
-- **Operation registry:** `src/operations.ts`: single source feeding `openapi.yaml`, `/system/capabilities`, and the completeness test. Keep routes in lockstep.
+- **Operation registry:** `src/contract/operations.ts`: single source feeding `openapi.yaml`, `/system/capabilities`, and the completeness test. Keep routes in lockstep.
 - **Persistence + migration:** `src/db/schema.ts`; `src/db/migrate.ts` drives the reusable `MigrationMachine` (provision + seed the general community). Migration reversibility is tested in `migrations/0001-init.test.ts`.
 - **Keys / JWT:** `src/keys.ts` (KeyStore + rotation + JWKS-eligibility) and `src/jwt.ts` (issue/verify). ES256; ADR-0008.
 - **Errors:** every non-2xx is `application/problem+json` via `problem()` (Commitment 13).

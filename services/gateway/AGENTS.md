@@ -19,7 +19,7 @@ The full surface lives in `openapi.yaml`, generated from the operation registry.
   `forward()` 502-mapping. `pacts/*.json` are the consumer contracts the TS providers verify;
   the consumer specs live in `tests/contracts/`. The Python moderator-agent reads are
   integration-tested, not pacted (ADR-0022).
-- **Operation registry:** `src/operations.ts` (aggregating the per-domain
+- **Operation registry:** `src/operations/operations.ts` (aggregating the per-domain
   `*-operations.ts` files): single source for `openapi.yaml` + capabilities.
 - **Edge validation:** branded ids + `Idempotency-Key` parsed at the gateway so a malformed
   request gets an RFC 7807 400 *before any upstream call*: the trust-boundary demonstration
