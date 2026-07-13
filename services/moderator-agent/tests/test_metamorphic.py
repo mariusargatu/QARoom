@@ -32,8 +32,33 @@ def test_the_checker_catches_a_phrasing_sensitive_classifier() -> None:
     assert any(v.case.startswith("harassment") for v in violations)
 
 
+def test_the_recorded_real_model_is_paraphrase_invariant() -> None:
+    """The REAL model's recorded verdicts satisfy paraphrase invariance — replayed KEYLESSLY on every
+    PR from the committed cassette (tests/cassettes/metamorphic.json), captured on the keyed lane by
+    scripts/record_metamorphic_cassette.py. This is the actual oracle the keyword-stem test below only
+    simulates: it drives ``check_paraphrase_invariance`` over genuine model output, not a stand-in. A
+    prompt/corpus/model change misses the cassette and fails LOUDLY (re-record), never a silent pass."""
+    from moderator_agent.config import Settings
+    from moderator_agent.llm_cassette import CassetteLlmClient
+    from moderator_agent.persistence.rules_seed import load_corpus_dir
+    from moderator_agent.workflow.prompts import build_system_prompt
+
+    root = Path(__file__).resolve().parents[1]
+    entries = load_corpus_dir(root / "rules").get("comm_" + "0" * 26, [])
+    prompt = build_system_prompt(entries, [], prompt_bug=Settings().moderator_prompt_bug)
+    cassette = CassetteLlmClient.from_file(root / "tests" / "cassettes" / "metamorphic.json")
+
+    def classify(text: str) -> LlmVerdict:
+        return cassette.classify(system_prompt=prompt, post_text=text)
+
+    assert check_paraphrase_invariance(classify, GOLDEN_CASES) == []
+
+
 def test_the_checker_passes_a_semantic_classifier() -> None:
-    """A classifier that judges meaning gives one disposition per family — no invariance violations."""
+    """A unit test of the CHECKER (not the model): a classifier that judges meaning gives one
+    disposition per family, so ``check_paraphrase_invariance`` reports nothing. The real-model oracle is
+    ``test_the_recorded_real_model_is_paraphrase_invariant`` above; this only proves the checker itself
+    doesn't false-positive on a semantically-consistent classifier."""
     stems = [
         "idiot",
         "worthless",

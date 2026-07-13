@@ -1,0 +1,90 @@
+{
+  "entries": {
+    "0329444204537b25ada12efb8f8908b0d6a8651d089bd9a2834bd91f91472655": {
+      "cited_rules": [
+        "no-harassment"
+      ],
+      "confidence": 0.9,
+      "departs_from_precedent": false,
+      "disposition": "remove",
+      "precedents": [],
+      "rationale": "The post is a direct personal attack and demeaning statement toward an individual or group ('people like you are worthless, just leave already'), which matches the no-harassment policy prohibiting insults and personal attacks."
+    },
+    "10b34140b0daf203d6cbe01047ce3c07c2a75d967de7a378d13b159ba97a30d6": {
+      "cited_rules": [],
+      "confidence": 0.95,
+      "departs_from_precedent": false,
+      "disposition": "approve",
+      "precedents": [],
+      "rationale": "The post is a harmless request for a sourdough bread recipe and does not contain harassment, spam, doxxing, or instructions for illegal activity, so no removal or escalation is needed."
+    },
+    "1607b1e303332bed5d4380df6739fc50a13ea77ca12e616b9aef09836d86a45d": {
+      "cited_rules": [
+        "no-spam"
+      ],
+      "confidence": 0.9,
+      "departs_from_precedent": false,
+      "disposition": "remove",
+      "precedents": [],
+      "rationale": "Post is an unsolicited promotional message containing a sales call-to-action and a referral link advertising paid followers, which matches the 'No spam or undisclosed advertising' rule."
+    },
+    "609cb7fc40eb2bb83f310bea41bed6f0c9caa9f84d4c16ffe45f34f4bdf888a4": {
+      "cited_rules": [
+        "no-spam"
+      ],
+      "confidence": 0.9,
+      "departs_from_precedent": false,
+      "disposition": "remove",
+      "precedents": [],
+      "rationale": "The post is a promotional solicitation directing users to a profile link to 'boost your numbers' and offering a 'special deal,' which matches the no-spam policy prohibiting promotional/advertising content and bulk solicitations."
+    },
+    "666af9245596bcaf00c186d98db10d393ad0722e6c73fe5e67738fe4d0d552b6": {
+      "cited_rules": [],
+      "confidence": 0.9,
+      "departs_from_precedent": false,
+      "disposition": "approve",
+      "precedents": [],
+      "rationale": "This is a harmless cooking question about sourdough baking and does not involve harassment, spam, doxxing, or instructions for illegal activity, so no policy applies."
+    },
+    "aeb2139c4a383f0ceaffa27beaa8ce53f808393893ad47b17204fe38ce1a145a": {
+      "cited_rules": [
+        "no-harassment"
+      ],
+      "confidence": 0.9,
+      "departs_from_precedent": false,
+      "disposition": "remove",
+      "precedents": [],
+      "rationale": "The post contains direct personal insults and targeted harassment (\u201cYou are an idiot and everyone hates you\u201d), which violates the no-harassment rule prohibiting demeaning or insulting individuals or groups."
+    },
+    "c4e61fd4e7f0c518523a231ae5e6f839d35656f32d6099d64569387a665d9c8a": {
+      "cited_rules": [
+        "no-spam"
+      ],
+      "confidence": 0.91,
+      "departs_from_precedent": false,
+      "disposition": "remove",
+      "precedents": [],
+      "rationale": "The post is an unsolicited promotional solicitation offering discounted follower packages and asking users to DM for a link, which is commercial advertising/spam and falls under the no-spam policy."
+    },
+    "c5c9a030de357cbe72072f13e018c344f78653f5aa66b942a47fd985b07b1963": {
+      "cited_rules": [
+        "no-harassment"
+      ],
+      "confidence": 0.91,
+      "departs_from_precedent": false,
+      "disposition": "remove",
+      "precedents": [],
+      "rationale": "The post is a direct personal attack (demeaning and insulting language: 'anyone with half a brain...you're hopeless and unwanted'), which violates the no-harassment rule prohibiting demeaning or insulting individuals or groups."
+    },
+    "f66988b79922e7332fb2ece153c7226cd47a12cff5f961cca1b16adf6a1a9dc2": {
+      "cited_rules": [],
+      "confidence": 0.98,
+      "departs_from_precedent": false,
+      "disposition": "approve",
+      "precedents": [],
+      "rationale": "The post is a harmless request for a sourdough loaf recipe and does not contain harassment, spam, doxxing, or instructions for illegal activity, so no policy applies."
+    }
+  },
+  "model": "openai:gpt-5-mini-2025-08-07",
+  "version": 1
+}
