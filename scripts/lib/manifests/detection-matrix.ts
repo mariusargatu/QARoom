@@ -244,7 +244,7 @@ export const TOGGLES: DetectionToggle[] = z.array(DetectionToggle).parse([
     id: 'upstream-timeout',
     env: { name: 'GATEWAY_UPSTREAM_TIMEOUT_MS', value: '600000' },
     component: 'gateway',
-    readSite: { file: 'services/gateway/src/upstream-call.ts', timing: 'call-time' },
+    readSite: { file: 'services/gateway/src/resilience/upstream-call.ts', timing: 'call-time' },
     guard: 'unguarded',
     designatedCatcher: 'tests/chaos/07-net-partition-gateway-donations.test.ts (live partition)',
     tiers: ['in-proc', 'cluster'],
@@ -258,7 +258,7 @@ export const TOGGLES: DetectionToggle[] = z.array(DetectionToggle).parse([
     id: 'contract-drift',
     env: { name: 'GATEWAY_BUG_DROP_EVENT_CURSOR', value: '1' },
     component: 'gateway',
-    readSite: { file: 'services/gateway/src/events-routes.ts', timing: 'call-time' },
+    readSite: { file: 'services/gateway/src/routes/events-routes.ts', timing: 'call-time' },
     guard: 'unguarded',
     designatedCatcher:
       'scripts/schemathesis-gate.sh (gateway response-schema validation vs the published openapi.yaml)',
@@ -275,7 +275,7 @@ export const TOGGLES: DetectionToggle[] = z.array(DetectionToggle).parse([
     id: 'events-skip-membership',
     env: { name: 'GATEWAY_BUG_SKIP_EVENTS_AUTHZ', value: '1' },
     component: 'gateway',
-    readSite: { file: 'services/gateway/src/events-routes.ts', timing: 'call-time' },
+    readSite: { file: 'services/gateway/src/routes/events-routes.ts', timing: 'call-time' },
     guard: 'unguarded',
     designatedCatcher:
       'gateway membership negative test (tests/ws-and-polling.spec.ts: a non-member poll must 403)',
