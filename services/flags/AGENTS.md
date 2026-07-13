@@ -20,7 +20,7 @@ first; this service follows the content-service template.
 - **Rollout machine:** `@qaroom/contracts` `machines/rollout.machine.ts` (invoke-free, context-free)
   + `rollout.runner.ts` (`applyRolloutEvent`). The machine, not the handler, decides legality.
 - **Schemas:** `@qaroom/contracts` (`FlagResolution`, `AdvanceRolloutRequest`, `FlagStateChangedEvent`).
-- **Operation registry:** `src/operations.ts`: single source feeding `openapi.yaml`, `/system/capabilities`, and the completeness test.
+- **Operation registry:** `src/contract/operations.ts`: single source feeding `openapi.yaml`, `/system/capabilities`, and the completeness test.
 - **Persistence:** `src/db/schema.ts` (one row per `(community_id, flag_key)`) + `src/db/migrate.ts`.
 - **Repository:** `src/repository.ts`: advisory lock + `FOR UPDATE`, transactional outbox, LamportGate bump.
 
