@@ -6,7 +6,7 @@ import type { FastifyInstance } from 'fastify'
 import { OPERATIONS } from './contract/operations'
 import type { RouteDeps, WebhooksDeps } from './deps'
 import { countDeliveriesByStatus, countSubscriptions } from './repository'
-import { registerWebhookRoutes } from './webhooks'
+import { registerWebhookRoutes } from './routes/webhooks'
 
 /**
  * Build a webhooks-service Fastify instance from injected dependencies (Commitment 6). This wires

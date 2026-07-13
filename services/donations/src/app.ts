@@ -5,8 +5,8 @@ import { buildServiceApp } from '@qaroom/service-kit'
 import type { FastifyInstance } from 'fastify'
 import { OPERATIONS } from './contract/operations'
 import type { DonationsDeps, RouteDeps } from './deps'
-import { registerDonationRoutes } from './donations'
 import { countDonations } from './repository'
+import { registerDonationRoutes } from './routes/donations'
 
 /**
  * Build a donations-service Fastify instance from injected dependencies (Commitment 6). The

@@ -7,8 +7,8 @@ import {
 } from '@qaroom/contracts'
 import { problem, withIdempotency } from '@qaroom/service-kit'
 import type { FastifyInstance } from 'fastify'
-import type { RouteDeps } from './deps'
-import { createDonation, getDonation, listDonations } from './repository'
+import type { RouteDeps } from '../deps'
+import { createDonation, getDonation, listDonations } from '../repository'
 
 const CREATE_ROUTE = 'POST /api/communities/{communityId}/donations'
 

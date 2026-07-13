@@ -9,8 +9,8 @@ import {
 } from '@qaroom/contracts'
 import { problem, withIdempotency } from '@qaroom/service-kit'
 import type { FastifyInstance } from 'fastify'
-import type { RouteDeps } from './deps'
-import { advanceRollout, listFlags, resolveFlag } from './repository'
+import type { RouteDeps } from '../deps'
+import { advanceRollout, listFlags, resolveFlag } from '../repository'
 
 const ADVANCE_ROUTE = 'POST /api/communities/{communityId}/flags/{flagKey}/rollout'
 
