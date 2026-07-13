@@ -8,6 +8,7 @@ change). The one-page landscape is the root [ARCHITECTURE.md](../ARCHITECTURE.md
 
 - [getting-started.md](getting-started.md) — the on-ramp: one idea → one schema edit → the gates go green.
 - [code-tour.md](code-tour.md) — one request followed hop by hop, each boundary and the test that guards it, with `file:line` anchors.
+- [testing-guide.md](testing-guide.md) — how the tests are organized and how to judge their quality (strong exemplars, gate blind spots, what to distrust).
 - [add-a-field.md](add-a-field.md) — the mechanical recipe behind getting-started.
 
 ## The evidence (does the testing actually work?)

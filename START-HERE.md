@@ -77,6 +77,9 @@ If you care about one thing in particular, go straight to it. Each row is someth
 
 ### Testing & quality
 
+> Want to judge whether the *tests themselves* are good (not just green)? [`docs/testing-guide.md`](docs/testing-guide.md)
+> points at the strongest exemplars, is honest about where the gates stop, and says what to distrust on sight.
+
 | Topic | Where to look |
 |---|---|
 | Tests that catch real bugs (not coverage) | `pnpm prove <id> --break` · [`docs/detection-matrix.md`](docs/detection-matrix.md) · Stryker mutation gate (`pnpm stryker:critical`) |
