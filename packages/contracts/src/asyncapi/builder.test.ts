@@ -48,7 +48,7 @@ describe('buildAsyncApiDocument', () => {
   it('includes the reachable payload schema in components', () => {
     const doc = buildAsyncApiDocument({ title: 'content', version: '1.0.0' }, [postCreated])
     const components = doc.components as { schemas: Record<string, unknown> }
-    expect(components.schemas.PostCreatedEvent).toBeDefined()
+    expect(components.schemas.PostCreatedEvent).toMatchObject({ type: 'object' })
   })
 
   it('emits a servers block keyed by name only when servers are supplied', () => {

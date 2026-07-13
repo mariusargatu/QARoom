@@ -12,11 +12,27 @@ const tester = new RuleTester({
 })
 
 tester.run('no-new-date', plugin.rules['no-new-date'], {
-  valid: ['const t = clock.now()'],
+  valid: [
+    'const t = clock.now()',
+    // Relaxed test mode (`allowArgs`): a fixed-arg literal is deterministic and allowed.
+    { code: "const d = new Date('2026-01-01')", options: [{ allowArgs: true }] },
+    { code: 'const d = new Date(0)', options: [{ allowArgs: true }] },
+  ],
   invalid: [
     { code: 'const d = new Date()', errors: [{ messageId: 'banned' }] },
     { code: 'const d = new Date(0)', errors: [{ messageId: 'banned' }] },
     { code: 'const n = Date.now()', errors: [{ messageId: 'banned' }] },
+    // Even in relaxed mode the wall-clock zero-arg forms stay banned.
+    {
+      code: 'const d = new Date()',
+      options: [{ allowArgs: true }],
+      errors: [{ messageId: 'banned' }],
+    },
+    {
+      code: 'const n = Date.now()',
+      options: [{ allowArgs: true }],
+      errors: [{ messageId: 'banned' }],
+    },
   ],
 })
 
@@ -140,6 +156,34 @@ jsxTester.run('atomic-import-direction', plugin.rules['atomic-import-direction']
       code: "import { Page } from '../../pages/CommunityDashboardPage'",
       filename: 'services/web/src/components/molecules/RolloutStepper/RolloutStepper.tsx',
       errors: [{ messageId: 'direction' }],
+    },
+  ],
+})
+
+tester.run('no-weak-only-assertion', plugin.rules['no-weak-only-assertion'], {
+  valid: [
+    // A concrete expected value clears the rule.
+    "it('returns the created id', () => { expect(res.id).toBe('post_1') })",
+    // A strong matcher mixed in with a weak one is fine.
+    "it('lists one post', () => { expect(feed).toBeDefined(); expect(feed.posts).toHaveLength(1) })",
+    // toBeNull / toBeUndefined pin an exact expected value (the rejection path) — not weak.
+    "it('rejects a garbage token', () => { expect(decode('x')).toBeNull() })",
+    "it('has no ticket after expiry', () => { expect(store.redeem(t)).toBeNull() })",
+    // Async terminal matcher is seen through .resolves / .rejects.
+    "it('rejects an out-of-set value', () => { expect(p).rejects.toThrow('bad') })",
+    // No expect at all — the rule only judges expect-based oracles, not custom assertions.
+    "it('drives the harness', () => { assertNoDrift(ctx) })",
+    // Property/parametrised blocks are out of scope (non-Identifier callee).
+    "test.prop([fc.nat()])('holds for all n', (n) => { expect(n).toBeDefined() })",
+  ],
+  invalid: [
+    {
+      code: "it('creates a post', () => { expect(res.id).toBeDefined() })",
+      errors: [{ messageId: 'weak' }],
+    },
+    {
+      code: "it('returns something', () => { expect(a).toBeTruthy(); expect(b).toBeFalsy() })",
+      errors: [{ messageId: 'weak' }],
     },
   ],
 })

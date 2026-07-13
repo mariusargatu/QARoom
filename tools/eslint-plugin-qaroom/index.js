@@ -24,16 +24,28 @@ const noNewDate = {
     docs: {
       description: 'Disallow `new Date()` outside the determinism layer; use the injected Clock.',
     },
-    schema: [],
+    // `allowArgs`: in test files a fixed-arg `new Date('2026-01-01')` is a deterministic literal and is
+    // fine; only the wall-clock zero-arg `new Date()` (and `Date.now()`) is the flake source. Production
+    // code passes no option, so every form is still banned there.
+    schema: [
+      {
+        type: 'object',
+        properties: { allowArgs: { type: 'boolean' } },
+        additionalProperties: false,
+      },
+    ],
     messages: {
       banned:
         'Direct `new Date()` is a P0 determinism leak (Commitment 6). Read `clock.now()` from the injected Clock instead.',
     },
   },
   create(context) {
+    const allowArgs = context.options[0]?.allowArgs === true
     return {
       NewExpression(node) {
         if (node.callee.type === 'Identifier' && node.callee.name === 'Date') {
+          // Relaxed test mode keeps the deterministic fixed-arg literal, bans only the wall-clock form.
+          if (allowArgs && node.arguments.length > 0) return
           context.report({ node, messageId: 'banned' })
         }
       },
@@ -358,6 +370,97 @@ const atomicImportDirection = {
   },
 }
 
+/**
+ * Genuinely weak matchers: they pass for a whole CLASS of values, so they can't fail on a wrong one.
+ * `toBeDefined` (any non-undefined), `toBeTruthy` / `toBeFalsy` (any truthy/falsy) are the classic weak
+ * oracle. Deliberately EXCLUDED because they pin an EXACT expected value: `toBeNull` / `toBeUndefined` /
+ * `toBeNaN` (the rejection path returning anything else — e.g. a forged object instead of null — is the
+ * bug they catch), and `toContain` / `toMatch` / `toHaveLength` (a specific element/shape/length).
+ */
+const WEAK_MATCHERS = new Set(['toBeDefined', 'toBeTruthy', 'toBeFalsy'])
+// Only plain `it(...)` / `test(...)` blocks are judged. `test.prop(...)`, `it.each(...)`, `describe`, and
+// helpers have non-Identifier callees and are skipped — property/parametrised tests carry their own oracle.
+const ASSERTED_BLOCK_CALLEES = new Set(['it', 'test'])
+
+/** The terminal matcher name of an `expect(...)….matcher()` chain, or undefined if the call isn't one. */
+function expectMatcherName(callNode) {
+  const callee = callNode.callee
+  if (!callee || callee.type !== 'MemberExpression' || callee.property.type !== 'Identifier') return
+  const name = callee.property.name
+  // Walk the object chain (`.not`, `.resolves`, `.rejects`, …) down to the root; it must be `expect(...)`.
+  let cur = callee.object
+  while (cur) {
+    if (cur.type === 'CallExpression') {
+      if (cur.callee.type === 'Identifier' && cur.callee.name === 'expect') return name
+      cur = cur.callee
+    } else if (cur.type === 'MemberExpression') {
+      cur = cur.object
+    } else {
+      return
+    }
+  }
+  return
+}
+
+/** Depth-first walk of a node subtree (skips `parent` back-edges). */
+function walk(node, visit) {
+  if (!node || typeof node.type !== 'string') return
+  visit(node)
+  for (const key of Object.keys(node)) {
+    if (key === 'parent') continue
+    const val = node[key]
+    if (Array.isArray(val)) {
+      for (const child of val) walk(child, visit)
+    } else if (val && typeof val.type === 'string') {
+      walk(val, visit)
+    }
+  }
+}
+
+/**
+ * A test whose ONLY assertions are existence/truthiness checks is a weak oracle: it passes as long as the
+ * value exists, never mind whether it's the *right* value. This is the body-level complement to
+ * `test-name-shape` (which can only see the title). Flags an `it`/`test` block that has ≥1 `expect` matcher
+ * and every one of them is weak. A single `toBe`/`toEqual`/`toContain`/etc. clears it.
+ * @type {import('eslint').Rule.RuleModule}
+ */
+const noWeakOnlyAssertion = {
+  meta: {
+    type: 'suggestion',
+    docs: {
+      description:
+        'A test may not assert with existence/truthiness matchers alone; pin an expected value so it can fail on a wrong one.',
+    },
+    schema: [],
+    messages: {
+      weak: "This test's only assertions are existence/truthiness checks — it passes for any present value. Assert an explicit expected value (`toBe`/`toEqual`/`toContain`) so it fails on a wrong one.",
+    },
+  },
+  create(context) {
+    return {
+      CallExpression(node) {
+        const callee = node.callee
+        if (callee.type !== 'Identifier' || !ASSERTED_BLOCK_CALLEES.has(callee.name)) return
+        const fn = node.arguments.find(
+          (a) => a.type === 'ArrowFunctionExpression' || a.type === 'FunctionExpression',
+        )
+        if (!fn?.body) return
+        const matchers = []
+        walk(fn.body, (n) => {
+          if (n.type === 'CallExpression') {
+            const name = expectMatcherName(n)
+            if (name) matchers.push(name)
+          }
+        })
+        if (matchers.length === 0) return
+        if (matchers.every((m) => WEAK_MATCHERS.has(m))) {
+          context.report({ node: node.arguments[0] ?? node, messageId: 'weak' })
+        }
+      },
+    }
+  },
+}
+
 export default {
   meta: { name: 'eslint-plugin-qaroom', version: '0.0.0' },
   rules: {
@@ -369,5 +472,6 @@ export default {
     'no-public-barrel': noPublicBarrel,
     'no-raw-nats-subject': noRawNatsSubject,
     'atomic-import-direction': atomicImportDirection,
+    'no-weak-only-assertion': noWeakOnlyAssertion,
   },
 }

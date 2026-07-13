@@ -15,8 +15,8 @@ import {
 describe('emitRegistrySchemas', () => {
   it('emits every registered schema by its meta id', () => {
     const schemas = emitRegistrySchemas()
-    expect(schemas.ProblemDetails).toBeDefined()
-    expect(schemas.Post).toBeDefined()
+    expect(schemas.ProblemDetails).toMatchObject({ type: 'object' })
+    expect(schemas.Post).toMatchObject({ type: 'object' })
   })
 
   it('strips the $id so the ref alone carries schema identity', () => {
