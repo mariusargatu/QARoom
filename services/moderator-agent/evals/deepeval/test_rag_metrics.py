@@ -53,7 +53,18 @@ pytestmark = [
 
 # A small slice of the gold set keeps the per-CI token budget bounded (the cost guard is the hard cap).
 _CASES = load_gold_cases(limit=6)
-_THRESHOLD = 0.5
+# Defended grounding floor for the GATED metrics (faithfulness, contextual precision + recall). A flat
+# 0.5 is a coin-flip bar — a grounding/retrieval regression has to be severe to trip it. A correct RAG
+# agent grounds its cited policy well above this, so 0.7 keeps a real margin while still failing a
+# genuine regression (confirmed against the gold slice on the keyed eval lane).
+_GROUNDING_FLOOR = 0.7
+# Contextual relevancy is MEASURED for visibility but NOT gated (the fixed top-k geometry caps it — see
+# the assert below), so it keeps the lower recording floor rather than the gated grounding floor.
+_RELEVANCY_FLOOR = 0.5
+# The hallucination demo below is DIFFERENTIAL, not a quality gate: this is the decision boundary that
+# must sit between the grounded judge's score (fails an ungrounded citation) and the non-grounded judge's
+# (passes it). Not a floor to raise — the demo's whole point is the divergence across this line.
+_DEMO_DECISION_BOUNDARY = 0.5
 
 
 @pytest.mark.parametrize("case", _CASES, ids=[c["id"] for c in _CASES])
@@ -61,9 +72,11 @@ async def test_faithfulness_over_gold(case: dict) -> None:
     """Every claim in the agent's verdict must be grounded in the retrieved policy (FR3)."""
     workflow, corpus = build_workflow(Settings())
     target = await run_case(workflow, corpus, case)
-    metric = FaithfulnessMetric(threshold=_THRESHOLD)
+    metric = FaithfulnessMetric(threshold=_GROUNDING_FLOOR)
     metric.measure(target.test_case)
-    record_metric("faithfulness", passed=metric.score is not None and metric.score >= _THRESHOLD)
+    record_metric(
+        "faithfulness", passed=metric.score is not None and metric.score >= metric.threshold
+    )
     assert_test(target.test_case, [metric])
 
 
@@ -71,7 +84,7 @@ async def test_faithfulness_over_gold(case: dict) -> None:
 async def test_contextual_precision_and_recall_gate(case: dict) -> None:
     """EXIT CRITERION 2: precision (relevant chunks ranked high) + recall (the needed policy WAS
     retrieved) are gated. A corpus-retrieval regression — a retriever that surfaces unrelated rules or
-    drops the one the verdict needs — pushes recall below ``_THRESHOLD`` and FAILS this test, which is
+    drops the one the verdict needs — pushes recall below ``_GROUNDING_FLOOR`` and FAILS this test, which is
     exactly how a silent retrieval regression is caught before it ships."""
     if case["gold_verdict"] != "flag":
         # A benign post has NO rule that should match: retrieval correctly surfaces only the
@@ -83,14 +96,14 @@ async def test_contextual_precision_and_recall_gate(case: dict) -> None:
     target = await run_case(workflow, corpus, case)
     tc = target.test_case
     tc.expected_output = _expected_output(case)
-    precision = ContextualPrecisionMetric(threshold=_THRESHOLD)
-    recall = ContextualRecallMetric(threshold=_THRESHOLD)
-    relevancy = ContextualRelevancyMetric(threshold=_THRESHOLD)
+    precision = ContextualPrecisionMetric(threshold=_GROUNDING_FLOOR)
+    recall = ContextualRecallMetric(threshold=_GROUNDING_FLOOR)
+    relevancy = ContextualRelevancyMetric(threshold=_RELEVANCY_FLOOR)
     for metric in (precision, recall, relevancy):
         metric.measure(tc)
         record_metric(
             metric.__class__.__name__,
-            passed=metric.score is not None and metric.score >= _THRESHOLD,
+            passed=metric.score is not None and metric.score >= metric.threshold,
         )
     # GATE on precision + recall (EXIT CRITERION 2): the policy the verdict cites must be retrieved and
     # ranked high. Relevancy (the FRACTION of the window that is on-topic) is MEASURED for visibility but
@@ -145,9 +158,11 @@ async def test_hallucinated_policy_fails_faithfulness_but_a_non_grounded_check_p
     )
 
     # The SAME judge the judge-reliability meta-eval stress-tests (single definition in _support).
-    grounded_check = citation_grounding_metric(_THRESHOLD)
+    grounded_check = citation_grounding_metric(_DEMO_DECISION_BOUNDARY)
     grounded_check.measure(ungrounded)
-    grounded_passed = grounded_check.score is not None and grounded_check.score >= _THRESHOLD
+    grounded_passed = (
+        grounded_check.score is not None and grounded_check.score >= grounded_check.threshold
+    )
     record_metric("faithfulness_hallucination_demo", passed=not grounded_passed)
 
     # The non-grounded oracle: judges only that the verdict is internally coherent, never against
@@ -165,10 +180,12 @@ async def test_hallucinated_policy_fails_faithfulness_but_a_non_grounded_check_p
             "correct for any particular post."
         ),
         evaluation_params=[LLMTestCaseParams.ACTUAL_OUTPUT],
-        threshold=_THRESHOLD,
+        threshold=_DEMO_DECISION_BOUNDARY,
     )
     non_grounded.measure(ungrounded)
-    non_grounded_passed = non_grounded.score is not None and non_grounded.score >= _THRESHOLD
+    non_grounded_passed = (
+        non_grounded.score is not None and non_grounded.score >= non_grounded.threshold
+    )
 
     # The whole point: the grounded metric catches the hallucination, the non-grounded one does not.
     assert not grounded_passed, "the grounded check must FAIL an ungrounded citation"
