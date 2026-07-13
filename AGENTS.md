@@ -1,5 +1,9 @@
 # AGENTS.md
 
+> **Reading, not coding?** This file is agent-facing conventions (how a coding agent should work here).
+> To get oriented in the project, start with [README.md](README.md) → [START-HERE.md](START-HERE.md) →
+> [ARCHITECTURE.md](ARCHITECTURE.md). Read on only if you want the working conventions.
+
 You are working on **QARoom**, a multi-tenant social platform built to demonstrate testing-driven architecture. This file is your quick reference. Read it first, then [`ARCHITECTURE.md`](ARCHITECTURE.md) for the one-page landscape (system + testing + decisions + the "where the truth lives" map). Per-package conventions live in each package's own `AGENTS.md` (loaded as you navigate there): keep this root file lean. *Reviewed through Milestone 12.*
 
 ## Commands
