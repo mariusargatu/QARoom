@@ -35,7 +35,11 @@ pytestmark = [
     ),
 ]
 
-_THRESHOLD = 0.5
+# NOT a quality floor (unlike the grounding gates in test_rag_metrics.py). This is the judge's DECISION
+# BOUNDARY for a meta-eval: the test asserts the judge's grounded/not verdict at this bar reproduces the
+# objective ground truth. Moving it would recalibrate the judge, not "raise the bar" — so it stays at the
+# point where the judge reproduces the labelled fixtures.
+_JUDGE_DECISION_BOUNDARY = 0.5
 _RETRIEVAL_CONTEXT = [
     "no-harassment [rule]: No personal attacks or slurs.",
     "no-spam [rule]: No spam or undisclosed advertising.",
@@ -93,9 +97,9 @@ def test_citation_grounding_judge_reproduces_objective_ground_truth(fixture: dic
         actual_output=fixture["actual_output"],
         retrieval_context=list(_RETRIEVAL_CONTEXT),
     )
-    metric = citation_grounding_metric(_THRESHOLD)
+    metric = citation_grounding_metric(_JUDGE_DECISION_BOUNDARY)
     metric.measure(tc)
-    judged_pass = metric.score is not None and metric.score >= _THRESHOLD
+    judged_pass = metric.score is not None and metric.score >= _JUDGE_DECISION_BOUNDARY
     record_metric("judge_reliability", passed=(judged_pass == fixture["should_pass"]))
     assert judged_pass == fixture["should_pass"], (
         f"judge unreliable on {fixture['id']}: expected pass={fixture['should_pass']}, "

@@ -1,9 +1,9 @@
 import { CommunityId, ModerationDecisionId } from '@qaroom/contracts'
 import type { FastifyInstance } from 'fastify'
-import type { GatewayRouteDeps } from './deps'
-import { forward, type Upstream } from './forward'
-import type { ModeratorClient } from './moderator-client'
-import { MODERATOR_UPSTREAM, upstreamTitle } from './upstreams'
+import type { ModeratorClient } from '../clients/moderator-client'
+import type { GatewayRouteDeps } from '../deps'
+import { forward, type Upstream } from '../resilience/forward'
+import { MODERATOR_UPSTREAM, upstreamTitle } from '../resilience/upstreams'
 
 const MODERATOR: Upstream = {
   slug: MODERATOR_UPSTREAM.slug,

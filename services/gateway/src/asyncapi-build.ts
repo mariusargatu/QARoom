@@ -1,4 +1,4 @@
 import { writeDoc } from '@qaroom/service-kit'
-import { gatewayAsyncApiYaml } from './asyncapi-document'
+import { gatewayAsyncApiYaml } from './contract/asyncapi-document'
 
 writeDoc(import.meta.dirname, 'asyncapi', gatewayAsyncApiYaml)

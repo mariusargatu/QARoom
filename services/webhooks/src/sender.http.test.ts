@@ -53,6 +53,9 @@ describe('createHttpWebhookSender', () => {
   })
 
   it('never throws — a rejected fetch always resolves to a SendResult', async () => {
-    await expect(createHttpWebhookSender(5_000, networkErrorFetch).send(REQ)).resolves.toBeDefined()
+    // The guarantee is "resolves (never rejects) to a SendResult" — a SendResult always carries `kind`.
+    await expect(
+      createHttpWebhookSender(5_000, networkErrorFetch).send(REQ),
+    ).resolves.toHaveProperty('kind')
   })
 })

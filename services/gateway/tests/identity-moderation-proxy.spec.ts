@@ -15,8 +15,8 @@ import {
   lamportOf,
 } from '@qaroom/testing-utils/matchers'
 import { describe, expect, it } from 'vitest'
-import type { IdentityClient } from '../src/identity-client'
-import type { ClientResponse } from '../src/upstream-call'
+import type { IdentityClient } from '../src/clients/identity-client'
+import type { ClientResponse } from '../src/resilience/upstream-call'
 import {
   constantContent,
   constantIdentity,

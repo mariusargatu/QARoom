@@ -1,4 +1,8 @@
-import { boundCaller, type ClientResponse, type UpstreamClientOptions } from './upstream-call'
+import {
+  boundCaller,
+  type ClientResponse,
+  type UpstreamClientOptions,
+} from '../resilience/upstream-call'
 
 /**
  * HTTP client the gateway uses to call content-service. This is the **Pact consumer**: the
@@ -6,7 +10,7 @@ import { boundCaller, type ClientResponse, type UpstreamClientOptions } from './
  * content-service must verify. Keep it a thin, injectable seam — base URL in, normalized
  * response out. The call is bounded by `AbortSignal.timeout` (see `upstream-call.ts`).
  */
-export type { ClientResponse } from './upstream-call'
+export type { ClientResponse } from '../resilience/upstream-call'
 
 export interface ContentClient {
   getFeed(communityId: string): Promise<ClientResponse>

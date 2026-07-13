@@ -2,7 +2,7 @@ import { resolve } from 'node:path'
 import { MatchersV3, PactV4 } from '@pact-foundation/pact'
 import { EXAMPLE_COMMUNITY_ID } from '@qaroom/contracts'
 import { describe, expect, it } from 'vitest'
-import { createFlagsClient } from '../../src/flags-client'
+import { createFlagsClient } from '../../src/clients/flags-client'
 
 /**
  * Consumer-driven contract (Pact) for the gateway → flags-service proxy path (Milestone 6).

@@ -6,7 +6,7 @@ import {
   EXAMPLE_WEBHOOK_URL,
 } from '@qaroom/contracts'
 import { describe, expect, it } from 'vitest'
-import { createWebhooksClient } from '../../src/webhooks-client'
+import { createWebhooksClient } from '../../src/clients/webhooks-client'
 
 /**
  * Consumer-driven contract (Pact) for the gateway → webhooks-service proxy path (Milestone 11).

@@ -3,7 +3,6 @@ import { WEBHOOK_DELIVERY_ID_HEADER } from '@qaroom/contracts'
 import { withResource } from '@qaroom/testing-utils/harness'
 import fc from 'fast-check'
 import { afterEach, describe, expect, it } from 'vitest'
-import type { SendResult } from '../src/sender'
 import {
   drainToQuiescence,
   enqueueDelivery,
@@ -13,6 +12,7 @@ import {
   seedSubscription,
   setupWebhooksTest,
 } from '../tests/harness'
+import type { SendResult } from './sender'
 
 const TIMEOUT: SendResult = { kind: 'timeout' }
 const OK: SendResult = { kind: 'success', status: 200 }

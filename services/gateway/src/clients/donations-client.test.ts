@@ -1,6 +1,6 @@
 import { FakeClock, SeededRandomness } from '@qaroom/testing-utils/determinism'
 import { describe, expect, it } from 'vitest'
-import { CircuitBreaker, CircuitOpenError } from './circuit-breaker'
+import { CircuitBreaker, CircuitOpenError } from '../resilience/circuit-breaker'
 import { createDonationsClient } from './donations-client'
 
 describe('createDonationsClient', () => {

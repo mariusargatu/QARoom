@@ -50,7 +50,13 @@ _CASES = load_gold_cases(limit=4)
 # The held-out AMBIGUOUS cases (non-unanimous SMEs) are the calibration target: a well-calibrated
 # agent abstains on these rather than guessing — the only place the gold set deliberately disagrees.
 _AMBIGUOUS = load_ambiguous_cases(limit=3)
-_THRESHOLD = 0.5
+# Graded quality gates (precedent-consistency, the ragas wrapper): 0.5 was a coin flip; 0.7 keeps a real
+# margin over what a correct verdict scores while still failing a genuine regression.
+_QUALITY_FLOOR = 0.7
+# Calibration is a best-of-3 G-Eval judgement on a deliberately BORDERLINE abstain decision by
+# non-deterministic reasoning models — its 0.5 is the judge's decision point, NOT a quality floor. Raising
+# it would only make the noisy best-of-3 flakier without adding signal, so it stays.
+_CALIBRATION_FLOOR = 0.5
 
 
 def _precedent_consistency_metric() -> GEval:
@@ -67,7 +73,7 @@ def _precedent_consistency_metric() -> GEval:
             LLMTestCaseParams.ACTUAL_OUTPUT,
             LLMTestCaseParams.RETRIEVAL_CONTEXT,
         ],
-        threshold=_THRESHOLD,
+        threshold=_QUALITY_FLOOR,
     )
 
 
@@ -86,7 +92,7 @@ def _calibration_metric() -> GEval:
             LLMTestCaseParams.ACTUAL_OUTPUT,
             LLMTestCaseParams.RETRIEVAL_CONTEXT,
         ],
-        threshold=_THRESHOLD,
+        threshold=_CALIBRATION_FLOOR,
     )
 
 
@@ -97,7 +103,8 @@ async def test_precedent_consistency(case: dict) -> None:
     metric = _precedent_consistency_metric()
     metric.measure(target.test_case)
     record_metric(
-        "precedent_consistency", passed=metric.score is not None and metric.score >= _THRESHOLD
+        "precedent_consistency",
+        passed=metric.score is not None and metric.score >= metric.threshold,
     )
     assert_test(target.test_case, [metric])
 
@@ -109,7 +116,7 @@ async def _calibration_trial_passes(workflow: object, corpus: object, case: dict
     target = await run_case(workflow, corpus, case)
     metric = _calibration_metric()
     metric.measure(target.test_case)
-    return metric.score is not None and metric.score >= _THRESHOLD
+    return metric.score is not None and metric.score >= metric.threshold
 
 
 @pytest.mark.parametrize("case", _AMBIGUOUS, ids=[c["id"] for c in _AMBIGUOUS])
@@ -135,7 +142,7 @@ async def test_calibration_should_have_abstained(case: dict) -> None:
     record_metric("calibration", passed=majority)
     assert majority, (
         f"calibration best-of-3 failed for {case['id']}: only {passes} of {passes + fails} trials "
-        f"passed (threshold {_THRESHOLD}) — a confident verdict on an ambiguous post that should "
+        f"passed (threshold {_CALIBRATION_FLOOR}) — a confident verdict on an ambiguous post that should "
         "have escalated to a human."
     )
 
@@ -163,7 +170,9 @@ async def test_ragas_via_deepeval_wrapper() -> None:
         expected_output=("disposition=remove" if case["gold_verdict"] == "flag" else "approve"),
         retrieval_context=target.test_case.retrieval_context,
     )
-    metric = ragas.RagasMetric(threshold=_THRESHOLD)
+    metric = ragas.RagasMetric(threshold=_QUALITY_FLOOR)
     metric.measure(tc)
-    record_metric("ragas_wrapper", passed=metric.score is not None and metric.score >= _THRESHOLD)
+    record_metric(
+        "ragas_wrapper", passed=metric.score is not None and metric.score >= metric.threshold
+    )
     assert_test(tc, [metric])

@@ -13,6 +13,9 @@ QARoom is a small but realistic app. It has communities, posts, votes, donations
 
 It exists to answer one question, with proof you can run yourself: **when the tests are green, can you trust them?**
 
+> **New to the repo?** [**START-HERE.md**](START-HERE.md) is a guided tour by time budget (5 / 30 / 90
+> minutes) — what to open, what to run, and a map by topic — plus a cold-start guide to what runs without Docker.
+
 ---
 
 ## Is this a problem you have right now?
@@ -141,6 +144,7 @@ Scan to your world.
 
 ## Go deeper
 
+- [**START-HERE.md**](START-HERE.md): a guided tour by time budget — what to open, what to run, and a map by topic.
 - [**The live walkthrough**](https://mariusargatu.github.io/QARoom/): plain English tour. Best first stop.
 - [**ARCHITECTURE.md**](ARCHITECTURE.md): the whole system and how it is tested, on one page. Starts with a two minute plain summary.
 - [**What it catches, and what it misses**](docs/detection-matrix.md): the honest grid from the top of this page.

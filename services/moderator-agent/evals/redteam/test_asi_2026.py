@@ -146,6 +146,13 @@ def test_deepteam_asi01_goal_hijacking_on_the_guarded_agent() -> None:
 def _count_breaches(risk: object) -> int:
     """Count successful adversarial breaches across DeepTeam result shapes (version-tolerant)."""
     cases = getattr(risk, "test_cases", None) or getattr(risk, "results", None) or []
+    # Fail closed: an empty case list means the result shape drifted (neither `test_cases` nor
+    # `results` is present), so the count below would be a vacuous 0 — a "no breach" verdict from a
+    # run that examined nothing. A red-team gate that evaluated no cases is broken, not clean.
+    assert cases, (
+        "DeepTeam returned no evaluable red-team cases (result-shape drift?) — refusing to report "
+        "'0 breaches' from an empty run; update _count_breaches for the new DeepTeam API shape"
+    )
     breaches = 0
     for case in cases:
         if (

@@ -12,18 +12,18 @@ import {
   type GatewayDeps,
   type GatewayRouteDeps,
 } from './deps'
-import { registerDonationsRoutes } from './donations-routes'
 import { CommunityEventStream } from './event-stream'
-import { registerEventsRoute } from './events-routes'
-import { registerFlagsRoutes } from './flags-routes'
-import { registerIdentityRoutes } from './identity-routes'
-import { registerModerationRoutes } from './moderation-routes'
-import { OPERATIONS } from './operations'
-import { registerProxyRoutes } from './proxy-routes'
-import { registerAuthRateLimit, registerRateLimit } from './rate-limit'
-import { RateLimiter } from './rate-limiter'
+import { OPERATIONS } from './operations/operations'
+import { registerAuthRateLimit, registerRateLimit } from './resilience/rate-limit'
+import { RateLimiter } from './resilience/rate-limiter'
+import { registerDonationsRoutes } from './routes/donations-routes'
+import { registerEventsRoute } from './routes/events-routes'
+import { registerFlagsRoutes } from './routes/flags-routes'
+import { registerIdentityRoutes } from './routes/identity-routes'
+import { registerModerationRoutes } from './routes/moderation-routes'
+import { registerProxyRoutes } from './routes/proxy-routes'
+import { registerWebhooksRoutes } from './routes/webhooks-routes'
 import { registerLimitsRoute } from './system'
-import { registerWebhooksRoutes } from './webhooks-routes'
 import { registerWsUpgrade } from './ws-upgrade'
 
 /**

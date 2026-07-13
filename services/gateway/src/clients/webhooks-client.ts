@@ -1,4 +1,8 @@
-import { boundCaller, type ClientResponse, type UpstreamClientOptions } from './upstream-call'
+import {
+  boundCaller,
+  type ClientResponse,
+  type UpstreamClientOptions,
+} from '../resilience/upstream-call'
 
 /**
  * The gateway's client for webhooks-service (Milestone 11). A thin seam — the Pact consumer for

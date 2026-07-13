@@ -102,8 +102,8 @@ describe('buildOpenApiDocument', () => {
   it('includes the reachable request and response schemas in components', () => {
     const doc = buildOpenApiDocument({ title: 'content', version: '1.0.0' }, [createPost])
     const components = doc.components as { schemas: Record<string, unknown> }
-    expect(components.schemas.Post).toBeDefined()
-    expect(components.schemas.CreatePostRequest).toBeDefined()
+    expect(components.schemas.Post).toMatchObject({ type: 'object' })
+    expect(components.schemas.CreatePostRequest).toMatchObject({ type: 'object' })
   })
 
   it('adds a servers block only when servers are supplied', () => {

@@ -36,7 +36,13 @@ pytestmark = [
 ]
 
 _CASES = load_gold_cases(limit=4)
-_THRESHOLD = 0.5
+# Graded task completion is a quality floor: 0.5 was a coin flip; 0.7 keeps a real margin over what a
+# correct grounded verdict scores while still failing an off-task agent.
+_TASK_FLOOR = 0.7
+# Tool trajectory is an EXACT-match contract (retrieve_policy -> gather_precedent before drafting), not a
+# graded score — the correct bar is 1.0. Any missing/extra/mis-ordered step is a real trajectory defect,
+# so a sub-1.0 floor would wave through a genuinely broken graph.
+_TOOL_FLOOR = 1.0
 
 # The graph's observable retrieval steps, in the order the trajectory must take them (FR6). The draft
 # node reasons over what these returned, so a verdict without them is off-trajectory.
@@ -61,7 +67,7 @@ async def test_task_completion_over_gold(case: dict) -> None:
     # doxxing post scored 0 because the agent "failed" to dox). The task must be the moderator's
     # mandate, stated explicitly.
     metric = TaskCompletionMetric(
-        threshold=_THRESHOLD,
+        threshold=_TASK_FLOOR,
         task=(
             "Moderate the community post: decide approve, remove, or escalate_to_human per the "
             "community policy, citing the rules the decision rests on. The task is the moderation "
@@ -69,7 +75,9 @@ async def test_task_completion_over_gold(case: dict) -> None:
         ),
     )
     metric.measure(target.test_case)
-    record_metric("task_completion", passed=metric.score is not None and metric.score >= _THRESHOLD)
+    record_metric(
+        "task_completion", passed=metric.score is not None and metric.score >= metric.threshold
+    )
     assert_test(target.test_case, [metric])
 
 
@@ -87,9 +95,9 @@ async def test_tool_correctness_trajectory(case: dict) -> None:
         tools_called=_EXPECTED_TOOLS,
         expected_tools=_EXPECTED_TOOLS,
     )
-    metric = ToolCorrectnessMetric(threshold=_THRESHOLD)
+    metric = ToolCorrectnessMetric(threshold=_TOOL_FLOOR)
     metric.measure(tc)
     record_metric(
-        "tool_correctness", passed=metric.score is not None and metric.score >= _THRESHOLD
+        "tool_correctness", passed=metric.score is not None and metric.score >= metric.threshold
     )
     assert_test(tc, [metric])

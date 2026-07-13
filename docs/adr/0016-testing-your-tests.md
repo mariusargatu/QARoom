@@ -80,7 +80,7 @@ critical-modules list. Both are small, branch-shaped *logic* (not plumbing) whos
 a real production incident, and both gained a thorough unit guard in the L1 coverage backfill that
 makes them worth meta-testing:
 
-- **Circuit-breaker signal mapping** (`services/gateway/src/breaker-guarded-call.ts`,
+- **Circuit-breaker signal mapping** (`services/gateway/src/resilience/breaker-guarded-call.ts`,
   `breakerSignal`). The 3-way decision table — a 5xx≠502 trips the breaker (`false`), a 2xx/3xx is a
   success (`true`), a 4xx or a 502 leaves it untouched (`undefined`) — is the experiment-06
   resilience contract. A silent inversion either fast-fails healthy reads (502 wrongly trips) or

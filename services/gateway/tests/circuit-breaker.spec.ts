@@ -1,8 +1,8 @@
 import { createServer, type Server } from 'node:http'
 import { FakeClock, SeededRandomness } from '@qaroom/testing-utils/determinism'
 import { afterAll, beforeAll, describe, expect, it } from 'vitest'
-import { CircuitBreaker } from '../src/circuit-breaker'
-import { createDonationsClient } from '../src/donations-client'
+import { createDonationsClient } from '../src/clients/donations-client'
+import { CircuitBreaker } from '../src/resilience/circuit-breaker'
 import { constantContent, SAMPLE, setupGatewayTest } from './harness'
 
 /**

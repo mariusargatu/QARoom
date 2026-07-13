@@ -1,7 +1,7 @@
 import { asOf, SystemLimits } from '@qaroom/contracts'
 import type { FastifyInstance } from 'fastify'
 import type { GatewayRouteDeps } from './deps'
-import { principalKey } from './rate-limit'
+import { principalKey } from './resilience/rate-limit'
 
 /** Gateway-specific observable endpoint: per-principal rate-limit usage. */
 export function registerLimitsRoute(app: FastifyInstance, deps: GatewayRouteDeps): void {

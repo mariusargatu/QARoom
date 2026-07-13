@@ -1,4 +1,4 @@
 import { writeDoc } from '@qaroom/service-kit'
-import { webhooksAsyncApiYaml } from './asyncapi-document'
+import { webhooksAsyncApiYaml } from './contract/asyncapi-document'
 
 writeDoc(import.meta.dirname, 'asyncapi', webhooksAsyncApiYaml)

@@ -1,10 +1,10 @@
 import { CommunityId, CreateWebhookRequest, WebhookSubscriptionId } from '@qaroom/contracts'
 import { idempotencyKeyFrom } from '@qaroom/service-kit'
 import type { FastifyInstance } from 'fastify'
-import type { GatewayRouteDeps } from './deps'
-import { forward, type Upstream } from './forward'
-import { upstreamTitle, WEBHOOKS_UPSTREAM } from './upstreams'
-import type { WebhooksClient } from './webhooks-client'
+import type { WebhooksClient } from '../clients/webhooks-client'
+import type { GatewayRouteDeps } from '../deps'
+import { forward, type Upstream } from '../resilience/forward'
+import { upstreamTitle, WEBHOOKS_UPSTREAM } from '../resilience/upstreams'
 
 const WEBHOOKS: Upstream = {
   slug: WEBHOOKS_UPSTREAM.slug,

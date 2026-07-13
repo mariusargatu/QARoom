@@ -2,7 +2,7 @@ import { resolve } from 'node:path'
 import { MatchersV3, PactV4 } from '@pact-foundation/pact'
 import { EXAMPLE_COMMUNITY_ID, EXAMPLE_DONATION_ID, EXAMPLE_USER_ID } from '@qaroom/contracts'
 import { describe, expect, it } from 'vitest'
-import { createDonationsClient } from '../../src/donations-client'
+import { createDonationsClient } from '../../src/clients/donations-client'
 
 /**
  * Consumer-driven contract (Pact) for the gateway → donations-service proxy path (Milestone 6).

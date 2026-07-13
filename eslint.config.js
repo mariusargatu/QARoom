@@ -84,7 +84,35 @@ export default [
       'qaroom/test-name-shape': 'error',
       'qaroom/no-conditional-in-test': 'error',
       'qaroom/no-snapshot': 'error',
+      // A strong-sounding title can't guarantee a strong body; this flags an existence/truthiness-only
+      // oracle. Complements test-name-shape (which only sees the title).
+      'qaroom/no-weak-only-assertion': 'error',
+      // Lock the by-convention determinism discipline into tests too — but keep the fixed-arg literal
+      // (`new Date('2026-…')`); only the wall-clock `new Date()` / `Date.now()` (the flake source) reds.
+      // The determinism-sanctioned homes + scripts are re-exempted in the block just below.
+      'qaroom/no-new-date': ['error', { allowArgs: true }],
+      'qaroom/no-unseeded-random': 'error',
       'max-lines': ['error', { max: 500, skipBlankLines: true, skipComments: true }],
+    },
+  },
+  // Re-assert the determinism exemption AFTER the tests block so it wins for the sanctioned test homes:
+  // the system-clock production test legitimately reads `Date.now()` to check the wrapper, script tests
+  // are tooling, and the live golden-journey e2e needs a wall-clock run suffix for cross-run uniqueness
+  // (a seeded id would repeat and collide across separate `pnpm journey:run` invocations — not an
+  // assertion, so no determinism risk). (Mirrors the production-source exemption above; later-wins.)
+  {
+    files: [
+      'packages/determinism/src/production/**/*.ts',
+      'packages/testing-utils/src/determinism/**/*.ts',
+      'scripts/**/*.ts',
+      '**/scripts/**/*.ts',
+      // Journey TEST files only (`*.test.ts`) — narrowing to `.test.ts` keeps this from broadening what
+      // eslint lints (a bare `**/*.ts` here pulls non-test journey helpers in under the default parser).
+      'tests/journey/**/*.test.ts',
+    ],
+    rules: {
+      'qaroom/no-new-date': 'off',
+      'qaroom/no-unseeded-random': 'off',
     },
   },
   // Frontend (.tsx): atomic-design dependency direction (ADR-0005). The determinism rules

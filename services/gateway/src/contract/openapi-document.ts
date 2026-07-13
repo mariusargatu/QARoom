@@ -1,5 +1,5 @@
 import { buildServiceOpenApiYaml } from '@qaroom/service-kit'
-import { OPERATIONS } from './operations'
+import { OPERATIONS } from '../operations/operations'
 
 /** Single source for the gateway OpenAPI document params (build script + round-trip test). */
 export function gatewayOpenApiYaml(): string {

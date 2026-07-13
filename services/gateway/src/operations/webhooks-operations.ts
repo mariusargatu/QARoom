@@ -10,8 +10,8 @@ import {
   type OasOperation,
   problemResponse,
 } from '@qaroom/contracts'
-import { upstreamUnreachable502 } from './problem-responses'
-import { WEBHOOKS_UPSTREAM } from './upstreams'
+import { upstreamUnreachable502 } from '../contract/problem-responses'
+import { WEBHOOKS_UPSTREAM } from '../resilience/upstreams'
 
 /**
  * The webhook CRUD operations the gateway proxies to webhooks-service (Milestone 11). Split out of

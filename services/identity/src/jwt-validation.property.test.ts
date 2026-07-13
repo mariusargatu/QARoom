@@ -4,9 +4,9 @@ import { keyIdArb, userIdArb } from '@qaroom/testing-utils/generators'
 import { withResource } from '@qaroom/testing-utils/harness'
 import { importJWK, SignJWT } from 'jose'
 import { describe, expect, it } from 'vitest'
-import { ISSUER } from '../src/jwt'
 import { ALIEN_PRIVATE_JWK, TEST_PRIVATE_JWK } from '../tests/fixtures/test-key-material'
 import { SAMPLE, setupIdentityTest } from '../tests/harness'
+import { ISSUER } from './jwt'
 
 const authRejection = { problem: { failure_domain: 'authentication' } }
 

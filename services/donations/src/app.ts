@@ -3,9 +3,9 @@ import { dbReadiness } from '@qaroom/messaging'
 import { activeSpanSink } from '@qaroom/otel'
 import { buildServiceApp } from '@qaroom/service-kit'
 import type { FastifyInstance } from 'fastify'
+import { OPERATIONS } from './contract/operations'
 import type { DonationsDeps, RouteDeps } from './deps'
 import { registerDonationRoutes } from './donations'
-import { OPERATIONS } from './operations'
 import { countDonations } from './repository'
 
 /**

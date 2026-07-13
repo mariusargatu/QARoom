@@ -1,10 +1,10 @@
 import { CommunityId, CreateDonationRequest, DonationId } from '@qaroom/contracts'
 import { idempotencyKeyFrom } from '@qaroom/service-kit'
 import type { FastifyInstance } from 'fastify'
-import type { GatewayRouteDeps } from './deps'
-import type { DonationsClient } from './donations-client'
-import { forward, type Upstream } from './forward'
-import { DONATIONS_UPSTREAM, upstreamTitle } from './upstreams'
+import type { DonationsClient } from '../clients/donations-client'
+import type { GatewayRouteDeps } from '../deps'
+import { forward, type Upstream } from '../resilience/forward'
+import { DONATIONS_UPSTREAM, upstreamTitle } from '../resilience/upstreams'
 
 const DONATIONS: Upstream = {
   slug: DONATIONS_UPSTREAM.slug,

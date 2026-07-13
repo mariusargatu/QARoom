@@ -6,7 +6,7 @@ Read this after `ARCHITECTURE.md` if you want the *idea*, or first if you want t
 
 ## Entry points: what to open per service
 
-- **gateway**: boot [`server.ts`](../services/gateway/src/server.ts); wiring [`app.ts:35`](../services/gateway/src/app.ts#L35) (`buildGatewayApp`); routes [`proxy-routes.ts`](../services/gateway/src/proxy-routes.ts); contract surface [`operations.ts`](../services/gateway/src/operations.ts)
+- **gateway**: boot [`server.ts`](../services/gateway/src/server.ts); wiring [`app.ts:35`](../services/gateway/src/app.ts#L35) (`buildGatewayApp`); routes [`proxy-routes.ts`](../services/gateway/src/routes/proxy-routes.ts); contract surface [`operations.ts`](../services/gateway/src/operations/operations.ts)
 - **content**: boot [`server.ts`](../services/content/src/server.ts); wiring [`app.ts:22`](../services/content/src/app.ts#L22) (`buildApp`); routes [`routes/posts.ts`](../services/content/src/routes/posts.ts) · [`routes/votes.ts`](../services/content/src/routes/votes.ts) · [`routes/feed.ts`](../services/content/src/routes/feed.ts); contract surface [`contract/operations.ts`](../services/content/src/contract/operations.ts)
 - **shared**: [`packages/service-kit`](../packages/service-kit) (RFC 7807, `/system/*`); [`packages/contracts`](../packages/contracts) (Zod = source of truth)
 
@@ -17,16 +17,16 @@ Both `app.ts` files read the same shape: build a Fastify instance purely from in
 A client `POST`s a new post. The gateway fronts content-service; content owns the data. Each hop is a boundary crossing.
 
 1. **trust boundary** · Request hits the gateway; a per-principal token bucket is consumed; over-limit -> 429 `rate_limit` problem.
-   - code: [`rate-limit.ts:43`](../services/gateway/src/rate-limit.ts#L43) (`limiter.consume`); the bucket is [`rate-limiter.ts:28`](../services/gateway/src/rate-limiter.ts#L28) (`RateLimiter`)
-   - technique: **property test** [`rate-limiter.property.test.ts:11`](../services/gateway/src/rate-limiter.property.test.ts#L11) (`never allows more than capacity requests`)
+   - code: [`rate-limit.ts:43`](../services/gateway/src/resilience/rate-limit.ts#L43) (`limiter.consume`); the bucket is [`rate-limiter.ts:28`](../services/gateway/src/resilience/rate-limiter.ts#L28) (`RateLimiter`)
+   - technique: **property test** [`rate-limiter.property.test.ts:11`](../services/gateway/src/resilience/rate-limiter.property.test.ts#L11) (`never allows more than capacity requests`)
 2. **trust boundary** · The gateway validates at the edge: brands the path id, parses the body.
-   - code: [`proxy-routes.ts:18`](../services/gateway/src/proxy-routes.ts#L18) (`CommunityId.parse`); [`proxy-routes.ts:20`](../services/gateway/src/proxy-routes.ts#L20) (`CreatePostRequest.parse`)
+   - code: [`proxy-routes.ts:18`](../services/gateway/src/routes/proxy-routes.ts#L18) (`CommunityId.parse`); [`proxy-routes.ts:20`](../services/gateway/src/routes/proxy-routes.ts#L20) (`CreatePostRequest.parse`)
    - technique: **Schemathesis** fuzzes the gateway OAS ([`schemathesis-gate.sh`](../scripts/schemathesis-gate.sh)); **RFC 7807** conformance via [`rfc7807.ts:17`](../packages/testing-utils/src/matchers/rfc7807.ts#L17) (`expectRFC7807`)
 3. **process boundary (REST)** · The gateway forwards to content via the Pact-consumer client; an unreachable upstream becomes a 502 `dependency_failure`.
-   - code: [`proxy-routes.ts:22`](../services/gateway/src/proxy-routes.ts#L22) (`deps.content.createPost`) -> [`content-client.ts:26`](../services/gateway/src/content-client.ts#L26) (`createPost`); 502 map [`forward.ts:29`](../services/gateway/src/forward.ts#L29) (`problem`)
+   - code: [`proxy-routes.ts:22`](../services/gateway/src/routes/proxy-routes.ts#L22) (`deps.content.createPost`) -> [`content-client.ts:30`](../services/gateway/src/clients/content-client.ts#L30) (`createPost`); 502 map [`forward.ts:29`](../services/gateway/src/resilience/forward.ts#L29) (`problem`)
    - technique: **Pact v4** consumer test [`content.consumer.spec.ts:101`](../services/gateway/tests/contracts/content.consumer.spec.ts#L101) (`creates a post`) emits `pacts/gateway-content.json`
 4. **observability** · The gateway bumps its own lamport on a successful mutation.
-   - code: [`forward.ts:41`](../services/gateway/src/forward.ts#L41) (`deps.lamport.bump`)
+   - code: [`forward.ts:41`](../services/gateway/src/resilience/forward.ts#L41) (`deps.lamport.bump`)
    - technique: **`/system/state`** `as_of` envelope
 5. **trust boundary (content edge)** · The content handler re-brands the id and re-parses the body; it does not trust the gateway.
    - code: [`routes/posts.ts:13`](../services/content/src/routes/posts.ts#L13) (`CommunityId.parse`); [`routes/posts.ts:14`](../services/content/src/routes/posts.ts#L14) (`CreatePostRequest.parse`)
@@ -50,7 +50,7 @@ A client `POST`s a new post. The gateway fronts content-service; content owns th
     - code: [`provider.verify.ts:13`](../services/content/tests/contracts/provider.verify.ts#L13) (`runProviderVerification`)
     - technique: **Pact** provider verification (Testcontainers)
 
-Any non-2xx along the way is an RFC 7807 `application/problem+json` with `retryable` / `next_actions` / `failure_domain`: see the 404 at [`routes/posts.ts:36`](../services/content/src/routes/posts.ts#L36) (`problem`) and the 502 at [`forward.ts:29`](../services/gateway/src/forward.ts#L29) (`problem`). The single handler is [`problem.ts`](../packages/service-kit/src/problem.ts).
+Any non-2xx along the way is an RFC 7807 `application/problem+json` with `retryable` / `next_actions` / `failure_domain`: see the 404 at [`routes/posts.ts:36`](../services/content/src/routes/posts.ts#L36) (`problem`) and the 502 at [`forward.ts:29`](../services/gateway/src/resilience/forward.ts#L29) (`problem`). The single handler is [`problem.ts`](../packages/service-kit/src/problem.ts).
 
 ### The determinism trio is everywhere on this path
 

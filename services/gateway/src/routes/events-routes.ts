@@ -2,7 +2,7 @@ import { CommunityId, EventPage } from '@qaroom/contracts'
 import { problem } from '@qaroom/service-kit'
 import type { FastifyInstance } from 'fastify'
 import { z } from 'zod'
-import type { GatewayRouteDeps } from './deps'
+import type { GatewayRouteDeps } from '../deps'
 
 /**
  * The polling fallback for the WebSocket push stream (Commitment 11). `GET

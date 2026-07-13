@@ -1,4 +1,8 @@
-import { boundCaller, type ClientResponse, type UpstreamClientOptions } from './upstream-call'
+import {
+  boundCaller,
+  type ClientResponse,
+  type UpstreamClientOptions,
+} from '../resilience/upstream-call'
 
 /**
  * The gateway's client for the moderator-agent (the one Python service, ADR-0018). Read-only: the

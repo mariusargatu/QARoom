@@ -1,6 +1,6 @@
 import type { OasResponse } from '@qaroom/contracts'
 import { problemResponse } from '@qaroom/contracts'
-import { type UpstreamRef, upstreamTitle } from './upstreams'
+import { type UpstreamRef, upstreamTitle } from '../resilience/upstreams'
 
 /**
  * Gateway-LOCAL RFC 7807 envelopes shared across the gateway's four operation files. NOT a barrel:

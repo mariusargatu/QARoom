@@ -8,10 +8,10 @@ import {
 } from '@qaroom/contracts'
 import { idempotencyKeyFrom } from '@qaroom/service-kit'
 import type { FastifyInstance } from 'fastify'
-import type { GatewayRouteDeps } from './deps'
-import { forward, type Upstream } from './forward'
-import type { IdentityClient } from './identity-client'
-import { IDENTITY_UPSTREAM, upstreamTitle } from './upstreams'
+import type { IdentityClient } from '../clients/identity-client'
+import type { GatewayRouteDeps } from '../deps'
+import { forward, type Upstream } from '../resilience/forward'
+import { IDENTITY_UPSTREAM, upstreamTitle } from '../resilience/upstreams'
 
 const IDENTITY: Upstream = {
   slug: IDENTITY_UPSTREAM.slug,

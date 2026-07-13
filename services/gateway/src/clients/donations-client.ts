@@ -1,11 +1,11 @@
-import { breakerGuardedCall } from './breaker-guarded-call'
-import type { CircuitBreaker } from './circuit-breaker'
+import { breakerGuardedCall } from '../resilience/breaker-guarded-call'
+import type { CircuitBreaker } from '../resilience/circuit-breaker'
 import {
   type ClientResponse,
   type UpstreamCallOptions,
   type UpstreamClientOptions,
   upstreamTimeoutMs,
-} from './upstream-call'
+} from '../resilience/upstream-call'
 
 /**
  * The gateway's client for donations-service. Like the content client it is a thin seam
