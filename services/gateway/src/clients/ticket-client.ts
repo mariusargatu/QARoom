@@ -1,5 +1,5 @@
 import { RedeemTicketResponse } from '@qaroom/contracts'
-import { upstreamTimeoutMs } from './upstream-call'
+import { upstreamTimeoutMs } from '../resilience/upstream-call'
 
 /**
  * Client the gateway uses to redeem a WebSocket ticket against identity-service before

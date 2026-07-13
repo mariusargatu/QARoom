@@ -17,8 +17,8 @@ import {
   problemResponse,
   userIdParam,
 } from '@qaroom/contracts'
-import { upstreamUnreachable502 } from './problem-responses'
-import { IDENTITY_UPSTREAM } from './upstreams'
+import { upstreamUnreachable502 } from '../contract/problem-responses'
+import { IDENTITY_UPSTREAM } from '../resilience/upstreams'
 
 /**
  * The identity operations the gateway proxies to identity-service (ADR-0022): user + community +

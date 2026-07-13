@@ -1,15 +1,15 @@
 import type { LamportGate, SpanAttributeSink } from '@qaroom/contracts'
 import type { Clock, IdGenerator, Randomness } from '@qaroom/determinism'
-import type { ContentClient } from './content-client'
-import type { DonationsClient } from './donations-client'
+import type { ContentClient } from './clients/content-client'
+import type { DonationsClient } from './clients/donations-client'
+import type { FlagsClient } from './clients/flags-client'
+import type { IdentityClient } from './clients/identity-client'
+import type { ModeratorClient } from './clients/moderator-client'
+import type { TicketClient } from './clients/ticket-client'
+import type { WebhooksClient } from './clients/webhooks-client'
 import type { CommunityEventStream } from './event-stream'
-import type { FlagsClient } from './flags-client'
-import type { IdentityClient } from './identity-client'
-import type { ModeratorClient } from './moderator-client'
-import type { RateLimitConfig, RateLimiter } from './rate-limiter'
-import type { TicketClient } from './ticket-client'
+import type { RateLimitConfig, RateLimiter } from './resilience/rate-limiter'
 import type { TokenVerifier } from './token-verifier'
-import type { WebhooksClient } from './webhooks-client'
 
 /** What `buildGatewayApp` receives. `lamport`/`rateLimit`/`eventStream` optional with defaults. */
 export interface GatewayDeps {

@@ -6,8 +6,8 @@ import {
   type OasOperation,
   problemResponse,
 } from '@qaroom/contracts'
-import { upstreamUnreachable502 } from './problem-responses'
-import { MODERATOR_UPSTREAM } from './upstreams'
+import { upstreamUnreachable502 } from '../contract/problem-responses'
+import { MODERATOR_UPSTREAM } from '../resilience/upstreams'
 
 /**
  * The moderation-decision reads the gateway proxies to the moderator-agent (ADR-0022, ADR-0018).

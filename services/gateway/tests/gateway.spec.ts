@@ -6,7 +6,7 @@ import {
   lamportOf,
 } from '@qaroom/testing-utils/matchers'
 import { describe, expect, it } from 'vitest'
-import { OPERATIONS } from '../src/operations'
+import { OPERATIONS } from '../src/operations/operations'
 import {
   constantContent,
   SAMPLE,

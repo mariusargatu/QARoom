@@ -1,4 +1,8 @@
-import { boundCaller, type ClientResponse, type UpstreamClientOptions } from './upstream-call'
+import {
+  boundCaller,
+  type ClientResponse,
+  type UpstreamClientOptions,
+} from '../resilience/upstream-call'
 
 /**
  * Thin JWKS client the gateway uses to fetch identity-service's public verification

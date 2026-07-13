@@ -2,7 +2,7 @@ import { ACCESS_TOKEN_ISSUER, EXAMPLE_COMMUNITY_ID, EXAMPLE_USER_ID } from '@qar
 import type { Clock } from '@qaroom/determinism'
 import { type CryptoKey, exportJWK, generateKeyPair, type JWK, SignJWT } from 'jose'
 import { beforeAll, describe, expect, it } from 'vitest'
-import type { JwksClient } from './jwks-client'
+import type { JwksClient } from './clients/jwks-client'
 import { createTokenVerifier } from './token-verifier'
 
 // A fixed logical clock: token validity is judged against THIS, never wall-clock (Commitment 6).

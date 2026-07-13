@@ -2,7 +2,7 @@ import { ACCESS_TOKEN_ISSUER, AccessTokenClaims } from '@qaroom/contracts'
 import type { Clock } from '@qaroom/determinism'
 import { problem } from '@qaroom/service-kit'
 import { createLocalJWKSet, jwtVerify } from 'jose'
-import type { JwksClient } from './jwks-client'
+import type { JwksClient } from './clients/jwks-client'
 
 /**
  * The gateway's edge token verifier (ADR-0025, superseding ADR-0022's "the gateway never decodes

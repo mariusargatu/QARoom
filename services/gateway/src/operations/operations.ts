@@ -14,10 +14,10 @@ import {
   postIdParam,
   problemResponse,
 } from '@qaroom/contracts'
+import { upstreamUnreachable502, validation400 } from '../contract/problem-responses'
+import { CONTENT_UPSTREAM, DONATIONS_UPSTREAM, FLAGS_UPSTREAM } from '../resilience/upstreams'
 import { IDENTITY_OPERATIONS } from './identity-operations'
 import { MODERATION_OPERATIONS } from './moderation-operations'
-import { upstreamUnreachable502, validation400 } from './problem-responses'
-import { CONTENT_UPSTREAM, DONATIONS_UPSTREAM, FLAGS_UPSTREAM } from './upstreams'
 import { WEBHOOK_OPERATIONS } from './webhooks-operations'
 
 /**

@@ -1,4 +1,8 @@
-import { boundCaller, type ClientResponse, type UpstreamClientOptions } from './upstream-call'
+import {
+  boundCaller,
+  type ClientResponse,
+  type UpstreamClientOptions,
+} from '../resilience/upstream-call'
 
 /**
  * The gateway's client for identity-service. A thin, bounded-timeout seam (the Pact consumer for

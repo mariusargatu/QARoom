@@ -1,6 +1,6 @@
 import { problem } from '@qaroom/service-kit'
 import type { FastifyReply } from 'fastify'
-import type { GatewayRouteDeps } from './deps'
+import type { GatewayRouteDeps } from '../deps'
 import type { ClientResponse } from './upstream-call'
 
 /**

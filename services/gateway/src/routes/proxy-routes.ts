@@ -1,9 +1,9 @@
 import { CastVoteRequest, CommunityId, CreatePostRequest, PostId } from '@qaroom/contracts'
 import { idempotencyKeyFrom } from '@qaroom/service-kit'
 import type { FastifyInstance } from 'fastify'
-import type { GatewayRouteDeps } from './deps'
-import { forward, type Upstream } from './forward'
-import { CONTENT_UPSTREAM, upstreamTitle } from './upstreams'
+import type { GatewayRouteDeps } from '../deps'
+import { forward, type Upstream } from '../resilience/forward'
+import { CONTENT_UPSTREAM, upstreamTitle } from '../resilience/upstreams'
 
 const CONTENT: Upstream = {
   slug: CONTENT_UPSTREAM.slug,

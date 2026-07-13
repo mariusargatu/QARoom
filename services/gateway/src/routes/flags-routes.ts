@@ -1,10 +1,10 @@
 import { AdvanceRolloutRequest, CommunityId, FlagKey } from '@qaroom/contracts'
 import { idempotencyKeyFrom } from '@qaroom/service-kit'
 import type { FastifyInstance } from 'fastify'
-import type { GatewayRouteDeps } from './deps'
-import type { FlagsClient } from './flags-client'
-import { forward, type Upstream } from './forward'
-import { FLAGS_UPSTREAM, upstreamTitle } from './upstreams'
+import type { FlagsClient } from '../clients/flags-client'
+import type { GatewayRouteDeps } from '../deps'
+import { forward, type Upstream } from '../resilience/forward'
+import { FLAGS_UPSTREAM, upstreamTitle } from '../resilience/upstreams'
 
 const FLAGS: Upstream = {
   slug: FLAGS_UPSTREAM.slug,

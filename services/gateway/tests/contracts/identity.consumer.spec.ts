@@ -7,8 +7,8 @@ import {
   EXAMPLE_USER_ID,
 } from '@qaroom/contracts'
 import { describe, expect, it } from 'vitest'
-import { createIdentityClient } from '../../src/identity-client'
-import { createJwksClient } from '../../src/jwks-client'
+import { createIdentityClient } from '../../src/clients/identity-client'
+import { createJwksClient } from '../../src/clients/jwks-client'
 
 /**
  * Consumer-driven contract (Pact) for the gateway → identity boundary. The gateway declares

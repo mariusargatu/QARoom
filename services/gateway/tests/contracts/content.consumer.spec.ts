@@ -2,7 +2,7 @@ import { resolve } from 'node:path'
 import { MatchersV3, PactV4 } from '@pact-foundation/pact'
 import { EXAMPLE_COMMUNITY_ID, EXAMPLE_POST_ID, EXAMPLE_USER_ID } from '@qaroom/contracts'
 import { describe, expect, it } from 'vitest'
-import { createContentClient } from '../../src/content-client'
+import { createContentClient } from '../../src/clients/content-client'
 
 /**
  * Consumer-driven contract (Pact). The gateway declares exactly what it needs
