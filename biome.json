@@ -12,6 +12,7 @@
       "!**/openapi.yaml",
       "!**/mcp-manifest.json",
       "!**/golden-transcript.json",
+      "!**/cassettes/**",
       "!**/*.gen.ts",
       "!**/*.css",
       "!**/migrations",
