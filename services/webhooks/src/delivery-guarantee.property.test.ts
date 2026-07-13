@@ -5,7 +5,6 @@ import { withResource } from '@qaroom/testing-utils/harness'
 import { sql } from 'drizzle-orm'
 import fc from 'fast-check'
 import { afterEach, describe, expect, it } from 'vitest'
-import type { SendResult } from '../src/sender'
 import {
   drainToQuiescence,
   enqueueDelivery,
@@ -15,6 +14,7 @@ import {
   seedSubscription,
   setupWebhooksTest,
 } from '../tests/harness'
+import type { SendResult } from './sender'
 
 const FAIL: SendResult = { kind: 'http_error', status: 500 }
 const OK: SendResult = { kind: 'success', status: 200 }

@@ -3,9 +3,9 @@ import { dbReadiness } from '@qaroom/messaging'
 import { activeSpanSink, xstateTransitionSink } from '@qaroom/otel'
 import { buildServiceApp } from '@qaroom/service-kit'
 import type { FastifyInstance } from 'fastify'
+import { OPERATIONS } from './contract/operations'
 import type { FlagsDeps, RouteDeps } from './deps'
 import { registerFlagRoutes } from './flags'
-import { OPERATIONS } from './operations'
 import { countFlags } from './repository'
 
 /**

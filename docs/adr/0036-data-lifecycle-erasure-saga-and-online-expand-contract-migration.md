@@ -28,7 +28,7 @@
 
 ## Context
 
-QARoom had **no erasure path**: `services/identity/src/operations.ts` exposed create/get only, no
+QARoom had **no erasure path**: `services/identity/src/contract/operations.ts` exposed create/get only, no
 service deleted a user, and no cross-service cascade existed. A real platform must be able to honour a
 GDPR erasure, and erasure is a genuine **distributed-correctness** problem — the user's personal data is
 spread across identity (users, memberships, sessions), content (posts, votes), and donations

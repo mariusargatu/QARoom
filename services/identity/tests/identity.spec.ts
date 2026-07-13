@@ -5,7 +5,7 @@ import {
   expectRFC7807,
 } from '@qaroom/testing-utils/matchers'
 import { afterEach, beforeEach, describe, expect, it } from 'vitest'
-import { OPERATIONS } from '../src/operations'
+import { OPERATIONS } from '../src/contract/operations'
 import { SAMPLE, setupIdentityTest } from './harness'
 
 type Ctx = Awaited<ReturnType<typeof setupIdentityTest>>
