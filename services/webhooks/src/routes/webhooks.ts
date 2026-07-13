@@ -12,7 +12,7 @@ import {
 import { problem, withIdempotency } from '@qaroom/service-kit'
 import type { FastifyInstance } from 'fastify'
 import { z } from 'zod'
-import type { RouteDeps } from './deps'
+import type { RouteDeps } from '../deps'
 import {
   createSubscription,
   deleteSubscription,
@@ -20,7 +20,7 @@ import {
   listDeliveries,
   listSubscriptions,
   setSubscriptionStatus,
-} from './repository'
+} from '../repository'
 
 const BASE = '/api/communities/:communityId/webhook-subscriptions'
 const CREATE_ROUTE = 'POST /api/communities/{communityId}/webhook-subscriptions'

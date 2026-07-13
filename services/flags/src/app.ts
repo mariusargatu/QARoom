@@ -5,8 +5,8 @@ import { buildServiceApp } from '@qaroom/service-kit'
 import type { FastifyInstance } from 'fastify'
 import { OPERATIONS } from './contract/operations'
 import type { FlagsDeps, RouteDeps } from './deps'
-import { registerFlagRoutes } from './flags'
 import { countFlags } from './repository'
+import { registerFlagRoutes } from './routes/flags'
 
 /**
  * Build a flags-service Fastify instance from injected dependencies (Commitment 6). A
