@@ -8,8 +8,8 @@ packages:
 catalog:
   # 4.1.8 matches web's lockstep @vitest/browser* stack already proven in-repo (avoids churning
   # web's browser/vite deps); bump to latest with @vitest/browser* together in a dedicated pass.
-  vitest: 4.1.9
-  '@vitest/coverage-v8': 4.1.9
-  fast-check: 4.8.0
+  vitest: 4.1.10
+  '@vitest/coverage-v8': 4.1.10
+  fast-check: 4.9.0
   '@fast-check/vitest': 0.4.1
-  undici: 8.5.0
+  undici: 8.7.0
