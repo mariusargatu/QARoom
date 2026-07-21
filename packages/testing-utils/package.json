@@ -34,7 +34,7 @@
     "@apidevtools/swagger-parser": "^12.1.0",
     "@asyncapi/diff": "0.5.0",
     "@asyncapi/parser": "3.6.0",
-    "@electric-sql/pglite": "^0.5.3",
+    "@electric-sql/pglite": "^0.5.4",
     "@qaroom/contracts": "workspace:*",
     "@qaroom/determinism": "workspace:*",
     "@xstate/graph": "3.0.4",
@@ -42,14 +42,14 @@
     "ajv-formats": "^3.0.1",
     "drizzle-orm": "^0.45.2",
     "fast-check": "catalog:",
-    "pure-rand": "^6.1.0",
+    "pure-rand": "^8.4.2",
     "undici": "catalog:",
-    "xstate": "^5.32.2",
+    "xstate": "^5.32.5",
     "zod": "^4.0.0"
   },
   "peerDependencies": {
     "@fast-check/vitest": "catalog:",
-    "@pact-foundation/pact": "^17.0.0",
+    "@pact-foundation/pact": "^17.0.1",
     "@playwright/test": "^1.60.0",
     "@testcontainers/postgresql": "^12.0.4",
     "fastify": "^5.0.0",
@@ -71,14 +71,14 @@
     }
   },
   "devDependencies": {
-    "@pact-foundation/pact": "^17.0.0",
+    "@pact-foundation/pact": "^17.0.1",
     "@playwright/test": "1.61.1",
     "@stryker-mutator/core": "9.6.1",
     "@stryker-mutator/vitest-runner": "9.6.1",
     "@testcontainers/postgresql": "^12.0.4",
-    "fastify": "^5.9.0",
+    "fastify": "^5.10.0",
     "postgres": "^3.4.0",
-    "typescript": "^6.0.3",
+    "typescript": "^7.0.2",
     "vitest": "catalog:"
   }
 }
