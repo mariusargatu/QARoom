@@ -2,14 +2,15 @@ import { USER_ERASED_FEED_SUBJECT, UserErasedEvent } from '@qaroom/contracts'
 import type { Clock } from '@qaroom/determinism'
 import {
   consumeDurable,
+  deadLetterSink,
   type EventHandler,
   headersToRecord,
   type NatsHandle,
-  processEvent,
   readEventHeaders,
+  processEvent,
   rowsOf,
-  type SqlExecutor,
   settleByDeliveryBudget,
+  type SqlExecutor,
 } from '@qaroom/messaging'
 import { sql } from 'drizzle-orm'
 import type { DonationsDb } from './db/client'
@@ -99,6 +100,9 @@ export async function startDonationsErasureConsumer(
         settleByDeliveryBudget(message, {
           max: ERASURE_CONSUMER_MAX_DELIVERIES,
           poisonReason: 'donations erasure consumer poison: exhausted delivery budget',
+          // term() stops redelivery for good and there is no DLQ stream behind it, so the
+          // message is written to `dead_letters` FIRST — otherwise it is simply gone.
+          onPoison: deadLetterSink(db, 'donations-on-user-erased', clock),
         }),
     },
   )

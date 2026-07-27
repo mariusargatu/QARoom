@@ -75,11 +75,39 @@ export const idempotencyResponsesMigration: Migration<SqlExecutor> = {
   },
 }
 
+/**
+ * Where a message the delivery budget gave up on lands. `settleByDeliveryBudget` calls `term()`,
+ * which stops redelivery for good; without this table that message was gone with no trace, in five
+ * consumers, under a "never lost" claim. NOT swept by `gcDedup`: dedup rows are hygiene, dead
+ * letters are evidence, and an expiring incident record is not an incident record.
+ */
+export const deadLettersMigration: Migration<SqlExecutor> = {
+  name: 'create_dead_letters',
+  async up(tx) {
+    await tx.execute(
+      sql.raw(`CREATE TABLE IF NOT EXISTS dead_letters (
+        subscription_name text NOT NULL,
+        event_id text NOT NULL,
+        subject text NOT NULL,
+        delivery_count integer NOT NULL,
+        reason text NOT NULL,
+        payload jsonb NOT NULL,
+        recorded_at timestamptz NOT NULL,
+        PRIMARY KEY (subscription_name, event_id)
+      )`),
+    )
+  },
+  async down(tx) {
+    await tx.execute(sql.raw('DROP TABLE IF EXISTS dead_letters'))
+  },
+}
+
 /** The messaging migration fragments, in dependency order. */
 export const MESSAGING_MIGRATIONS: readonly Migration<SqlExecutor>[] = [
   outboxMigration,
   processedEventsMigration,
   idempotencyResponsesMigration,
+  deadLettersMigration,
 ]
 
 /**

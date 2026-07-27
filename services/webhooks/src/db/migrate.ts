@@ -1,5 +1,6 @@
 import { composeMigrations, type Migration } from '@qaroom/contracts'
 import {
+  deadLettersMigration,
   idempotencyResponsesMigration,
   processedEventsMigration,
 } from '@qaroom/messaging/migrations'
@@ -86,6 +87,10 @@ export const webhooksMigrations = composeMigrations<SqlExecutor>([
   deliveriesMigration,
   processedEventsMigration,
   idempotencyResponsesMigration,
+  // webhooks composes fragments directly rather than taking `messagingFragment`, so a new fragment
+  // does NOT arrive automatically. Its fan-out consumer terms poison messages, so it needs the
+  // dead-letter table or that termination is silent.
+  deadLettersMigration,
 ])
 
 /** Apply the webhooks-service schema. Idempotent; safe to call on every boot/test. */

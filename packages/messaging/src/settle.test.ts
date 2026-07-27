@@ -41,17 +41,98 @@ describe('deliveryBudgetSettlement', () => {
 })
 
 describe('settleByDeliveryBudget applies the decision to a JetStream message', () => {
-  it('naks a message still under the delivery budget', () => {
+  // A no-op sink: these two cover the nak/term DECISION. That termination also records the
+  // message is covered below, where the sink is the thing under test.
+  const noopPoison = { onPoison: async () => {} }
+
+  it('naks a message still under the delivery budget', async () => {
     const { message, calls } = fakeMsg(2)
-    settleByDeliveryBudget(message, opts)
+    await settleByDeliveryBudget(message, { ...opts, ...noopPoison })
     expect(calls.naks).toBe(1)
     expect(calls.term).toEqual([])
   })
 
-  it('terms a poison message at the delivery budget with the reason', () => {
+  it('terms a poison message at the delivery budget with the reason', async () => {
     const { message, calls } = fakeMsg(5)
-    settleByDeliveryBudget(message, opts)
+    await settleByDeliveryBudget(message, { ...opts, ...noopPoison })
     expect(calls.naks).toBe(0)
     expect(calls.term).toEqual(['exceeded delivery budget'])
+  })
+})
+
+/**
+ * The loss path. Before this, `term()` was called with nothing recording the message, and the two
+ * tests above asserted only that `term` was CALLED — which is exactly the shape of a test that
+ * passes while the event disappears. `onPoison` is REQUIRED, so a caller cannot express a silent
+ * termination any more, and it runs BEFORE `term()` so the record is durable before the broker is
+ * told to stop redelivering.
+ */
+describe('settleByDeliveryBudget cannot terminate a message silently', () => {
+  const opts = { max: 5, poisonReason: 'poison: exhausted delivery budget' }
+
+  it('records the poisoned message before calling term', async () => {
+    const order: string[] = []
+    const message = {
+      info: { deliveryCount: 5 },
+      term: (r?: string) => order.push(`term:${r}`),
+      nak: () => order.push('nak'),
+    } as unknown as Parameters<typeof settleByDeliveryBudget>[0]
+    await settleByDeliveryBudget(message, {
+      ...opts,
+      onPoison: async () => {
+        order.push('recorded')
+      },
+    })
+    expect(order).toEqual(['recorded', `term:${opts.poisonReason}`])
+  })
+
+  it('passes the delivery count and reason to the sink so the record is actionable', async () => {
+    const seen: Array<{ deliveryCount: number; reason: string }> = []
+    const message = {
+      info: { deliveryCount: 7 },
+      term: () => {},
+      nak: () => {},
+    } as unknown as Parameters<typeof settleByDeliveryBudget>[0]
+    await settleByDeliveryBudget(message, {
+      ...opts,
+      onPoison: async (info) => {
+        seen.push({ deliveryCount: info.deliveryCount, reason: info.reason })
+      },
+    })
+    expect(seen).toEqual([{ deliveryCount: 7, reason: opts.poisonReason }])
+  })
+
+  it('does not call the sink when the message is merely naked for redelivery', async () => {
+    let called = 0
+    const message = {
+      info: { deliveryCount: 1 },
+      term: () => {},
+      nak: () => {},
+    } as unknown as Parameters<typeof settleByDeliveryBudget>[0]
+    await settleByDeliveryBudget(message, {
+      ...opts,
+      onPoison: async () => {
+        called += 1
+      },
+    })
+    expect(called).toBe(0)
+  })
+
+  it('still terms when the sink itself fails, but surfaces the recording failure', async () => {
+    // A broken sink must not strand the message in redelivery forever, and must not be silent
+    // either — the whole point is that a loss is findable.
+    const order: string[] = []
+    const message = {
+      info: { deliveryCount: 5 },
+      term: () => order.push('term'),
+      nak: () => order.push('nak'),
+    } as unknown as Parameters<typeof settleByDeliveryBudget>[0]
+    const outcome = await settleByDeliveryBudget(message, {
+      ...opts,
+      onPoison: async () => {
+        throw new Error('db down')
+      },
+    })
+    expect([order, outcome]).toEqual([['term'], { terminated: true, recorded: false }])
   })
 })

@@ -30,6 +30,13 @@ export {
   type Settlement,
   settleByDeliveryBudget,
 } from './settle'
+export {
+  deadLetterCount,
+  deadLetterRows,
+  deadLetterSink,
+  type DeadLetter,
+  recordDeadLetter,
+} from './dead-letters'
 export { pgSnapshotStore } from './snapshot-store'
 export { type DeliveredEvent, type EventHandler, processEvent } from './subscribe'
 export type { EventPublisher, OutboxEvent, PendingEvent, SqlExecutor, TxRunner } from './types'

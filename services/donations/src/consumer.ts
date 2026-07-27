@@ -2,11 +2,12 @@ import { FLAGS_FEED_SUBJECT, FlagStateChangedEvent } from '@qaroom/contracts'
 import type { Clock } from '@qaroom/determinism'
 import {
   consumeDurable,
+  deadLetterSink,
   type EventHandler,
   headersToRecord,
   type NatsHandle,
-  processEvent,
   readEventHeaders,
+  processEvent,
   settleByDeliveryBudget,
 } from '@qaroom/messaging'
 import type { DonationsDb } from './db/client'
@@ -90,6 +91,9 @@ export async function startDonationsConsumer(
         settleByDeliveryBudget(message, {
           max: FLAG_CONSUMER_MAX_DELIVERIES,
           poisonReason: 'donations flag consumer poison: exhausted delivery budget',
+          // term() stops redelivery for good and there is no DLQ stream behind it, so the
+          // message is written to `dead_letters` FIRST — otherwise it is simply gone.
+          onPoison: deadLetterSink(db, 'donations-on-flag-changed', clock),
         }),
     },
   )

@@ -2,11 +2,12 @@ import { ALL_FEED_SUBJECTS, WebhookEventType } from '@qaroom/contracts'
 import type { Clock, IdGenerator } from '@qaroom/determinism'
 import {
   consumeDurable,
+  deadLetterSink,
   type EventHandler,
   headersToRecord,
   type NatsHandle,
-  processEvent,
   readEventHeaders,
+  processEvent,
   settleByDeliveryBudget,
 } from '@qaroom/messaging'
 import type { WebhooksDb } from './db/client'
@@ -119,6 +120,9 @@ export async function startWebhookFanout(
         settleByDeliveryBudget(message, {
           max: WEBHOOK_FANOUT_MAX_DELIVERIES,
           poisonReason: 'webhooks-fanout poison: exhausted delivery budget',
+          // term() stops redelivery for good and there is no DLQ stream behind it, so the
+          // message is written to `dead_letters` FIRST — otherwise it is simply gone.
+          onPoison: deadLetterSink(db, 'webhooks-fanout', deps.clock),
         }),
     },
   )
