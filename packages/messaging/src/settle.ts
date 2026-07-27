@@ -87,11 +87,21 @@ export async function settleByDeliveryBudget(
     message.nak()
     return { terminated: false, recorded: false }
   }
+  const poisoned = describe_(message, settlement.reason)
   let recorded = true
   try {
-    await opts.onPoison(describe_(message, settlement.reason))
-  } catch {
+    await opts.onPoison(poisoned)
+  } catch (error) {
     recorded = false
+    // Shout HERE rather than trusting the caller to read the return value. The whole point of this
+    // function is that a loss cannot be silent, and a `recorded: false` nobody checks is exactly as
+    // silent as the bare `term()` this replaced — every current call site does discard it.
+    process.stderr.write(
+      `UNRECORDED MESSAGE LOSS: terminating ${poisoned.subject} (event ${poisoned.eventId || 'unknown'}, ` +
+        `${poisoned.deliveryCount} deliveries) but the dead-letter write FAILED: ` +
+        `${error instanceof Error ? error.message : String(error)}. The event is gone and there is ` +
+        'no record of it.\n',
+    )
   }
   message.term(settlement.reason)
   return { terminated: true, recorded }

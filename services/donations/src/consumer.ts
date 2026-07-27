@@ -93,7 +93,7 @@ export async function startDonationsConsumer(
           poisonReason: 'donations flag consumer poison: exhausted delivery budget',
           // term() stops redelivery for good and there is no DLQ stream behind it, so the
           // message is written to `dead_letters` FIRST — otherwise it is simply gone.
-          onPoison: deadLetterSink(db, 'donations-on-flag-changed', clock),
+          onPoison: deadLetterSink(db, FLAG_SUBSCRIPTION, clock),
         }),
     },
   )

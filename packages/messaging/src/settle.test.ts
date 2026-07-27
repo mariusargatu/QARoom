@@ -136,3 +136,31 @@ describe('settleByDeliveryBudget cannot terminate a message silently', () => {
     expect([order, outcome]).toEqual([['term'], { terminated: true, recorded: false }])
   })
 })
+
+describe('a failed poison record is never silent', () => {
+  it('writes the unrecorded loss to stderr, so ignoring the return value still cannot hide it', async () => {
+    const written: string[] = []
+    const original = process.stderr.write.bind(process.stderr)
+    process.stderr.write = ((chunk: string) => {
+      written.push(String(chunk))
+      return true
+    }) as typeof process.stderr.write
+    const message = {
+      info: { deliveryCount: 5 },
+      subject: 'qaroom.identity.user.comm_1.erased',
+      headers: { get: () => 'evt_1' },
+      json: () => ({}),
+      term: () => {},
+      nak: () => {},
+    } as unknown as Parameters<typeof settleByDeliveryBudget>[0]
+    await settleByDeliveryBudget(message, {
+      max: 5,
+      poisonReason: 'poison',
+      onPoison: async () => {
+        throw new Error('db down')
+      },
+    })
+    process.stderr.write = original
+    expect(written.join('')).toMatch(/qaroom\.identity\.user\.comm_1\.erased/)
+  })
+})

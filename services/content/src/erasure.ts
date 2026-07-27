@@ -121,7 +121,7 @@ export async function startContentErasureConsumer(
           poisonReason: 'content erasure consumer poison: exhausted delivery budget',
           // term() stops redelivery for good and there is no DLQ stream behind it, so the
           // message is written to `dead_letters` FIRST — otherwise it is simply gone.
-          onPoison: deadLetterSink(db, 'content-on-user-erased', clock),
+          onPoison: deadLetterSink(db, ERASURE_SUBSCRIPTION, clock),
         }),
     },
   )

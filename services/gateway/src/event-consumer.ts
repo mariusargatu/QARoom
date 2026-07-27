@@ -103,6 +103,14 @@ export async function startWsFeed(
       },
       // Poison vs transient: a payload that cannot be parsed will never succeed on redelivery, so
       // terminate it; anything else may be transient, so nak for redelivery.
+      //
+      // NO dead-letter record here, deliberately, unlike the four consumers that use
+      // `settleByDeliveryBudget` + `deadLetterSink`. The gateway is stateless (no Postgres, so no
+      // `dead_letters` table), and more importantly its loss is not a lost EFFECT: this consumer
+      // only projects events onto the WS feed. The event itself remains durable in JetStream and in
+      // the producing service's outbox, and a client that missed the push re-reads it through the
+      // REST polling fallback (ADR-0025). The termination is still observable — `runResilientConsume`
+      // records the exception on the per-message span before calling settle, so it lands in Jaeger.
       settle: (message, err) => {
         if (isPoison(err)) message.term('undecodable feed event')
         else message.nak()

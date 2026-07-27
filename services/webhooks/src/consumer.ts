@@ -122,7 +122,7 @@ export async function startWebhookFanout(
           poisonReason: 'webhooks-fanout poison: exhausted delivery budget',
           // term() stops redelivery for good and there is no DLQ stream behind it, so the
           // message is written to `dead_letters` FIRST — otherwise it is simply gone.
-          onPoison: deadLetterSink(db, 'webhooks-fanout', deps.clock),
+          onPoison: deadLetterSink(db, WEBHOOK_FANOUT_DURABLE, deps.clock),
         }),
     },
   )

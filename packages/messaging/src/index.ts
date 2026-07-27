@@ -9,6 +9,13 @@ export { consumeDurable } from './consume-durable'
 export { type ResilientConsumeOpts, runResilientConsume } from './consume-loop'
 export { type BacklogSim, consumerStalled, simulateBacklog } from './consumer-lag'
 export { connectServiceDb, dbReadiness, type ServiceDbHandle } from './db-connect'
+export {
+  type DeadLetter,
+  deadLetterCount,
+  deadLetterRows,
+  deadLetterSink,
+  recordDeadLetter,
+} from './dead-letters'
 export { alreadyProcessed, markProcessed } from './dedup'
 export { createDrainLoop } from './drain-loop'
 export { type GcSweep, type GcTargets, gcDedup } from './gc'
@@ -30,13 +37,6 @@ export {
   type Settlement,
   settleByDeliveryBudget,
 } from './settle'
-export {
-  deadLetterCount,
-  deadLetterRows,
-  deadLetterSink,
-  type DeadLetter,
-  recordDeadLetter,
-} from './dead-letters'
 export { pgSnapshotStore } from './snapshot-store'
 export { type DeliveredEvent, type EventHandler, processEvent } from './subscribe'
 export type { EventPublisher, OutboxEvent, PendingEvent, SqlExecutor, TxRunner } from './types'
