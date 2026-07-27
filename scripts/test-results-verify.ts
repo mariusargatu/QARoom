@@ -30,12 +30,37 @@ import { RUNNERS, type RunnerTier, runnerNames } from './lib/runners'
  *     is hard-required (an empty summary.json is still caught).
  *   - full (`--tier full` | `--tier=full` | QAROOM_VERIFY_TIER=full): the nightly/cluster job. Every
  *     in-proc AND cluster runner MUST be present.
+ *
+ * The tier alone cannot tell the two reasons a runner is absent apart, and only one of them is
+ * benign:
+ *   (a) the lane never ran (no cluster, no key) — legitimately DEFERRED
+ *   (b) the lane DID run and its evidence never reached the envelope — a false green
+ * Every lane in practice resolves as (a), because `--tier full` is selected by no workflow, npm
+ * script or gauntlet step: `_envelope.yml` pins `in-proc`. So the missing-runner check was dead
+ * code and an un-run technique validated.
+ *
+ * `--ran <a,b>` / QAROOM_RAN_LANES closes that: it names the runners whose lane DEMONSTRABLY ran
+ * this time, and their absence is fatal regardless of tier. The envelope derives it from which
+ * `partial-*` artifacts it actually downloaded, so the signal comes from the lanes themselves
+ * rather than from a hand-maintained list that would go stale.
  */
 
 const ROOT = process.cwd()
 const SUMMARY_PATH = resolve(ROOT, 'test-results/summary.json')
 
 type Tier = 'in-proc' | 'full'
+
+/** Runners whose lane ran in this same run, so their absence is evidence loss, never a defer. */
+function resolveRanLanes(): string[] {
+  const flagIdx = process.argv.indexOf('--ran')
+  const fromFlag = flagIdx !== -1 ? process.argv[flagIdx + 1] : undefined
+  const fromEq = process.argv.find((a) => a.startsWith('--ran='))?.split('=')[1]
+  const raw = fromFlag ?? fromEq ?? process.env.QAROOM_RAN_LANES ?? ''
+  return raw
+    .split(',')
+    .map((s) => s.trim())
+    .filter((s) => s.length > 0)
+}
 
 function resolveTier(): Tier {
   const flagIdx = process.argv.indexOf('--tier')
@@ -134,6 +159,22 @@ export function runCensus(summary: TestResultsSummary, tier: Tier): number {
       `  cluster:  ${missingCluster.length} deferred (expected only under --tier full): ` +
         `${missingCluster.join(', ') || 'none'}\n`,
     )
+  }
+
+  // Lanes that demonstrably ran: absence here is evidence LOSS, not a deferral, at any tier.
+  const ran = resolveRanLanes()
+  const ranMissing = ran.filter((n) => !present.has(n))
+  if (ran.length > 0) {
+    process.stdout.write(
+      `  ran-lanes: ${ran.length - ranMissing.length}/${ran.length} folded (${ran.join(', ')})\n`,
+    )
+  }
+  if (ranMissing.length > 0) {
+    fatal.push(
+      `lane(s) ran but folded no runner into the envelope: ${ranMissing.join(', ')} — ` +
+        'their evidence was produced and then lost, which reads as a clean run',
+    )
+    process.stdout.write(`  ✗ ran but absent: ${ranMissing.join(', ')}\n`)
   }
 
   const optionalPresent = optional.filter((n) => present.has(n))

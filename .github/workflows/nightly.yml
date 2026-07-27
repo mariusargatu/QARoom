@@ -65,6 +65,23 @@ jobs:
           echo "heavy=$heavy" >> "$GITHUB_OUTPUT"
           echo "decided: integration=$integration heavy=$heavy (event=$EVENT sched='$SCHED' dispatch_heavy=${INCLUDE_HEAVY:-})"
 
+          # Make "nothing ran" impossible to mistake for "everything passed". A scheduled run with
+          # no new commits short-circuits every substantive tier and still reports conclusion
+          # success, so the runs list shows an unbroken wall of green whose most recent REAL run
+          # may have been red (it was: 2026-07-14, 9 jobs failing). The badge cannot express this,
+          # so the run summary must.
+          {
+            if [ "$integration" = false ] && [ "$heavy" = false ]; then
+              echo "## Nightly: NO TIERS RAN"
+              echo ""
+              echo "This run was activity-gated to a no-op — no new commits. **A green result here"
+              echo "means nothing was attempted, not that anything passed.** Scroll back to the most"
+              echo "recent run with \`integration\` present for the last real signal."
+            else
+              echo "## Nightly: integration=$integration heavy=$heavy"
+            fi
+          } >> "$GITHUB_STEP_SUMMARY"
+
   integration:
     needs: gate
     if: needs.gate.outputs.integration == 'true'

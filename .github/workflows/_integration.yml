@@ -277,6 +277,19 @@ jobs:
           # used the removed --wait-for-result syntax and omitted the webhooks spec.
           TRACETEST_RUN_ID=$(date +%s) pnpm tracetest:results
 
+      # Without this the trace-assertion evidence dies in a throwaway workspace: the job folded a
+      # `tracetest` runner into ITS OWN summary.json, uploaded nothing, and the envelope job then
+      # resolved the runner as DEFERRED — indistinguishable from "the lane never ran". Uploading
+      # the partial is also what tells the envelope this lane RAN, so its absence becomes fatal
+      # rather than deferred (see QAROOM_RAN_LANES in test-results-verify.ts).
+      - name: Upload the tracetest evidence partial
+        if: always()
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
+        with:
+          name: partial-tracetest
+          path: test-results/summary.json
+          if-no-files-found: warn
+
   # Screenplay component tests in Vitest browser mode + story coverage (ADR-0027). One browser runtime,
   # one V8 coverage source. Folds web-component + coverage runners and uploads their partials.
   web-component:
