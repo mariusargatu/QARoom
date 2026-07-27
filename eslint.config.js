@@ -95,6 +95,26 @@ export default [
       'max-lines': ['error', { max: 500, skipBlankLines: true, skipComments: true }],
     },
   },
+  // Test SUPPORT code: helpers, harnesses, fixtures and libs under a `tests/` directory that are
+  // not themselves `*.test.ts` / `*.spec.ts`. These matched NO config at all — the production block
+  // ignores `**/tests/**` and the tests block only matches the three test-file patterns — so
+  // `--format json` reported "File ignored because no matching configuration was supplied" for 36
+  // files, including tests/journey/lib/commitments.ts (which carries the live Commitment 9 oracle)
+  // and the whole webhooks DST invariants module. max-lines and the determinism rules silently did
+  // not apply to any of them. The assertion-shape rules are deliberately NOT included: these files
+  // hold helpers, not `it()` bodies.
+  {
+    files: ['**/tests/**/*.ts'],
+    ignores: ['**/*.test.ts', '**/*.spec.ts', '**/*.property.test.ts'],
+    languageOptions: tsLang,
+    plugins: { qaroom },
+    rules: {
+      'qaroom/no-new-date': ['error', { allowArgs: true }],
+      'qaroom/no-unseeded-random': 'error',
+      'qaroom/no-raw-nats-subject': 'error',
+      'max-lines': ['error', { max: 500, skipBlankLines: true, skipComments: true }],
+    },
+  },
   // Re-assert the determinism exemption AFTER the tests block so it wins for the sanctioned test homes:
   // the system-clock production test legitimately reads `Date.now()` to check the wrapper, script tests
   // are tooling, and the live golden-journey e2e needs a wall-clock run suffix for cross-run uniqueness

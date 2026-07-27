@@ -96,11 +96,13 @@ export async function tenantSpansVerdict(query: TenantSpanQuery): Promise<Verdic
 
   let checked = 0
   const offenders: string[] = []
+  const perService = new Map<string, number>()
   for (const scan of scans) {
     if (!scan.ok) continue
     for (const trace of scan.traces) {
       for (const span of trace.spans) {
         checked += 1
+        perService.set(scan.service, (perService.get(scan.service) ?? 0) + 1)
         const hasTenant = span.tags.some((t) => t.key === 'tenant.id')
         if (!hasTenant) offenders.push(`${scan.service} :: ${span.operationName}`)
       }
@@ -109,11 +111,27 @@ export async function tenantSpansVerdict(query: TenantSpanQuery): Promise<Verdic
   if (checked === 0) {
     return { ok: false, detail: 'no spans in Jaeger for the journey window — did traffic run?' }
   }
+  // PER SERVICE, not just in aggregate. The aggregate guard passes as long as ANY service emitted
+  // a span, so a service that went completely dark — no instrumentation, crashed, never reached —
+  // was indistinguishable from one that emitted only well-tagged spans. Since the journey walks
+  // every service in this list by construction, a service with zero spans means the walk did not
+  // reach it, which is a bigger failure than a missing tag.
+  const dark = query.services.filter((s) => (perService.get(s) ?? 0) === 0)
+  if (dark.length > 0) {
+    return {
+      ok: false,
+      detail:
+        `${dark.length}/${query.services.length} service(s) emitted NO spans in the journey window: ` +
+        `${dark.join(', ')} — the journey walks every one of them, so this is an unreached or ` +
+        'uninstrumented service, not a clean run',
+    }
+  }
+  const counts = query.services.map((s) => `${s}=${perService.get(s) ?? 0}`).join(' ')
   return {
     ok: offenders.length === 0,
     detail:
       offenders.length === 0
-        ? `${checked} spans, all carry tenant.id`
+        ? `${checked} spans, all carry tenant.id (${counts})`
         : `${offenders.length}/${checked} spans missing tenant.id: ${offenders.slice(0, 5).join('; ')}`,
   }
 }
