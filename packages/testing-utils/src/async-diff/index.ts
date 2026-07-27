@@ -51,6 +51,16 @@ export function classifyAsyncChange(
       : nonBreaking('channel added')
   }
 
+  // A whole new operation / message / payload schema. The generator emits FOUR nodes per event
+  // (channel, operation, message, schema), and the channel rule above covers only the first — so
+  // without these three, adding an event reported 3 breaking changes on the required PR check.
+  // Adding is additive; REMOVING one is a real break for anyone bound to it.
+  if (/^\/(operations|components\/(schemas|messages))\/[^/]+$/.test(path)) {
+    return action === 'remove'
+      ? breaking('a published operation, message or payload schema was removed')
+      : nonBreaking('new operation, message or payload schema')
+  }
+
   // The channel ADDRESS is the NATS subject. Editing it silently orphans every consumer bound to
   // the old subject, which is the most breaking async change there is. The rule above only matches
   // `/channels/<id>` exactly, so this used to fall through to the permissive default.
@@ -130,7 +140,9 @@ export function classifyAsyncChange(
   // address change, a retargeted property $ref, a narrowed maxLength and a removed enum member
   // all report zero breaking changes. An unrecognised change is now a finding: either add a rule
   // that says why it is safe, or treat it as breaking.
-  return breaking(`unrecognized change at ${path} — no rule classifies it, so it is not assumed safe`)
+  return breaking(
+    `unrecognized change at ${path} — no rule classifies it, so it is not assumed safe`,
+  )
 }
 
 interface RefObject {

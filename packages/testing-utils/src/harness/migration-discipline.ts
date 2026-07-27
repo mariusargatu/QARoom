@@ -23,7 +23,7 @@ export interface MigrationDisciplineOptions<Db> {
   indexes?: string[]
 }
 
-const DEFAULT_MESSAGING = ['idempotency_responses', 'outbox', 'processed_events']
+const DEFAULT_MESSAGING = ['dead_letters', 'idempotency_responses', 'outbox', 'processed_events']
 
 /**
  * Registers the migration-discipline suite (docs/05: up / down / up→down→up→up, NO snapshots) so it

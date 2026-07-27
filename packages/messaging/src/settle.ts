@@ -35,6 +35,8 @@ export interface PoisonedMessage {
   readonly eventId: string
   /** The decoded body, or the raw string when it is not JSON — never dropped. */
   readonly payload: unknown
+  /** JetStream stream sequence: the only discriminator when Nats-Msg-Id is absent. */
+  readonly streamSequence: number
 }
 
 /** Pull the replay-relevant fields off a JsMsg without letting a malformed body throw. */
@@ -51,6 +53,7 @@ function describe_(message: JsMsg, reason: string): PoisonedMessage {
     subject: message.subject,
     eventId: message.headers?.get('Nats-Msg-Id') ?? '',
     payload,
+    streamSequence: message.info.streamSequence,
   }
 }
 

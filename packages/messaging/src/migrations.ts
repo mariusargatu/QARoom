@@ -88,12 +88,18 @@ export const deadLettersMigration: Migration<SqlExecutor> = {
       sql.raw(`CREATE TABLE IF NOT EXISTS dead_letters (
         subscription_name text NOT NULL,
         event_id text NOT NULL,
+        -- event_id is empty when the message carried no Nats-Msg-Id, so it cannot be the key on
+        -- its own: two DIFFERENT header-less losses on one subscription would collide and the
+        -- second would overwrite the first. dedupe_key is the event id when there is one (so a
+        -- real event re-poisoned by the same consumer still updates rather than accumulating) and
+        -- the stream sequence otherwise, which is unique per message.
+        dedupe_key text NOT NULL,
         subject text NOT NULL,
         delivery_count integer NOT NULL,
         reason text NOT NULL,
         payload jsonb NOT NULL,
         recorded_at timestamptz NOT NULL,
-        PRIMARY KEY (subscription_name, event_id)
+        PRIMARY KEY (subscription_name, dedupe_key)
       )`),
     )
   },

@@ -137,10 +137,8 @@ describe('asyncapiBreakingChanges runs the detector and the classifier together'
 describe('the rule table fails closed on changes it does not recognise', () => {
   it('treats a channel address edit as breaking — the address is the NATS subject', () => {
     expect(
-      classifyAsyncChange(
-        { action: 'edit', path: '/channels/postCreated/address' },
-        'send',
-      ).classification,
+      classifyAsyncChange({ action: 'edit', path: '/channels/postCreated/address' }, 'send')
+        .classification,
     ).toBe('breaking')
   })
 
@@ -182,5 +180,32 @@ describe('the rule table fails closed on changes it does not recognise', () => {
     expect(
       prose.map((path) => classifyAsyncChange({ action: 'edit', path }, 'send').classification),
     ).toEqual(['nonBreaking', 'nonBreaking', 'nonBreaking'])
+  })
+})
+
+/**
+ * Failing closed must not mean crying wolf. Adding an event is the single most common additive
+ * change in this repo, and the generator emits FOUR nodes for one: a channel, an operation, a
+ * message and a payload schema. The channel rule covered only the first, so the other three hit
+ * the fail-closed default and a new event reported 3 breaking changes on the REQUIRED PR check.
+ * A gate that reds every additive PR gets an allowance entry, and then it gates nothing.
+ */
+describe('adding a new top-level node is additive, removing one is breaking', () => {
+  const cases: ReadonlyArray<readonly [string, string]> = [
+    ['operation', '/operations/publishPostDeleted'],
+    ['payload schema', '/components/schemas/PostDeletedEvent'],
+    ['message', '/components/messages/PostDeletedEvent'],
+  ]
+
+  it.each(cases.map(([what, path]) => ({ what, path })))('treats adding a $what as non-breaking', ({
+    path,
+  }) => {
+    expect(classifyAsyncChange({ action: 'add', path }, 'send').classification).toBe('nonBreaking')
+  })
+
+  it.each(cases.map(([what, path]) => ({ what, path })))('treats removing a $what as breaking', ({
+    path,
+  }) => {
+    expect(classifyAsyncChange({ action: 'remove', path }, 'send').classification).toBe('breaking')
   })
 })

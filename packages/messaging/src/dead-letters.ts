@@ -27,6 +27,8 @@ export interface DeadLetter {
   reason: string
   /** The event body, stored verbatim so it can be replayed once the cause is fixed. */
   payload: unknown
+  /** JetStream stream sequence: the discriminator when the message carried no Nats-Msg-Id. */
+  streamSequence: number
   /** From the injected clock — never `new Date()` (Commitment 6). */
   at: Date
 }
@@ -37,13 +39,19 @@ export interface DeadLetter {
  * poisoning the same event gets its own row (each has its own delivery budget and its own loss).
  */
 export async function recordDeadLetter(db: SqlExecutor, letter: DeadLetter): Promise<void> {
+  // An absent event id must NOT dedupe against another absent one: fall back to the stream
+  // sequence, which is unique per message.
+  const dedupeKey = letter.eventId !== '' ? letter.eventId : `seq:${letter.streamSequence}`
   await db.execute(sql`
     INSERT INTO dead_letters
-      (subscription_name, event_id, subject, delivery_count, reason, payload, recorded_at)
+      (subscription_name, event_id, dedupe_key, subject, delivery_count, reason, payload, recorded_at)
     VALUES
-      (${letter.subscriptionName}, ${letter.eventId}, ${letter.subject}, ${letter.deliveryCount},
-       ${letter.reason}, ${JSON.stringify(letter.payload)}::jsonb, ${letter.at.toISOString()}::timestamptz)
-    ON CONFLICT (subscription_name, event_id) DO UPDATE SET
+      (${letter.subscriptionName}, ${letter.eventId}, ${dedupeKey}, ${letter.subject},
+       ${letter.deliveryCount}, ${letter.reason}, ${JSON.stringify(letter.payload)}::jsonb,
+       ${letter.at.toISOString()}::timestamptz)
+    ON CONFLICT (subscription_name, dedupe_key) DO UPDATE SET
+      event_id = EXCLUDED.event_id,
+      subject = EXCLUDED.subject,
       delivery_count = EXCLUDED.delivery_count,
       reason = EXCLUDED.reason,
       payload = EXCLUDED.payload,
@@ -95,6 +103,7 @@ export function deadLetterSink(
   subject: string
   eventId: string
   payload: unknown
+  streamSequence: number
 }) => Promise<void> {
   return async (poisoned) => {
     await recordDeadLetter(db, {
@@ -104,6 +113,7 @@ export function deadLetterSink(
       deliveryCount: poisoned.deliveryCount,
       reason: poisoned.reason,
       payload: poisoned.payload,
+      streamSequence: poisoned.streamSequence,
       at: clock.now(),
     })
   }

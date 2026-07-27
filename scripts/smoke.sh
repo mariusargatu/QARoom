@@ -61,7 +61,10 @@ done
 
 # NATS lives in the observability namespace; monitoring/HTTP port 8222 serves /healthz.
 kubectl -n "$OBS_NS" port-forward "svc/qaroom-nats" "${NATS_PORT}:8222" >/dev/null 2>&1 &
-# Microcks serves the payment-provider mock donations settles through.
+pids="$pids $!"
+# Microcks serves the payment-provider mock donations settles through. Each `$!` must be captured
+# IMMEDIATELY after its own `&`: inserting this forward between the NATS one and a shared capture
+# silently leaked the NATS pid past the EXIT trap.
 kubectl -n "$OBS_NS" port-forward "svc/qaroom-microcks" "${MICROCKS_PORT}:8080" >/dev/null 2>&1 &
 pids="$pids $!"
 

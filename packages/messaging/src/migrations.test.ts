@@ -7,7 +7,7 @@ import { MESSAGING_MIGRATIONS, messagingFragment } from './migrations'
 import { rowsOf, type SqlExecutor } from './types'
 
 const composed = composeMigrations(MESSAGING_MIGRATIONS)
-const MESSAGING_TABLES = ['idempotency_responses', 'outbox', 'processed_events']
+const MESSAGING_TABLES = ['dead_letters', 'idempotency_responses', 'outbox', 'processed_events']
 
 function freshDb(): SqlExecutor {
   return drizzle(new PGlite()) as unknown as SqlExecutor
@@ -66,5 +66,19 @@ describe('messagingFragment relabels the composed substrate as a named Migration
     await messagingFragment.up(db)
     await messagingFragment.down(db)
     expect(await messagingTables(db)).toEqual([])
+  })
+})
+
+/**
+ * The table list above is hand-maintained, and dead_letters proved that is a hole: the fragment
+ * shipped in one commit while BOTH lists (here and testing-utils' migration-discipline
+ * DEFAULT_MESSAGING) still named three tables, so deleting the fragment would have left every
+ * migration test green while all four consumer sinks threw at runtime. Pinning the count to the
+ * fragment count means the next fragment cannot be added without updating the list it is asserted
+ * against.
+ */
+describe('the asserted table list covers every messaging migration fragment', () => {
+  it('names exactly one table per fragment, so a new fragment cannot go unasserted', () => {
+    expect(MESSAGING_TABLES.length).toBe(MESSAGING_MIGRATIONS.length)
   })
 })

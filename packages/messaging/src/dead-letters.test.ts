@@ -39,6 +39,7 @@ describe('recordDeadLetter makes a terminated message recoverable', () => {
       deliveryCount: 5,
       reason: 'content erasure consumer poison: exhausted delivery budget',
       payload: { user_id: 'user_1', community_id: 'comm_1' },
+      streamSequence: 1,
       at: AT,
     })
     const rows = await deadLetterRows(db)
@@ -62,6 +63,7 @@ describe('recordDeadLetter makes a terminated message recoverable', () => {
       deliveryCount: 5,
       reason: 'r',
       payload,
+      streamSequence: 2,
       at: AT,
     })
     const stored = await db.execute(sql`SELECT payload FROM dead_letters WHERE event_id = 'evt_2'`)
@@ -78,6 +80,7 @@ describe('recordDeadLetter makes a terminated message recoverable', () => {
       deliveryCount: 5,
       reason: 'r',
       payload: {},
+      streamSequence: 3,
       at: AT,
     }
     await recordDeadLetter(db, { ...base, subscriptionName: 'content-on-user-erased' })
@@ -88,5 +91,64 @@ describe('recordDeadLetter makes a terminated message recoverable', () => {
       'content-on-user-erased',
       'donations-on-user-erased',
     ])
+  })
+})
+
+/**
+ * The primary key is (subscription_name, event_id), and `event_id` falls back to '' when the
+ * message carries no Nats-Msg-Id header (settle.ts). So two DIFFERENT header-less losses on one
+ * subscription collided on the same key: the second overwrote the first, and because the upsert
+ * did not update `subject`, the surviving row welded event A's subject to event B's payload. A
+ * corrupted single record is worse than two honest ones.
+ */
+describe('two distinct losses never collapse into one corrupted row', () => {
+  let pg: PGlite
+  let db: SqlExecutor
+  beforeEach(async () => {
+    pg = new PGlite()
+    db = drizzle(pg) as unknown as SqlExecutor
+    await deadLettersMigration.up(db)
+  })
+  afterEach(async () => {
+    await pg.close()
+  })
+
+  it('keeps both header-less losses on one subscription, discriminated by stream sequence', async () => {
+    const base = { subscriptionName: 's', eventId: '', deliveryCount: 5, reason: 'r', at: AT }
+    await recordDeadLetter(db, {
+      ...base,
+      subject: 'qaroom.a.x.comm_1.one',
+      payload: { which: 'first' },
+      streamSequence: 11,
+    })
+    await recordDeadLetter(db, {
+      ...base,
+      subject: 'qaroom.b.y.comm_1.two',
+      payload: { which: 'second' },
+      streamSequence: 12,
+    })
+    const rows = await deadLetterRows(db)
+    expect(rows.map((r) => r.subject).sort()).toEqual([
+      'qaroom.a.x.comm_1.one',
+      'qaroom.b.y.comm_1.two',
+    ])
+  })
+
+  it('updates the subject too when a real event is re-poisoned, never welding a stale one', async () => {
+    const base = { subscriptionName: 's', eventId: 'evt_9', deliveryCount: 5, reason: 'r', at: AT }
+    await recordDeadLetter(db, {
+      ...base,
+      subject: 'qaroom.old.subject',
+      payload: {},
+      streamSequence: 1,
+    })
+    await recordDeadLetter(db, {
+      ...base,
+      subject: 'qaroom.new.subject',
+      payload: {},
+      streamSequence: 2,
+    })
+    const rows = await deadLetterRows(db)
+    expect(rows.map((r) => r.subject)).toEqual(['qaroom.new.subject'])
   })
 })
