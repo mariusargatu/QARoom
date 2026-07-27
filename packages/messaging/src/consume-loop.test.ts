@@ -62,7 +62,9 @@ describe('runResilientConsume keeps a consume loop alive across per-message fail
         handled.push(message)
         ;(failers[message] ?? (() => {}))()
       },
-      settle: (message, error) => settled.push({ message, error }),
+      settle: (message, error) => {
+        settled.push({ message, error })
+      },
     })
     await stop()
 
@@ -91,7 +93,9 @@ describe('runResilientConsume keeps a consume loop alive across per-message fail
       spanName: 'test.process',
       loopDeathSpanName: 'test.loop_died',
       handle: async () => {},
-      settle: (message) => settled.push(message),
+      settle: (message) => {
+        settled.push(message)
+      },
     })
     await stop()
 

@@ -96,7 +96,14 @@ MOCK_PATH=$(
   sed -n 's|.*PAYMENT_PROVIDER_BASE_URL: *"[^"]*:8080\(/rest/[^"]*\)".*|\1|p' \
     "$(dirname "$0")/../deploy/donations/values.yaml"
 )
-if [ -z "$MOCK_PATH" ]; then
+# Microcks lives in the observability stack, which not every caller waits for: the cluster-smoke
+# lane passes wait-observability=false and installs only content/identity/gateway. Probing a mock
+# that was never meant to be up in that lane would red it for the wrong reason. So: if the Service
+# is absent or not yet serving, SKIP loudly; if it IS serving, a non-200 is a hard failure. The
+# tracetest lane (wait-observability=true, donations installed) is where this actually bites.
+if ! curl -s -o /dev/null --max-time 5 "http://localhost:${MICROCKS_PORT}/api/health"; then
+  echo "⊘ microcks: not reachable in this lane (observability not awaited) — probe skipped"
+elif [ -z "$MOCK_PATH" ]; then
   echo "✗ microcks: could not read the mock path out of deploy/donations/values.yaml"
   fail=1
 else

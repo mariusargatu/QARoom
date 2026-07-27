@@ -12,8 +12,9 @@ export interface ResilientConsumeOpts<M> {
   /** Process one message and ack it on success; THROW to signal failure (then `settle` runs). */
   handle: (message: M, span: TracedSpan) => Promise<void>
   /** Settle a FAILED message back to the broker (nak/term I/O). Runs after the exception is
-   *  recorded on the span; must not throw. */
-  settle: (message: M, err: unknown) => void
+   *  recorded on the span; must not throw. May be async — `settleByDeliveryBudget` writes a
+   *  dead-letter row BEFORE terminating, and the loop must not race ahead of that write. */
+  settle: (message: M, err: unknown) => void | Promise<unknown>
 }
 
 /**
@@ -36,7 +37,11 @@ export function runResilientConsume<M>(opts: ResilientConsumeOpts<M>): () => Pro
         // reads as errored on its span (not status-OK) in Jaeger.
         span.recordException(err as Error)
         span.setStatus({ code: SpanStatusCode.ERROR })
-        opts.settle(message, err)
+        // Awaited: settle may persist a dead letter before it terms the message, and an
+        // un-awaited call would let the loop (and a shutdown) race that write. A void-typed
+        // callback silently swallowed the promise, which is exactly how the record could go
+        // missing while the message was still terminated.
+        await opts.settle(message, err)
       }
     })
 
