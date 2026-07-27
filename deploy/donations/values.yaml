@@ -13,10 +13,21 @@ postgres:
 extraEnv:
   # NATS: publishes donation.state.changed, consumes flag.state.changed (gating cache).
   NATS_URL: nats://qaroom-nats.observability.svc.cluster.local:4222
-  # The (Microcks-mocked) payment provider, served from payment-provider.openapi.yaml. Microcks mock
-  # URLs encode service-name spaces as %20 (NOT `+`, which is a literal plus in a URL path) and keep
-  # parens LITERAL (NOT %28/%29) — the `+`/`%28` form 404s every charge → donations 502 (the long-
-  # standing payment-mock bug). Verified: this exact path returns 200 {"status":"captured"}.
+  # The (Microcks-mocked) payment provider, served from payment-provider.openapi.yaml. Microcks
+  # builds this path from the spec's `info.title` + `info.version`.
+  #
+  # Keep the PARENS LITERAL. That is the whole rule, and it is the entire cause of the long-standing
+  # 404-every-charge bug (which surfaced as donations 502). Measured against microcks-uber 1.11.0 by
+  # uploading the real spec and POSTing /charges:
+  #     /rest/QARoom%20Payment%20Provider%20(mock)/1.0.0   -> 200 {"status":"captured"}
+  #     /rest/QARoom+Payment+Provider+(mock)/1.0.0         -> 200 {"status":"captured"}
+  #     /rest/QARoom%20Payment%20Provider%20%28mock%29/...  -> 404
+  #     /rest/QARoom+Payment+Provider+%28mock%29/...        -> 404
+  # So `%20` vs `+` for the spaces makes NO difference — an earlier version of this comment also
+  # blamed `+`, which would send the next person to change a URL that already works.
+  #
+  # Coupling to info.title/info.version is enforced by scripts/microcks-verify.test.ts (PR lane),
+  # and scripts/smoke.sh probes the live mock, so neither is prose-only any more.
   PAYMENT_PROVIDER_BASE_URL: "http://qaroom-microcks.observability.svc.cluster.local:8080/rest/QARoom%20Payment%20Provider%20(mock)/1.0.0"
 gc:
   enabled: true

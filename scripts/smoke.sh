@@ -21,6 +21,7 @@ OBS_NS="${OBS_NS:-observability}"
 DEPLOY_DIR="$(dirname "$0")/../deploy"
 BASE_PORT=18080
 NATS_PORT=18222
+MICROCKS_PORT=18223
 pids=""
 fail=0
 
@@ -60,6 +61,8 @@ done
 
 # NATS lives in the observability namespace; monitoring/HTTP port 8222 serves /healthz.
 kubectl -n "$OBS_NS" port-forward "svc/qaroom-nats" "${NATS_PORT}:8222" >/dev/null 2>&1 &
+# Microcks serves the payment-provider mock donations settles through.
+kubectl -n "$OBS_NS" port-forward "svc/qaroom-microcks" "${MICROCKS_PORT}:8080" >/dev/null 2>&1 &
 pids="$pids $!"
 
 # curl --retry-connrefused waits out the port-forward warmup without a shell sleep.
@@ -82,6 +85,35 @@ if curl --retry 30 --retry-delay 1 --retry-connrefused -fsS "http://localhost:${
 else
   echo "✗ qaroom-nats /healthz FAILED (via Service, local :${NATS_PORT})"
   fail=1
+fi
+
+# The Microcks payment mock. Until now the ONLY evidence this worked was a prose comment in
+# deploy/donations/values.yaml: nothing in any lane ever asked the mock for a charge, so the
+# 404-every-charge bug (donations 502) could regress silently and did, for weeks. Probing the exact
+# URL donations is configured with means a title rename, a failed import Job, or re-encoded parens
+# all fail HERE rather than as a mystery 502 in a load test.
+MOCK_PATH=$(
+  sed -n 's|.*PAYMENT_PROVIDER_BASE_URL: *"[^"]*:8080\(/rest/[^"]*\)".*|\1|p' \
+    "$(dirname "$0")/../deploy/donations/values.yaml"
+)
+if [ -z "$MOCK_PATH" ]; then
+  echo "✗ microcks: could not read the mock path out of deploy/donations/values.yaml"
+  fail=1
+else
+  # --path-as-is: the literal parens in the path must reach Microcks unmodified; re-encoding them
+  # to %28/%29 is the measured 404 cause.
+  code=$(curl --retry 30 --retry-delay 1 --retry-connrefused -s --path-as-is -o /tmp/qaroom-charge.json \
+    -w '%{http_code}' -X POST "http://localhost:${MICROCKS_PORT}${MOCK_PATH}/charges" \
+    -H 'content-type: application/json' -H 'idempotency-key: smoke-1' \
+    -d '{"amount_cents":2500,"currency":"USD"}' || echo 000)
+  if [ "$code" = "200" ] && grep -q '"status" *: *"captured"' /tmp/qaroom-charge.json; then
+    echo "✓ microcks POST ${MOCK_PATH}/charges 200 captured"
+  else
+    echo "✗ microcks POST ${MOCK_PATH}/charges returned ${code} (expected 200 captured)"
+    echo "  body: $(head -c 200 /tmp/qaroom-charge.json 2>/dev/null)"
+    echo "  check: the import Job completed, and info.title/info.version still match this path"
+    fail=1
+  fi
 fi
 
 if [ "$fail" -eq 0 ]; then

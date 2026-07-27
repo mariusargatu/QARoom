@@ -47,6 +47,11 @@ data:
       schemas:
         ChargeRequest:
           type: object
+          # Kept in step with services/donations/payment-provider.openapi.yaml, which is the
+          # documented copy; scripts/microcks-verify.test.ts compares the two contract shapes.
+          # (No runtime effect on the mock itself: microcks-uber 1.11.0 does not validate request
+          # bodies — measured, `{}` and `{"garbage":true}` both return 200 captured.)
+          additionalProperties: false
           required: [amount_cents, currency]
           properties:
             amount_cents: { type: integer, minimum: 1 }
@@ -108,7 +113,11 @@ spec:
 apiVersion: batch/v1
 kind: Job
 metadata:
-  name: qaroom-microcks-import
+  # Name carries a checksum of the inlined spec. A Job's pod template is IMMUTABLE, so a
+  # fixed-name Job is never re-created on `kubectl apply` — editing the spec would leave Microcks
+  # serving the PREVIOUS artifact with nothing indicating it. Changing the name on a spec change
+  # forces a fresh import. Regenerate with `pnpm microcks:checksum`.
+  name: qaroom-microcks-import-116de0960a2b
   namespace: observability
 spec:
   backoffLimit: 6
