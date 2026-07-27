@@ -67,7 +67,11 @@ no k3d/tilt -> every cluster phase skips (phases 1–2 still run).
 
 ## Known issues routed around (not hidden)
 
-- **donation k6 is observe-class expected-fail**: the Microcks payment mock 404s
+- **donation k6 is observe-class pending a re-measure**: NOT the Microcks payment mock — that
+  404 was fixed 2026-07-02 and the mock is verified working (`scripts/microcks-verify.test.ts`,
+  plus a live probe in `scripts/smoke.sh`). The likely cause is phase 4's rollout reset leaving
+  the donations flag disabled, so the POST is gated 409 rather than reaching the provider;
+  unverified pending a live run. Previously this said the mock 404s
   `POST /charges` -> in-cluster donations 502 (known issue, 2026-06-08; fix is separate work).
   Artifact kept at `test-results/known-issue-k6-donation.json`, outside the k6 fold glob.
 - **Chaos 06/08 (Litmus HTTPChaos)**: pending ChaosCenter setup (ADR-0014); honest skips.

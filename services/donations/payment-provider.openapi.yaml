@@ -4,12 +4,21 @@ info:
   version: 1.0.0
   description: >-
     The external payment provider donations-service settles through. This spec is NOT generated
-    from Zod — it is the EXTERNAL contract, served as a mock by Microcks (Milestone 5). The
-    Pact consumer contract in tests/contracts/ verifies donations-service's expectations
-    against it. donations-service treats any non-2xx as a provider fault (502 dependency_failure).
+    from Zod — it is the EXTERNAL contract, served as a mock by Microcks (Milestone 5).
+    donations-service treats any non-2xx as a provider fault (502 dependency_failure).
+
+    NOTHING currently verifies donations-service's expectations against this spec. An earlier
+    version of this description claimed a Pact consumer contract in tests/contracts/ did; there is
+    no such contract — the only Pact artifacts are gateway->service, and tests/contracts/ here
+    holds provider.verify.ts (donations AS a provider). What IS gated: scripts/microcks-verify.test.ts
+    keeps this file and the deploy/observability/microcks.yaml ConfigMap copy in step and pins the
+    mock URL to info.title/info.version, and scripts/smoke.sh probes the live mock.
 servers:
-  - url: http://localhost:8080/rest/payments/1.0
-    description: Microcks mock endpoint
+  # Microcks builds this path from info.title + info.version. Parens stay LITERAL: percent-encoding
+  # them 404s every charge (measured against microcks-uber 1.11.0). Pinned by
+  # scripts/microcks-verify.test.ts against deploy/donations/values.yaml.
+  - url: http://qaroom-microcks.observability.svc.cluster.local:8080/rest/QARoom%20Payment%20Provider%20(mock)/1.0.0
+    description: Microcks mock endpoint, in-cluster
 paths:
   /charges:
     post:
