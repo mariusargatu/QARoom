@@ -52,7 +52,7 @@ stateful change green-then-red; the policy refuses to silently undo it.
 A reward keyed on survival is only as honest as the signals it survives. So the SLOs the agent is graded
 against are the **same** ones production pages on: the alert thresholds derive from `SLO_TARGETS` /
 `CONSUMER_LAG_SLO` in [`packages/contracts/src/slos.ts`](../packages/contracts/src/slos.ts) → 
-[`deploy/observability/alerts.gen.yaml`](../deploy/observability/alerts.gen.yaml) (`pnpm alerts:gen`,
+[`deploy/observability/rules/alerts.gen.yaml`](../deploy/observability/rules/alerts.gen.yaml) (`pnpm alerts:gen`,
 [ADR-0034](adr/0034-observability-hardening-pii-free-spans-consumer-lag-slo-and-alert-rule-testing.md)). A
 bound you can test is a bound you are paged on — one source, two projections — so an agent cannot pass a
 weaker SLO in test than the one that fires in production.

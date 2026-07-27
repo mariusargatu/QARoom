@@ -1,6 +1,7 @@
 import { execFileSync } from 'node:child_process'
 import { readFileSync } from 'node:fs'
 import { resolve } from 'node:path'
+import { assertServiceListCoversWorkspace, runWorkspaceScript } from './lib/workspace-script'
 
 /**
  * Two gates (Commitment 3):
@@ -8,18 +9,28 @@ import { resolve } from 'node:path'
  *      committed file differs (the round-trip must hold).
  *   2. Breaking changes — run oasdiff (via Docker) and prove it both passes for
  *      identical specs AND fails for a deliberately breaking change (exit crit 3).
+ *
+ * Both halves of gate 1 must prove they RAN: `pnpm --filter` exits 0 when the filter matches
+ * nothing and when the matched package has no such script, so a read-before/read-after diff
+ * reads a silent no-op as "no drift". `runWorkspaceScript` throws on either, and the service
+ * list below is pinned to what the workspace actually declares.
  */
 const ROOT = process.cwd()
 const DRIFT_SERVICES = ['content', 'identity', 'gateway', 'flags', 'donations', 'webhooks'] as const
+
+/** Deliberately outside this gate, with the reason — not a bare allowlist. */
+const DRIFT_EXEMPT = {
+  'moderator-agent':
+    'Python service (uv/FastAPI): its openapi drift is checked by pytest in the nightly moderator lane; this in-process gate has no uv.',
+} as const
+
+assertServiceListCoversWorkspace(DRIFT_SERVICES, 'openapi:generate', DRIFT_EXEMPT)
 
 /** Regenerate one service's OpenAPI and fail if the committed file is stale. */
 function checkDrift(svc: string): void {
   const specPath = resolve(ROOT, `services/${svc}/openapi.yaml`)
   const before = readFileSync(specPath, 'utf8')
-  execFileSync('pnpm', ['--filter', `@qaroom/${svc}`, 'openapi:generate'], {
-    cwd: ROOT,
-    stdio: 'inherit',
-  })
+  runWorkspaceScript(`@qaroom/${svc}`, 'openapi:generate')
   const after = readFileSync(specPath, 'utf8')
   if (before !== after) {
     process.stderr.write(

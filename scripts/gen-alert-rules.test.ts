@@ -5,7 +5,7 @@ import { describe, expect, it } from 'vitest'
 import { renderAlertRules } from './gen-alert-rules'
 
 const ROOT = process.cwd()
-const committedPath = resolve(ROOT, 'deploy/observability/alerts.gen.yaml')
+const committedPath = resolve(ROOT, 'deploy/observability/rules/alerts.gen.yaml')
 
 describe('gen-alert-rules drift gate', () => {
   // The committed alert rules must be byte-identical to a fresh render, so an SLO change cannot ship

@@ -1,8 +1,8 @@
-import { execFileSync } from 'node:child_process'
 import { readFileSync } from 'node:fs'
 import { resolve } from 'node:path'
 import { asyncapiBreakingChanges } from '@qaroom/testing-utils/async-diff'
 import { parse } from 'yaml'
+import { assertServiceListCoversWorkspace, runWorkspaceScript } from './lib/workspace-script'
 
 /**
  * Two gates (ADR-0002, the async mirror of `openapi-verify.ts`):
@@ -16,13 +16,18 @@ import { parse } from 'yaml'
 const ROOT = process.cwd()
 const DRIFT_SERVICES = ['content', 'flags', 'donations', 'gateway', 'webhooks'] as const
 
+/** Deliberately outside this gate, with the reason — not a bare allowlist. */
+const DRIFT_EXEMPT = {
+  'moderator-agent':
+    'Python service (uv/FastAPI): its asyncapi drift is checked by pytest in the nightly moderator lane; this in-process gate has no uv.',
+} as const
+
+assertServiceListCoversWorkspace(DRIFT_SERVICES, 'asyncapi:generate', DRIFT_EXEMPT)
+
 function checkDrift(svc: string): void {
   const specPath = resolve(ROOT, `services/${svc}/asyncapi.yaml`)
   const before = readFileSync(specPath, 'utf8')
-  execFileSync('pnpm', ['--filter', `@qaroom/${svc}`, 'asyncapi:generate'], {
-    cwd: ROOT,
-    stdio: 'inherit',
-  })
+  runWorkspaceScript(`@qaroom/${svc}`, 'asyncapi:generate')
   const after = readFileSync(specPath, 'utf8')
   if (before !== after) {
     process.stderr.write(

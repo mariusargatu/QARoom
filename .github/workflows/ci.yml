@@ -95,6 +95,13 @@ jobs:
         if: always()
         run: pnpm test-results:report
 
+      # Committed pacts are a DERIVED artifact the nightly `contracts` lane verifies providers
+      # against — but nothing regenerated them, and pact-core writes in merge mode (which can add
+      # and update interactions, never remove one). Clear + regenerate from scratch + diff, so a
+      # changed or DELETED consumer expectation cannot be verified against a stale contract.
+      - name: Verify committed pacts match the consumer specs (drift)
+        run: pnpm pact:drift
+
       - name: Verify OpenAPI (Zod drift + oasdiff breaking-change gate)
         run: pnpm openapi:verify
 

@@ -4,6 +4,12 @@
 # below-threshold series does not). Thresholds live in alerts.gen.yaml, projected from SLO_TARGETS +
 # CONSUMER_LAG_SLO — the tests assert firing behaviour, they do not restate the bound.
 #
+# DO NOT MOVE THIS FILE (or alerts.gen.yaml) UP INTO deploy/observability/. That directory's
+# non-recursive `*.yaml` glob is fed to `kubectl apply` by .github/actions/cluster-up and to
+# `kubeconform -strict` by the nightly `chart` lane; neither file is a Kubernetes manifest, so
+# sitting there aborts cluster bring-up before any lane runs an assertion. Enforced by
+# scripts/observability-manifests.test.ts on the PR lane.
+#
 # Tier note: promtool is not installed in the PR (in-process) lane, so this suite is Tier-B-deferred —
 # it is valid promtool YAML with SLO-derived thresholds, run wherever promtool is on PATH.
 rule_files:

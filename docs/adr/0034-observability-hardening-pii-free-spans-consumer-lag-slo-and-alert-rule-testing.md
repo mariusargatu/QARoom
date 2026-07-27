@@ -65,11 +65,11 @@ new **invariant source**, applied per durable consumer. Everything downstream *d
 - the runtime breach check `evaluateConsumerLag` (the in-process backpressure gate);
 - the Prometheus **alert thresholds** — `scripts/gen-alert-rules.ts` projects `SLO_TARGETS` (error-rate
   + p95 latency for the write-heavy/read-heavy representatives) **and** `CONSUMER_LAG_SLO` into
-  `deploy/observability/alerts.gen.yaml`, the same one-source pattern as `k6:gen`. A drift test
+  `deploy/observability/rules/alerts.gen.yaml`, the same one-source pattern as `k6:gen`. A drift test
   (`scripts/gen-alert-rules.test.ts`, in the always-on `test:scripts` lane) fails the build if the
   committed rules drift from the source, so an alert threshold can never be a hand-typed copy of an SLO.
 
-The **alert rules are tested**: `deploy/observability/alerts.test.yaml` is a `promtool test rules`
+The **alert rules are tested**: `deploy/observability/rules/alerts.test.yaml` is a `promtool test rules`
 suite that arms each metric past its SLO-derived threshold and asserts the rule fires (and a
 below-threshold series does not). The **backpressure failure mode** is now defined: lag past
 `CONSUMER_LAG_SLO` → `ConsumerLagPendingHigh` / `ConsumerLagAckAgeHigh` fire. The lag itself is exposed

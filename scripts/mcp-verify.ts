@@ -1,8 +1,8 @@
-import { execFileSync } from 'node:child_process'
 import { readFileSync } from 'node:fs'
 import { resolve } from 'node:path'
 import { breakingManifestChanges } from '../services/qaroom-mcp/src/manifest/diff'
 import { McpManifest } from '../services/qaroom-mcp/src/schema/mcp'
+import { runWorkspaceScript } from './lib/workspace-script'
 
 /**
  * The MCP tool-manifest gate (ADR-0006), mirroring `openapi-verify.ts`:
@@ -15,10 +15,9 @@ const ROOT = process.cwd()
 const manifestPath = resolve(ROOT, 'services/qaroom-mcp/mcp-manifest.json')
 
 const before = readFileSync(manifestPath, 'utf8')
-execFileSync('pnpm', ['--filter', '@qaroom/qaroom-mcp', 'mcp:generate'], {
-  cwd: ROOT,
-  stdio: 'inherit',
-})
+// Throws if pnpm ran nothing: `--filter` exits 0 on a filter miss AND on a missing script, so a
+// bare invocation would let this drift gate pass having regenerated nothing.
+runWorkspaceScript('@qaroom/qaroom-mcp', 'mcp:generate')
 const after = readFileSync(manifestPath, 'utf8')
 if (before !== after) {
   process.stderr.write(
