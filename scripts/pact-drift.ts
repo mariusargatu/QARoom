@@ -33,13 +33,37 @@ if (before.length === 0) {
   process.exit(2)
 }
 
-for (const set of PACT_ARTIFACTS) {
-  // Clear first: merge mode cannot express a deletion, so a stale interaction would survive.
-  rmSync(resolve(ROOT, set.dir), { recursive: true, force: true })
-  execFileSync('pnpm', ['--filter', set.pkg, 'exec', 'vitest', 'run', set.specs], {
+/**
+ * Put the committed pacts back. The regenerate step DELETES each directory first (merge mode
+ * cannot express a deletion, so a stale interaction would otherwise survive) — which means a
+ * consumer suite that fails half way would leave the developer's working tree missing files it
+ * never restored. Recoverable with `git checkout`, but a gate that vandalises the tree on a red
+ * run is a gate people learn to avoid running.
+ */
+function restoreCommittedPacts(): void {
+  execFileSync('git', ['checkout', '--', ...PACT_ARTIFACTS.map((s) => s.dir)], {
     cwd: ROOT,
-    stdio: 'inherit',
+    stdio: 'ignore',
   })
+}
+
+try {
+  for (const set of PACT_ARTIFACTS) {
+    // Clear first: merge mode cannot express a deletion, so a stale interaction would survive.
+    rmSync(resolve(ROOT, set.dir), { recursive: true, force: true })
+    execFileSync('pnpm', ['--filter', set.pkg, 'exec', 'vitest', 'run', set.specs], {
+      cwd: ROOT,
+      stdio: 'inherit',
+    })
+  }
+} catch (error) {
+  restoreCommittedPacts()
+  process.stderr.write(
+    '\npact drift gate: the consumer specs did not complete, so the pacts could not be ' +
+      'regenerated. The committed pacts have been RESTORED — your tree is as it was. Fix the ' +
+      `failing consumer spec above, then re-run.\n${error instanceof Error ? error.message : String(error)}\n`,
+  )
+  process.exit(1)
 }
 
 const after = allCommittedPacts(ROOT)
