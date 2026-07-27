@@ -85,7 +85,7 @@ If you care about one thing in particular, go straight to it. Each row is someth
 | Tests that catch real bugs (not coverage) | `pnpm prove <id> --break` · [`docs/detection-matrix.md`](docs/detection-matrix.md) · Stryker mutation gate (`pnpm stryker:critical`) |
 | Testing the non-deterministic (LLM) | [`services/moderator-agent`](services/moderator-agent/) — safety *invariants* (never confidently approve a flagged item; abstain when unsure; ignore injected instructions) rather than pinning one exact answer |
 | One technique per boundary | [ARCHITECTURE.md](ARCHITECTURE.md) §3 · [`docs/code-tour.md`](docs/code-tour.md) |
-| Contract testing across services | Pact v4 consumer tests in `services/<consumer>/tests/contracts/` · `pnpm openapi:verify` · `oasdiff` breaking-change gate |
+| Contract testing across services | Pact v4 consumer tests in `services/<consumer>/tests/contracts/` · `pnpm pact:drift` (committed pacts == a from-scratch regeneration) · `pnpm openapi:verify` (Zod → spec drift only) · `pnpm contract:breaking` (each committed spec vs the PR base, via `oasdiff` + the AsyncAPI classifier) |
 | Property & model-based testing | `*.property.test.ts` (fast-check) · XState machines in [`packages/contracts/src/machines`](packages/contracts/) · reverse-conformance vs live spans |
 | Cost / risk judgment on test tiers | [`docs/gauntlet.md`](docs/gauntlet.md) · [`docs/operating-model.md`](docs/operating-model.md) |
 | Honesty about gaps | [`docs/detection-matrix.md`](docs/detection-matrix.md) leads with misses · [`docs/claims.md`](docs/claims.md) |

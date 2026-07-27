@@ -26,19 +26,22 @@ If any of these sound familiar, this repo is a worked answer. Not a blog post, a
 |---|---|
 | *"We ship fast. I am not sure our tests would actually catch a real bug."* | Every guarantee ships with **the real bug that breaks it** and one command to watch a real test go red. A green suite proves nothing by itself. This shows the catch. |
 | *"How do you even test an AI feature that gives a different answer every time?"* | The AI moderator is tested by the **rules it must never break** (never confidently approve flagged content, ask a human when unsure, ignore hidden instructions), not by pinning one exact answer. [See how](#the-hard-part-testing-the-ai) |
-| *"Our test suite is slow and needs a whole cluster to run."* | The **full suite runs in seconds, no Docker**. The database runs inside the test process. |
+| *"Our test suite is slow and needs a whole cluster to run."* | The **full suite runs in minutes on a laptop, no Docker** — no cluster, no shared database, nothing to stand up. The database runs inside the test process. |
 | *"I cannot tell what our tests do not cover."* | An **honest grid** (the picture at the top) shows which bugs each technique catches, and which slip through. It leads with the gaps, not the wins. |
 
 ---
 
 ## The 30 second proof
 
-Most demos show you a passing test suite. This one hands you the bug and lets you watch a real test fail, then pass:
+Most demos show you a passing test suite. This one hands you the bug and lets you watch a real test fail:
 
 ```bash
-pnpm prove webhook-signing --break   # turn on a real bug, a real test goes RED
-pnpm prove webhook-signing           # turn it off, GREEN again
+pnpm prove webhook-signing --break   # arm a real bug, re-run its gate, watch it go RED
+pnpm prove webhook-signing           # the claim card: the guarantee, its gate, the live evidence
 ```
+
+The toggle only ever exists in that one child process, so nothing is left armed and there is
+nothing to turn off — `--break` reports `reverted (env not persisted)` when it finishes.
 
 That is the whole idea in two lines: **a test you cannot make fail is not protecting you.** Every promise in this repo comes with the bug that breaks it and the command that proves the test catches it. [The full list, in plain English](docs/claims.md)
 
@@ -75,7 +78,7 @@ In plain terms, the skills behind the repo:
 
 ```bash
 pnpm install
-pnpm test            # the whole suite, runs in seconds
+pnpm test            # the whole suite, a few minutes, no Docker
 pnpm prove           # the list of guarantees you can break on demand
 ```
 
@@ -102,7 +105,7 @@ Scan to your world.
 
 #### Frontend -> the React UI
 - **Storybook** play tests + accessibility
-- **Playwright** component tests and model based E2E
+- **Vitest browser mode** component tests (Screenplay) and **Playwright** model based E2E
 - **Visual regression** on pinned baselines
 
 #### Backend -> one service at a time
