@@ -46,7 +46,12 @@ jobs:
           (cd services/moderator-agent && uv run pytest -q)
           pnpm moderator:results
       - name: claims:verify (evidence + wired + teeth + README drift)
-        run: pnpm claims:verify
+        # --max-stale=0: this lane regenerates summary.json in the step above, so a claim whose
+        # evidence runner is "valid but absent" is not stale-because-you-did-not-run-everything,
+        # it is evidence that never arrived. Without the ceiling the lane exits 0 having resolved
+        # nothing, which is how claims sat permanently at STALE. Deferred is NOT capped here: no
+        # cluster is reachable in this lane, so live teeth legitimately defer to the gauntlet.
+        run: pnpm claims:verify --max-stale=0
       - name: Detection-matrix census + rendered-doc drift gate
         run: pnpm matrix:verify
 

@@ -3,7 +3,7 @@ import { existsSync, readFileSync } from 'node:fs'
 import { resolve } from 'node:path'
 import { BOUNDARY_REGISTRY } from './lib/manifests/boundary-registry'
 import { CLAIMS, type Claim } from './lib/manifests/claims'
-import { runnerNames } from './lib/runners'
+import { RUNNERS, runnerNames } from './lib/runners'
 import { BOUNDARIES_END, BOUNDARIES_START, renderBoundariesBlock } from './render-boundaries'
 import { README_END, README_START, renderClaimsMarkdown, renderReadmeBlock } from './render-claims'
 import { COST_END, COST_START, renderCostBlock } from './render-cost'
@@ -40,6 +40,8 @@ interface Result {
   warn?: boolean
   /** ok, but the real falsifier could not run here (live tier, no reachable cluster). Tallied apart. */
   deferred?: boolean
+  /** ok, and the evidence runner is cluster-tier so its absence off-cluster is expected, not stale. */
+  clusterAbsent?: boolean
   detail: string
 }
 
@@ -76,10 +78,18 @@ function checkEvidence(claim: Claim): Result {
   // Absent from the snapshot. A real package → STALE (warn, not fatal; CI's fresh summary resolves it).
   // An unknown name → a manifest typo (fatal).
   if (isValidRunnerName(claim.evidence.runner)) {
+    // A CLUSTER-tier runner absent from an in-process snapshot is not stale evidence, it is
+    // evidence that lives on a lane this run does not have (tenant-spans, k6). Marking it stale
+    // would make `--max-stale=0` red the nightly claims lane for the one reason that is
+    // legitimate, so it is reported separately and never counted against that ceiling.
+    const clusterTier = RUNNERS.find((r) => r.name === claim.evidence.runner)?.tier === 'cluster'
     return {
       ok: true,
-      warn: true,
-      detail: `runner '${claim.evidence.runner}' valid but absent from this summary.json snapshot: STALE (regenerate)`,
+      warn: !clusterTier,
+      clusterAbsent: clusterTier,
+      detail: clusterTier
+        ? `runner '${claim.evidence.runner}' is cluster-tier and absent here: expected off-cluster, not stale`
+        : `runner '${claim.evidence.runner}' valid but absent from this summary.json snapshot: STALE (regenerate)`,
     }
   }
   return {
@@ -269,6 +279,7 @@ function main(): void {
   let failed = 0
   let deferred = 0
   let stale = 0
+  let clusterOffLane = 0
   for (const claim of CLAIMS) {
     const checks: [string, Result][] = [
       ['taxonomy', checkTaxonomy(claim)],
@@ -280,6 +291,7 @@ function main(): void {
     const bad = checks.filter(([, r]) => !r.ok)
     const warns = checks.filter(([, r]) => r.ok && r.warn)
     const deferrals = checks.filter(([, r]) => r.ok && r.deferred)
+    const offCluster = checks.filter(([, r]) => r.ok && r.clusterAbsent)
     if (bad.length === 0) {
       // DEFERRED is a first-class outcome, NOT a pass: the claim is well-formed and wired, but its
       // falsifier could not run here (live tier, no cluster). Surface it distinctly so a green run
@@ -288,6 +300,9 @@ function main(): void {
       // STALE evidence (runner valid but absent from this summary.json snapshot) is NOT "resolves
       // live" — tally it so the green headline cannot claim live evidence it does not have.
       if (warns.length > 0) stale += 1
+      // Cluster-tier evidence absent off-cluster: expected, but still reported rather than
+      // silently dropped, so "6 STALE" shrinking does not read as evidence appearing.
+      if (offCluster.length > 0) clusterOffLane += 1
       const mark = deferrals.length > 0 ? '⏸' : '✓'
       const teeth = deferrals.length > 0 ? 'teeth DEFERRED' : 'teeth'
       const note = warns.length > 0 ? ` (${warns.map(([n]) => `${n}: stale`).join(', ')})` : ''
@@ -295,6 +310,7 @@ function main(): void {
         `  ${mark} ${claim.id}: schema, taxonomy, shipped-tech, evidence, wired, ${teeth}${note}\n`,
       )
       for (const [name, r] of warns) process.stdout.write(`      ⚠ ${name}: ${r.detail}\n`)
+      for (const [name, r] of offCluster) process.stdout.write(`      ▫ ${name}: ${r.detail}\n`)
       for (const [name, r] of deferrals) process.stdout.write(`      ⏸ ${name}: ${r.detail}\n`)
     } else {
       failed += 1
@@ -349,11 +365,51 @@ function main(): void {
       `claims:verify: ${stale} evidence STALE (runner valid but absent from this summary.json — regenerate with a full run; CI's fresh summary resolves them)\n`,
     )
   }
+  if (clusterOffLane > 0) {
+    process.stdout.write(
+      `claims:verify: ${clusterOffLane} evidence off-lane (cluster-tier runner, expected absent here — not stale, not counted by --max-stale)\n`,
+    )
+  }
 
   if (failed > 0) {
     process.stderr.write(
       `\nclaims:verify FAILED: ${failed} check(s) failed (unfalsifiable claim or stale projection)\n`,
     )
+    process.exit(1)
+  }
+
+  /**
+   * STALE and DEFERRED both score `ok: true`, which is right for a dev box (an absent runner just
+   * means you have not run everything, and live teeth need a primed cluster). It is wrong for the
+   * lane that exists to RESOLVE them: the nightly `claims` lane regenerates the summary, so a
+   * STALE runner there means the evidence never arrived; the gauntlet's live lane sets
+   * LIVE_TEETH=1, so a DEFERRED claim there means the falsifier never armed. Without a ceiling,
+   * both lanes exit 0 having resolved nothing, which is how both live-tier claims came to sit
+   * permanently at STALE + DEFERRED.
+   *
+   *   --max-stale=0     the summary is fresh, so every runner must be present
+   *   --max-deferred=0  the cluster is primed, so every live falsifier must have armed
+   */
+  const ceiling = (flag: string): number | null => {
+    const idx = process.argv.indexOf(`--${flag}`)
+    const raw =
+      (idx !== -1 ? process.argv[idx + 1] : undefined) ??
+      process.argv.find((a) => a.startsWith(`--${flag}=`))?.split('=')[1]
+    return raw === undefined ? null : Number(raw)
+  }
+  const maxStale = ceiling('max-stale')
+  const maxDeferred = ceiling('max-deferred')
+  const breaches: string[] = []
+  if (maxStale !== null && stale > maxStale) {
+    breaches.push(`${stale} STALE exceeds --max-stale=${maxStale} (this lane regenerates evidence)`)
+  }
+  if (maxDeferred !== null && deferred > maxDeferred) {
+    breaches.push(
+      `${deferred} DEFERRED exceeds --max-deferred=${maxDeferred} (this lane arms live teeth)`,
+    )
+  }
+  if (breaches.length > 0) {
+    process.stderr.write(`\nclaims:verify FAILED: ${breaches.join('; ')}\n`)
     process.exit(1)
   }
   // Honest headline: every claim is well-formed, wired, and FALSIFIABLE on demand (the teeth ran).

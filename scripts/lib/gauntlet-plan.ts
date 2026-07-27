@@ -438,10 +438,14 @@ export function buildPlan(ctx: PreflightCtx, opts: GauntletOpts): GauntletStep[]
       },
     ),
     step(8, 'verify-envelope-final', 'gate', 'pnpm', ['test-results:verify']),
-    step(8, 'claims-verify', 'gate', 'pnpm', ['claims:verify'], {
+    step(8, 'claims-verify', 'gate', 'pnpm', ['claims:verify', '--max-deferred=0'], {
       timeoutMs: 20 * 60_000,
       // The gauntlet brings the cluster up and primes it, so this is where live-tier claim teeth
       // (tenant-span, outbox-latency) can actually arm the bug in-pod — opt in to running them.
+      // --max-deferred=0 because this is the ONE lane where "deferred to a primed live run" has
+      // nowhere left to defer TO: LIVE_TEETH is set and the cluster is up, so a claim that still
+      // defers here never armed its falsifier, and the lane would otherwise exit 0 having resolved
+      // nothing. This is the only place both live-tier claims can stop being permanently deferred.
       env: { LIVE_TEETH: '1' },
     }),
   ]
