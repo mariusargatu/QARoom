@@ -41,8 +41,18 @@ pnpm matrix:verify  # matrix census + rendered-matrix drift gate
 # generate OpenAPI from Zod for all services
 pnpm openapi:generate
 
-# verify OpenAPI matches Zod + no breaking changes vs committed
+# verify each committed openapi.yaml still matches what Zod generates (DRIFT only)
 pnpm openapi:verify
+
+# the real breaking-change gate: every committed spec diffed against the PR base (oasdiff for
+# HTTP, the QARoom classifier for async). Declare an intentional break, with a reason, in
+# scripts/lib/manifests/breaking-allowances.ts — `openapi:verify` never compares against a
+# baseline, it only proves the committed file matches its source.
+pnpm contract:breaking
+
+# regenerate the committed pacts from scratch and diff them: provider verification reads these
+# files, and pact-core writes in merge mode, so nothing else would notice a REMOVED interaction
+pnpm pact:drift
 
 # regenerate + drift-gate the cross-service MCP tool manifest (Milestone 10)
 pnpm mcp:generate
@@ -138,7 +148,7 @@ For any non-trivial change:
 
 1. **Read the relevant docs first.** `ARCHITECTURE.md` is the one-page mental model — system, testing, decisions, and the "where the truth lives" map; the relevant ADR for the WHY; `tools/eslint-plugin-qaroom` + the drift gates for what's enforced.
 2. **Identify which boundary your change touches.** Use the boundary map in [`ARCHITECTURE.md`](ARCHITECTURE.md#3-the-testing-architecture-a-honeycomb-exploded-by-boundary) §3. Your change should use the testing technique that defends that boundary.
-3. **For schema changes:** edit the Zod schema in `packages/contracts/`, run `pnpm openapi:generate`, commit both. CI will gate breaking changes via `oasdiff`.
+3. **For schema changes:** edit the Zod schema in `packages/contracts/`, run `pnpm openapi:generate`, commit both. `pnpm openapi:verify` gates the drift (committed == generated); `pnpm contract:breaking` is what classifies the change against the PR base.
 4. **For state machine changes:** edit the XState machine in `packages/contracts/machines/`, update the conformance test, update any MBT-generated tests.
 5. **For new endpoints:** they must have an `operationId` (camelCase), a `summary`, a `description`, at least one example per response code, and a Pact consumer test from whoever calls them.
 6. **For tests:** prefer the shared generators in `packages/testing-utils/generators/` over constructing domain objects inline.
@@ -224,7 +234,7 @@ The merge bar (enforced by the dispatched lanes, and required of any PR before m
 
 1. Unit, property, integration, and contract tests pass (`pnpm test`).
 2. Lint and type-check pass (`pnpm lint`, `pnpm typecheck`).
-3. `oasdiff` reports no undeclared breaking changes.
+3. `pnpm contract:breaking` reports no undeclared breaking changes — each service's committed OpenAPI and AsyncAPI diffed against the PR base, with intentional breaks declared (and reasoned) in `scripts/lib/manifests/breaking-allowances.ts`.
 4. `test-results/summary.json` is produced and validates against its frozen schema. The reusable `_envelope.yml` terminal job fans every lane's evidence partial (from the same run) into one envelope; missing key/cluster lanes are deferred, not fatal.
 5. PR description includes the required sections (What, Why, Test plan, Demonstration if introducing a technique).
 

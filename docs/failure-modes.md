@@ -112,10 +112,16 @@ RFC 7807 problem of the right `failure_domain`, within a bounded budget), never 
 
 - **Trigger:** Chaos Mesh NetworkChaos `loss` (e.g. 50%) on the content ↔ NATS path.
 - **Steady-state property:** despite dropped packets, every committed content event is eventually
-  processed by its consumers exactly once: no lost effect, no double effect.
+  processed by its consumers exactly once: no lost effect, no double effect. Two bounds make that
+  precise, and neither is "exactly once" in the unqualified sense: the dedup guarantee holds for
+  24h (`gc-job.ts` TTL) against a JetStream `duplicate_window` of 5m (`connection.ts`), and a
+  message that exhausts its delivery budget is `term()`ed rather than retried forever.
 - **Mitigation:** at-least-once delivery (outbox retry + JetStream redelivery of unacked) +
   consumer `processed_events` dedup. The 5-minute `Nats-Msg-Id` duplicate window absorbs
-  publish-side duplicates.
+  publish-side duplicates. A message that runs out of redeliveries is written to `dead_letters`
+  BEFORE it is terminated (`packages/messaging/src/dead-letters.ts`), so the one case this
+  property genuinely does not cover is recorded and replayable rather than silent — it used to be
+  neither.
 - **Deliberate-bug demo:** `CHAOS_SKIP_DEDUP=1`: a dropped-then-redelivered message applies
   twice; the exactly-once property goes red. Restore -> green.
 - **Status:** verified live (`tests/chaos/03-net-drop-content-consumers.test.ts`): content

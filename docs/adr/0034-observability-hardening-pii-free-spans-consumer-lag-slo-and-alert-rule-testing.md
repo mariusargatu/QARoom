@@ -32,8 +32,12 @@ Commitment 9 already pins `tenant.id` onto **every** span and a mature live audi
 - **Untested alert rules (T09).** `prometheus.yaml` scraped metrics but carried no `alerting` /
   `rule_files`: there were no SLO alerts at all, and so nothing testing that an alert fires at its
   threshold. An alert rule is code; untested code that watches your SLOs is a false sense of safety.
-- **No consumer-lag SLO (T12).** The poison/DLQ path is built and tested (`settle.ts`,
-  donations/gateway/moderator) — that is **not** re-touched here. The real gap was *backpressure*:
+- **No consumer-lag SLO (T12).** The poison path is built and tested (`settle.ts`,
+  donations/gateway/moderator) — that is **not** re-touched here. *(Amended 2026-07-27: calling it
+  a "DLQ" path overstated it at the time. `settle.ts` only called JetStream's `term()`; there was
+  no dead-letter destination, so a poisoned message was discarded with no record. A `dead_letters`
+  table and a required `onPoison` sink landed later; the gateway and the Python moderator still
+  terminate without one, the gateway deliberately — see `services/gateway/src/event-consumer.ts`.)* The real gap was *backpressure*:
   no `num_pending` / ack-age bound, so a moderator falling behind a burst had **no defined failure
   mode**. The synchronous path has SLOs (`SLO_TARGETS`); the asynchronous one did not.
 

@@ -91,7 +91,11 @@ if (summary) {
 md.push('## Known issues routed around')
 md.push('')
 md.push(
-  '- `k6-donation-known-issue`: Microcks payment mock 404s POST /charges → in-cluster donations 502 (observe-class; artifact at `test-results/known-issue-k6-donation.json`).',
+  '- `k6-donation-known-issue`: the donation load lane is observe-class pending a re-measure ' +
+    '(artifact at `test-results/known-issue-k6-donation.json`). NOT the Microcks mock: that 404 was ' +
+    'fixed 2026-07-02 and the mock is verified working (see `scripts/microcks-verify.test.ts` and the ' +
+    'smoke probe). The likely cause is the rollout reset in gauntlet phase 4 leaving the donations ' +
+    'flag disabled, so the POST is gated 409 rather than reaching the provider — unverified pending a live run.',
 )
 md.push(
   '- Chaos experiments 06/08: Litmus HTTPChaos pending ChaosCenter setup (ADR-0014) — honest skips in the chaos runner.',

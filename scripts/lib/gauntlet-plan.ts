@@ -313,9 +313,20 @@ export function buildPlan(ctx: PreflightCtx, opts: GauntletOpts): GauntletStep[]
       { timeoutMs: 20 * 60_000, skipReason: noCluster },
     ),
     step(5, 'k6-fold-clean', 'gate', 'pnpm', ['k6:results'], { skipReason: noCluster }),
-    // Known issue (2026-06-08): the Microcks payment mock 404s POST /charges → donations 502s.
-    // Run it anyway and keep the artifact OUT of the k6-*.json fold glob — honest evidence shows
-    // the broken thing red with a pointer instead of hiding it.
+    // Known issue, CAUSE CORRECTED 2026-07-27. The old note here blamed the Microcks payment mock
+    // for 404ing POST /charges. That is no longer true: the mock's URL was fixed on 2026-07-02
+    // (8f9f97e) and the mock was verified working this session against the pinned microcks-uber
+    // 1.11.0 image — POSTing the exact values.yaml URL returns 200 {"status":"captured"}, and
+    // scripts/smoke.sh now probes it every cluster-smoke run.
+    //
+    // What actually reds this lane is UNVERIFIED (it needs a live gauntlet). The leading candidate
+    // is a precondition this plan creates itself: phase 4's `rollout-reset` drives the donations
+    // flag for COMM_GENERAL away from Enabled, and nothing re-enables it before this step, so the
+    // POST is gated (409 donations-not-enabled) rather than reaching the provider at all. Fixing
+    // that means driving the rollout to Enabled and polling until it propagates, the way the golden
+    // journey already does, then re-measuring before this stays 'observe' or goes back to 'gate'.
+    // Until someone runs it, the class stays 'observe' and the artifact stays OUT of the k6-*.json
+    // fold glob — but the LABEL no longer names a bug that is fixed.
     sh(
       5,
       'k6-donation-known-issue',
