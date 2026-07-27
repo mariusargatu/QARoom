@@ -217,7 +217,7 @@ contract tools never collapse into one because each checks a *different directio
 
 1. **Pact v4** — consumer ↔ real provider (behavior the consumer depends on).
 2. **Pact↔OpenAPI cross-check** — pact ↔ published spec (shape only; the cheapest, static-vs-static).
-3. **oasdiff** — spec-was ↔ spec-now (undeclared breaking changes over time).
+3. **oasdiff + the AsyncAPI classifier** — each committed spec at the PR base ↔ now, run by `pnpm contract:breaking` (undeclared breaking changes over time; declare an intentional one in `scripts/lib/manifests/breaking-allowances.ts`).
 4. **Schemathesis** — spec ↔ running implementation (5xx/crashes, spec-violating responses, stateful links).
 
 `toMatchSnapshot()` is **forbidden repo-wide** because it makes drift invisible. The repo
@@ -358,7 +358,7 @@ derived or enforced, never hand-copied. One authoritative home per concern:
 
 | Concern | Source of truth |
 |---|---|
-| API + event contracts | Zod in [`packages/contracts/`](packages/contracts/) — OpenAPI/AsyncAPI generated + committed; `oasdiff` / `asyncapi:verify` gate breaking changes |
+| API + event contracts | Zod in [`packages/contracts/`](packages/contracts/) — OpenAPI/AsyncAPI generated + committed; `contract:breaking` gates breaking changes vs the PR base; `openapi:verify` / `asyncapi:verify` gate generated-vs-committed drift |
 | Decisions + rationale (the WHY) | [`docs/adr/`](docs/adr/) — start at the immutable [0001](docs/adr/0001-foundational-decisions.md); the [model site](https://mariusargatu.github.io/QARoom/architecture/) renders them read-only |
 | Conventions | enforced, not written: [`tools/eslint-plugin-qaroom`](tools/eslint-plugin-qaroom) + Biome + the drift gates (conventions that aren't enforced rot) |
 | Diagrams (context / container / component / deployment / testing) | the [Structurizr model site](https://mariusargatu.github.io/QARoom/architecture/), generated from [`docs/structurizr/`](docs/structurizr/) grounded in `services/*` |

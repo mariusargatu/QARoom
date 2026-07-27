@@ -41,11 +41,14 @@ That single edit is the source. Everything below is *derived* from it — you re
 
 ```bash
 pnpm openapi:generate    # Zod -> services/*/openapi.yaml (the donations spec now carries `message`)
-pnpm openapi:verify      # gate: the committed spec equals what Zod generates, no undeclared breaking change
+pnpm openapi:verify      # gate: the committed spec equals what Zod generates (drift)
+pnpm contract:breaking   # gate: this spec vs the PR base — is the change breaking?
 ```
 
-`message` is **optional**, so `oasdiff` reports a non-breaking addition. (Had you added a *required* field,
-the gate would red and tell you — that is the breaking-change contract doing its job, not an obstacle.)
+`message` is **optional**, so `contract:breaking` reports a non-breaking addition. (Had you added a
+*required* field, that gate would red and name the path — that is the breaking-change contract doing its
+job, not an obstacle. Note it is `contract:breaking` that compares against the base; `openapi:verify`
+only proves the committed spec matches Zod.)
 Commit the regenerated `openapi.yaml` alongside the schema edit; the drift gate exists precisely so the
 two cannot diverge.
 

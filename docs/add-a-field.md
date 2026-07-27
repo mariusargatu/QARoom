@@ -28,7 +28,8 @@ repo and the gates check its links.
 
 3. **Gate the regeneration.**
    ```bash
-   pnpm openapi:verify       # committed spec == generated; oasdiff classifies the change
+   pnpm openapi:verify       # committed spec == generated (drift only)
+   pnpm contract:breaking    # this spec vs the PR base: is the change breaking?
    pnpm asyncapi:verify      # the AsyncAPI drift gate (ADR-0002), if you touched an event
    ```
    An optional field passes as non-breaking. Commit the regenerated spec(s) in the *same* change as the

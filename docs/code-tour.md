@@ -76,7 +76,7 @@ No contract artifact is generated from another such that one edit silently chang
 | Gate | Direction it checks | Code |
 |---|---|---|
 | Zod -> OpenAPI round-trip | generated YAML == committed YAML | [`openapi-roundtrip.spec.ts`](../services/content/tests/openapi-roundtrip.spec.ts) (one per service) · builder [`builder.ts`](../packages/contracts/src/openapi/builder.ts) |
-| `oasdiff` | OpenAPI *was* vs *now* (no undeclared breaking change) | [`openapi-verify.ts`](../scripts/openapi-verify.ts) |
+| `oasdiff` + AsyncAPI classifier | each committed spec at the PR base vs now (no undeclared breaking change) | [`contract-breaking.ts`](../scripts/contract-breaking.ts) · declared breaks [`breaking-allowances.ts`](../scripts/lib/manifests/breaking-allowances.ts) |
 | Pact <-> OpenAPI cross-check | consumer's pact ⊆ published spec | [`contract-crosscheck/index.ts`](../packages/testing-utils/src/contract-crosscheck/index.ts) · test [`pact-oas-crosscheck.spec.ts`](../services/content/tests/pact-oas-crosscheck.spec.ts) |
 | Zod <-> OAS round-trip property | Zod and emitted JSON Schema accept/reject identically | [`roundtrip.property.test.ts`](../packages/testing-utils/src/generators/roundtrip.property.test.ts) |
 
