@@ -126,3 +126,61 @@ describe('asyncapiBreakingChanges runs the detector and the classifier together'
     expect(found.some((change) => change.path.endsWith('/properties/post_id/type'))).toBe(true)
   })
 })
+
+/**
+ * The rule table used to end in `nonBreaking('non-structural or unrecognized change')`, so it
+ * failed OPEN: any path the table did not recognise was silently declared safe. Reproduced
+ * against the real services/content/asyncapi.yaml, all four of these returned ZERO breaking
+ * changes. The channel address case is the worst of them: the address IS the NATS subject, so
+ * changing it orphans every consumer while the gate stays green.
+ */
+describe('the rule table fails closed on changes it does not recognise', () => {
+  it('treats a channel address edit as breaking — the address is the NATS subject', () => {
+    expect(
+      classifyAsyncChange(
+        { action: 'edit', path: '/channels/postCreated/address' },
+        'send',
+      ).classification,
+    ).toBe('breaking')
+  })
+
+  it('treats retargeting a property $ref as breaking', () => {
+    expect(
+      classifyAsyncChange(
+        { action: 'edit', path: '/components/schemas/PostCreatedEvent/properties/post_id/$ref' },
+        'send',
+      ).classification,
+    ).toBe('breaking')
+  })
+
+  it('treats narrowing a string constraint as breaking', () => {
+    expect(
+      classifyAsyncChange(
+        { action: 'edit', path: '/components/schemas/PostCreatedEvent/properties/title/maxLength' },
+        'send',
+      ).classification,
+    ).toBe('breaking')
+  })
+
+  it('treats removing an enum member as breaking for a receiver', () => {
+    expect(
+      classifyAsyncChange(
+        { action: 'remove', path: '/components/schemas/VoteCastEvent/properties/value/enum/2' },
+        'receive',
+      ).classification,
+    ).toBe('breaking')
+  })
+
+  it('treats a path with no rule as breaking rather than assuming it is safe', () => {
+    expect(
+      classifyAsyncChange({ action: 'edit', path: '/some/unmapped/path' }, 'send').classification,
+    ).toBe('breaking')
+  })
+
+  it('still treats prose-only edits as non-breaking, so the gate stays usable', () => {
+    const prose = ['/info/title', '/channels/postCreated/description', '/info/description']
+    expect(
+      prose.map((path) => classifyAsyncChange({ action: 'edit', path }, 'send').classification),
+    ).toEqual(['nonBreaking', 'nonBreaking', 'nonBreaking'])
+  })
+})
