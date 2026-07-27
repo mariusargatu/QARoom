@@ -115,7 +115,7 @@ Scan to your world.
 #### Distributed -> between services
 - **Pact v4** contract tests, cross checked against OpenAPI
 - **oasdiff + AsyncAPI diff** breaking change gates
-- **Outbox + dedup** typed events, never lost or doubled
+- **Duplicate-delivery property tests** at-least-once delivery, effectively-once effects
 - **Tracetest** trace structure assertions
 - **Reverse conformance** running system vs its state machine
 - **XState** model based testing
