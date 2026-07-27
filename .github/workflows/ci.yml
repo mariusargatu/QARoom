@@ -38,6 +38,13 @@ jobs:
     timeout-minutes: 20
     steps:
       - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7
+        with:
+          # Full history: `contract:breaking` diffs each committed spec against the PR base, and
+          # the default shallow clone (fetch-depth 1) has no base commit — every `git show
+          # <base>:<spec>` would fail, every spec would look absent, and the gate would pass
+          # having compared nothing. The gate hard-errors on a missing base rather than skipping,
+          # so this is load bearing, not an optimisation.
+          fetch-depth: 0
 
       # Lint the workflow YAML itself (expressions, needs/if/matrix graph, runner labels, and — via
       # the runner's preinstalled shellcheck — the `run:` shell blocks). Cheap, and now load-bearing:
@@ -107,6 +114,16 @@ jobs:
 
       - name: Verify AsyncAPI (Zod drift + classifier breaking-change gate)
         run: pnpm asyncapi:verify
+
+      # The REAL breaking-change gate. openapi:verify / asyncapi:verify above only prove their
+      # classifiers work against synthetic fixtures; this diffs each service's committed spec
+      # against the PR base, so a break in an actual contract is reported against the change that
+      # introduced it. Docker is present on ubuntu-latest, so the oasdiff half runs here; the
+      # script refuses to skip it when CI=true.
+      - name: Verify no undeclared breaking contract changes (vs PR base)
+        env:
+          CONTRACT_BASE_SHA: ${{ github.event.pull_request.base.sha }}
+        run: pnpm contract:breaking
 
       - name: Verify MCP tool manifest (drift + breaking-change classifier)
         run: pnpm mcp:verify
