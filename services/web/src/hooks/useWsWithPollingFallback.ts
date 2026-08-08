@@ -1,11 +1,18 @@
 import type { WsEnvelope } from '@qaroom/contracts'
 import { useEffect, useState } from 'react'
 import type { ApiClient } from '../api/client'
+import { messageFor } from '../lib/errors'
 
 export interface UseEventFeed {
   events: WsEnvelope[]
   /** True while a WebSocket connection is open; false on the polling fallback. */
   live: boolean
+  /**
+   * Set when the POLL fails. Previously there was no error channel at all: a rejecting poll raised
+   * an unhandled promise rejection every `intervalMs` forever while the UI showed an empty feed and
+   * a reassuring badge, with nothing anywhere to say the fallback was dead.
+   */
+  error?: string
 }
 
 /** Connect to the push stream; matches `connectWs`'s handler shape. Returns a disconnect fn. */
@@ -23,6 +30,12 @@ export interface EventFeedOptions {
    * stays false. Either way the parity test guarantees both transports carry the same envelopes.
    */
   connect?: StreamConnector
+  /**
+   * The session access token. REQUIRED against a real gateway — ADR-0025 put the events route
+   * behind edge auth, so a poll without it is a 401 and the Commitment-11 fallback silently
+   * delivers nothing.
+   */
+  token?: string | null
 }
 
 export const FEED_CAP = 50
@@ -45,7 +58,12 @@ const dedupDisabled = (): boolean =>
 export const prepend = (prev: WsEnvelope[], incoming: WsEnvelope[]): WsEnvelope[] => {
   const seen = new Set(dedupDisabled() ? [] : prev.map((e) => e.seq))
   const fresh = incoming.filter((e) => !seen.has(e.seq))
-  return [...fresh, ...prev].slice(0, FEED_CAP)
+  // ORDER BY seq, not by arrival. Positional concatenation renders the feed in the order envelopes
+  // happened to reach us, which is wrong in exactly the case the fallback exists for: the socket
+  // delivers seq 7 but drops seq 6, then a poll backfills 6 — prepending puts the OLDER event above
+  // the newer one in a feed labelled "newest first". `seq` is monotonic and unique per community,
+  // which this hook is scoped to, so it is a total order over the merged set.
+  return [...fresh, ...prev].sort((a, b) => b.seq - a.seq).slice(0, FEED_CAP)
 }
 
 /**
@@ -58,20 +76,28 @@ export function useWsWithPollingFallback(
   communityId: string,
   opts: EventFeedOptions = {},
 ): UseEventFeed {
-  const { intervalMs = 2000, connect } = opts
+  const { intervalMs = 2000, connect, token } = opts
   const [events, setEvents] = useState<WsEnvelope[]>([])
   const [live, setLive] = useState(false)
+  const [error, setError] = useState<string | undefined>(undefined)
 
   useEffect(() => {
     let cursor = 0
     let active = true
 
     const poll = async () => {
-      const page = await api.listEvents(communityId, cursor)
-      if (!active || page.events.length === 0) return
-      cursor = page.cursor
-      // Newest first, capped — the feed shows the most recent activity.
-      setEvents((prev) => prepend(prev, [...page.events].reverse()))
+      try {
+        const page = await api.listEvents(communityId, cursor, token ?? undefined)
+        if (!active) return
+        setError(undefined)
+        if (page.events.length === 0) return
+        cursor = page.cursor
+        setEvents((prev) => prepend(prev, page.events))
+      } catch (err) {
+        // Caught, not swallowed: without this the rejection escapes `void poll()` as an unhandled
+        // promise rejection on every tick, forever, and the user sees an empty feed with no reason.
+        if (active) setError(messageFor(err))
+      }
     }
 
     void poll()
@@ -82,7 +108,7 @@ export function useWsWithPollingFallback(
       active = false
       clearInterval(id)
     }
-  }, [api, communityId, intervalMs])
+  }, [api, communityId, intervalMs, token])
 
   useEffect(() => {
     if (!connect) return
@@ -97,5 +123,5 @@ export function useWsWithPollingFallback(
     }
   }, [connect])
 
-  return { events, live }
+  return { events, live, error }
 }

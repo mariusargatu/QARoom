@@ -7,12 +7,17 @@ import {
   useRef,
   useState,
 } from 'react'
-import { messageFor } from '../lib/errors'
+import { messageFor, retryableFor } from '../lib/errors'
 
 export interface UseResource<T> {
   data: T
   loading: boolean
   error?: string
+  /**
+   * The gateway's RFC 7807 `retryable` hint for the current `error`, so a caller can stop offering
+   * "Try again" on a failure that cannot succeed on retry. Undefined when there is no error.
+   */
+  retryable?: boolean
   /** The raw state setter — lets a caller patch the cache in place (optimistic update) or refetch. */
   setData: Dispatch<SetStateAction<T>>
   refresh: () => Promise<void>
@@ -32,6 +37,7 @@ export function useResource<T>(
   const [data, setData] = useState<T>(initial)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | undefined>(undefined)
+  const [retryable, setRetryable] = useState<boolean | undefined>(undefined)
 
   // `deps` is the caller-declared dependency set for the loader closure; biome can't statically
   // verify a forwarded array, so the loader is memoized on exactly what the caller passes.
@@ -48,11 +54,15 @@ export function useResource<T>(
     const gen = latest.current
     setLoading(true)
     setError(undefined)
+    setRetryable(undefined)
     try {
       const result = await load()
       if (gen === latest.current) setData(result)
     } catch (err) {
-      if (gen === latest.current) setError(messageFor(err))
+      if (gen === latest.current) {
+        setError(messageFor(err))
+        setRetryable(retryableFor(err))
+      }
     } finally {
       if (gen === latest.current) setLoading(false)
     }
@@ -62,5 +72,5 @@ export function useResource<T>(
     void refresh()
   }, [refresh])
 
-  return { data, loading, error, setData, refresh }
+  return { data, loading, error, retryable, setData, refresh }
 }

@@ -14,7 +14,11 @@ export function ModerationPage() {
     <div className="flex flex-col gap-4">
       <h1 className="font-display text-2xl font-medium text-text">Moderation</h1>
       {moderation.error ? (
-        <ErrorState message={moderation.error} onRetry={() => void moderation.refresh()} />
+        <ErrorState
+          message={moderation.error}
+          retryable={moderation.retryable}
+          onRetry={() => void moderation.refresh()}
+        />
       ) : (
         <ModerationDecisionList decisions={moderation.decisions} loading={moderation.loading} />
       )}

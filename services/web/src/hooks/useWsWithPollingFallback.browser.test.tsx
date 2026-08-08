@@ -83,3 +83,34 @@ test('a supplied connector drives live state, feeds socket events, and disconnec
   await unmount()
   expect(disconnect).toHaveBeenCalledTimes(1)
 })
+
+// A rejecting poll had nowhere to go: `void poll()` with no catch raised an unhandled rejection on
+// every tick, forever, while the page showed an empty feed and a reassuring badge. The hook now
+// exposes the failure so a page can say the feed is stale.
+test('a failing poll surfaces an error instead of raising an unhandled rejection', async () => {
+  const api = {
+    listEvents: async () => {
+      throw new Error('gateway down')
+    },
+  } as unknown as ApiClient
+
+  const { result } = await renderHook(() =>
+    useWsWithPollingFallback(api, 'comm_1', { intervalMs: 10 }),
+  )
+
+  await vi.waitFor(() => expect(result.current.error).toBe('gateway down'))
+  expect(result.current.events).toEqual([])
+})
+
+// ADR-0025 put the events route behind edge auth, so a poll with no bearer is a 401 and the whole
+// Commitment-11 fallback silently delivers nothing.
+test('the poll forwards the session token to the edge-authed events route', async () => {
+  const listEvents = vi.fn(async () => ({ community_id: 'comm_1', events: [], cursor: 0 }))
+  const api = { listEvents } as unknown as ApiClient
+
+  await renderHook(() =>
+    useWsWithPollingFallback(api, 'comm_1', { intervalMs: 10_000, token: 'access-token' }),
+  )
+
+  await vi.waitFor(() => expect(listEvents).toHaveBeenCalledWith('comm_1', 0, 'access-token'))
+})

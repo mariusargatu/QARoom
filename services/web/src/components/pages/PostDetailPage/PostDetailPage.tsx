@@ -16,8 +16,8 @@ export function PostDetailPage() {
   const { communityId = '', postId = '' } = useParams()
   const { api } = useApi()
   const { currentUser } = useSession()
-  const { post, loading, error, setPost, refresh } = usePost(api, postId)
-  const { myVotes, pendingId, error: voteError, vote } = useVote(api, currentUser?.id ?? '')
+  const { post, loading, error, retryable, setPost, refresh } = usePost(api, postId)
+  const { myVotes, isPending, error: voteError, vote } = useVote(api, currentUser?.id ?? '')
 
   // VoteControl (onVote's only caller) renders solely in the `post`-truthy branch below, so the post
   // is always defined here — it is passed in already narrowed rather than re-checked for null.
@@ -43,13 +43,17 @@ export function PostDetailPage() {
           <Skeleton className="h-24 w-full" />
         </Card>
       ) : error || !post ? (
-        <ErrorState message={error ?? 'Post not found.'} onRetry={() => void refresh()} />
+        <ErrorState
+          message={error ?? 'Post not found.'}
+          retryable={retryable}
+          onRetry={() => void refresh()}
+        />
       ) : (
         <Card className="flex gap-4 p-5">
           <VoteControl
             score={post.score}
             value={myVotes[post.id] ?? 0}
-            pending={pendingId === post.id}
+            pending={isPending(post.id)}
             onVote={(value) => void onVote(post, value)}
           />
           <div className="min-w-0 flex-1">

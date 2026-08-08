@@ -24,7 +24,7 @@ export function CommunityFeedPage() {
   const { currentUser, knownCommunities } = useSession()
   const feed = useFeed(api, communityId)
   const members = useMembers(api, communityId)
-  const { myVotes, pendingId, error: voteError, vote } = useVote(api, currentUser?.id ?? '')
+  const { myVotes, isPending, error: voteError, vote } = useVote(api, currentUser?.id ?? '')
   const [sort, setSort] = useState('new')
 
   const community = knownCommunities.find((c) => c.id === communityId)
@@ -55,7 +55,11 @@ export function CommunityFeedPage() {
         ) : null}
         {feed.error ? (
           <div className="pt-6">
-            <ErrorState message={feed.error} onRetry={() => void feed.refresh()} />
+            <ErrorState
+              message={feed.error}
+              retryable={feed.retryable}
+              onRetry={() => void feed.refresh()}
+            />
           </div>
         ) : (
           <PostList
@@ -82,7 +86,7 @@ export function CommunityFeedPage() {
                 post={post}
                 to={`/c/${communityId}/p/${post.id}`}
                 voteValue={myVotes[post.id] ?? 0}
-                votePending={pendingId === post.id}
+                votePending={isPending(post.id)}
                 onVote={(value) => void onVote(post.id, value)}
               />
             ))}
@@ -90,10 +94,15 @@ export function CommunityFeedPage() {
         )}
       </div>
       <aside className="hidden lg:block">
+        {/*
+          A FAILED roster load has to read as unknown, not as zero. On error `loading` is false and
+          the list is still `[]`, so the rail stated "Members 0" for a community that has members —
+          seen live, right next to a visible feed error.
+        */}
         <RightRail
           name={communityName}
           slug={community?.slug ?? communityId}
-          memberCount={members.loading ? undefined : members.members.length}
+          memberCount={members.loading || members.error ? undefined : members.members.length}
         />
       </aside>
     </div>

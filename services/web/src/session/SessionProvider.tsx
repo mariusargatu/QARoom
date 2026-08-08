@@ -59,6 +59,29 @@ function read<T>(key: string, fallback: T): T {
   }
 }
 
+/**
+ * localStorage is untrusted input — another tab, an older build, a half-written value, or a user
+ * with devtools. `read` guards the JSON DECODE but not the SHAPE, so a stored `{}` or `5` produced a
+ * truthy `session` whose `.token` was undefined, `decodeAccessTokenClaims` threw during the
+ * `memberships` useMemo, and the provider threw during render — on every load, permanently, with no
+ * in-app way out. Validating here turns that into a silent, self-healing sign-out.
+ */
+function isPersistedSession(value: unknown): value is PersistedSession {
+  if (typeof value !== 'object' || value === null) return false
+  const candidate = value as Partial<PersistedSession>
+  return (
+    typeof candidate.token === 'string' &&
+    typeof candidate.currentUser === 'object' &&
+    candidate.currentUser !== null &&
+    typeof candidate.currentUser.id === 'string'
+  )
+}
+
+function readSession(): PersistedSession | null {
+  const stored = read<unknown>(SESSION_KEY, null)
+  return isPersistedSession(stored) ? stored : null
+}
+
 function upsertById<T extends { id: string }>(list: T[], item: T): T[] {
   return [item, ...list.filter((entry) => entry.id !== item.id)]
 }
@@ -69,9 +92,7 @@ function upsertById<T extends { id: string }>(list: T[], item: T): T[] {
  * nav. All mutations go through the injected `ApiClient`.
  */
 export function SessionProvider({ api, children }: { api: ApiClient; children: ReactNode }) {
-  const [session, setSession] = useState<PersistedSession | null>(() =>
-    read<PersistedSession | null>(SESSION_KEY, null),
-  )
+  const [session, setSession] = useState<PersistedSession | null>(readSession)
   const [knownUsers, setKnownUsers] = useState<UserSummary[]>(() =>
     read<UserSummary[]>(USERS_KEY, []),
   )

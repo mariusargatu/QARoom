@@ -6,6 +6,12 @@ import { Badge, type BadgeTone } from '../../atoms/Badge'
 
 export interface DonationListProps {
   donations: readonly Donation[]
+  /**
+   * True while the list is being fetched. Without it an in-flight load is indistinguishable from an
+   * empty one and the section states "No donations yet." — a claim about the community's history
+   * made before any answer has arrived.
+   */
+  loading?: boolean
 }
 
 const TONE: Record<DonationStatus, BadgeTone> = {
@@ -21,13 +27,17 @@ const TONE: Record<DonationStatus, BadgeTone> = {
  * row pairs a tabular-nums amount with a status Badge and the date; the section owns the rule.
  */
 export const DonationList = forwardRef<HTMLElement, DonationListProps>(function DonationList(
-  { donations },
+  { donations, loading = false },
   ref,
 ) {
   return (
     <section ref={ref} aria-label="Donations" data-testid={TESTID.donationList}>
       <h2 className="mb-3 font-display text-lg font-medium text-text">Recent donations</h2>
-      {donations.length === 0 ? (
+      {loading ? (
+        <p className="text-sm text-muted" role="status">
+          Loading donations…
+        </p>
+      ) : donations.length === 0 ? (
         <p className="text-sm text-muted">No donations yet.</p>
       ) : (
         <ul className="divide-y divide-border border-t border-border">
