@@ -21,4 +21,11 @@ ENV VITE_API_BASE_URL=${VITE_API_BASE_URL}
 RUN pnpm --filter @qaroom/web build
 
 EXPOSE 8085
-CMD ["pnpm", "--filter", "@qaroom/web", "exec", "vite", "preview", "--host", "0.0.0.0", "--port", "8085"]
+# `--configLoader native` is LOAD BEARING under the chart's non-root UID. The default ("bundle")
+# compiles vite.config.ts to `node_modules/.vite-temp/vite.config.ts.timestamp-*.mjs` before reading
+# it; /repo is built as root, so UID 10001 cannot write there and preview dies with
+# `EACCES: open '/repo/services/web/node_modules/.vite-temp/...'` — the pod CrashLoopBackOffs before
+# serving a byte. "native" loads the TS config through Node's own type stripping instead, writing
+# nothing. (The proper long-term fix is not to serve a built SPA with a dev-server command at all;
+# this keeps the image honest until that lands.)
+CMD ["pnpm", "--filter", "@qaroom/web", "exec", "vite", "preview", "--host", "0.0.0.0", "--port", "8085", "--configLoader", "native"]
