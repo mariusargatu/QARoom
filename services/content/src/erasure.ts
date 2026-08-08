@@ -6,11 +6,11 @@ import {
   type EventHandler,
   headersToRecord,
   type NatsHandle,
-  readEventHeaders,
   processEvent,
+  readEventHeaders,
   rowsOf,
-  settleByDeliveryBudget,
   type SqlExecutor,
+  settleByDeliveryBudget,
 } from '@qaroom/messaging'
 import { sql } from 'drizzle-orm'
 import type { ContentDb } from './db/client'

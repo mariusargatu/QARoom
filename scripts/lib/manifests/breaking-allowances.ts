@@ -41,7 +41,6 @@ export function staleAllowances(
   reported: ReadonlyArray<{ service: string; spec: 'openapi' | 'asyncapi'; path: string }>,
 ): BreakingAllowance[] {
   return BREAKING_ALLOWANCES.filter(
-    (a) =>
-      !reported.some((r) => r.service === a.service && r.spec === a.spec && r.path === a.path),
+    (a) => !reported.some((r) => r.service === a.service && r.spec === a.spec && r.path === a.path),
   )
 }
