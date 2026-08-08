@@ -9,7 +9,7 @@ import {
   type Membership,
 } from '@qaroom/contracts'
 import { Route, Routes } from 'react-router-dom'
-import { expect, test } from 'vitest'
+import { expect, test, vi } from 'vitest'
 import { render } from 'vitest-browser-react'
 import type { ApiClient } from '../../../api/client'
 import { withProviders } from '../../../test-support/with-providers'
@@ -80,14 +80,27 @@ test('filling the slug and name enables the create button', async () => {
   await expect.element(screen.getByRole('button', { name: 'Create community' })).toBeEnabled()
 })
 
+// The title names three effects; the assertion covered one. Deleting the ownership grant AND the
+// token refresh left every test in this file green, because a redirect happens either way — so the
+// two calls that make the creator an OWNER (and put that membership in their JWT) were unguarded.
 test('submitting the form creates the community, owns it, and navigates to its feed', async () => {
   localStorage.clear()
   signIn()
+  const calls: string[] = []
   const screen = await render(
     communitiesRoute({
-      createCommunity: async () => createdCommunity(),
-      addMembership: async () => membership(),
-      createSession: async () => token(),
+      createCommunity: async () => {
+        calls.push('createCommunity')
+        return createdCommunity()
+      },
+      addMembership: async (communityId: string, body: { role: string }) => {
+        calls.push(`addMembership:${communityId}:${body.role}`)
+        return membership()
+      },
+      createSession: async () => {
+        calls.push('createSession')
+        return token()
+      },
     }),
   )
 
@@ -96,6 +109,12 @@ test('submitting the form creates the community, owns it, and navigates to its f
   await screen.getByRole('button', { name: 'Create community' }).click()
 
   await expect.element(screen.getByTestId('screen')).toHaveTextContent('feed')
+  // Ordering matters: the community must exist before it can be owned, and the token must be
+  // reminted AFTER the grant or the JWT carries no membership for the community just created.
+  await vi.waitFor(() => expect(calls).toHaveLength(3))
+  expect(calls[0]).toBe('createCommunity')
+  expect(calls[1]).toMatch(/^addMembership:.*:owner$/)
+  expect(calls[2]).toBe('createSession')
 })
 
 test('a failed create surfaces the error and stays on the page', async () => {
