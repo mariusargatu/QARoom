@@ -203,13 +203,17 @@ jobs:
           path: services/moderator-agent/test-results/pytest-summary.json
           if-no-files-found: warn
 
-  # Cheap manifest gate: the shared Helm chart + observability manifests lint and validate against the
-  # Kubernetes schemas (kubeconform) — catches malformed manifests in seconds.
+  # Manifest gate: the shared Helm chart + observability manifests lint and validate against the
+  # Kubernetes schemas (kubeconform) — catches malformed manifests in seconds — and then the chart's
+  # rendered Postgres securityContext is BOOTED. Structure validation alone is not enough: `8162caa`
+  # shipped a `capabilities.drop: ["ALL"]` that CrashLoopBackOffed every *-pg-0 pod, and both helm
+  # lint and kubeconform stayed green because the manifest was valid, just unstartable.
   chart:
     runs-on: ubuntu-latest
     timeout-minutes: 30
     steps:
       - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7
+      - uses: ./.github/actions/setup-workspace
       - uses: azure/setup-helm@9bc31f4ebc9c6b171d7bfbaa5d006ae7abdb4310 # v5
         with:
           version: v4.1.1
@@ -228,6 +232,14 @@ jobs:
           done
       - name: Validate observability manifests
         run: kubeconform -strict -summary -ignore-missing-schemas deploy/observability/*.yaml
+
+      # Behavioural counterpart to the two structure gates above: render the chart, boot Postgres
+      # under the securityContext it actually produces, and assert the negative control — that
+      # removing the granted capabilities really does break the boot — so a green here cannot be a
+      # no-op. The capability LIST is pinned on every PR by
+      # scripts/chart-security-context.test.ts; this proves the list is sufficient.
+      - name: Boot the chart's rendered Postgres securityContext (+ negative control)
+        run: pnpm chart:postgres-boot
 
   # Bring the whole stack up on KinD (shared cluster-up composite), smoke every service's liveness
   # probe through its Service, and prove the deliberate-broken value fails the smoke.
@@ -350,5 +362,10 @@ jobs:
     steps:
       - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7
       - uses: ./.github/actions/setup-workspace
+      # services/web's floor is measured across BOTH its vitest projects (node + the Screenplay
+      # component suite in real Chromium) — see the documented exception in scripts/coverage.ts — so
+      # this lane needs a browser.
+      - name: Install Chromium (services/web coverage spans the browser project)
+        run: pnpm --filter @qaroom/web exec playwright install --with-deps chromium
       - name: Coverage floor gate
         run: pnpm coverage

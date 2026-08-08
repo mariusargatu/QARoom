@@ -56,6 +56,7 @@
     "sim": "tsx scripts/concurrent-sim.ts",
     "check:tenant-spans": "tsx scripts/check-tenant-spans.ts",
     "check:pii-spans": "tsx scripts/check-pii-spans.ts",
+    "chart:postgres-boot": "tsx scripts/chart-postgres-boot.ts",
     "alerts:gen": "tsx scripts/gen-alert-rules.ts",
     "chaos:install": "bash scripts/chaos.sh install",
     "chaos:install:litmus": "bash scripts/chaos.sh install:litmus",
