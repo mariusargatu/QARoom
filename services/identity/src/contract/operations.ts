@@ -52,6 +52,13 @@ const slugConflict = problemResponse(
   'conflict',
   { description: 'A community with that slug already exists.', instance: '/api/communities' },
 )
+const handleConflict = problemResponse(
+  409,
+  'user-handle-taken',
+  'Handle already taken',
+  'conflict',
+  { description: 'A user with that handle already exists.', instance: '/api/users' },
+)
 const membershipConflict = problemResponse(
   409,
   'membership-exists',
@@ -132,6 +139,7 @@ export const OPERATIONS: readonly OasOperation[] = [
         },
       },
       validation400,
+      handleConflict,
       idempotencyConflict409,
     ],
   },

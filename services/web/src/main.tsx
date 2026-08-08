@@ -5,6 +5,7 @@ import { BrowserRouter } from 'react-router-dom'
 import { App } from './App'
 import { ApiProvider } from './api/ApiProvider'
 import { createApiClient } from './api/client'
+import { RootErrorBoundary } from './app/RootErrorBoundary'
 import { SessionProvider } from './session/SessionProvider'
 import './styles/globals.css'
 import { ThemeProvider } from './theme/ThemeProvider'
@@ -18,16 +19,20 @@ const api = createApiClient(API_BASE_URL, new UlidIdGenerator())
 const root = document.getElementById('root')
 if (!root) throw new Error('missing #root element')
 
+// The boundary wraps EVERYTHING, providers included: the crash that made this necessary happened
+// inside SessionProvider's own render, so a boundary nested any deeper would never have caught it.
 createRoot(root).render(
   <StrictMode>
-    <ThemeProvider>
-      <ApiProvider api={api} baseUrl={API_BASE_URL}>
-        <SessionProvider api={api}>
-          <BrowserRouter>
-            <App />
-          </BrowserRouter>
-        </SessionProvider>
-      </ApiProvider>
-    </ThemeProvider>
+    <RootErrorBoundary>
+      <ThemeProvider>
+        <ApiProvider api={api} baseUrl={API_BASE_URL}>
+          <SessionProvider api={api}>
+            <BrowserRouter>
+              <App />
+            </BrowserRouter>
+          </SessionProvider>
+        </ApiProvider>
+      </ThemeProvider>
+    </RootErrorBoundary>
   </StrictMode>,
 )

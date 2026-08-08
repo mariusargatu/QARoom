@@ -56,6 +56,12 @@ spec:
                 {{- include "qaroom-service.containerSecurityContext" . | nindent 16 }}
               command: ["pnpm", "--filter", {{ .Values.gc.package | quote }}, "exec", "tsx", "src/jobs/gc-dedup.ts"]
               env:
+                # Same reason as the Deployment's: this container runs the same `pnpm …` entrypoint
+                # under the same home-less UID 10001, so without a writable HOME corepack dies on
+                # `EACCES: mkdir '/.cache/node/corepack/v1'` and the hourly dedup sweep
+                # (Commitment 17) never runs — silently, because a CronJob failure raises no alert.
+                - name: HOME
+                  value: /tmp
                 - name: NODE_ENV
                   value: {{ .Values.nodeEnv | quote }}
                 {{- $dburl := include "qaroom-service.databaseUrl" . }}

@@ -1,6 +1,5 @@
 import { execFileSync } from 'node:child_process'
-import { existsSync } from 'node:fs'
-import { readFileSync } from 'node:fs'
+import { existsSync, readFileSync } from 'node:fs'
 import { resolve } from 'node:path'
 import { asyncapiBreakingChanges } from '@qaroom/testing-utils/async-diff'
 import { parse } from 'yaml'
@@ -159,9 +158,7 @@ if (dockerAvailable) {
     }
   }
 } else {
-  process.stdout.write(
-    '  openapi half SKIPPED (no Docker; runs in CI where Docker is present)\n',
-  )
+  process.stdout.write('  openapi half SKIPPED (no Docker; runs in CI where Docker is present)\n')
 }
 
 const undeclared = reported.filter((r) => !isDeclared(r.service, r.spec, r.path))
@@ -186,6 +183,4 @@ if (undeclared.length > 0 || stale.length > 0) {
 }
 
 const scope = base === head ? 'no commits to diff' : `${reported.length} declared`
-process.stdout.write(
-  `contract breaking-change gate: no undeclared breaking changes (${scope}) ✓\n`,
-)
+process.stdout.write(`contract breaking-change gate: no undeclared breaking changes (${scope}) ✓\n`)

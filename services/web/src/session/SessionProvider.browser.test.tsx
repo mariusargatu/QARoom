@@ -241,3 +241,24 @@ test('useSession() outside a SessionProvider throws a named diagnostic', async (
   await expect.element(screen.getByTestId('caught')).toBeVisible()
   expect(captured?.message).toBe('useSession must be used within a SessionProvider')
 })
+
+// localStorage is untrusted input — another tab, an older build, a half-written value, devtools.
+// `read` guarded the JSON DECODE but not the SHAPE, so a stored value that parsed to the wrong thing
+// made `session` truthy with `session.token` undefined; `decodeAccessTokenClaims` then threw inside
+// the `memberships` useMemo and the provider threw DURING RENDER — on every load, permanently, with
+// no in-app way out. An unusable stored session must read as no session.
+test.each([
+  ['an empty object', '{}'],
+  ['a bare number', '5'],
+  ['a bare string', '"nope"'],
+  ['a null token from an older build', '{"token":null,"currentUser":{"id":"u"}}'],
+  ['a session carrying no user', '{"token":"t"}'],
+])('a persisted session that is %s signs the visitor out instead of crashing', async (_case, raw) => {
+  localStorage.clear()
+  localStorage.setItem('qaroom.session', raw)
+
+  const screen = await render(<SessionHarness />)
+
+  await expect.element(screen.getByTestId('user')).toHaveTextContent('none')
+  localStorage.clear()
+})

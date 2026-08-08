@@ -25,7 +25,6 @@
   "dependencies": {
     "@qaroom/contracts": "workspace:*",
     "@qaroom/determinism": "workspace:*",
-    "@xstate/react": "^6.0.0",
     "react": "^19.0.0",
     "react-dom": "^19.0.0",
     "react-router-dom": "^7.18.1",
@@ -47,7 +46,6 @@
     "@vitest/browser-playwright": "4.1.9",
     "@vitest/coverage-v8": "catalog:",
     "fast-check": "catalog:",
-    "msw": "^2.14.0",
     "size-limit": "12.1.0",
     "storybook": "10.4.6",
     "tailwindcss": "^4.3.2",

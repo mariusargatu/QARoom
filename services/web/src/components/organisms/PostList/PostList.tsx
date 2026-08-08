@@ -18,7 +18,18 @@ export const PostList = forwardRef<HTMLDivElement, PostListProps>(function PostL
 ) {
   if (loading) {
     return (
-      <div ref={ref} className="divide-y divide-border border-t border-border" aria-busy="true">
+      <div
+        ref={ref}
+        className="divide-y divide-border border-t border-border"
+        aria-busy="true"
+        role="status"
+      >
+        {/*
+          `aria-busy` marks the region stale but announces nothing on its own, and the Skeletons are
+          deliberately `aria-hidden`. Without this text a screen-reader user hears silence during
+          every load and cannot tell "loading" from "empty".
+        */}
+        <span className="sr-only">Loading posts…</span>
         {[0, 1, 2].map((i) => (
           <div key={i} className="flex gap-4 py-5">
             <Skeleton className="h-16 w-11" />

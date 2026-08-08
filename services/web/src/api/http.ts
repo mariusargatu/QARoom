@@ -26,15 +26,18 @@ export class ApiError extends Error {
   }
 }
 
-export interface PostOptions {
-  /** Send an Idempotency-Key (Commitment 4). Default true; the WS-ticket mint opts out. */
-  idempotent?: boolean
-  /** A bearer credential to attach (only the WS-ticket mint needs it). */
+export interface GetOptions {
+  /** A bearer credential to attach. Required by the edge-authed events poll (ADR-0025). */
   authorization?: string
 }
 
+export interface PostOptions extends GetOptions {
+  /** Send an Idempotency-Key (Commitment 4). Default true; the WS-ticket mint opts out. */
+  idempotent?: boolean
+}
+
 export interface Http {
-  get<T>(path: string, parse: (raw: unknown) => T): Promise<T>
+  get<T>(path: string, parse: (raw: unknown) => T, options?: GetOptions): Promise<T>
   post<T>(
     path: string,
     body: unknown,
@@ -43,6 +46,13 @@ export interface Http {
   ): Promise<T>
   del(path: string): Promise<void>
 }
+
+/**
+ * A request that never answers must fail rather than hang: `fetch` has no default timeout, so a
+ * black-holed connection leaves a hook stuck on `loading` forever with no error and no retry. Long
+ * enough not to trip a slow-but-working gateway.
+ */
+export const REQUEST_TIMEOUT_MS = 15_000
 
 async function toApiError(res: Response, method: string, path: string): Promise<ApiError> {
   const text = await res.text().catch(() => '')
@@ -75,8 +85,13 @@ export function createHttp(baseUrl: string, ids: IdGenerator): Http {
   const nextKey = () => ids.next('web')
 
   return {
-    async get<T>(path: string, parse: (raw: unknown) => T): Promise<T> {
-      const res = await fetch(`${base}${path}`, { headers: { accept: 'application/json' } })
+    async get<T>(path: string, parse: (raw: unknown) => T, options: GetOptions = {}): Promise<T> {
+      const headers: Record<string, string> = { accept: 'application/json' }
+      if (options.authorization) headers.authorization = options.authorization
+      const res = await fetch(`${base}${path}`, {
+        headers,
+        signal: AbortSignal.timeout(REQUEST_TIMEOUT_MS),
+      })
       if (!res.ok) throw await toApiError(res, 'GET', path)
       return parse(await res.json())
     },
@@ -97,6 +112,7 @@ export function createHttp(baseUrl: string, ids: IdGenerator): Http {
         method: 'POST',
         headers,
         body: JSON.stringify(body ?? {}),
+        signal: AbortSignal.timeout(REQUEST_TIMEOUT_MS),
       })
       if (!res.ok) throw await toApiError(res, 'POST', path)
       return parse(await res.json())
@@ -106,6 +122,7 @@ export function createHttp(baseUrl: string, ids: IdGenerator): Http {
       const res = await fetch(`${base}${path}`, {
         method: 'DELETE',
         headers: { accept: 'application/json', 'idempotency-key': nextKey() },
+        signal: AbortSignal.timeout(REQUEST_TIMEOUT_MS),
       })
       if (!res.ok) throw await toApiError(res, 'DELETE', path)
     },

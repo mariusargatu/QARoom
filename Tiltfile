@@ -79,7 +79,9 @@ docker_build_with_restart(
     'qaroom/moderator-agent',
     '.',
     dockerfile='services/moderator-agent/Dockerfile',
-    entrypoint=['uv', 'run', '--no-dev', 'python', '-m', 'moderator_agent.server'],
+    # `--no-sync` mirrors the Dockerfile CMD (which this entrypoint overrides): the root-owned venv
+    # cannot be rewritten by the chart's non-root UID at boot.
+    entrypoint=['uv', 'run', '--no-dev', '--no-sync', 'python', '-m', 'moderator_agent.server'],
     live_update=[
         sync('services/moderator-agent/src', '/app/src'),
         sync('services/moderator-agent/rules', '/app/rules'),

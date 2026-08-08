@@ -16,7 +16,17 @@ export function connectWs(
   socket.addEventListener('open', () => handlers.onOpen?.())
   socket.addEventListener('close', () => handlers.onClose?.())
   socket.addEventListener('message', (event) => {
-    const parsed = WsEnvelope.safeParse(JSON.parse(String(event.data)))
+    // `safeParse` guards the SHAPE but not the decode: `JSON.parse` throws on a non-JSON or binary
+    // frame, and a throw inside a listener is an uncaught error, not a rejected promise — one
+    // malformed frame from the socket takes out the handler. The frame is untrusted input; treat a
+    // decode failure the same way as a shape failure, by ignoring it.
+    let raw: unknown
+    try {
+      raw = JSON.parse(String(event.data))
+    } catch {
+      return
+    }
+    const parsed = WsEnvelope.safeParse(raw)
     if (parsed.success) handlers.onEvent(parsed.data)
   })
   return () => socket.close()

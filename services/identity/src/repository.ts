@@ -50,23 +50,38 @@ function rowToMembership(r: typeof memberships.$inferSelect): MembershipRecord {
   }
 }
 
+/**
+ * Create a user. Returns null when the handle is already taken (route → 409 conflict), mirroring
+ * `createCommunity`. `users.handle` is UNIQUE, so without this pre-check the duplicate insert raised
+ * a driver error that nothing mapped: the route answered 500 `internal-error` with
+ * `retryable: true`, so a signup on a taken handle showed "An unexpected error occurred." and asked
+ * the user to retry something that could never succeed. The advisory lock is on the HANDLE (not the
+ * new id) so two concurrent signups for the same handle serialise against each other.
+ */
 export async function createUser(
   db: IdentityDb,
   deps: RepoDeps,
   input: { handle: string; displayName: string },
-): Promise<UserRecord> {
+): Promise<UserRecord | null> {
   const row = {
     id: deps.ids.next('user'),
     handle: input.handle,
     displayName: input.displayName,
     createdAt: deps.clock.now(),
   }
-  await db.transaction(async (tx) => {
-    await advisoryLock(tx, row.id)
+  const result = await db.transaction(async (tx) => {
+    await advisoryLock(tx, `user:handle:${input.handle}`)
+    const existing = await tx
+      .select({ id: users.id })
+      .from(users)
+      .where(eq(users.handle, input.handle))
+      .limit(1)
+    if (existing.length > 0) return null
     await tx.insert(users).values(row)
+    return rowToUser(row)
   })
-  deps.lamport.bump()
-  return rowToUser(row)
+  if (result) deps.lamport.bump()
+  return result
 }
 
 export async function getUser(db: IdentityDb, userId: string): Promise<UserRecord | null> {

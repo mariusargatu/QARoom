@@ -13,5 +13,18 @@ test('the 404 page names the missing route and offers a way back to communities'
   const screen = await render(withProviders(<NotFoundPage />))
 
   await expect.element(screen.getByRole('heading', { name: 'Page not found' })).toBeVisible()
-  await expect.element(screen.getByRole('link', { name: 'Go to communities' })).toBeVisible()
+  // WHERE the escape hatch goes, not merely that one exists: asserting only visibility means the
+  // link could point anywhere — including back at the 404 — and the test would still pass.
+  await expect
+    .element(screen.getByRole('link', { name: 'Go to communities' }))
+    .toHaveAttribute('href', '/communities')
+})
+
+// This page renders OUTSIDE AppShellRoute (it is the `*` route, reachable with no session), so it
+// inherits no landmark from the shell. Without its own `<main>`, an axe scan of the running app
+// reported `landmark-one-main` and `region` here.
+test('the 404 page carries its own main landmark, having no shell to inherit one from', async () => {
+  const screen = await render(withProviders(<NotFoundPage />))
+
+  await expect.element(screen.getByRole('main')).toBeVisible()
 })

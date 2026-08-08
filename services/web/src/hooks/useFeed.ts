@@ -7,6 +7,8 @@ export interface UseFeed {
   posts: Post[]
   loading: boolean
   error?: string
+  /** RFC 7807 `retryable` for the current `error` — do not offer Retry when it is false. */
+  retryable?: boolean
   /** Patch the cached posts in place (used to update a score after an optimistic vote). */
   setPosts: Dispatch<SetStateAction<Post[]>>
   refresh: () => Promise<void>
@@ -14,10 +16,10 @@ export interface UseFeed {
 
 /** Load a community's feed (newest first) from the gateway. */
 export function useFeed(api: ApiClient, communityId: string): UseFeed {
-  const { data, loading, error, setData, refresh } = useResource<Post[]>(
+  const { data, loading, error, retryable, setData, refresh } = useResource<Post[]>(
     () => api.listFeed(communityId).then((feed) => [...feed.posts]),
     [api, communityId],
     [],
   )
-  return { posts: data, loading, error, setPosts: setData, refresh }
+  return { posts: data, loading, error, retryable, setPosts: setData, refresh }
 }

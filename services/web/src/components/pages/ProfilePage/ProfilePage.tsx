@@ -23,9 +23,14 @@ export function ProfilePage() {
   const isMe = currentUser?.id === userId
   const nameFor = (id: string) => knownCommunities.find((c) => c.id === id)?.name ?? id
 
+  // Every branch carries the h1. Only the loaded branch used to, so a slow or failing profile load
+  // left the page with no level-one heading at all — which an axe scan of the running app reported
+  // as `page-has-heading-one`, and which costs a screen-reader user their primary orientation cue
+  // exactly when the page is hardest to make sense of.
   if (loading) {
     return (
-      <div className="mx-auto flex max-w-xl items-center gap-4">
+      <div className="mx-auto flex max-w-xl items-center gap-4" aria-busy="true">
+        <h1 className="sr-only">Loading profile…</h1>
         <Skeleton className="h-14 w-14 rounded-full" />
         <div className="space-y-2">
           <Skeleton className="h-5 w-40" />
@@ -35,7 +40,12 @@ export function ProfilePage() {
     )
   }
   if (error || !user) {
-    return <ErrorState message={error ?? 'User not found.'} retryable={false} />
+    return (
+      <div className="mx-auto flex max-w-xl flex-col gap-4">
+        <h1 className="sr-only">Profile unavailable</h1>
+        <ErrorState message={error ?? 'User not found.'} retryable={false} />
+      </div>
+    )
   }
 
   return (

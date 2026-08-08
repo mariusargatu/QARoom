@@ -14,6 +14,7 @@ import {
   listMembers,
   membershipsForUser,
   recordSession,
+  type UserRecord,
 } from './repository'
 
 /**
@@ -26,7 +27,15 @@ const ABSENT_COMMUNITY = 'comm_01HZY0K7M3QF8VN2J5RX9TB4ZZ'
 let ctx: RepoTest<IdentityDb>
 let deps: RepoDeps
 
-const mkUser = (handle: string) => createUser(ctx.db, deps, { handle, displayName: handle })
+// `createUser` now returns null on a taken handle. The vast majority of tests use a fresh handle and
+// want the record, so `mkUser` asserts non-null and `mkUserRaw` exposes the nullable result for the
+// conflict cases.
+const mkUserRaw = (handle: string) => createUser(ctx.db, deps, { handle, displayName: handle })
+const mkUser = async (handle: string): Promise<UserRecord> => {
+  const user = await mkUserRaw(handle)
+  expect(user, `fixture: handle "${handle}" was unexpectedly already taken`).not.toBeNull()
+  return user as UserRecord
+}
 
 const requireComm = async (slug: string): Promise<CommunityRecord> => {
   const c = await createCommunity(ctx.db, deps, { slug, name: slug })
@@ -41,6 +50,26 @@ beforeEach(async () => {
 
 afterEach(async () => {
   await ctx.close()
+})
+
+// `handle` carries a UNIQUE constraint, so a duplicate raises a driver error. Unmapped, that escaped
+// the route as a 500 `internal-error` with `retryable: true` — a signup with a taken handle told the
+// user "An unexpected error occurred." and invited them to try again, forever. Found by driving the
+// real stack in a browser; every in-process test used a fresh handle, so nothing exercised it.
+// `createCommunity` already returns null for a taken slug and its route maps that to 409; this makes
+// createUser behave the same way.
+describe('repository/createUser rejects a duplicate handle rather than throwing', () => {
+  it('returns null when the handle is already taken', async () => {
+    await mkUser('ada')
+
+    await expect(mkUserRaw('ada')).resolves.toBeNull()
+  })
+
+  it('still creates a user whose handle differs only from a taken one', async () => {
+    await mkUser('ada')
+
+    await expect(mkUserRaw('ada2')).resolves.toMatchObject({ handle: 'ada2' })
+  })
 })
 
 describe('repository/createUser + getUser', () => {

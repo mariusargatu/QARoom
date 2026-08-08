@@ -14,11 +14,16 @@ import { resolve } from 'node:path'
  *   pnpm coverage --check    # gate against EXISTING coverage summaries (no re-run; for CI after the lanes)
  *
  * NOT in the fast `pnpm verify` (instrumentation is heavy); wired into the nightly CI tier and run
- * on demand. `services/web` is DEFERRED (its own effort) and deliberately absent — re-add it with a
- * real floor when the frontend suite lands.
+ * on demand.
  *
  * Measurement is UNIFORM across packages (one include/exclude set here), independent of each
- * package's own vitest config, so the gate is self-contained and every floor is comparable. The
+ * package's own vitest config, so the gate is self-contained and every floor is comparable. ONE
+ * documented exception: `services/web` passes its own `vitest.coverage.config.ts` (see `config`
+ * below), because the frontend's tests are split across two vitest PROJECTS — node logic and the
+ * Screenplay component suite in real Chromium — and a single-project run sees only the first,
+ * reporting ~35% for a tree that is actually ~99% covered. A floor set against that number would
+ * permit deleting the entire browser suite. The include/exclude set is still this file's, so what
+ * is COUNTED stays comparable; only which tests RUN differs. The
  * exclude set drops tests and the untestable composition roots (server/telemetry bootstrap, the
  * generated OpenAPI/AsyncAPI doc builders).
  */
@@ -32,6 +37,8 @@ interface Target {
   kind: 'vitest' | 'pytest'
   /** Minimum line coverage %; the build fails below it. */
   floor: number
+  /** Vitest config to run, when the package's coverage spans more than the default project. */
+  config?: string
 }
 
 // Per-package LINE-coverage floors. Calibrated 2026-06 a few points below measured to absorb v8
@@ -46,6 +53,16 @@ const TARGETS: Target[] = [
   // qaroom-mcp / otel / testing-utils / moderator are intentionally left at their original floors
   // (not part of the coverage-raise effort); ratchet them later in their own pass.
   { name: 'qaroom-mcp', dir: 'services/qaroom-mcp', kind: 'vitest', floor: 82 },
+  // The frontend. Absent until 2026-08-08 while every other TS package was ratcheted, so a PR could
+  // delete half the component suite and no gate anywhere reported the drop. Measured 99.2% across
+  // the node + Screenplay-component projects; floored a few points below to absorb v8 variance.
+  {
+    name: 'web',
+    dir: 'services/web',
+    kind: 'vitest',
+    floor: 95,
+    config: 'vitest.coverage.config.ts',
+  },
   { name: 'contracts', dir: 'packages/contracts', kind: 'vitest', floor: 98 },
   // messaging is honestly infra-capped (~68%): the rest needs a live NATS broker / real Postgres
   // (see the coverage report), so its floor stays modest by design, not neglect.
@@ -77,8 +94,13 @@ const VITEST_FLAGS = [
   '--coverage.exclude=**/asyncapi-document.ts',
 ]
 
-function runVitest(dir: string): void {
-  execFileSync('pnpm', ['exec', 'vitest', 'run', ...VITEST_FLAGS], {
+function runVitest(dir: string, config?: string): void {
+  const configFlags = config
+    ? // Force the report back to the default location so readLinePct stays uniform: the web config
+      // writes to coverage-merged/ for its own `pnpm coverage` lane.
+      ['-c', config, '--coverage.reportsDirectory=coverage']
+    : []
+  execFileSync('pnpm', ['exec', 'vitest', 'run', ...configFlags, ...VITEST_FLAGS], {
     cwd: resolve(ROOT, dir),
     stdio: 'ignore',
     // Opt the gate into the Docker-gated integration specs (e.g. messaging's pgSnapshotStore against
@@ -136,7 +158,7 @@ for (const t of TARGETS) {
   if (!checkOnly) {
     process.stdout.write(`coverage: running ${t.name} (${t.kind})\n`)
     try {
-      t.kind === 'vitest' ? runVitest(t.dir) : runPytest(t.dir)
+      t.kind === 'vitest' ? runVitest(t.dir, t.config) : runPytest(t.dir)
     } catch {
       // A failing suite still wrote a partial summary in most cases; if not, readLinePct returns
       // null and the row fails. Do not abort the sweep — report every package.
@@ -149,7 +171,7 @@ for (const t of TARGETS) {
 }
 
 const w = Math.max(...TARGETS.map((t) => t.name.length))
-process.stdout.write('\nLine coverage vs floor (web deferred):\n')
+process.stdout.write('\nLine coverage vs floor:\n')
 for (const r of rows) {
   const pctStr = r.skipped ? 'skipped' : r.pct === null ? 'NO REPORT' : `${r.pct}%`
   const mark = measureOnly ? '·' : r.skipped ? '–' : r.pct !== null && r.pct >= r.floor ? '✓' : '✗'

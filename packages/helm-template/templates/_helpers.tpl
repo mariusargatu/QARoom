@@ -68,11 +68,25 @@ seccompProfile:
 
 {{/* Capabilities-only securityContext for the postgres container (CKV_K8S_28/31/37): the upstream
      image's entrypoint runs as root then gosu's to its own `postgres` user, so runAsNonRoot/a fixed
-     UID is left alone (#checkov:skip on the StatefulSet covers CKV_K8S_23/40). */}}
+     UID is left alone (#checkov:skip on the StatefulSet covers CKV_K8S_23/40).
+
+     `drop: ALL` then re-add EXACTLY the four that same entrypoint cannot start without: CHOWN to take
+     ownership of the mounted PVC, SETUID+SETGID for the gosu switch, and DAC_OVERRIDE to reopen a
+     PGDATA that is ALREADY owned by the postgres user. A bare `drop: ALL` kills the container on its
+     first line (`chown: /var/lib/postgresql/data/pgdata: Operation not permitted`) and every *-pg-0
+     pod CrashLoopBackOffs; that regression shipped in 8162caa and made `pnpm dev` unusable.
+
+     DAC_OVERRIDE is easy to miss because it is only needed on the SECOND boot: leave-one-out on a
+     fresh volume says three capabilities suffice, and the pods then come up green — until the first
+     restart, when root (now without DAC_OVERRIDE) cannot traverse a data directory it no longer
+     owns. The four are minimal against postgres:18-alpine across BOTH phases; FOWNER is genuinely
+     not needed. Pinned by scripts/chart-security-context.test.ts (PR lane) and proven to boot AND
+     restart by scripts/chart-postgres-boot.ts (chart lane). Do not widen this list to pass. */}}
 {{- define "qaroom-service.postgresSecurityContext" -}}
 allowPrivilegeEscalation: false
 capabilities:
   drop: ["ALL"]
+  add: ["CHOWN", "DAC_OVERRIDE", "SETGID", "SETUID"]
 seccompProfile:
   type: RuntimeDefault
 {{- end -}}

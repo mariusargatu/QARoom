@@ -28,7 +28,14 @@ export const NotificationFeed = forwardRef<HTMLElement, NotificationFeedProps>(
         {events.length === 0 ? (
           <p className="py-6 text-sm text-muted">No activity yet.</p>
         ) : (
-          <ul className="divide-y divide-border border-t border-border text-sm text-text">
+          // Events arrive by WebSocket push (or the polling fallback) with no user action, so
+          // without a live region a screen-reader user is never told anything happened. `polite`
+          // queues behind whatever they are reading rather than interrupting.
+          <ul
+            aria-live="polite"
+            aria-relevant="additions"
+            className="divide-y divide-border border-t border-border text-sm text-text"
+          >
             {events.map((event) => (
               <li key={`${event.type}-${event.seq}`} className="py-4">
                 {describe(event)}

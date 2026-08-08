@@ -46,8 +46,13 @@ export const Masthead = forwardRef<HTMLElement, MastheadProps>(function Masthead
         <span aria-hidden="true" className="text-border">
           /
         </span>
+        {/*
+          The accessible name must CONTAIN the visible text (WCAG 2.5.3 Label in Name), or
+          speech-input users cannot activate the control by saying what they can see. The visible
+          word is "communities"; "Switch community" did not contain it.
+        */}
         <MenuDropdown
-          label="Switch community"
+          label="Switch communities"
           align="left"
           trigger={<span className="text-sm text-muted">communities</span>}
         >

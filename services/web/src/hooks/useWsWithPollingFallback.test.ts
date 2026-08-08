@@ -72,3 +72,32 @@ describe('prepend (feed merge-dedup)', () => {
     )
   })
 })
+
+// Order is BY seq, not by arrival — the merge used to be positional (`[...fresh, ...prev]`), which
+// is wrong in exactly the scenario the polling fallback exists for: the socket delivers seq 7 but
+// drops seq 6, then a poll backfills 6. Positionally that renders 6 ABOVE 7 in a feed labelled
+// newest-first. A property is the right shape here because no single example pins a total order.
+describe('the merged feed is ordered by seq regardless of arrival order', () => {
+  it('puts a late-arriving OLDER envelope below the newer one it missed', () => {
+    // Socket delivered 7; the backfilling poll then returns 6.
+    expect(prepend([frame(7)], [frame(6)]).map((e) => e.seq)).toEqual([7, 6])
+  })
+
+  it('is sorted descending for any interleaving of any two batches', () => {
+    fc.assert(
+      fc.property(
+        fc.uniqueArray(fc.integer({ min: 0, max: 200 }), { maxLength: 12 }),
+        fc.uniqueArray(fc.integer({ min: 0, max: 200 }), { maxLength: 12 }),
+        (prevSeqs, incomingSeqs) => {
+          const merged = prepend(prevSeqs.map(frame), incomingSeqs.map(frame))
+          const seqs = merged.map((e) => e.seq)
+          expect(seqs).toEqual([...seqs].sort((a, b) => b - a))
+          // Still deduped, and still capped, whatever the ordering does.
+          expect(new Set(seqs).size).toBe(seqs.length)
+          expect(seqs.length).toBeLessThanOrEqual(FEED_CAP)
+        },
+      ),
+      { seed: 424_242, numRuns: 60 },
+    )
+  })
+})

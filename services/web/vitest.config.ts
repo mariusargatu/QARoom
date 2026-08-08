@@ -9,7 +9,10 @@ import { configDefaults, defineConfig } from 'vitest/config'
 export default defineConfig({
   test: {
     environment: 'node',
-    passWithNoTests: true,
+    // NOT `passWithNoTests`. This is the only frontend suite the required `verify` job runs, so a
+    // mistyped `include` glob (or a moved `src/`) would print "0 tests", exit 0, and merge a PR
+    // having run no frontend tests at all — green. An empty run here is a broken config, not a pass.
+    passWithNoTests: false,
     include: ['src/**/*.test.{ts,tsx}'],
     exclude: [...configDefaults.exclude, 'src/**/*.browser.test.tsx'],
     // `pnpm test:coverage` only (off for the bare aggregate run). The node unit tests (api/client,

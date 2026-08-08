@@ -45,7 +45,9 @@ test('the theme toggle offers the opposite theme and fires on click', async () =
 test('opening the community switcher lists each community by name', async () => {
   const screen = await renderMasthead()
 
-  await screen.getByRole('button', { name: 'Switch community' }).click()
+  // Named "Switch communities", not "Switch community": the accessible name has to contain the
+  // trigger's visible text ("communities") to satisfy WCAG 2.5.3 Label in Name.
+  await screen.getByRole('button', { name: 'Switch communities' }).click()
 
   await expect.element(screen.getByRole('link', { name: 'General' })).toBeVisible()
   await expect.element(screen.getByRole('link', { name: 'Developers' })).toBeVisible()

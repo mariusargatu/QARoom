@@ -36,13 +36,20 @@ const donateRoute = (api: Partial<ApiClient>) =>
     { path: '/c/comm_x/donate', api },
   )
 
-test('a community without the donations rollout shows the page not-enabled gate', async () => {
+// The page used to answer an un-enabled rollout with prose pointing at another tab. It now renders
+// the rollout control itself, so the assertion is that the panel is present and reporting Off —
+// the state the gate is derived from — rather than a sentence about it.
+test('a community without the donations rollout shows the rollout control reporting Off', async () => {
   localStorage.clear()
   const screen = await render(
     donateRoute({ resolveFlag: resolveFlagTo('Off', false), listDonations: donations([]) }),
   )
 
-  await expect.element(screen.getByText('rollout state: Off', { exact: false })).toBeVisible()
+  const panel = screen.getByRole('region', { name: 'Donations rollout' })
+  await expect.element(panel).toBeVisible()
+  await expect.element(panel).toHaveTextContent('Off')
+  // The gate still holds: no amount field until the rollout is enabled.
+  expect(screen.container.querySelector(`[data-testid="${TESTID.donationAmount}"]`)).toBeNull()
 })
 
 test('an enabled rollout ungates the donation form', async () => {
