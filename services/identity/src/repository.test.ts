@@ -14,6 +14,7 @@ import {
   listMembers,
   membershipsForUser,
   recordSession,
+  type UserRecord,
 } from './repository'
 
 /**
@@ -30,10 +31,10 @@ let deps: RepoDeps
 // want the record, so `mkUser` asserts non-null and `mkUserRaw` exposes the nullable result for the
 // conflict cases.
 const mkUserRaw = (handle: string) => createUser(ctx.db, deps, { handle, displayName: handle })
-const mkUser = async (handle: string) => {
+const mkUser = async (handle: string): Promise<UserRecord> => {
   const user = await mkUserRaw(handle)
-  if (!user) throw new Error(`fixture: handle "${handle}" was unexpectedly already taken`)
-  return user
+  expect(user, `fixture: handle "${handle}" was unexpectedly already taken`).not.toBeNull()
+  return user as UserRecord
 }
 
 const requireComm = async (slug: string): Promise<CommunityRecord> => {
