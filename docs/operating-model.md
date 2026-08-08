@@ -32,7 +32,7 @@ currency (ARCHITECTURE.md §7). The keep/subset column is the rule that bounds t
 | Pact v4 (REST + message) + Pact↔OpenAPI cross-check | A | does a consumer's real dependency, and the spec, agree? | **Keep all** — the differential rung for the process boundary. |
 | PGlite integration | A | does the service hold against a real Postgres, no Docker? | **Keep all** — in-process, seconds. |
 | Stryker mutation | A, but slow | is the *suite itself* any good (severity holes)? | **Subset** — locked critical modules + the harness surface only (ADR-0016/0031); full-tree is a dispatched nightly. |
-| Storybook + Playwright CT | A | do UI states and sequences render and behave? | **Keep** — the cap of the UI honeycomb. |
+| Storybook + Vitest-browser component tests | A | do UI states and sequences render and behave? | **Keep** — the cap of the UI honeycomb. |
 | Schemathesis stateful, EvoMaster | B (cluster) | what spec-violating input has nobody written by hand? | **Merge / nightly** — needs a live service; never per-PR. |
 | Tracetest reverse-conformance, Microcks | B | does the *deployed* trace structure match the model? | **Merge** — the deployed-system oracle. |
 | Chaos Mesh + Litmus, k6 vs SLOs | B | does documented failure behaviour / the SLO hold under fault and load? | **Nightly** — expensive, infra-bound. |

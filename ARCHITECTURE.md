@@ -85,7 +85,7 @@ rendered into the boundary map in §3):
 | **content** | Posts, comments, votes, score, feed. Publishes `post.created` etc. | Tenancy + voting invariants (fast-check, load) |
 | **flags** | Flag definitions, per-community resolution, donations-rollout XState machine. | State (MBT + chaos of cache invalidation) |
 | **donations** | Donation transactions over REST to the Microcks-mocked payment provider. | Untrusted external payment (schema validation + chaos) |
-| **web** | React/Vite atomic-design UI, rollout dashboard, WS live updates with polling parity. | UI sequence + visual (Storybook + Playwright CT + model-based E2E) |
+| **web** | React/Vite atomic-design UI, rollout dashboard, WS live updates with polling parity. | UI sequence + visual (Storybook play()+axe, Vitest-browser component tests, model-based E2E) |
 | **moderator-agent** | The one Python service (uv/FastAPI/LangGraph). Retrieval-grounded RAG agent; **proposes, does not enforce.** | LLM external dependency (DeepEval/DeepTeam/PyRIT + metamorphic + reverse-conformance) |
 | **webhooks** | Outbound delivery edge: consumes all five channels, durable ledger, at-least-once + HMAC + SSRF guard. | Delivery edge (retry contract + delivery XState) |
 | **qaroom-mcp** | Cross-service read-first MCP tool surface, a first-class tested service. | Agent tool surface (four typed gates) |
@@ -161,7 +161,7 @@ base, and a fat integration band carrying the weight — "made granular: every t
       ╱──────────────╲
      │  INTEGRATION    │  BAND (fat) — "does a service hold its contracts with collaborators?"
      │  band — split   │   Pact v4 · Schemathesis · AsyncAPI drift · fast-check · PGlite ·
-     │  BY BOUNDARY     │   Microcks · XState/MBT · reverse-conformance · Playwright CT ·
+     │  BY BOUNDARY     │   Microcks · XState/MBT · reverse-conformance · component tests ·
      │  (depth+breadth) │   EvoMaster · DeepEval/DeepTeam/PyRIT
       ╲──────────────╱
        ╲   E2E base   ╱   BASE (thin) — "does the whole deployed system work?"
@@ -199,7 +199,7 @@ This table is the one **gated** projection of [`scripts/lib/manifests/boundary-r
 | Agentic development (the agent vs. its own gates) | an agent edits a test, neuters an oracle, drifts a generated artifact, or patches around a gate to force a green | treat agent output as untrusted: mutation-killed assertions, the OpenAPI drift gate, single-source invariant property gates the agent cannot game, and tool-use reverse-conformance over the qaroom-mcp agent trajectory (ADR-0032) |
 <!-- boundaries:end -->
 
-Re-sorted by **cost tier** (the same portfolio, by where it runs): **Tier A — in-process** (Vitest/pytest, no cluster: unit, fast-check property, Zod, injected Clock, Pact REST + message, Pact↔OpenAPI cross-check, PGlite integration, Storybook + Playwright CT, Stryker mutation on the locked modules); **Tier B — cluster-live** (k3d: Schemathesis stateful, EvoMaster, model-based E2E, Tracetest reverse-conformance, Microcks, Chaos Mesh + Litmus, k6 vs SLOs, scenario replay); **Tier C — LLM evaluation** (key-gated: DeepEval, DeepTeam, PyRIT, metamorphic, LangGraph reverse-conformance). The honeycomb bands are scoped by that cost: the cap does **not** cover I/O, time, or integration (so it stays thin); the integration band carries the weight; the E2E base (k6, chaos) runs merge-to-main / nightly, never per-PR.
+Re-sorted by **cost tier** (the same portfolio, by where it runs): **Tier A — in-process** (Vitest/pytest, no cluster: unit, fast-check property, Zod, injected Clock, Pact REST + message, Pact↔OpenAPI cross-check, PGlite integration, Storybook + Vitest-browser component tests, Stryker mutation on the locked modules); **Tier B — cluster-live** (k3d: Schemathesis stateful, EvoMaster, model-based E2E, Tracetest reverse-conformance, Microcks, Chaos Mesh + Litmus, k6 vs SLOs, scenario replay); **Tier C — LLM evaluation** (key-gated: DeepEval, DeepTeam, PyRIT, metamorphic, LangGraph reverse-conformance). The honeycomb bands are scoped by that cost: the cap does **not** cover I/O, time, or integration (so it stays thin); the integration band carries the weight; the E2E base (k6, chaos) runs merge-to-main / nightly, never per-PR.
 
 ---
 
