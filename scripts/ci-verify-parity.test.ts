@@ -1,6 +1,7 @@
 import { readFileSync } from 'node:fs'
 import { resolve } from 'node:path'
 import { describe, expect, it } from 'vitest'
+import { parse } from 'yaml'
 
 // `pnpm verify` (the local fast lane) and ci.yml's `verify` job are two hand-maintained gate lists.
 // When they drift, a derived-doc drift gate can run locally but NOT in CI, so the doc rots on main
@@ -34,15 +35,57 @@ const ALLOWED_DELTAS: Record<string, string> = {
     'census half runs in CI as detection-matrix.ts --check; render half in _integration',
 }
 
+interface VerifyStep {
+  run: string
+  continueOnError?: boolean
+}
+
+/**
+ * Every `run:` step of the required `verify` job that invokes a `pnpm <gate>`, as a [name, step]
+ * pair for `it.each`. Parsed from the YAML rather than grepped, so `continue-on-error` — which lives
+ * on the step, not in the run string — is visible.
+ */
+function neuterableSteps(): Array<[string, VerifyStep]> {
+  const doc = parse(ciYml) as {
+    jobs: Record<string, { steps?: Array<Record<string, unknown>> }>
+  }
+  const steps = doc.jobs?.verify?.steps ?? []
+  const pairs = steps
+    .filter((s) => typeof s.run === 'string' && String(s.run).includes('pnpm '))
+    .map((s, i): [string, VerifyStep] => [
+      String(s.name ?? `step ${i}`),
+      { run: String(s.run), continueOnError: s['continue-on-error'] === true },
+    ])
+  return pairs
+}
+
 describe('pnpm verify and the CI verify job stay in parity', () => {
   it('parses a non-trivial verify gate list (not vacuously green)', () => {
     expect(verifyGates.length).toBeGreaterThan(10)
+  })
+
+  // If the YAML shape ever changes and the step parser silently returns nothing, every neutering
+  // assertion below becomes vacuous — green while checking zero steps. Pin the count so a broken
+  // parser fails loudly instead.
+  it('parses the verify job steps (a silent parse failure would make the checks below vacuous)', () => {
+    expect(neuterableSteps().length).toBeGreaterThanOrEqual(10)
   })
 
   it.each(
     verifyGates.filter((g) => !(g in ALLOWED_DELTAS)).map((g) => [g] as const),
   )('CI verify job runs `pnpm %s` (or it is a named delta)', (gate) => {
     expect(ciYml).toContain(`pnpm ${gate}`)
+  })
+
+  // Presence is not enforcement. `expect(ciYml).toContain('pnpm census')` stays green if the step
+  // becomes `run: pnpm census || true`, or grows `continue-on-error: true` — the gate then reports
+  // nothing and the required check passes regardless. A parity test that cannot see a neutered gate
+  // is exactly the theater this repo exists to catch, so read the STEPS and check each one can
+  // still fail the job.
+  it.each(neuterableSteps())('the `%s` step can still fail the verify job', (_name, step) => {
+    expect(step.continueOnError, 'continue-on-error hides a red gate').not.toBe(true)
+    expect(step.run, 'a trailing `|| true` swallows a red gate').not.toMatch(/\|\|\s*true\s*$/m)
+    expect(step.run, '`set +e` swallows a red gate').not.toMatch(/set \+e/)
   })
 
   it('adr:index runs in CI (pins the 2026-07-10 fix so the ADR index cannot drift on main)', () => {
