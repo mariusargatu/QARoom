@@ -59,6 +59,15 @@ spec:
             - name: http
               containerPort: {{ .Values.container.port }}
           env:
+            # LOAD BEARING with `runAsUser: 10001` (containerSecurityContext): that UID has no
+            # /etc/passwd entry, so HOME defaults to `/`, which only root can write. corepack — the
+            # first thing every service's `pnpm …` entrypoint runs — then dies on
+            # `EACCES: mkdir '/.cache/node/corepack/v1'` before any application code loads, and the
+            # pod CrashLoopBackOffs. /tmp is world-writable in the node base image and the root
+            # filesystem is not read-only, so this is the smallest fix that keeps the non-root UID.
+            # Pinned by scripts/chart-security-context.test.ts.
+            - name: HOME
+              value: /tmp
             - name: PORT
               value: {{ .Values.container.port | quote }}
             - name: NODE_ENV
