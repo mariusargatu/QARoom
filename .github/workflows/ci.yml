@@ -159,6 +159,17 @@ jobs:
       - name: Web component census (every atomic-design component has a CSF-factory story, ADR-0027)
         run: pnpm --filter @qaroom/web run census
 
+      # The a11y gate has to RUN on the PR lane, not just be wired correctly on it.
+      # src/test-support/storybook-a11y-gate.test.ts (in `pnpm test:scripts`'s sibling node suite
+      # above) proves the axe pass is installed; this executes it. Without this step a NEW
+      # accessibility violation still only surfaces in the nightly `web-stories` lane — which is
+      # activity-gated and ran once in the fourteen nightlies to 2026-08-07. ~7s of tests plus a
+      # cached Chromium; the far heavier `web-component` / `web-visual` tiers stay nightly.
+      - name: Install Chromium (for the story a11y gate)
+        run: pnpm --filter @qaroom/web exec playwright install --with-deps chromium
+      - name: Storybook stories (play() + axe, headless — a11y violations fail the PR)
+        run: pnpm --filter @qaroom/web run test:stories
+
       # Detection-matrix drift gate (census half — in-proc, no live matrix run): the manifest <-> env
       # read sites. The rendered-matrix/SVG drift half runs in the _integration matrix lane.
       - name: Verify detection matrix (census only)

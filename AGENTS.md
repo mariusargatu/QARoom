@@ -216,7 +216,7 @@ Always check the current milestone before introducing infrastructure that doesn'
 
 CI is **trigger-scoped** ([ADR-0040](docs/adr/0040-trigger-scoped-ci-pipeline.md)): each workflow is triggered only by the event it serves, so a pull request shows the few checks that matter and **no grey "Skipped" jobs** (a workflow that isn't triggered emits zero checks — unlike a false-`if:` job, which still renders "Skipped"). This keeps the dispatch-first **cost** intent (no CI storm on the expensive lanes) while fixing the skipped-job UX the old single-file packaging caused. The layout:
 
-- **PR lane** — `ci.yml` runs ONE job, `verify` (lint + typecheck + scripts tests + test + every in-proc drift gate that needs no `uv`/cluster), plus `actionlint`. It is a required status check, kept an inline top-level job named exactly `verify` (a `workflow_call` job would rename the context and break branch protection) and has no `paths-ignore` (a path-filtered required check deadlocks merge). `reviewer-agents.yml` (`review`, required) and `auto-merge-router.yml` (`route`, advisory) also run; the four advisory guards (`invariant-guard`/`gate-guard`/`promotion-ledger-guard`/`agent-controls`) are path-filtered and appear only when their paths are touched.
+- **PR lane** — `ci.yml` runs ONE job, `verify` (lint + typecheck + scripts tests + test + every in-proc drift gate that needs no `uv`/cluster, plus the one headless browser suite that is a merge gate: the Storybook `test:stories` a11y/play run), plus `actionlint`. It is a required status check, kept an inline top-level job named exactly `verify` (a `workflow_call` job would rename the context and break branch protection) and has no `paths-ignore` (a path-filtered required check deadlocks merge). `reviewer-agents.yml` (`review`, required) and `auto-merge-router.yml` (`route`, advisory) also run; the four advisory guards (`invariant-guard`/`gate-guard`/`promotion-ledger-guard`/`agent-controls`) are path-filtered and appear only when their paths are touched.
 - **`nightly.yml`** (`schedule` + dispatch) — **integration tier nightly, heavy tier weekly**, both activity-gated (a scheduled run with no new commits short-circuits). Calls the reusable `_integration.yml` (claims, contracts, fuzz, web-stories, moderator, chart, cluster-smoke, tracetest, web-component, web-visual, coverage) and `_heavy.yml` (load, mutation, evomaster, chaos), then the terminal `_envelope.yml`.
 - **`release.yml`** (manual `workflow_dispatch`) — the staged promotion pipeline: build → integration (+ optional heavy) → promote.
 - **`evals.yml`** (weekly `schedule` + dispatch) — the cost-bounded keyed eval tier alone (consumes `secrets.OPENAI_API_KEY`; honest-skips without it).
@@ -225,7 +225,9 @@ CI is **trigger-scoped** ([ADR-0040](docs/adr/0040-trigger-scoped-ci-pipeline.md
 Locally the same bar is `pnpm verify` (fast lane) and `pnpm gauntlet` (full). `pnpm verify` and the CI
 `verify` job run the same core drift gates, pinned in parity by
 [`scripts/ci-verify-parity.test.ts`](scripts/ci-verify-parity.test.ts), which permits only a *named*
-delta set: CI adds `prove:adversarial` + the web component census; `pnpm verify` adds `anchored:coverage`
+delta set: CI adds `prove:adversarial`, the web component census, and the headless Storybook
+`test:stories` suite (play() + axe — the a11y gate has to *run* before a merge, not just be wired;
+it needs a Chromium install, so it is CI-only); `pnpm verify` adds `anchored:coverage`
 (an advisory sidecar, not a merge gate) and the full `matrix:verify`, whose census half CI runs as
 `detection-matrix.ts --check`. Typecheck runs via turbo in CI.
 
