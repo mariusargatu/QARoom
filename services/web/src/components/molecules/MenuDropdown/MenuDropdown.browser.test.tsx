@@ -8,7 +8,7 @@ import { MenuDropdown } from './MenuDropdown'
 
 // Molecule component test (ADR-0027, composition-delta): the trigger and menu content are passed in,
 // so this covers only the open/close shell the MOLECULE itself adds — click-to-open (aria-expanded),
-// and the two dismiss paths it installs: Escape and outside-click.
+// and the three dismiss paths it installs: Escape, outside-click, and selecting an item.
 
 test('the menu opens when its trigger is clicked', async () => {
   const screen = await render(
@@ -22,7 +22,62 @@ test('the menu opens when its trigger is clicked', async () => {
   await trigger.click()
 
   await expect.element(trigger).toHaveAttribute('aria-expanded', 'true')
-  await expect.element(screen.getByRole('menu')).toBeVisible()
+  await expect.element(screen.getByRole('button', { name: 'Sign out' })).toBeVisible()
+})
+
+// This is a DISCLOSURE, not an ARIA menu: the panel holds ordinary links and buttons, and the
+// component implements none of the `role="menu"` keyboard contract (arrow-key roving focus). Claiming
+// the role while its children are plain links is an axe `aria-required-children` violation — a real
+// one, found by scanning the running app — so the trigger points at the panel with `aria-controls`
+// and neither element claims a menu role. Pinning it here stops the role being "helpfully" restored.
+test('the popover is a disclosure the trigger owns, not an ARIA menu', async () => {
+  const screen = await render(
+    <MenuDropdown label="Account menu" trigger="ada">
+      <button type="button">Sign out</button>
+    </MenuDropdown>,
+  )
+  const trigger = screen.getByRole('button', { name: 'Account menu' })
+  await trigger.click()
+
+  await expect.element(trigger).not.toHaveAttribute('aria-haspopup', 'menu')
+  expect(document.querySelector('[role="menu"]')).toBeNull()
+  const controls = document.querySelector('[aria-controls]')?.getAttribute('aria-controls')
+  expect(controls).toBeTruthy()
+  expect(document.getElementById(controls as string)).not.toBeNull()
+})
+
+// The component has always DOCUMENTED this ("clicking anywhere inside closes it", "items close it by
+// navigating") and never implemented it: in the running app, picking Profile from the masthead
+// navigated to /u/<id> with the popover still hanging over the new page.
+test('selecting an item closes the menu', async () => {
+  const screen = await render(
+    <MenuDropdown label="Account menu" trigger="ada">
+      <button type="button">Sign out</button>
+    </MenuDropdown>,
+  )
+  const trigger = screen.getByRole('button', { name: 'Account menu' })
+  await trigger.click()
+  await expect.element(trigger).toHaveAttribute('aria-expanded', 'true')
+
+  await screen.getByRole('button', { name: 'Sign out' }).click()
+
+  await expect.element(trigger).toHaveAttribute('aria-expanded', 'false')
+})
+
+// Escape must also hand focus back, or a keyboard user is dropped at the top of the document with no
+// way back to the control they just dismissed.
+test('Escape returns focus to the trigger it came from', async () => {
+  const screen = await render(
+    <MenuDropdown label="Account menu" trigger="ada">
+      <button type="button">Sign out</button>
+    </MenuDropdown>,
+  )
+  const trigger = screen.getByRole('button', { name: 'Account menu' })
+  await trigger.click()
+
+  await userEvent.keyboard('{Escape}')
+
+  await expect.element(trigger).toHaveFocus()
 })
 
 test('pressing Escape closes an open menu', async () => {

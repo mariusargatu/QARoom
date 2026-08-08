@@ -1,3 +1,4 @@
+import { expect } from 'storybook/test'
 import preview from '../../../../.storybook/preview'
 import { MenuDropdown } from './MenuDropdown'
 
@@ -21,3 +22,15 @@ const meta = preview.meta({
 })
 
 export const Default = meta.story({})
+
+// The OPEN state, and it has to be a story rather than only a component test: axe runs per story, so
+// a popover with no open-state story is a region the a11y gate structurally cannot reach. That gap
+// hid a critical `aria-required-children` violation (the panel claimed `role="menu"` over plain
+// links) through every green run — the gate was wired correctly and simply never saw the markup.
+// Any popover added later needs an equivalent story for the same reason.
+export const Open = meta.story({
+  play: async ({ canvas, userEvent }) => {
+    await userEvent.click(canvas.getByRole('button', { name: 'Account menu' }))
+    await expect(canvas.getByRole('button', { name: 'Sign out' })).toBeVisible()
+  },
+})
