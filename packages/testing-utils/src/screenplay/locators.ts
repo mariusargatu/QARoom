@@ -89,7 +89,6 @@ export const LOC = {
   donation: {
     amount: testId(TESTID.donationAmount),
     submit: testId(TESTID.donationSubmit),
-    list: testId(TESTID.donationList),
   },
   button: {
     under: testId(TESTID.buttonUnderTest),
