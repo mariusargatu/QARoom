@@ -21,7 +21,11 @@ export default defineConfig({
     ? {}
     : {
         webServer: {
-          command: 'pnpm exec vite --port 5173 --strictPort',
+          // `--configLoader native` for the same reason services/web/Dockerfile uses it: the default
+          // loader compiles vite.config.ts into node_modules/.vite-temp first, which fails with
+          // EACCES wherever the checkout is not writable by the running user. A dev server that
+          // cannot start is a blocked E2E run, not an obvious error.
+          command: 'pnpm exec vite --port 5173 --strictPort --configLoader native',
           url: 'http://localhost:5173',
           reuseExistingServer: true,
           timeout: 60_000,

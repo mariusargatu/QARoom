@@ -56,15 +56,23 @@ const REQUIRED_CAPABILITIES = ['CHOWN', 'DAC_OVERRIDE', 'SETGID', 'SETUID'] as c
  */
 function postgresSecurityContext(): Record<string, unknown> {
   const source = readFileSync(resolve(ROOT, HELPERS), 'utf8')
-  const open = new RegExp(`\\{\\{-?\\s*define\\s+"${HELPER_NAME}"\\s*-?\\}\\}`)
-  const start = source.search(open)
-  expect(start, `${HELPERS} defines no "${HELPER_NAME}" helper`).toBeGreaterThanOrEqual(0)
+  // HELPER_NAME contains dots, which are RegExp wildcards — escaped, or the pattern would also match
+  // a similarly-shaped name. Both delimiters tolerate the whitespace-trim variants Go templates
+  // allow ({{- end -}}, {{ end }}, {{- end }}), so a reformat of the chart cannot silently make this
+  // extraction find nothing and the assertions below vacuous.
+  const escaped = HELPER_NAME.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
+  const open = new RegExp(`\\{\\{-?\\s*define\\s+"${escaped}"\\s*-?\\}\\}`)
+  const opened = source.match(open)
+  expect(opened, `${HELPERS} defines no "${HELPER_NAME}" helper`).not.toBeNull()
 
-  const bodyStart = start + (source.slice(start).match(open)?.[0].length ?? 0)
-  const end = source.indexOf('{{- end -}}', bodyStart)
-  expect(end, `"${HELPER_NAME}" has no closing {{- end -}}`).toBeGreaterThan(bodyStart)
+  const bodyStart = (opened?.index ?? 0) + (opened?.[0].length ?? 0)
+  const closing = source.slice(bodyStart).match(/\{\{-?\s*end\s*-?\}\}/)
+  expect(closing, `"${HELPER_NAME}" has no closing {{ end }}`).not.toBeNull()
 
-  return parse(source.slice(bodyStart, end)) as Record<string, unknown>
+  return parse(source.slice(bodyStart, bodyStart + (closing?.index ?? 0))) as Record<
+    string,
+    unknown
+  >
 }
 
 const capabilities = (): { drop?: string[]; add?: string[] } =>
