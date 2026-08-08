@@ -65,7 +65,17 @@ function renderedPostgresContainer(): ContainerSecurity {
     const security = container.securityContext as {
       capabilities?: ContainerSecurity['capabilities']
     }
-    return { image: String(container.image), capabilities: security?.capabilities ?? {} }
+    // Helm renders `image` as a scalar, but values files express it as {repository, tag}. If a
+    // future template interpolates the map instead, `String(...)` would yield "[object Object]" and
+    // this gate would docker-run a nonsense image name — failing for the wrong reason, or worse
+    // passing something meaningless. Name it instead.
+    if (typeof container.image !== 'string') {
+      return fail(
+        `rendered postgres image is ${typeof container.image}, not a string — the chart is ` +
+          `interpolating an object (probably {repository, tag}); build the reference explicitly`,
+      )
+    }
+    return { image: container.image, capabilities: security?.capabilities ?? {} }
   }
   return fail(`no postgres container in the rendered chart for '${SERVICE}'`)
 }

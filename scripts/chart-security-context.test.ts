@@ -93,6 +93,17 @@ describe('the shared chart’s Postgres securityContext', () => {
     // A correct helper nothing references would leave the pods just as dead.
     expect(readFileSync(resolve(ROOT, STATEFULSET), 'utf8')).toContain(HELPER_NAME)
   })
+
+  it('grants those capabilities to the postgres statefulset ALONE', () => {
+    // The whole justification for re-adding capabilities is that they are scoped to one upstream
+    // image with a known entrypoint. If another template starts including this helper, the grant
+    // silently widens to a workload nobody derived it for — so pin the reference set, not just the
+    // presence of one reference.
+    const users = globSync('packages/helm-template/templates/*.yaml', { cwd: ROOT })
+      .filter((file) => readFileSync(resolve(ROOT, file), 'utf8').includes(HELPER_NAME))
+      .sort()
+    expect(users).toEqual([STATEFULSET])
+  })
 })
 
 /**

@@ -64,11 +64,19 @@ describe('pnpm verify and the CI verify job stay in parity', () => {
     expect(verifyGates.length).toBeGreaterThan(10)
   })
 
-  // If the YAML shape ever changes and the step parser silently returns nothing, every neutering
-  // assertion below becomes vacuous — green while checking zero steps. Pin the count so a broken
-  // parser fails loudly instead.
+  // If the YAML shape changes and the step parser silently returns nothing, every neutering
+  // assertion below becomes vacuous — green while checking zero steps. Derived from the gate list
+  // rather than a hard-coded minimum, so routine step edits cannot cause a false failure: the only
+  // way this reds is a parser that stopped seeing the steps that demonstrably exist.
   it('parses the verify job steps (a silent parse failure would make the checks below vacuous)', () => {
-    expect(neuterableSteps().length).toBeGreaterThanOrEqual(10)
+    const parsed = neuterableSteps()
+      .map(([, step]) => step.run)
+      .join('\n')
+    const expected = verifyGates.filter(
+      (g) => !(g in ALLOWED_DELTAS) && ciYml.includes(`pnpm ${g}`),
+    )
+    expect(expected.length).toBeGreaterThan(0)
+    for (const gate of expected) expect(parsed).toContain(`pnpm ${gate}`)
   })
 
   it.each(
