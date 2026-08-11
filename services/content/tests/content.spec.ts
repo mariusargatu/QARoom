@@ -1,5 +1,6 @@
 import {
   expectCapabilitiesCover,
+  expectEveryOperationRouted,
   expectLamportAdvanced,
   expectLamportStable,
   expectProblemContentType,
@@ -90,6 +91,13 @@ describe('content-service HTTP behaviour', () => {
 
   it('system capabilities lists every operation in the registry (no operation is silently omitted)', async () => {
     expectCapabilitiesCover((await ctx.request.get('/system/capabilities')).json, OPERATIONS)
+  })
+
+  // Registry vs the ROUTER, not registry vs itself: `expectCapabilitiesCover` above compares two
+  // artifacts both generated from OPERATIONS, so an operation nobody registered a handler for
+  // passes it (and every drift gate) while 404-ing in production.
+  it('every declared operation is actually registered on the app (not just in the registry)', async () => {
+    expectEveryOperationRouted(ctx.app, OPERATIONS)
   })
 
   it('every capability is MCP-tool-shaped with an object input_schema', async () => {

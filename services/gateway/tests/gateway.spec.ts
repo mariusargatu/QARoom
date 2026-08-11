@@ -1,5 +1,6 @@
 import {
   expectCapabilitiesCover,
+  expectEveryOperationRouted,
   expectLamportAdvanced,
   expectProblemContentType,
   expectRFC7807,
@@ -9,11 +10,19 @@ import { describe, expect, it } from 'vitest'
 import { OPERATIONS } from '../src/operations/operations'
 import {
   constantContent,
+  constantDonations,
+  constantFlags,
+  constantIdentity,
+  constantModerator,
+  constantWebhooks,
   SAMPLE,
   setupGatewayTest,
   unreachableContent,
   unreachableModerator,
 } from './harness'
+
+/** A pass-through upstream reply, for tests that only care that a route EXISTS. */
+const OK_JSON = { status: 200, body: {}, contentType: 'application/json' }
 
 const createdPost = {
   id: SAMPLE.post,
@@ -118,5 +127,22 @@ describe('gateway proxy behaviour', () => {
       constantContent({ status: 200, body: {}, contentType: 'application/json' }),
     )
     expectCapabilitiesCover((await request.get('/system/capabilities')).json, OPERATIONS)
+  })
+
+  // Registry vs the ROUTER, not registry vs itself: `expectCapabilitiesCover` above compares two
+  // artifacts both generated from OPERATIONS, so an operation nobody registered a handler for
+  // passes it (and every drift gate) while 404-ing in production.
+  it('every declared operation is actually registered on the app (not just in the registry)', async () => {
+    const { app } = setupGatewayTest(
+      constantContent({ status: 200, body: {}, contentType: 'application/json' }),
+      {
+        donations: constantDonations(OK_JSON),
+        flags: constantFlags(OK_JSON),
+        webhooks: constantWebhooks(OK_JSON),
+        identity: constantIdentity(OK_JSON),
+        moderator: constantModerator(OK_JSON),
+      },
+    )
+    expectEveryOperationRouted(app, OPERATIONS)
   })
 })
