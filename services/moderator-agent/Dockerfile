@@ -6,7 +6,7 @@
 # /root/.local/share/uv — a mode-700 directory. The venv's python symlink then pointed inside /root,
 # and under the chart's non-root UID the container died with
 # `failed to canonicalize /app/.venv/bin/python3: Permission denied` before any code ran.
-FROM python:3.13-slim
+FROM python:3.14-slim
 
 COPY --from=ghcr.io/astral-sh/uv:latest /uv /uvx /bin/
 
