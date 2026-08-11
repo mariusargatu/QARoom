@@ -102,12 +102,45 @@ jobs:
         if: always()
         run: pnpm test-results:report
 
-      # Committed pacts are a DERIVED artifact the nightly `contracts` lane verifies providers
-      # against — but nothing regenerated them, and pact-core writes in merge mode (which can add
-      # and update interactions, never remove one). Clear + regenerate from scratch + diff, so a
-      # changed or DELETED consumer expectation cannot be verified against a stale contract.
+      # Committed pacts are a DERIVED artifact provider verification reads — but nothing regenerated
+      # them, and pact-core writes in merge mode (which can add and update interactions, never
+      # remove one). Clear + regenerate from scratch + diff, so a changed or DELETED consumer
+      # expectation cannot be verified against a stale contract.
       - name: Verify committed pacts match the consumer specs (drift)
         run: pnpm pact:drift
+
+      # Consumer-driven contract verification, PROMOTED to the PR lane 2026-08-11. `pact:drift`
+      # above only proves committed pact == consumer spec — a self-consistency check on the CONSUMER
+      # side. The half that proves each PROVIDER actually honours the contract ran only in the
+      # nightly `_integration` lane, which is activity-gated and had a long history of reporting
+      # success while skipping integration. So the merge bar's "contract tests pass" was, in
+      # practice, unenforced at merge time.
+      #
+      # Each provider boots against a real Postgres via Testcontainers; ubuntu-latest has Docker,
+      # which this job already requires for `contract:breaking`. Sequential rather than a matrix so
+      # it stays inside the single required `verify` check (ADR-0040: one job, no skipped-job noise).
+      # `pact:verify` fails loudly when a KNOWN provider has no committed pact, so a deleted or
+      # uncommitted pact cannot make this pass vacuously.
+      - name: Pact provider verification (content, identity, donations, flags, webhooks)
+        run: |
+          for provider in content identity donations flags webhooks; do
+            pnpm pact:verify --provider "$provider"
+          done
+
+      # The NATS boot path against a REAL JetStream server (~6s). `connection.ts` — the only code
+      # that sets the stream's `duplicate_window` and a durable's `filter_subjects` — had no test at
+      # all before 2026-08-11, and every other messaging test talks to an in-process double that
+      # implements the very dedup and subject-routing behaviour it asserts. This also cross-checks
+      # `subjectMatchesFilter` (QARoom's own NATS-wildcard reimplementation, the shared oracle behind
+      # every routing spec) against what the server actually delivers.
+      #
+      # Env-gated so the in-process `pnpm test` lane stays Docker-free, and run HERE rather than left
+      # to the nightly coverage lane for the same reason pact:verify moved: a boot path nothing
+      # exercises is how identity's missing NATS_URL reached a CrashLoopBackOff.
+      - name: Messaging boot path against real JetStream (ensureStream / ensureConsumer / dedup)
+        env:
+          QAROOM_NATS_TESTS: '1'
+        run: pnpm --filter @qaroom/messaging exec vitest run src/connection.spec.ts
 
       - name: Verify OpenAPI (Zod drift + oasdiff breaking-change gate)
         run: pnpm openapi:verify
