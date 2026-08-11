@@ -1,6 +1,13 @@
 import { resolve } from 'node:path'
 import { MatchersV3, PactV4 } from '@pact-foundation/pact'
-import { EXAMPLE_COMMUNITY_ID, EXAMPLE_DONATION_ID, EXAMPLE_USER_ID } from '@qaroom/contracts'
+import {
+  Donation,
+  DonationList,
+  EXAMPLE_COMMUNITY_ID,
+  EXAMPLE_DONATION_ID,
+  EXAMPLE_USER_ID,
+  ProblemDetails,
+} from '@qaroom/contracts'
 import { describe, expect, it } from 'vitest'
 import { createDonationsClient } from '../../src/clients/donations-client'
 
@@ -63,6 +70,9 @@ describe('gateway → donations consumer contract', () => {
           'idem-don-1',
         )
         expect(res.status).toBe(201)
+        // Parse through the schema this consumer hands onward: asserting only the status lets a
+        // response the gateway cannot READ pass as a satisfied contract.
+        expect(() => Donation.parse(res.body)).not.toThrow()
       })
   })
 
@@ -79,6 +89,9 @@ describe('gateway → donations consumer contract', () => {
       .executeTest(async (mock) => {
         const res = await createDonationsClient(mock.url).getDonation(COMMUNITY, EXISTING_DONATION)
         expect(res.status).toBe(200)
+        // Parse through the schema this consumer hands onward: asserting only the status lets a
+        // response the gateway cannot READ pass as a satisfied contract.
+        expect(() => Donation.parse(res.body)).not.toThrow()
       })
   })
 
@@ -100,12 +113,21 @@ describe('gateway → donations consumer contract', () => {
               status: integer(404),
               retryable: boolean(false),
               failure_domain: string('not_found'),
+              // Required by ProblemDetails and always sent (`makeProblem` defaults it), but this
+              // pact did not pin it — so the mock returned a body the gateway cannot fully parse,
+              // which only surfaced once this test started parsing instead of reading the status.
+              // A TYPE matcher on the empty array, not `eachLike`: donations sends `[]` for this
+              // problem, and `eachLike` would demand at least one element from the provider.
+              next_actions: like([]),
             }),
           ),
       )
       .executeTest(async (mock) => {
         const res = await createDonationsClient(mock.url).getDonation(COMMUNITY, MISSING_DONATION)
         expect(res.status).toBe(404)
+        // Parse through the schema this consumer hands onward: asserting only the status lets a
+        // response the gateway cannot READ pass as a satisfied contract.
+        expect(() => ProblemDetails.parse(res.body)).not.toThrow()
       })
   })
 
@@ -129,6 +151,9 @@ describe('gateway → donations consumer contract', () => {
       .executeTest(async (mock) => {
         const res = await createDonationsClient(mock.url).listDonations(COMMUNITY)
         expect(res.status).toBe(200)
+        // Parse through the schema this consumer hands onward: asserting only the status lets a
+        // response the gateway cannot READ pass as a satisfied contract.
+        expect(() => DonationList.parse(res.body)).not.toThrow()
       })
   })
 })

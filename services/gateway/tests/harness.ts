@@ -75,6 +75,43 @@ function unreachableClient<T>(methods: readonly string[]): T {
   return Object.fromEntries(methods.map((m) => [m, fail])) as unknown as T
 }
 
+/** One upstream call as the route made it: which client method, and the arguments it passed. */
+export interface CapturedCall {
+  method: string
+  args: unknown[]
+}
+
+/**
+ * A client double that records the ARGUMENTS each call receives.
+ *
+ * `constantClient` and `recordingClient` both ignore their arguments entirely, so nothing anywhere
+ * asserted what a route actually forwards upstream. That left the whole chain route → client args →
+ * wire body without an oracle: the pact's request body is hand-written inside the pact test rather
+ * than produced by driving the route, so a route that dropped or renamed a field would satisfy the
+ * route tests (stub ignores args), the consumer pact (body written by hand), and provider
+ * verification (which replays that same hand-written body). See `pact-forwarding.spec.ts`.
+ */
+function capturingClient<T>(
+  methods: readonly string[],
+  response: ClientResponse,
+): { client: T; calls: CapturedCall[] } {
+  const calls: CapturedCall[] = []
+  const entries = methods.map((method) => [
+    method,
+    async (...args: unknown[]) => {
+      calls.push({ method, args })
+      return response
+    },
+  ])
+  return { client: Object.fromEntries(entries) as unknown as T, calls }
+}
+
+/** A content client that records every call's arguments, plus the shared `calls` log. */
+export const capturingContent = (
+  response: ClientResponse,
+): { client: ContentClient; calls: CapturedCall[] } =>
+  capturingClient<ContentClient>(CONTENT_METHODS, response)
+
 /**
  * Unlike `constantClient` (one reply for every method — which HIDES a route→method miswire), a
  * recording client tags each method's response body with that method's own name. A route that

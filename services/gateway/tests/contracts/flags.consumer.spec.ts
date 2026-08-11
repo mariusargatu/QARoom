@@ -1,6 +1,6 @@
 import { resolve } from 'node:path'
 import { MatchersV3, PactV4 } from '@pact-foundation/pact'
-import { EXAMPLE_COMMUNITY_ID } from '@qaroom/contracts'
+import { EXAMPLE_COMMUNITY_ID, FlagResolution } from '@qaroom/contracts'
 import { describe, expect, it } from 'vitest'
 import { createFlagsClient } from '../../src/clients/flags-client'
 
@@ -49,6 +49,9 @@ describe('gateway → flags consumer contract', () => {
       .executeTest(async (mock) => {
         const res = await createFlagsClient(mock.url).resolveFlag(COMMUNITY, FLAG)
         expect(res.status).toBe(200)
+        // Parse through the schema this consumer hands onward: asserting only the status lets a
+        // response the gateway cannot READ pass as a satisfied contract.
+        expect(() => FlagResolution.parse(res.body)).not.toThrow()
       })
   })
 

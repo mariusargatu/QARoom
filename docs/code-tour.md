@@ -24,7 +24,7 @@ A client `POST`s a new post. The gateway fronts content-service; content owns th
    - technique: **Schemathesis** fuzzes the gateway OAS ([`schemathesis-gate.sh`](../scripts/schemathesis-gate.sh)); **RFC 7807** conformance via [`rfc7807.ts:17`](../packages/testing-utils/src/matchers/rfc7807.ts#L17) (`expectRFC7807`)
 3. **process boundary (REST)** · The gateway forwards to content via the Pact-consumer client; an unreachable upstream becomes a 502 `dependency_failure`.
    - code: [`proxy-routes.ts:22`](../services/gateway/src/routes/proxy-routes.ts#L22) (`deps.content.createPost`) -> [`content-client.ts:30`](../services/gateway/src/clients/content-client.ts#L30) (`createPost`); 502 map [`forward.ts:29`](../services/gateway/src/resilience/forward.ts#L29) (`problem`)
-   - technique: **Pact v4** consumer test [`content.consumer.spec.ts:101`](../services/gateway/tests/contracts/content.consumer.spec.ts#L101) (`creates a post`) emits `pacts/gateway-content.json`
+   - technique: **Pact v4** consumer test [`content.consumer.spec.ts:115`](../services/gateway/tests/contracts/content.consumer.spec.ts#L115) (`creates a post`) emits `pacts/gateway-content.json`
 4. **observability** · The gateway bumps its own lamport on a successful mutation.
    - code: [`forward.ts:41`](../services/gateway/src/resilience/forward.ts#L41) (`deps.lamport.bump`)
    - technique: **`/system/state`** `as_of` envelope
@@ -77,7 +77,7 @@ No contract artifact is generated from another such that one edit silently chang
 |---|---|---|
 | Zod -> OpenAPI round-trip | generated YAML == committed YAML | [`openapi-roundtrip.spec.ts`](../services/content/tests/openapi-roundtrip.spec.ts) (one per service) · builder [`builder.ts`](../packages/contracts/src/openapi/builder.ts) |
 | `oasdiff` + AsyncAPI classifier | each committed spec at the PR base vs now (no undeclared breaking change) | [`contract-breaking.ts`](../scripts/contract-breaking.ts) · declared breaks [`breaking-allowances.ts`](../scripts/lib/manifests/breaking-allowances.ts) |
-| Pact <-> OpenAPI cross-check | consumer's pact ⊆ published spec | [`contract-crosscheck/index.ts`](../packages/testing-utils/src/contract-crosscheck/index.ts) · test [`pact-oas-crosscheck.spec.ts`](../services/content/tests/pact-oas-crosscheck.spec.ts) |
+| Pact <-> OpenAPI cross-check | consumer's pact ⊆ published spec, request *and* response | [`contract-crosscheck/index.ts`](../packages/testing-utils/src/contract-crosscheck/index.ts) · test [`pact-oas-crosscheck.spec.ts`](../services/content/tests/pact-oas-crosscheck.spec.ts) (one per provider) · coverage census [`pact-oas-crosscheck.test.ts`](../scripts/pact-oas-crosscheck.test.ts) |
 | Zod <-> OAS round-trip property | Zod and emitted JSON Schema accept/reject identically | [`roundtrip.property.test.ts`](../packages/testing-utils/src/generators/roundtrip.property.test.ts) |
 
 Each gate is designed to *fail loudly* on real drift; that is what makes the triangulation credible rather than decorative.

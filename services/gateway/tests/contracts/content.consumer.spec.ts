@@ -1,6 +1,14 @@
 import { resolve } from 'node:path'
 import { MatchersV3, PactV4 } from '@pact-foundation/pact'
-import { EXAMPLE_COMMUNITY_ID, EXAMPLE_POST_ID, EXAMPLE_USER_ID } from '@qaroom/contracts'
+import {
+  CastVoteResponse,
+  EXAMPLE_COMMUNITY_ID,
+  EXAMPLE_POST_ID,
+  EXAMPLE_USER_ID,
+  Feed,
+  Post,
+  ProblemDetails,
+} from '@qaroom/contracts'
 import { describe, expect, it } from 'vitest'
 import { createContentClient } from '../../src/clients/content-client'
 
@@ -63,6 +71,10 @@ describe('gateway → content consumer contract', () => {
       .executeTest(async (mock) => {
         const res = await createContentClient(mock.url).getPost(EXISTING_POST)
         expect(res.status).toBe(200)
+        // Parse the body through the schema the gateway hands onward. Asserting only the status
+        // means a response this consumer cannot actually READ still passes — the contract would
+        // prove the call reached the provider, not that the consumer can use the answer.
+        expect(() => Post.parse(res.body)).not.toThrow()
       })
   })
 
@@ -95,6 +107,8 @@ describe('gateway → content consumer contract', () => {
       .executeTest(async (mock) => {
         const res = await createContentClient(mock.url).getPost(MISSING_POST)
         expect(res.status).toBe(404)
+        // The error path is a contract too: the gateway forwards this envelope to the browser.
+        expect(() => ProblemDetails.parse(res.body)).not.toThrow()
       })
   })
 
@@ -115,6 +129,7 @@ describe('gateway → content consumer contract', () => {
           'idem-create-1',
         )
         expect(res.status).toBe(201)
+        expect(() => Post.parse(res.body)).not.toThrow()
       })
   })
 
@@ -144,6 +159,7 @@ describe('gateway → content consumer contract', () => {
           'idem-vote-1',
         )
         expect(res.status).toBe(200)
+        expect(() => CastVoteResponse.parse(res.body)).not.toThrow()
       })
   })
 
@@ -169,6 +185,7 @@ describe('gateway → content consumer contract', () => {
       .executeTest(async (mock) => {
         const res = await createContentClient(mock.url).getFeed(COMMUNITY)
         expect(res.status).toBe(200)
+        expect(() => Feed.parse(res.body)).not.toThrow()
       })
   })
 })
