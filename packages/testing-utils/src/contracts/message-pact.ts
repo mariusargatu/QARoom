@@ -1,3 +1,5 @@
+import { readFileSync } from 'node:fs'
+
 /**
  * A minimal, dependency-free PROVIDER verifier for a Pact v3/v4 message contract. Pact's own
  * message-provider verifier replays the message through a provider state machine; here we instead
@@ -97,6 +99,27 @@ export interface PactMessage {
 export interface CapturedEnvelope {
   payload: Record<string, unknown>
   headers: Record<string, unknown>
+}
+
+/**
+ * Read one named message out of a committed message pact.
+ *
+ * Each provider spec used to re-do this JSON.parse + `.find(m => m.description === …)` inline and
+ * assert the result was defined. Doing it here means a description typo (or a consumer spec that
+ * stopped emitting the message) throws with the available descriptions listed, instead of handing
+ * the verifier `undefined` and reporting a confusing field mismatch — or, worse, letting a provider
+ * spec pass having verified nothing.
+ */
+export function messageFromPact(pactPath: string, description: string): PactMessage {
+  const pact = JSON.parse(readFileSync(pactPath, 'utf8')) as { messages?: PactMessage[] }
+  const messages = pact.messages ?? []
+  const found = messages.find((m) => m.description === description)
+  if (!found) {
+    throw new Error(
+      `${pactPath}: no message "${description}" (have: ${messages.map((m) => m.description).join(', ') || 'none'})`,
+    )
+  }
+  return found
 }
 
 /**

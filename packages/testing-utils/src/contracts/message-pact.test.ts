@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { type PactMessage, verifyEnvelopeAgainstMessage } from './verify-message-pact'
+import { type PactMessage, verifyEnvelopeAgainstMessage } from './message-pact'
 
 /**
  * Negative-control unit test for the hand-rolled message-pact verifier. Without this, the provider

@@ -1,4 +1,3 @@
-import { readFileSync } from 'node:fs'
 import { resolve } from 'node:path'
 import {
   PostCreatedEvent,
@@ -8,6 +7,7 @@ import {
   voteCast,
 } from '@qaroom/contracts'
 import { createRelay, type TxRunner } from '@qaroom/messaging'
+import { messageFromPact, verifyEnvelopeAgainstMessage } from '@qaroom/testing-utils/contracts'
 import { injectClient, setupServiceTest } from '@qaroom/testing-utils/harness'
 import { brokerDouble, type PublishedMessage } from '@qaroom/testing-utils/scenario'
 import { afterEach, describe, expect, it } from 'vitest'
@@ -15,21 +15,34 @@ import { buildApp } from '../../src/app'
 import { ensureSchema } from '../../src/db/migrate'
 import { asContentDb } from '../db-cast'
 import { SAMPLE } from '../harness'
-import { type PactMessage, verifyEnvelopeAgainstMessage } from './verify-message-pact'
 
 /**
- * PROVIDER verification of the `post.created` message contract (TEST-MAP wiring improvement #1).
- * The consumer spec (`post-created.message.consumer.spec.ts`) proves a consumer can PARSE the shape;
- * this proves content actually PUBLISHES that shape — it drives a real POST through the service,
- * drains the transactional outbox through the REAL relay into a capturing broker, and checks the
- * captured wire envelope (payload + NATS headers) against the consumer's pinned pact. The message
- * pact was, until now, fictional on the provider side (ADR-0010 deferred provider verification);
- * this closes it in-process, per-PR, no broker.
+ * PROVIDER verification of content's message contracts (post.created, vote.cast).
  *
- * vote.cast has no consumer pact yet, so it is verified against its source schema + header
- * self-consistency — the same envelope discipline, awaiting a consumer to pin it.
+ * The consumer spec proves a consumer can PARSE the shape; this proves content actually PUBLISHES
+ * it — driving a real POST through the service, draining the transactional outbox through the REAL
+ * relay into a capturing broker, and checking the captured wire envelope (payload + NATS headers)
+ * against the consumer's pinned pact. In-process, per-PR, no broker.
+ *
+ * Repointed 2026-08-11 at `webhooks-content.json`. The pact it verified against before was written
+ * by `community-projection` — a consumer that does not exist — so both halves of the contract were
+ * authored by this repo talking to itself, and vote.cast (which had no consumer at all) was checked
+ * against the schema content publishes it with, which cannot disagree with itself. webhooks is the
+ * real consumer of both subjects.
  */
-const PACT_PATH = resolve(import.meta.dirname, 'pacts', 'community-projection-content.json')
+// The consumer's OWN committed pact — webhooks, a service that exists and binds these subjects.
+// Previously `community-projection-content.json`, written by a consumer that did not exist.
+const PACT_PATH = resolve(
+  import.meta.dirname,
+  '..',
+  '..',
+  '..',
+  'webhooks',
+  'tests',
+  'contracts',
+  'pacts',
+  'webhooks-content.json',
+)
 
 async function setup() {
   const test = await setupServiceTest({
@@ -85,16 +98,12 @@ describe('content publishes a post.created envelope matching the consumer pact',
     const published = await capturePublished(ctx)
     const postMessage = bySubjectEntity(published, 'posts')
 
-    const pact = JSON.parse(readFileSync(PACT_PATH, 'utf8')) as { messages: PactMessage[] }
-    const contract = pact.messages.find((m) => m.description === 'a post created event')
-    expect(contract).toBeDefined()
-
     const mismatches = verifyEnvelopeAgainstMessage(
       {
         payload: postMessage.payload as Record<string, unknown>,
         headers: postMessage.headers,
       },
-      contract as PactMessage,
+      messageFromPact(PACT_PATH, 'a post created event'),
     )
     expect(mismatches).toEqual([])
   })
@@ -130,13 +139,14 @@ describe('content publishes a post.created envelope matching the consumer pact',
   })
 })
 
-describe('content publishes a vote.cast envelope consistent with its source schema', () => {
+describe('content publishes a vote.cast envelope matching the consumer pact', () => {
   let ctx: Ctx
   afterEach(async () => {
     await ctx.close()
   })
 
-  it('the captured vote.cast payload round-trips and carries a self-consistent dedup header', async () => {
+  /** Create a post, vote on it, and return the captured vote.cast wire message. */
+  async function captureVote(): Promise<PublishedMessage> {
     ctx = await setup()
     const created = await ctx.request.post(
       `/api/communities/${SAMPLE.communityA}/posts`,
@@ -150,8 +160,23 @@ describe('content publishes a vote.cast envelope consistent with its source sche
       { 'idempotency-key': 'k-provider-5' },
     )
     expect(voted.status).toBe(200)
+    return bySubjectEntity(await capturePublished(ctx), 'votes')
+  }
 
-    const voteMessage = bySubjectEntity(await capturePublished(ctx), 'votes')
+  // Was "consistent with its source schema" — vote.cast had no consumer pact, so the provider was
+  // checked against the shape it publishes, which cannot disagree with itself. webhooks now pins it.
+  it('the captured wire envelope satisfies every body + metadata matching rule', async () => {
+    const voteMessage = await captureVote()
+
+    const mismatches = verifyEnvelopeAgainstMessage(
+      { payload: voteMessage.payload as Record<string, unknown>, headers: voteMessage.headers },
+      messageFromPact(PACT_PATH, 'a vote cast event'),
+    )
+    expect(mismatches).toEqual([])
+  })
+
+  it('the captured vote.cast payload round-trips and carries a self-consistent dedup header', async () => {
+    const voteMessage = await captureVote()
     const event = VoteCastEvent.parse(voteMessage.payload)
     expect(voteMessage.headers['Nats-Msg-Id']).toBe(event.event_id)
     expect(voteMessage.headers['event-name']).toBe('vote.cast')
