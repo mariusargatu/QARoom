@@ -19,17 +19,19 @@ import { type FlagsTestCtx, SAMPLE, setupFlagsTest } from '../harness'
  * transactional outbox through the REAL relay into a capturing broker, and check the captured wire
  * envelope (payload + NATS headers) against the consumer's pinned pact. In-process, no broker.
  */
-const PACT_PATH = resolve(
-  import.meta.dirname,
-  '..',
-  '..',
-  '..',
-  'donations',
-  'tests',
-  'contracts',
-  'pacts',
-  'donations-flags.json',
-)
+/**
+ * BOTH consumers, not just one. donations reads `enabled` to gate its endpoints; webhooks routes on
+ * the headers and forwards the whole body to a third-party endpoint. Satisfying one says nothing
+ * about the other — flags could keep donations happy while breaking the payload webhooks ships
+ * onward — so the same captured envelope is checked against every pact that names flags as provider.
+ */
+const consumerPact = (consumer: string, file: string) =>
+  resolve(import.meta.dirname, '..', '..', '..', consumer, 'tests', 'contracts', 'pacts', file)
+
+const CONSUMER_PACTS = [
+  { consumer: 'donations', path: consumerPact('donations', 'donations-flags.json') },
+  { consumer: 'webhooks', path: consumerPact('webhooks', 'webhooks-flags.json') },
+] as const
 
 /** Advance the rollout, drain the outbox through the real relay, return the captured message. */
 async function captureFlagChange(ctx: FlagsTestCtx): Promise<PublishedMessage> {
@@ -58,13 +60,17 @@ describe('flags publishes a flag.state.changed envelope matching the consumer pa
     await ctx.close()
   })
 
-  it('the captured wire envelope satisfies every body + metadata matching rule', async () => {
+  it.each(
+    CONSUMER_PACTS,
+  )("the captured wire envelope satisfies every rule $consumer's pact declares", async ({
+    path,
+  }) => {
     ctx = await setupFlagsTest()
     const message = await captureFlagChange(ctx)
 
     const mismatches = verifyEnvelopeAgainstMessage(
       { payload: message.payload as Record<string, unknown>, headers: message.headers },
-      messageFromPact(PACT_PATH, 'a flag state changed event'),
+      messageFromPact(path, 'a flag state changed event'),
     )
     expect(mismatches).toEqual([])
   })
@@ -86,5 +92,13 @@ describe('flags publishes a flag.state.changed envelope matching the consumer pa
     // The SUBJECT carries the tenancy boundary (community at position 3): a correct payload on a
     // cross-tenant subject would pass every body/header check and still leak across communities.
     expect(message.subject).toBe(flagStateChanged(event.community_id))
+  })
+})
+
+// Outside the block above on purpose: that describe's afterEach closes the per-test PGlite, and a
+// test that never opens one would double-close the previous test's.
+describe('the provider verification covers every consumer', () => {
+  it('checks more than one consumer pact (a dropped one would go unnoticed)', () => {
+    expect(CONSUMER_PACTS.map((p) => p.consumer)).toEqual(['donations', 'webhooks'])
   })
 })
