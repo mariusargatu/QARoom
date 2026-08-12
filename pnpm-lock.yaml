@@ -278,6 +278,15 @@ importers:
       '@stryker-mutator/vitest-runner':
         specifier: 9.6.1
         version: 9.6.1(@stryker-mutator/core@9.6.1(@types/node@26.0.1))(vitest@4.1.9)
+      '@testcontainers/postgresql':
+        specifier: ^12.0.4
+        version: 12.0.4
+      drizzle-orm:
+        specifier: ^0.45.2
+        version: 0.45.2(@electric-sql/pglite@0.5.3)(@opentelemetry/api@1.9.1)(gel@2.2.0)(postgres@3.4.9)
+      postgres:
+        specifier: ^3.4.9
+        version: 3.4.9
       typescript:
         specifier: ^6.0.3
         version: 6.0.3

@@ -230,9 +230,12 @@ delta set: CI adds `prove:adversarial`, the web component census, the headless S
 it needs a Chromium install, so it is CI-only), `pact:verify` for all five providers (Pact provider
 verification against a Testcontainers Postgres — CI-only because it wants Docker and ~50s, promoted
 out of the nightly lane so the *provider* half of contract testing gates merges rather than running
-only where a lane could skip itself), and `@qaroom/messaging`'s `connection.spec.ts` under
-`QAROOM_NATS_TESTS=1` (the boot path against a real JetStream server, ~6s — env-gated so `pnpm test`
-stays Docker-free); `pnpm verify` adds `anchored:coverage`
+only where a lane could skip itself), `@qaroom/messaging`'s `connection.spec.ts` under
+`QAROOM_NATS_TESTS=1` (the boot path against a real JetStream server, ~6s), and the two
+`QAROOM_PG_TESTS=1` concurrency specs (`idempotency-concurrency` + `subscribe-concurrency`) — all
+env-gated so `pnpm test` stays Docker-free. The concurrency pair is CI-only for a structural reason,
+not a cost one: PGlite is a single in-process connection, so it serializes what a production pool
+runs at once and cannot express a double-execute at all; `pnpm verify` adds `anchored:coverage`
 (an advisory sidecar, not a merge gate) and the full `matrix:verify`, whose census half CI runs as
 `detection-matrix.ts --check`. Typecheck runs via turbo in CI.
 

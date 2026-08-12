@@ -142,6 +142,19 @@ jobs:
           QAROOM_NATS_TESTS: '1'
         run: pnpm --filter @qaroom/messaging exec vitest run src/connection.spec.ts
 
+      # The two concurrency guarantees PGlite CANNOT express, and therefore cannot gate. Every
+      # service test runs on a single in-process connection, which serializes what a production pool
+      # runs at the same time — so the suite passes identically whether the retry boundary is safe or
+      # not. Measured 2026-08-12 with ten concurrent same-key requests: PGlite reported 1 post
+      # (clean), real Postgres reported 8. Merge-gated because a double-executed mutation is a
+      # correctness fault, not a lint nit.
+      - name: Concurrency guarantees against real Postgres (idempotent retry + consumer dedup)
+        env:
+          QAROOM_PG_TESTS: '1'
+        run: |
+          pnpm --filter @qaroom/service-kit exec vitest run src/idempotency-concurrency.spec.ts
+          pnpm --filter @qaroom/messaging exec vitest run src/subscribe-concurrency.spec.ts
+
       - name: Verify OpenAPI (Zod drift + oasdiff breaking-change gate)
         run: pnpm openapi:verify
 
