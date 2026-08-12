@@ -48,6 +48,24 @@ const notFound = problemResponse(
   },
 )
 
+/**
+ * Concurrent same-key retry. `withIdempotency` claims `(key, route, body_hash)` before running the
+ * effect, so a second caller arriving while the first is still in flight is told to come back with
+ * the SAME key rather than being allowed to execute the mutation a second time (2026-08-12).
+ * Declared HERE because DELETE carries no body, so the reused-key-different-body 409 was previously
+ * unreachable on this operation and the code was never documented.
+ */
+const idempotencyInProgress = problemResponse(
+  409,
+  'idempotency-key-in-progress',
+  'A request with this Idempotency-Key is still in progress',
+  'conflict',
+  {
+    description: 'An identical request with this Idempotency-Key is already being processed.',
+    instance: WEBHOOK_INSTANCE,
+  },
+)
+
 const illegalTransition = problemResponse(
   409,
   'webhook-illegal-transition',
@@ -163,6 +181,7 @@ export const OPERATIONS: readonly OasOperation[] = [
       // ops reject a missing/invalid Idempotency-Key or malformed params as a validation 400,
       // which the spec never declared.
       badRequest('The request params or Idempotency-Key header failed validation.'),
+      idempotencyInProgress,
       notFound,
     ],
   },
