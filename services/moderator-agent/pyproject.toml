@@ -46,9 +46,9 @@ dev = [
 # Apache-2.0 (DeepEval, DeepTeam) + MIT (PyRIT); vendor-neutral, replacing the OpenAI-acquired
 # Promptfoo (ADR-0020). Floors only — the eval job resolves the latest stable at run time.
 eval = [
-    "deepeval==4.0.5",
-    "deepteam==1.0.6",
-    "pyrit==0.13.0",
+    "deepeval==4.2.0",
+    "deepteam==1.0.9",
+    "pyrit==1.0.1",
 ]
 
 [build-system]
