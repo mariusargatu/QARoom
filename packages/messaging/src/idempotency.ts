@@ -130,8 +130,11 @@ export async function claimIdempotent(
     sql`SELECT status FROM idempotency_responses WHERE idempotency_key = ${record.key} AND route = ${record.route} AND body_hash = ${record.hash} LIMIT 1`,
   )
   const row = rowsOf<{ status: number }>(existing)[0]
-  // Vanished between the two statements (a concurrent release or GC sweep) — treat as free and let
-  // the caller retry the claim rather than reporting a completion that does not exist.
+  // Vanished between the two statements (a concurrent release or GC sweep). `in_flight` IS the
+  // "come back and claim it" answer: the caller turns it into a retryable 409 telling the client to
+  // retry with the SAME key, which re-enters the INSERT above and wins the now-free row. Returning
+  // `completed` here instead would report a completion that does not exist, and `claimed` would
+  // claim a row this transaction never inserted.
   if (!row) return 'in_flight'
   if (row.status !== IDEMPOTENCY_IN_FLIGHT) return 'completed'
 

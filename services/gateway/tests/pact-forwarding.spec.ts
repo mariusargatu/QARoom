@@ -43,6 +43,17 @@ describe('every content interaction the gateway pins is forwarded verbatim by it
     const { client, calls } = capturingContent(OK)
     const { request } = setupGatewayTest(client)
 
+    // The shared RequestClient speaks GET/POST only, so this spec can drive POST interactions
+    // alone. Every body-carrying interaction in the pact is a POST today; pin that rather than
+    // assume it. A PUT/PATCH interaction added later would otherwise be POSTed to a DIFFERENT
+    // route and the forwarding assertion below would be measuring the wrong thing — a silent
+    // wrong-route pass. Reds loudly instead, naming the fix.
+    expect(
+      interaction.request.method,
+      `interaction "${interaction.description}" is ${interaction.request.method}, but this spec ` +
+        `can only send POST — teach injectClient the verb before pinning a non-POST interaction`,
+    ).toBe('POST')
+
     const res = await request.post(interaction.request.path, interaction.request.body, {
       'idempotency-key': 'pact-forwarding',
     })
