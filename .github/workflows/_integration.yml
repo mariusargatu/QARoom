@@ -58,6 +58,12 @@ jobs:
   # Consumer-driven contract verification: each provider verifies every pact under services/*/pacts
   # that names it, against a real Postgres (Testcontainers). One matrix entry per provider (was five
   # sequential steps in the monolith).
+  #
+  # Since 2026-08-11 this is a BACKSTOP, not the only run: the PR `verify` job runs the same five
+  # verifications, because gating merges on a lane that is activity-gated (and had been reporting
+  # success while skipping integration) left the provider half of contract testing unenforced at
+  # merge time. Kept here for the matrix's per-provider isolation and fail-fast: false reporting,
+  # which is more legible than the PR lane's sequential loop when several providers break at once.
   contracts:
     runs-on: ubuntu-latest
     timeout-minutes: 30
@@ -71,17 +77,37 @@ jobs:
       - name: Pact provider verification (${{ matrix.provider }})
         run: pnpm pact:verify --provider ${{ matrix.provider }}
 
-  # Trust-boundary fuzzing for the gateway: a TWO-service boot (content + gateway, gateway proxies
-  # content) — kept as its own job because its topology differs from the single-service fuzz matrix
-  # below. Schemathesis proves no generated input yields a 5xx or a spec violation.
+  # Trust-boundary fuzzing for the gateway. Schemathesis proves no generated input yields a 5xx or a
+  # spec violation across the whole web edge.
+  #
+  # Rebuilt 2026-08-11, because this lane could not pass. It booted only content + gateway while the
+  # gateway's OAS declares 30 operations across SIX upstreams, so every donations/flags/webhooks/
+  # identity route answered 502 `dependency_failure` — correct behaviour, reported by
+  # `not_a_server_error` as a gate failure. Measured against the real thing:
+  #
+  #   content only, rate limiter on   → 44 failures (22 server errors, all absent-upstream 502s)
+  #   all five upstreams, limiter on  → 42 failures ( 2 server errors — only moderator-agent left)
+  #   ... + GATEWAY_DISABLE_RATE_LIMIT → 2 failures (the 40 others were the fuzzer's OWN 429s)
+  #   ... + moderation excluded        → 0 failures, 28/30 operations, 1323 cases ✓
+  #
+  # The limiter half was already anticipated in code — `UNLIMITED_RATE_LIMIT` exists behind
+  # `GATEWAY_DISABLE_RATE_LIMIT` with a comment naming this exact misreading (a drained bucket makes
+  # valid input look "rejected schema-compliant" and invalid input look "accepted schema-violating")
+  # — but the lane never set the variable. The 429 path itself is not lost: `rate-limit.spec.ts` and
+  # `auth-rate-limit.spec.ts` cover it in-process, which is where a deterministic limiter belongs.
   fuzz-gateway:
     runs-on: ubuntu-latest
     timeout-minutes: 30
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
       - uses: ./.github/actions/setup-workspace
-      - name: Start Postgres + NATS
-        run: docker compose -f services/content/docker-compose.yaml up -d --wait
+      # content's compose carries the shared NATS (JetStream) as well as its own Postgres; identity
+      # hard-fails at boot without a broker, and donations/webhooks consume from it.
+      - name: Start every upstream's Postgres + the shared NATS
+        run: |
+          for svc in content identity flags donations webhooks; do
+            docker compose -f "services/$svc/docker-compose.yaml" up -d --wait
+          done
       - uses: ./.github/actions/serve-and-wait
         with:
           filter: "@qaroom/content"
@@ -91,11 +117,52 @@ jobs:
             NATS_URL=nats://localhost:4222
       - uses: ./.github/actions/serve-and-wait
         with:
+          filter: "@qaroom/identity"
+          port: 8082
+          env: |
+            DATABASE_URL=postgres://qaroom:qaroom@localhost:5433/qaroom_identity
+            NATS_URL=nats://localhost:4222
+      - uses: ./.github/actions/serve-and-wait
+        with:
+          filter: "@qaroom/flags"
+          port: 8083
+          env: |
+            DATABASE_URL=postgres://qaroom:qaroom@localhost:5434/qaroom_flags
+            NATS_URL=nats://localhost:4222
+      - uses: ./.github/actions/serve-and-wait
+        with:
+          filter: "@qaroom/donations"
+          port: 8084
+          env: |
+            DATABASE_URL=postgres://qaroom:qaroom@localhost:5435/qaroom_donations
+            NATS_URL=nats://localhost:4222
+      - uses: ./.github/actions/serve-and-wait
+        with:
+          filter: "@qaroom/webhooks"
+          port: 8087
+          env: |
+            DATABASE_URL=postgres://qaroom:qaroom@localhost:5436/qaroom_webhooks
+            NATS_URL=nats://localhost:4222
+      - uses: ./.github/actions/serve-and-wait
+        with:
           filter: "@qaroom/gateway"
           port: 8090
           env: |
             CONTENT_BASE_URL=http://localhost:8081
-      - name: Schemathesis gate (gateway)
+            IDENTITY_BASE_URL=http://localhost:8082
+            FLAGS_BASE_URL=http://localhost:8083
+            DONATIONS_BASE_URL=http://localhost:8084
+            WEBHOOKS_BASE_URL=http://localhost:8087
+            NATS_URL=nats://localhost:4222
+            GATEWAY_DISABLE_RATE_LIMIT=1
+      # NAMED GAP, not a silent skip: the moderation proxy routes are excluded because their upstream
+      # is moderator-agent, the one Python (uv/FastAPI + pgvector) service — this JS lane has no uv,
+      # and booting it here would duplicate the nightly moderator lane's whole environment. Their
+      # 2 operations are the only part of the gateway's OAS this fuzz does not reach; the gateway's
+      # own moderation proxy behaviour is covered in-process by identity-moderation-proxy.spec.ts.
+      - name: Schemathesis gate (gateway, 28/30 operations — moderation upstream is uv-only)
+        env:
+          SCHEMATHESIS_EXCLUDE_PATH_REGEX: moderation-decisions
         run: bash scripts/schemathesis-gate.sh services/gateway http://host.docker.internal:8090
 
   # Trust-boundary fuzzing for the single-service boundaries (identity + webhooks): each has a reachable

@@ -1,4 +1,4 @@
-import { existsSync, readdirSync } from 'node:fs'
+import { existsSync, readdirSync, readFileSync } from 'node:fs'
 import { resolve } from 'node:path'
 
 /**
@@ -19,14 +19,33 @@ export interface PactArtifactSet {
   specs: string
   /** Repo-relative directory the pacts land in. */
   dir: string
+  /**
+   * `http` — synchronous interactions, replayed by `pact:verify` against a booted provider and
+   * cross-checked against that provider's `openapi.yaml`.
+   * `message` — NATS envelopes. There is no OpenAPI to cross-check (the async contract lives in
+   * `asyncapi.yaml`), and verification is the provider's own in-process spec, which drains the real
+   * outbox relay and checks the captured envelope. The distinction matters: the cross-check census
+   * must not demand a `pact-oas-crosscheck.spec.ts` for a provider that only has message pacts.
+   */
+  kind: 'http' | 'message'
 }
 
 export const PACT_ARTIFACTS: readonly PactArtifactSet[] = [
-  { pkg: '@qaroom/gateway', specs: 'tests/contracts', dir: 'services/gateway/pacts' },
+  { pkg: '@qaroom/gateway', specs: 'tests/contracts', dir: 'services/gateway/pacts', kind: 'http' },
+  // The REAL async consumers (2026-08-11). Previously one `message` set lived under content and was
+  // written by `community-projection`, a consumer that did not exist; the two services that actually
+  // bind these subjects had no contract. A consumer owns its pact, so each set sits in the consumer.
   {
-    pkg: '@qaroom/content',
+    pkg: '@qaroom/webhooks',
     specs: 'tests/contracts',
-    dir: 'services/content/tests/contracts/pacts',
+    dir: 'services/webhooks/tests/contracts/pacts',
+    kind: 'message',
+  },
+  {
+    pkg: '@qaroom/donations',
+    specs: 'tests/contracts',
+    dir: 'services/donations/tests/contracts/pacts',
+    kind: 'message',
   },
 ]
 
@@ -47,4 +66,32 @@ export function allCommittedPacts(root: string): string[] {
   return PACT_ARTIFACTS.flatMap((set) =>
     pactFilesIn(root, set.dir).map((file) => `${set.dir}/${file}`),
   )
+}
+
+/**
+ * The distinct provider names the committed HTTP pacts declare, sorted. Derived from the files
+ * rather than hand-listed, so a new provider joins every provider-keyed gate (today: the Pact ↔
+ * OpenAPI cross-check census) without anyone remembering to extend a list.
+ *
+ * `message` sets are excluded: their contract is an AsyncAPI channel, not an OpenAPI operation, so
+ * demanding a `pact-oas-crosscheck.spec.ts` for them would be asking for a check that cannot exist.
+ *
+ * Lives here, not in the census spec, because the missing-name guard below is a conditional and
+ * `qaroom/no-conditional-in-test` forbids branching inside a test file — the rule that keeps
+ * assertions single-branch. A pact with no `provider.name` is a malformed artifact, not a case to
+ * silently skip: skipping it would drop that provider out of the census entirely.
+ */
+export function pactProviders(root: string): string[] {
+  const httpPacts = PACT_ARTIFACTS.filter((set) => set.kind === 'http').flatMap((set) =>
+    pactFilesIn(root, set.dir).map((file) => `${set.dir}/${file}`),
+  )
+  const names = httpPacts.map((rel) => {
+    const pact = JSON.parse(readFileSync(resolve(root, rel), 'utf8')) as {
+      provider?: { name?: string }
+    }
+    const name = pact.provider?.name
+    if (name === undefined) throw new Error(`${rel}: pact declares no provider.name`)
+    return name
+  })
+  return [...new Set(names)].sort()
 }

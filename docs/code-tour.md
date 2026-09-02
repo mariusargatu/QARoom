@@ -24,15 +24,15 @@ A client `POST`s a new post. The gateway fronts content-service; content owns th
    - technique: **Schemathesis** fuzzes the gateway OAS ([`schemathesis-gate.sh`](../scripts/schemathesis-gate.sh)); **RFC 7807** conformance via [`rfc7807.ts:17`](../packages/testing-utils/src/matchers/rfc7807.ts#L17) (`expectRFC7807`)
 3. **process boundary (REST)** · The gateway forwards to content via the Pact-consumer client; an unreachable upstream becomes a 502 `dependency_failure`.
    - code: [`proxy-routes.ts:22`](../services/gateway/src/routes/proxy-routes.ts#L22) (`deps.content.createPost`) -> [`content-client.ts:30`](../services/gateway/src/clients/content-client.ts#L30) (`createPost`); 502 map [`forward.ts:29`](../services/gateway/src/resilience/forward.ts#L29) (`problem`)
-   - technique: **Pact v4** consumer test [`content.consumer.spec.ts:101`](../services/gateway/tests/contracts/content.consumer.spec.ts#L101) (`creates a post`) emits `pacts/gateway-content.json`
+   - technique: **Pact v4** consumer test [`content.consumer.spec.ts:115`](../services/gateway/tests/contracts/content.consumer.spec.ts#L115) (`creates a post`) emits `pacts/gateway-content.json`
 4. **observability** · The gateway bumps its own lamport on a successful mutation.
    - code: [`forward.ts:41`](../services/gateway/src/resilience/forward.ts#L41) (`deps.lamport.bump`)
    - technique: **`/system/state`** `as_of` envelope
 5. **trust boundary (content edge)** · The content handler re-brands the id and re-parses the body; it does not trust the gateway.
    - code: [`routes/posts.ts:13`](../services/content/src/routes/posts.ts#L13) (`CommunityId.parse`); [`routes/posts.ts:14`](../services/content/src/routes/posts.ts#L14) (`CreatePostRequest.parse`)
    - technique: **branded IDs** enforced at runtime via Zod, [`ids.ts:19`](../packages/contracts/src/ids.ts#L19) (`brandedIdPattern`)
-6. **retry boundary** · Idempotency-Key replay check: same key + body -> stored response, no re-execute. The replay dance lives in one shared wrapper in `@qaroom/service-kit`.
-   - code: [`routes/posts.ts:15`](../services/content/src/routes/posts.ts#L15) (`withIdempotency`) -> [`idempotency.ts:32`](../packages/service-kit/src/idempotency.ts#L32) (`withIdempotency`); hash [`idempotency.ts:39`](../packages/service-kit/src/idempotency.ts#L39) (`bodyHash`); store [`idempotency.ts:60`](../packages/service-kit/src/idempotency.ts#L60) (`storeIdempotent`)
+6. **retry boundary** · Idempotency-Key replay check: same key + body -> stored response, no re-execute. The replay dance lives in one shared wrapper in `@qaroom/service-kit`. The CLAIM is the load-bearing step: it is an insert that only one caller can win, so a client retrying while its first attempt is still in flight cannot execute the mutation twice.
+   - code: [`routes/posts.ts:15`](../services/content/src/routes/posts.ts#L15) (`withIdempotency`) -> [`idempotency.ts:43`](../packages/service-kit/src/idempotency.ts#L43) (`withIdempotency`); hash [`idempotency.ts:50`](../packages/service-kit/src/idempotency.ts#L50) (`bodyHash`); claim [`idempotency.ts:73`](../packages/service-kit/src/idempotency.ts#L73) (`claimIdempotent`); complete [`idempotency.ts:116`](../packages/service-kit/src/idempotency.ts#L116) (`completeIdempotent`)
    - technique: **property test** [`idempotency.property.test.ts:9`](../services/content/src/idempotency.property.test.ts#L9) (`same Idempotency-Key`)
 7. **persistence** · Write under single-writer discipline: advisory lock -> insert -> one row, one mapper.
    - code: [`repository/posts.ts:40`](../services/content/src/repository/posts.ts#L40) (`createPost`); lock [`repository/posts.ts:58`](../services/content/src/repository/posts.ts#L58) (`advisoryLock`)
@@ -77,7 +77,7 @@ No contract artifact is generated from another such that one edit silently chang
 |---|---|---|
 | Zod -> OpenAPI round-trip | generated YAML == committed YAML | [`openapi-roundtrip.spec.ts`](../services/content/tests/openapi-roundtrip.spec.ts) (one per service) · builder [`builder.ts`](../packages/contracts/src/openapi/builder.ts) |
 | `oasdiff` + AsyncAPI classifier | each committed spec at the PR base vs now (no undeclared breaking change) | [`contract-breaking.ts`](../scripts/contract-breaking.ts) · declared breaks [`breaking-allowances.ts`](../scripts/lib/manifests/breaking-allowances.ts) |
-| Pact <-> OpenAPI cross-check | consumer's pact ⊆ published spec | [`contract-crosscheck/index.ts`](../packages/testing-utils/src/contract-crosscheck/index.ts) · test [`pact-oas-crosscheck.spec.ts`](../services/content/tests/pact-oas-crosscheck.spec.ts) |
+| Pact <-> OpenAPI cross-check | consumer's pact ⊆ published spec, request *and* response | [`contract-crosscheck/index.ts`](../packages/testing-utils/src/contract-crosscheck/index.ts) · test [`pact-oas-crosscheck.spec.ts`](../services/content/tests/pact-oas-crosscheck.spec.ts) (one per provider) · coverage census [`pact-oas-crosscheck.test.ts`](../scripts/pact-oas-crosscheck.test.ts) |
 | Zod <-> OAS round-trip property | Zod and emitted JSON Schema accept/reject identically | [`roundtrip.property.test.ts`](../packages/testing-utils/src/generators/roundtrip.property.test.ts) |
 
 Each gate is designed to *fail loudly* on real drift; that is what makes the triangulation credible rather than decorative.

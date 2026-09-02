@@ -82,6 +82,42 @@ try {
 
 process.stdout.write(`contract breaking-change gate: diffing against ${base.slice(0, 8)}\n`)
 
+/**
+ * Detector self-tests, MOVED here 2026-08-11 from `openapi-verify.ts` / `asyncapi-verify.ts`.
+ *
+ * They belong to the gate that DEPENDS on the detector, not to the drift gates. A detector that
+ * silently stopped reporting — a bad image tag, a renamed flag, a classifier rule table emptied by
+ * a refactor — would make every loop below pass having compared everything and found nothing, which
+ * is precisely the vacuous green this gate exists to remove. Two synthetic fixtures are the cheapest
+ * way to prove the instrument still moves before trusting its readings.
+ *
+ * Their old home also forced `openapi:verify` to shell out to Docker for a check that had nothing to
+ * do with drift; it is now a pure Zod-vs-committed-file comparison, and runs anywhere.
+ */
+const FIXTURES = {
+  openapi: resolve(ROOT, 'services/content/tests/fixtures/oasdiff'),
+  asyncapi: resolve(ROOT, 'services/content/tests/fixtures/asyncapi'),
+}
+
+function assertAsyncClassifierWorks(): void {
+  const load = (name: string) =>
+    parse(readFileSync(resolve(FIXTURES.asyncapi, name), 'utf8')) as Record<string, unknown>
+  const base = load('base.yaml')
+  if (asyncapiBreakingChanges(base, base).length !== 0) {
+    process.stderr.write('asyncapi classifier flags identical specs as breaking — misconfigured.\n')
+    process.exit(2)
+  }
+  if (asyncapiBreakingChanges(base, load('breaking.yaml')).length === 0) {
+    process.stderr.write(
+      'asyncapi classifier did NOT detect the deliberate breaking fixture — every comparison ' +
+        'below would report nothing. Refusing to run a detector that cannot detect.\n',
+    )
+    process.exit(2)
+  }
+}
+
+assertAsyncClassifierWorks()
+
 const reported: Reported[] = []
 
 for (const svc of ASYNCAPI_SERVICES) {
@@ -120,7 +156,48 @@ if (!dockerAvailable && process.env.CI === 'true') {
   process.exit(1)
 }
 
+/** Run oasdiff over a mounted directory; returns its exit code (0 = no breaking change). */
+function oasdiffExitCode(dir: string, base: string, revision: string): number {
+  try {
+    execFileSync(
+      'docker',
+      [
+        'run',
+        '--rm',
+        '-v',
+        `${dir}:/specs:ro`,
+        'tufin/oasdiff:latest',
+        'breaking',
+        `/specs/${base}`,
+        `/specs/${revision}`,
+        '--fail-on',
+        'ERR',
+      ],
+      { stdio: 'pipe' },
+    )
+    return 0
+  } catch (error) {
+    return (error as { status?: number }).status ?? 1
+  }
+}
+
+/** The oasdiff half of the detector self-test — same reasoning as the classifier one above. */
+function assertOasdiffWorks(): void {
+  if (oasdiffExitCode(FIXTURES.openapi, 'base.yaml', 'base.yaml') !== 0) {
+    process.stderr.write('oasdiff flags identical specs as breaking — gate is misconfigured.\n')
+    process.exit(2)
+  }
+  if (oasdiffExitCode(FIXTURES.openapi, 'base.yaml', 'breaking.yaml') === 0) {
+    process.stderr.write(
+      'oasdiff did NOT detect the deliberate breaking fixture — every OpenAPI comparison below ' +
+        'would report nothing. Refusing to run a detector that cannot detect.\n',
+    )
+    process.exit(2)
+  }
+}
+
 if (dockerAvailable) {
+  assertOasdiffWorks()
   const tmp = resolve(ROOT, 'test-results/contract-breaking')
   execFileSync('mkdir', ['-p', tmp])
   for (const svc of OPENAPI_SERVICES) {

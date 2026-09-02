@@ -1,10 +1,16 @@
 import { resolve } from 'node:path'
 import { MatchersV3, PactV4 } from '@pact-foundation/pact'
 import {
+  AccessTokenResponse,
+  Community,
   EXAMPLE_COMMUNITY_ID,
   EXAMPLE_JWK,
   EXAMPLE_KEY_ID,
   EXAMPLE_USER_ID,
+  Jwks,
+  MemberList,
+  Membership,
+  User,
 } from '@qaroom/contracts'
 import { describe, expect, it } from 'vitest'
 import { createIdentityClient } from '../../src/clients/identity-client'
@@ -102,6 +108,9 @@ describe('gateway → identity JWKS consumer contract', () => {
       .executeTest(async (mock) => {
         const res = await createJwksClient(mock.url).getJwks()
         expect(res.status).toBe(200)
+        // Parse through the schema this consumer hands onward: asserting only the status lets a
+        // response the gateway cannot READ pass as a satisfied contract.
+        expect(() => Jwks.parse(res.body)).not.toThrow()
         expect((res.body as { keys: unknown[] }).keys.length).toBeGreaterThanOrEqual(1)
       })
   })
@@ -124,6 +133,9 @@ describe('gateway → identity bootstrap + session consumer contract', () => {
           'idem-user-1',
         )
         expect(res.status).toBe(201)
+        // Parse through the schema this consumer hands onward: asserting only the status lets a
+        // response the gateway cannot READ pass as a satisfied contract.
+        expect(() => User.parse(res.body)).not.toThrow()
       })
   })
 
@@ -137,6 +149,9 @@ describe('gateway → identity bootstrap + session consumer contract', () => {
       .executeTest(async (mock) => {
         const res = await createIdentityClient(mock.url).getUser(EXAMPLE_USER_ID)
         expect(res.status).toBe(200)
+        // Parse through the schema this consumer hands onward: asserting only the status lets a
+        // response the gateway cannot READ pass as a satisfied contract.
+        expect(() => User.parse(res.body)).not.toThrow()
       })
   })
 
@@ -156,6 +171,9 @@ describe('gateway → identity bootstrap + session consumer contract', () => {
           'idem-comm-1',
         )
         expect(res.status).toBe(201)
+        // Parse through the schema this consumer hands onward: asserting only the status lets a
+        // response the gateway cannot READ pass as a satisfied contract.
+        expect(() => Community.parse(res.body)).not.toThrow()
       })
   })
 
@@ -178,6 +196,9 @@ describe('gateway → identity bootstrap + session consumer contract', () => {
           'idem-mem-1',
         )
         expect(res.status).toBe(201)
+        // Parse through the schema this consumer hands onward: asserting only the status lets a
+        // response the gateway cannot READ pass as a satisfied contract.
+        expect(() => Membership.parse(res.body)).not.toThrow()
       })
   })
 
@@ -207,6 +228,9 @@ describe('gateway → identity bootstrap + session consumer contract', () => {
       .executeTest(async (mock) => {
         const res = await createIdentityClient(mock.url).listMembers(EXAMPLE_COMMUNITY_ID)
         expect(res.status).toBe(200)
+        // Parse through the schema this consumer hands onward: asserting only the status lets a
+        // response the gateway cannot READ pass as a satisfied contract.
+        expect(() => MemberList.parse(res.body)).not.toThrow()
       })
   })
 
@@ -228,6 +252,9 @@ describe('gateway → identity bootstrap + session consumer contract', () => {
           'idem-sess-1',
         )
         expect(res.status).toBe(201)
+        // Parse through the schema this consumer hands onward: asserting only the status lets a
+        // response the gateway cannot READ pass as a satisfied contract.
+        expect(() => AccessTokenResponse.parse(res.body)).not.toThrow()
       })
   })
 })

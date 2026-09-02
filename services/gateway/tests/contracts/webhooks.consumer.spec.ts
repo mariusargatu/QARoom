@@ -4,6 +4,11 @@ import {
   EXAMPLE_COMMUNITY_ID,
   EXAMPLE_WEBHOOK_SUBSCRIPTION_ID,
   EXAMPLE_WEBHOOK_URL,
+  ProblemDetails,
+  WebhookDeliveryList,
+  WebhookSubscription,
+  WebhookSubscriptionList,
+  WebhookSubscriptionWithSecret,
 } from '@qaroom/contracts'
 import { describe, expect, it } from 'vitest'
 import { createWebhooksClient } from '../../src/clients/webhooks-client'
@@ -114,6 +119,9 @@ describe('gateway → webhooks consumer contract', () => {
           IDEM_CREATE,
         )
         expect(res.status).toBe(201)
+        // Parse through the schema this consumer hands onward: asserting only the status lets a
+        // response the gateway cannot READ pass as a satisfied contract.
+        expect(() => WebhookSubscriptionWithSecret.parse(res.body)).not.toThrow()
       })
   })
 
@@ -131,6 +139,9 @@ describe('gateway → webhooks consumer contract', () => {
       .executeTest(async (mock) => {
         const res = await createWebhooksClient(mock.url).listWebhooks(COMMUNITY)
         expect(res.status).toBe(200)
+        // Parse through the schema this consumer hands onward: asserting only the status lets a
+        // response the gateway cannot READ pass as a satisfied contract.
+        expect(() => WebhookSubscriptionList.parse(res.body)).not.toThrow()
       })
   })
 
@@ -144,6 +155,9 @@ describe('gateway → webhooks consumer contract', () => {
       .executeTest(async (mock) => {
         const res = await createWebhooksClient(mock.url).getWebhook(COMMUNITY, EXISTING_SUB)
         expect(res.status).toBe(200)
+        // Parse through the schema this consumer hands onward: asserting only the status lets a
+        // response the gateway cannot READ pass as a satisfied contract.
+        expect(() => WebhookSubscription.parse(res.body)).not.toThrow()
       })
   })
 
@@ -171,6 +185,9 @@ describe('gateway → webhooks consumer contract', () => {
       .executeTest(async (mock) => {
         const res = await createWebhooksClient(mock.url).getWebhook(COMMUNITY, MISSING_SUB)
         expect(res.status).toBe(404)
+        // Parse through the schema this consumer hands onward: asserting only the status lets a
+        // response the gateway cannot READ pass as a satisfied contract.
+        expect(() => ProblemDetails.parse(res.body)).not.toThrow()
       })
   })
 
@@ -215,6 +232,9 @@ describe('gateway → webhooks consumer contract', () => {
           IDEM_PAUSE,
         )
         expect(res.status).toBe(200)
+        // Parse through the schema this consumer hands onward: asserting only the status lets a
+        // response the gateway cannot READ pass as a satisfied contract.
+        expect(() => WebhookSubscription.parse(res.body)).not.toThrow()
       })
   })
 
@@ -248,6 +268,9 @@ describe('gateway → webhooks consumer contract', () => {
           IDEM_RESUME,
         )
         expect(res.status).toBe(409)
+        // Parse through the schema this consumer hands onward: asserting only the status lets a
+        // response the gateway cannot READ pass as a satisfied contract.
+        expect(() => ProblemDetails.parse(res.body)).not.toThrow()
       })
   })
 
@@ -269,6 +292,9 @@ describe('gateway → webhooks consumer contract', () => {
           EXISTING_SUB,
         )
         expect(res.status).toBe(200)
+        // Parse through the schema this consumer hands onward: asserting only the status lets a
+        // response the gateway cannot READ pass as a satisfied contract.
+        expect(() => WebhookDeliveryList.parse(res.body)).not.toThrow()
       })
   })
 })

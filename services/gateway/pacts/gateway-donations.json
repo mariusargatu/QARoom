@@ -177,6 +177,7 @@
         "body": {
           "content": {
             "failure_domain": "not_found",
+            "next_actions": [],
             "retryable": false,
             "status": 404,
             "title": "Donation not found",
@@ -204,6 +205,14 @@
               ]
             },
             "$.failure_domain": {
+              "combine": "AND",
+              "matchers": [
+                {
+                  "match": "type"
+                }
+              ]
+            },
+            "$.next_actions": {
               "combine": "AND",
               "matchers": [
                 {

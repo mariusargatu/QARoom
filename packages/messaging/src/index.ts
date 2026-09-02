@@ -22,11 +22,13 @@ export { type GcSweep, type GcTargets, gcDedup } from './gc'
 export { buildEventHeaders, headersToRecord, readEventHeaders } from './headers'
 export {
   bodyHash,
+  claimIdempotent,
+  completeIdempotent,
   conflictingIdempotencyKey,
   findIdempotent,
+  releaseIdempotent,
   type StoredResponse,
   stableStringify,
-  storeIdempotent,
 } from './idempotency'
 export { advisoryLock } from './locks'
 export { outboxPublish } from './outbox'

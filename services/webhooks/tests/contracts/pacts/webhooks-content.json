@@ -1,6 +1,6 @@
 {
   "consumer": {
-    "name": "community-projection"
+    "name": "webhooks"
   },
   "messages": [
     {
@@ -102,6 +102,109 @@
         "Nats-Msg-Id": "evt_00000000000000000000000000",
         "contentType": "application/json",
         "event-name": "post.created",
+        "event-version": "1",
+        "tenant.id": "comm_00000000000000000000000000"
+      }
+    },
+    {
+      "contents": {
+        "cast_at": "2026-06-03T00:00:00.000Z",
+        "community_id": "comm_00000000000000000000000000",
+        "event_id": "evt_00000000000000000000000000",
+        "post_id": "post_00000000000000000000000000",
+        "score": 1,
+        "value": 1,
+        "voter_id": "user_00000000000000000000000000"
+      },
+      "description": "a vote cast event",
+      "matchingRules": {
+        "body": {
+          "$.cast_at": {
+            "combine": "AND",
+            "matchers": [
+              {
+                "match": "type"
+              }
+            ]
+          },
+          "$.community_id": {
+            "combine": "AND",
+            "matchers": [
+              {
+                "match": "regex",
+                "regex": "^comm_[0-9A-HJKMNP-TV-Z]{26}$"
+              }
+            ]
+          },
+          "$.event_id": {
+            "combine": "AND",
+            "matchers": [
+              {
+                "match": "regex",
+                "regex": "^evt_[0-9A-HJKMNP-TV-Z]{26}$"
+              }
+            ]
+          },
+          "$.post_id": {
+            "combine": "AND",
+            "matchers": [
+              {
+                "match": "regex",
+                "regex": "^post_[0-9A-HJKMNP-TV-Z]{26}$"
+              }
+            ]
+          },
+          "$.score": {
+            "combine": "AND",
+            "matchers": [
+              {
+                "match": "type"
+              }
+            ]
+          },
+          "$.value": {
+            "combine": "AND",
+            "matchers": [
+              {
+                "match": "type"
+              }
+            ]
+          },
+          "$.voter_id": {
+            "combine": "AND",
+            "matchers": [
+              {
+                "match": "regex",
+                "regex": "^user_[0-9A-HJKMNP-TV-Z]{26}$"
+              }
+            ]
+          }
+        },
+        "metadata": {
+          "Nats-Msg-Id": {
+            "combine": "AND",
+            "matchers": [
+              {
+                "match": "regex",
+                "regex": "^evt_[0-9A-HJKMNP-TV-Z]{26}$"
+              }
+            ]
+          },
+          "tenant.id": {
+            "combine": "AND",
+            "matchers": [
+              {
+                "match": "regex",
+                "regex": "^comm_[0-9A-HJKMNP-TV-Z]{26}$"
+              }
+            ]
+          }
+        }
+      },
+      "metadata": {
+        "Nats-Msg-Id": "evt_00000000000000000000000000",
+        "contentType": "application/json",
+        "event-name": "vote.cast",
         "event-version": "1",
         "tenant.id": "comm_00000000000000000000000000"
       }

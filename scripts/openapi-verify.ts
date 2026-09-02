@@ -4,13 +4,16 @@ import { resolve } from 'node:path'
 import { assertServiceListCoversWorkspace, runWorkspaceScript } from './lib/workspace-script'
 
 /**
- * Two gates (Commitment 3):
- *   1. Drift — regenerate each service's openapi.yaml from Zod and fail if the
- *      committed file differs (the round-trip must hold).
- *   2. Breaking changes — run oasdiff (via Docker) and prove it both passes for
- *      identical specs AND fails for a deliberately breaking change (exit crit 3).
+ * The OpenAPI DRIFT gate (Commitment 3): regenerate each service's openapi.yaml from Zod and fail
+ * if the committed file differs — the round-trip must hold.
  *
- * Both halves of gate 1 must prove they RAN: `pnpm --filter` exits 0 when the filter matches
+ * One gate, not two, since 2026-08-11. This script used to also run oasdiff against two synthetic
+ * fixtures to prove the tool detects a breaking change. That check never looked at a QARoom spec —
+ * remove a required response field from a real service, regenerate, commit, and BOTH halves passed
+ * — and it forced this otherwise pure Zod-vs-file comparison to shell out to Docker. The detector
+ * self-test now lives in `contract:breaking`, the gate that actually depends on it.
+ *
+ * Both halves of the drift check must prove they RAN: `pnpm --filter` exits 0 when the filter matches
  * nothing and when the matched package has no such script, so a read-before/read-after diff
  * reads a silent no-op as "no drift". `runWorkspaceScript` throws on either, and the service
  * list below is pinned to what the workspace actually declares.
@@ -42,54 +45,3 @@ function checkDrift(svc: string): void {
 }
 
 for (const svc of DRIFT_SERVICES) checkDrift(svc)
-
-function hasDocker(): boolean {
-  try {
-    execFileSync('docker', ['version'], { stdio: 'ignore' })
-    return true
-  } catch {
-    return false
-  }
-}
-
-if (!hasDocker()) {
-  process.stdout.write('docker unavailable — skipping oasdiff breaking-change gate\n')
-  process.exit(0)
-}
-
-const fixturesDir = resolve(ROOT, 'services/content/tests/fixtures/oasdiff')
-
-// Fixed oasdiff invocation; only the spec pair varies per call.
-const OASDIFF_DOCKER_ARGS = [
-  'run',
-  '--rm',
-  '-v',
-  `${fixturesDir}:/specs:ro`,
-  'tufin/oasdiff',
-  'breaking',
-] as const
-
-function oasdiffExitCode(base: string, revision: string): number {
-  try {
-    execFileSync(
-      'docker',
-      [...OASDIFF_DOCKER_ARGS, `/specs/${base}`, `/specs/${revision}`, '--fail-on', 'ERR'],
-      { stdio: 'inherit' },
-    )
-    return 0
-  } catch (error) {
-    return (error as { status?: number }).status ?? 1
-  }
-}
-
-if (oasdiffExitCode('base.yaml', 'base.yaml') !== 0) {
-  process.stderr.write('oasdiff flagged identical specs as breaking — gate is misconfigured.\n')
-  process.exit(1)
-}
-if (oasdiffExitCode('base.yaml', 'breaking.yaml') === 0) {
-  process.stderr.write('oasdiff did NOT detect the deliberate breaking change — gate is broken.\n')
-  process.exit(1)
-}
-process.stdout.write(
-  'oasdiff gate: identical specs pass, deliberate breaking change detected ✓ (exit criterion 3)\n',
-)

@@ -5,13 +5,13 @@ import { parse } from 'yaml'
 import { assertServiceListCoversWorkspace, runWorkspaceScript } from './lib/workspace-script'
 
 /**
- * Two gates (ADR-0002, the async mirror of `openapi-verify.ts`):
- *   1. Drift — regenerate each service's `asyncapi.yaml` from Zod and fail if the committed
- *      file differs (the round-trip must hold).
- *   2. Breaking changes — run the QARoom classifier (`@asyncapi/diff` as detector + the
- *      direction-aware rule table) and prove it both PASSES for identical specs AND FAILS
- *      for a deliberately breaking fixture (exit criterion: a breaking AsyncAPI change is
- *      caught before merge).
+ * The AsyncAPI DRIFT gate (ADR-0002, the async mirror of `openapi-verify.ts`): regenerate each
+ * service's `asyncapi.yaml` from Zod and fail if the committed file differs.
+ *
+ * The classifier self-test that used to live here (two synthetic fixtures, proving the detector
+ * fires) moved to `contract:breaking` on 2026-08-11 — it guards the gate that USES the classifier,
+ * and asserting it here implied this script checked QARoom's specs for breaking changes, which it
+ * never did. The classifier's own behaviour is unit-tested in `async-diff/classifier.test.ts`.
  */
 const ROOT = process.cwd()
 const DRIFT_SERVICES = ['content', 'flags', 'donations', 'gateway', 'webhooks'] as const
@@ -39,28 +39,3 @@ function checkDrift(svc: string): void {
 }
 
 for (const svc of DRIFT_SERVICES) checkDrift(svc)
-
-// Breaking-change gate: prove identical specs pass and the deliberate breaking fixture fails.
-const fixtures = resolve(ROOT, 'services/content/tests/fixtures/asyncapi')
-const base = parse(readFileSync(resolve(fixtures, 'base.yaml'), 'utf8')) as Record<string, unknown>
-const breaking = parse(readFileSync(resolve(fixtures, 'breaking.yaml'), 'utf8')) as Record<
-  string,
-  unknown
->
-
-if (asyncapiBreakingChanges(base, base).length !== 0) {
-  process.stderr.write(
-    'asyncapi classifier flagged identical specs as breaking — gate is misconfigured.\n',
-  )
-  process.exit(1)
-}
-const found = asyncapiBreakingChanges(base, breaking)
-if (found.length === 0) {
-  process.stderr.write(
-    'asyncapi classifier did NOT detect the deliberate breaking change — gate is broken.\n',
-  )
-  process.exit(1)
-}
-process.stdout.write(
-  `asyncapi breaking-change gate: identical specs pass, ${found.length} breaking change(s) detected in the fixture ✓\n`,
-)

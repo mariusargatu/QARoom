@@ -103,10 +103,12 @@ function runVitest(dir: string, config?: string): void {
   execFileSync('pnpm', ['exec', 'vitest', 'run', ...configFlags, ...VITEST_FLAGS], {
     cwd: resolve(ROOT, dir),
     stdio: 'ignore',
-    // Opt the gate into the Docker-gated integration specs (e.g. messaging's pgSnapshotStore against
-    // real Postgres). They skip cleanly if Docker is absent, so the gate still runs everywhere; where
-    // Docker is present they lift coverage of the postgres-js seams PGlite cannot host.
-    env: { ...process.env, QAROOM_PG_TESTS: '1' },
+    // Opt the gate into the Docker-gated integration specs (messaging's pgSnapshotStore against real
+    // Postgres, and its connection.spec against a real JetStream server). They skip cleanly if Docker
+    // is absent, so the gate still runs everywhere; where Docker is present they lift coverage of the
+    // seams the in-process doubles cannot host — the postgres-js wire client, and the NATS boot path
+    // (`ensureStream`/`ensureConsumer`), which had no test at all before 2026-08-11.
+    env: { ...process.env, QAROOM_PG_TESTS: '1', QAROOM_NATS_TESTS: '1' },
   })
 }
 

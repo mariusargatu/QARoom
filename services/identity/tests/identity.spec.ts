@@ -1,6 +1,7 @@
 import { EXAMPLE_USER_ID } from '@qaroom/contracts'
 import {
   expectCapabilitiesCover,
+  expectEveryOperationRouted,
   expectProblemContentType,
   expectRFC7807,
 } from '@qaroom/testing-utils/matchers'
@@ -125,6 +126,13 @@ describe('identity-service HTTP behaviour', () => {
   it('system capabilities lists every operation in the registry (no operation is silently omitted)', async () => {
     const res = await ctx.request.get('/system/capabilities')
     expectCapabilitiesCover(res.json, OPERATIONS)
+  })
+
+  // Registry vs the ROUTER, not registry vs itself: `expectCapabilitiesCover` above compares two
+  // artifacts both generated from OPERATIONS, so an operation nobody registered a handler for
+  // passes it (and every drift gate) while 404-ing in production.
+  it('every declared operation is actually registered on the app (not just in the registry)', async () => {
+    expectEveryOperationRouted(ctx.app, OPERATIONS)
   })
 
   it('a mutation without an Idempotency-Key is rejected as a 400 validation problem', async () => {
