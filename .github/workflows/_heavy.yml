@@ -71,7 +71,7 @@ jobs:
           echo "✓ slow path correctly breached the vote SLO (k6 exit 99)"
       - name: Upload k6 result partials
         if: always()
-        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7
         with:
           name: partial-load
           path: test-results/k6-*.json
@@ -92,7 +92,7 @@ jobs:
         run: pnpm stryker:results || true
       - name: Upload Stryker result partials
         if: always()
-        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7
         with:
           name: partial-mutation
           path: test-results/stryker-*.json
@@ -107,7 +107,7 @@ jobs:
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
       - uses: ./.github/actions/setup-workspace
-      - uses: actions/setup-java@b6effb05e454b25005698d916606bdc6ffcbf961 # v5
+      - uses: actions/setup-java@de7274f081f381c8f8158605e0321c36c376e2e6 # v6.0.1
         with:
           distribution: temurin
           java-version: '17'
@@ -132,7 +132,7 @@ jobs:
         run: pnpm evomaster:results
       - name: Upload EvoMaster generated suite partial
         if: always()
-        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7
         with:
           name: partial-evomaster
           path: services/content/tests/evomaster-generated
@@ -160,7 +160,7 @@ jobs:
         run: pnpm chaos:results
       - name: Upload chaos report partial
         if: always()
-        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7
         with:
           name: partial-chaos
           path: test-results/chaos.json
