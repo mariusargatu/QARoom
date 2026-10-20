@@ -25,24 +25,24 @@
     "@qaroom/messaging": "workspace:*",
     "@qaroom/otel": "workspace:*",
     "@qaroom/service-kit": "workspace:*",
-    "drizzle-orm": "^0.45.2",
-    "fastify": "^5.9.0",
+    "drizzle-orm": "^0.45.4",
+    "fastify": "^5.12.7",
     "postgres": "^3.4.0",
-    "zod": "^4.0.0"
+    "zod": "^4.6.7"
   },
   "devDependencies": {
-    "@electric-sql/pglite": "^0.5.3",
-    "@pact-foundation/pact": "^17.0.0",
+    "@electric-sql/pglite": "^0.5.10",
+    "@pact-foundation/pact": "^17.1.4",
     "@fast-check/vitest": "catalog:",
     "@qaroom/testing-utils": "workspace:*",
     "@vitest/coverage-v8": "catalog:",
-    "@testcontainers/postgresql": "^12.0.4",
-    "drizzle-kit": "^0.31.10",
+    "@testcontainers/postgresql": "^12.2.1",
+    "drizzle-kit": "^0.31.11",
     "fast-check": "catalog:",
-    "tsx": "^4.22.4",
-    "typescript": "^6.0.3",
+    "tsx": "^4.23.15",
+    "typescript": "^7.0.2",
     "vitest": "catalog:",
-    "@stryker-mutator/core": "9.6.1",
-    "@stryker-mutator/vitest-runner": "9.6.1"
+    "@stryker-mutator/core": "10.0.0",
+    "@stryker-mutator/vitest-runner": "10.0.0"
   }
 }
