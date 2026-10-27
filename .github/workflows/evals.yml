@@ -29,7 +29,7 @@ jobs:
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
       - uses: ./.github/actions/setup-workspace
-      - uses: astral-sh/setup-uv@c771a70e6277c0a99b617c7a806ffedaca235ff9 # v9.0.0
+      - uses: astral-sh/setup-uv@07a047e608db84b3d8c06cd9a7c7dcc9c355c18e # v10.3.2
         with:
           version: "0.8.15"
       - name: Pre-flight cost guard (estimate vs MODERATOR_EVAL_BUDGET_TOKENS)
@@ -59,21 +59,21 @@ jobs:
         run: 'echo "OPENAI_API_KEY not set: eval suites skipped (cost guard still ran)."'
       - name: Upload golden-set partial
         if: always() && env.OPENAI_API_KEY != ''
-        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7
         with:
           name: partial-golden
           path: services/moderator-agent/evals/golden/gold.json
           if-no-files-found: warn
       - name: Upload DeepEval partial
         if: always() && env.OPENAI_API_KEY != ''
-        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7
         with:
           name: partial-deepeval
           path: services/moderator-agent/test-results/deepeval-output.json
           if-no-files-found: warn
       - name: Upload DeepTeam partial
         if: always() && env.OPENAI_API_KEY != ''
-        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7
         with:
           name: partial-deepteam
           path: services/moderator-agent/test-results/deepteam-output.json

@@ -34,7 +34,7 @@ jobs:
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
       - uses: ./.github/actions/setup-workspace
-      - uses: astral-sh/setup-uv@c771a70e6277c0a99b617c7a806ffedaca235ff9 # v9.0.0
+      - uses: astral-sh/setup-uv@07a047e608db84b3d8c06cd9a7c7dcc9c355c18e # v10.3.2
         with:
           version: "0.8.15"
       - name: Aggregate the in-proc summary (the runners the claims' evidence resolves against)
@@ -176,7 +176,7 @@ jobs:
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
       - uses: ./.github/actions/setup-workspace
-      - uses: astral-sh/setup-uv@c771a70e6277c0a99b617c7a806ffedaca235ff9 # v9.0.0
+      - uses: astral-sh/setup-uv@07a047e608db84b3d8c06cd9a7c7dcc9c355c18e # v10.3.2
         with:
           version: "0.8.15"
       - name: Lint (ruff)
@@ -197,7 +197,7 @@ jobs:
         run: pnpm moderator:results || true
       - name: Upload moderator pytest report partial
         if: always()
-        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7
         with:
           name: partial-moderator
           path: services/moderator-agent/test-results/pytest-summary.json
@@ -301,7 +301,7 @@ jobs:
       # rather than deferred (see QAROOM_RAN_LANES in test-results-verify.ts).
       - name: Upload the tracetest evidence partial
         if: always()
-        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7
         with:
           name: partial-tracetest
           path: test-results/summary.json
@@ -326,14 +326,14 @@ jobs:
         run: pnpm --filter @qaroom/web run test:component:results
       - name: Upload the web-component Vitest report partial
         if: always()
-        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7
         with:
           name: partial-web-component
           path: services/web/test-results/component.json
           if-no-files-found: warn
       - name: Upload the web coverage partials (story + component V8; also human-inspectable)
         if: always()
-        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7
         with:
           name: partial-web-coverage
           path: |
